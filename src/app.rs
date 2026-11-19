@@ -1,9 +1,10 @@
-use crossterm::event::{KeyCode, KeyEvent};
+use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::Modifier;
-use ratatui::widgets::{Block, HighlightSpacing, List, ListState, Paragraph};
+use ratatui::widgets::{Block, BorderType, HighlightSpacing, List, ListState, Paragraph};
 
+use crate::keys;
 use crate::session::Session;
 
 const HINT: &str = "No session yet: press n to start one.";
@@ -15,6 +16,7 @@ pub struct App {
     selected: usize,
     started: usize,
     pane: Rect,
+    pane_focused: bool,
     quitting: bool,
 }
 
@@ -39,6 +41,7 @@ impl App {
             selected: 0,
             started: 0,
             pane: Rect::default(),
+            pane_focused: false,
             quitting: false,
         }
     }
@@ -48,7 +51,21 @@ impl App {
     }
 
     pub fn key(&mut self, key: KeyEvent) {
+        if self.pane_focused && is_ctrl(key, 'h') {
+            self.pane_focused = false;
+            return;
+        }
+        if self.pane_focused
+            && let Some(shown) = self.sessions.get(self.selected)
+        {
+            shown
+                .session
+                .send(&keys::encode(key, shown.session.application_cursor()));
+            return;
+        }
         match key.code {
+            _ if is_ctrl(key, 'l') => self.pane_focused = !self.sessions.is_empty(),
+            KeyCode::Enter => self.pane_focused = !self.sessions.is_empty(),
             KeyCode::Char('q') => self.quitting = true,
             KeyCode::Char('n') => self.start(),
             KeyCode::Char('j') => {
@@ -74,8 +91,10 @@ impl App {
         let [sidebar, pane] =
             Layout::horizontal([Constraint::Ratio(1, 3), Constraint::Ratio(2, 3)])
                 .areas(frame.area());
-        let sidebar_block = Block::bordered().title(" sessions ");
-        let pane_block = Block::bordered();
+        let sidebar_block = Block::bordered()
+            .border_type(border(!self.pane_focused))
+            .title(" sessions ");
+        let pane_block = Block::bordered().border_type(border(self.pane_focused));
         self.pane = pane_block.inner(pane);
         match self.sessions.get(self.selected) {
             None => {
@@ -99,4 +118,16 @@ impl App {
             }
         }
     }
+}
+
+fn border(focused: bool) -> BorderType {
+    if focused {
+        BorderType::Thick
+    } else {
+        BorderType::Plain
+    }
+}
+
+fn is_ctrl(key: KeyEvent, c: char) -> bool {
+    key.code == KeyCode::Char(c) && key.modifiers == KeyModifiers::CONTROL
 }

@@ -75,6 +75,25 @@ fn a_session_does_not_inherit_the_tmux_of_harbour() {
     assert!(screen.contains("tmux:[]"), "{screen}");
 }
 
+#[test]
+#[ignore]
+fn keys_typed_in_the_focused_pane_reach_the_session_until_ctrl_h() {
+    let home = tempfile::tempdir().unwrap();
+    let server = Server::start("focus", 160, 20);
+    server.run(home.path(), &[(SESSION_COMMAND, AGENT)], &[]);
+    server.wait_for_screen("press n to start one");
+    server.send_keys(&["n"]);
+    server.wait_for_screen("acme agent in acme-api");
+
+    server.send_keys(&["Enter", "hello", "Enter", "C-h", "n"]);
+
+    let screen = server.wait_for_screen("acme-api 2");
+    assert!(screen.contains("acme-api 2"), "{screen}");
+    server.send_keys(&["k"]);
+    let screen = server.wait_for_screen("acme agent got: hello");
+    assert!(screen.contains("acme agent got: hello"), "{screen}");
+}
+
 struct Server {
     socket: String,
 }

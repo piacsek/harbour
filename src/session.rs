@@ -10,8 +10,11 @@ use tui_term::widget::PseudoTerminal;
 
 type Parser = vt100::Parser<Replies>;
 
+type Writer = Arc<Mutex<Box<dyn Write + Send>>>;
+
 pub struct Session {
     parser: Arc<Mutex<Parser>>,
+    writer: Writer,
     _master: Box<dyn MasterPty + Send>,
     _child: Box<dyn Child + Send + Sync>,
 }
@@ -36,7 +39,9 @@ impl Session {
         let child = pty.slave.spawn_command(builder).map_err(io::Error::other)?;
         drop(pty.slave);
         let mut reader = pty.master.try_clone_reader().map_err(io::Error::other)?;
-        let mut writer = pty.master.take_writer().map_err(io::Error::other)?;
+        let writer: Writer = Arc::new(Mutex::new(
+            pty.master.take_writer().map_err(io::Error::other)?,
+        ));
         let parser = Arc::new(Mutex::new(Parser::new_with_callbacks(
             rows,
             cols,
@@ -44,6 +49,7 @@ impl Session {
             Replies::default(),
         )));
         let shared = Arc::clone(&parser);
+        let replier = Arc::clone(&writer);
         thread::spawn(move || {
             let mut buffer = [0; 65536];
             while let Ok(read @ 1..) = reader.read(&mut buffer) {
@@ -53,16 +59,30 @@ impl Session {
                     std::mem::take(&mut parser.callbacks_mut().bytes)
                 };
                 if !replies.is_empty() {
-                    let _ = writer.write_all(&replies).and_then(|()| writer.flush());
+                    write(&replier, &replies);
                 }
             }
         });
         Ok(Session {
             parser,
+            writer,
             _master: pty.master,
             _child: child,
         })
     }
+
+    pub fn send(&self, bytes: &[u8]) {
+        write(&self.writer, bytes);
+    }
+
+    pub fn application_cursor(&self) -> bool {
+        self.parser.lock().unwrap().screen().application_cursor()
+    }
+}
+
+fn write(writer: &Writer, bytes: &[u8]) {
+    let mut writer = writer.lock().unwrap();
+    let _ = writer.write_all(bytes).and_then(|()| writer.flush());
 }
 
 impl Widget for &Session {
