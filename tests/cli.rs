@@ -1,0 +1,165 @@
+use std::ffi::OsStr;
+use std::os::unix::ffi::OsStrExt;
+use std::process::{Command, Output};
+
+#[test]
+fn version_prints_the_crate_version_on_stdout() {
+    assert_eq!(stdout(&launch(&["--version"])), version_line());
+}
+
+#[test]
+fn version_exits_zero() {
+    assert!(launch(&["--version"]).status.success());
+}
+
+#[test]
+fn the_short_version_flag_prints_the_crate_version() {
+    assert_eq!(stdout(&launch(&["-V"])), version_line());
+}
+
+#[test]
+fn the_short_version_flag_exits_zero() {
+    assert!(launch(&["-V"]).status.success());
+}
+
+#[test]
+fn the_version_word_prints_the_crate_version() {
+    assert_eq!(stdout(&launch(&["version"])), version_line());
+}
+
+#[test]
+fn the_version_word_exits_zero() {
+    assert!(launch(&["version"]).status.success());
+}
+
+#[test]
+fn version_writes_nothing_on_stderr() {
+    assert!(launch(&["--version"]).stderr.is_empty());
+}
+
+#[test]
+fn help_prints_the_usage_on_stdout() {
+    assert_eq!(stdout(&launch(&["--help"])), USAGE);
+}
+
+#[test]
+fn help_exits_zero() {
+    assert!(launch(&["--help"]).status.success());
+}
+
+#[test]
+fn the_short_help_flag_prints_the_usage() {
+    assert_eq!(stdout(&launch(&["-h"])), USAGE);
+}
+
+#[test]
+fn the_short_help_flag_exits_zero() {
+    assert!(launch(&["-h"]).status.success());
+}
+
+#[test]
+fn the_help_word_prints_the_usage() {
+    assert_eq!(stdout(&launch(&["help"])), USAGE);
+}
+
+#[test]
+fn the_help_word_exits_zero() {
+    assert!(launch(&["help"]).status.success());
+}
+
+#[test]
+fn help_writes_nothing_on_stderr() {
+    assert!(launch(&["--help"]).stderr.is_empty());
+}
+
+#[test]
+fn an_unknown_argument_prints_the_usage_on_stderr() {
+    assert_eq!(stderr(&launch(&["bogus"])), USAGE);
+}
+
+#[test]
+fn an_unknown_argument_exits_one() {
+    assert_eq!(launch(&["bogus"]).status.code(), Some(1));
+}
+
+#[test]
+fn an_unknown_argument_writes_nothing_on_stdout() {
+    assert!(launch(&["bogus"]).stdout.is_empty());
+}
+
+#[test]
+fn no_argument_prints_the_usage_on_stderr() {
+    assert_eq!(stderr(&launch(&[])), USAGE);
+}
+
+#[test]
+fn no_argument_exits_one() {
+    assert_eq!(launch(&[]).status.code(), Some(1));
+}
+
+#[test]
+fn a_second_argument_prints_the_usage_on_stderr() {
+    assert_eq!(stderr(&launch(&["--version", "--help"])), USAGE);
+}
+
+#[test]
+fn a_second_argument_exits_one() {
+    assert_eq!(launch(&["--version", "--help"]).status.code(), Some(1));
+}
+
+#[test]
+fn a_non_utf8_argument_exits_one() {
+    assert_eq!(launch_with_bytes(b"\xff").status.code(), Some(1));
+}
+
+#[test]
+fn a_non_utf8_argument_prints_the_usage_on_stderr() {
+    assert_eq!(stderr(&launch_with_bytes(b"\xff")), USAGE);
+}
+
+#[test]
+fn changelog_prints_the_bundled_changelog_on_stdout() {
+    assert_eq!(
+        stdout(&launch(&["changelog"])),
+        include_str!("../CHANGELOG.md")
+    );
+}
+
+#[test]
+fn changelog_exits_zero() {
+    assert!(launch(&["changelog"]).status.success());
+}
+
+#[test]
+fn changelog_writes_nothing_on_stderr() {
+    assert!(launch(&["changelog"]).stderr.is_empty());
+}
+
+const USAGE: &str =
+    "harbour: Harbour: where shipping begins\n\nusage: harbour [--help | --version | changelog]\n";
+
+fn version_line() -> String {
+    format!("harbour {}\n", env!("CARGO_PKG_VERSION"))
+}
+
+fn launch(args: &[&str]) -> Output {
+    Command::new(env!("CARGO_BIN_EXE_harbour"))
+        .args(args)
+        .output()
+        .unwrap()
+}
+
+fn stdout(output: &Output) -> String {
+    String::from_utf8_lossy(&output.stdout).into_owned()
+}
+
+fn stderr(output: &Output) -> String {
+    String::from_utf8_lossy(&output.stderr).into_owned()
+}
+
+fn launch_with_bytes(arg: &[u8]) -> Output {
+    Command::new(env!("CARGO_BIN_EXE_harbour"))
+        .arg(OsStr::from_bytes(arg))
+        .output()
+        .unwrap()
+}
