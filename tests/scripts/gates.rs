@@ -6,9 +6,10 @@ use std::process::{Command, Output};
 use crate::helpers::{calls, git, link_script, recorder, repository, stderr, which};
 
 #[test]
-fn gates_run_every_test_in_one_pass() {
+fn gates_run_every_test_in_one_pass_when_tmux_is_installed() {
     let dir = tempfile::tempdir().unwrap();
-    gates_sandbox(dir.path());
+    let bin = gates_sandbox(dir.path());
+    symlink(which("true"), bin.join("tmux")).unwrap();
 
     let output = gates(dir.path());
 
@@ -20,13 +21,59 @@ fn gates_run_every_test_in_one_pass() {
         calls(dir.path())[2],
         "cargo clippy --all-targets -- -D warnings"
     );
+    assert_eq!(calls(dir.path())[3], "cargo test -- --include-ignored");
+}
+
+#[test]
+fn gates_without_tmux_run_the_plain_tests() {
+    let dir = tempfile::tempdir().unwrap();
+    gates_sandbox(dir.path());
+
+    let output = gates(dir.path());
+
+    assert!(output.status.success(), "{}", stderr(&output));
+    assert_eq!(calls(dir.path()).len(), 4);
     assert_eq!(calls(dir.path())[3], "cargo test");
+}
+
+#[test]
+fn gates_without_tmux_say_they_skipped_the_e2e_tests() {
+    let dir = tempfile::tempdir().unwrap();
+    gates_sandbox(dir.path());
+
+    let output = gates(dir.path());
+
+    assert!(output.status.success(), "{}", stderr(&output));
+    assert!(
+        stderr(&output).contains(
+            "==> skipping the ignored e2e tests: tmux is not installed (brew install tmux); CI runs them\n"
+        ),
+        "{}",
+        stderr(&output)
+    );
+}
+
+#[test]
+fn gates_with_tmux_say_nothing_about_skipping_the_e2e_tests() {
+    let dir = tempfile::tempdir().unwrap();
+    let bin = gates_sandbox(dir.path());
+    symlink(which("true"), bin.join("tmux")).unwrap();
+
+    let output = gates(dir.path());
+
+    assert!(output.status.success(), "{}", stderr(&output));
+    assert!(
+        !stderr(&output).contains("skipping the ignored e2e tests"),
+        "{}",
+        stderr(&output)
+    );
 }
 
 #[test]
 fn gates_on_a_branch_the_script_tests_do_not_read_run_every_other_test_target() {
     let dir = tempfile::tempdir().unwrap();
-    gates_repository(dir.path());
+    let bin = gates_repository(dir.path());
+    symlink(which("true"), bin.join("tmux")).unwrap();
 
     let output = repository_gates(dir.path(), None);
 
@@ -40,7 +87,26 @@ fn gates_on_a_branch_the_script_tests_do_not_read_run_every_other_test_target() 
     );
     assert_eq!(
         calls(dir.path())[3],
-        "cargo test --lib --bins --test cli --test plans --test prs"
+        "cargo test --lib --bins --test cli --test plans --test e2e --test prs -- --include-ignored"
+    );
+    assert_eq!(
+        calls(dir.path())[4],
+        "cargo test --doc -- --include-ignored"
+    );
+}
+
+#[test]
+fn gates_without_tmux_that_skip_the_script_tests_run_the_plain_other_targets() {
+    let dir = tempfile::tempdir().unwrap();
+    gates_repository(dir.path());
+
+    let output = repository_gates(dir.path(), None);
+
+    assert!(output.status.success(), "{}", stderr(&output));
+    assert_eq!(calls(dir.path()).len(), 5);
+    assert_eq!(
+        calls(dir.path())[3],
+        "cargo test --lib --bins --test cli --test plans --test e2e --test prs"
     );
     assert_eq!(calls(dir.path())[4], "cargo test --doc");
 }
@@ -65,7 +131,8 @@ fn gates_that_skip_the_script_tests_say_why_and_that_ci_runs_them() {
 #[test]
 fn gates_on_a_branch_that_touches_a_script_run_every_test_in_one_pass() {
     let dir = tempfile::tempdir().unwrap();
-    gates_repository(dir.path());
+    let bin = gates_repository(dir.path());
+    symlink(which("true"), bin.join("tmux")).unwrap();
     fs::write(dir.path().join("work/scripts/another.sh"), "").unwrap();
 
     let output = repository_gates(dir.path(), None);
@@ -78,7 +145,7 @@ fn gates_on_a_branch_that_touches_a_script_run_every_test_in_one_pass() {
         calls(dir.path())[2],
         "cargo clippy --all-targets -- -D warnings"
     );
-    assert_eq!(calls(dir.path())[3], "cargo test");
+    assert_eq!(calls(dir.path())[3], "cargo test -- --include-ignored");
     assert!(
         !stderr(&output).contains("skipping the script tests"),
         "{}",
@@ -89,7 +156,8 @@ fn gates_on_a_branch_that_touches_a_script_run_every_test_in_one_pass() {
 #[test]
 fn gates_in_ci_never_skip_the_script_tests() {
     let dir = tempfile::tempdir().unwrap();
-    gates_repository(dir.path());
+    let bin = gates_repository(dir.path());
+    symlink(which("true"), bin.join("tmux")).unwrap();
 
     let output = repository_gates(dir.path(), Some("true"));
 
@@ -101,7 +169,7 @@ fn gates_in_ci_never_skip_the_script_tests() {
         calls(dir.path())[2],
         "cargo clippy --all-targets -- -D warnings"
     );
-    assert_eq!(calls(dir.path())[3], "cargo test");
+    assert_eq!(calls(dir.path())[3], "cargo test -- --include-ignored");
 }
 
 fn gates_sandbox(root: &Path) -> PathBuf {
@@ -130,6 +198,7 @@ fn gates_repository(root: &Path) -> PathBuf {
     symlink(recorder(), work.join("scripts/scrub-check.sh")).unwrap();
     for target in [
         "tests/cli.rs",
+        "tests/e2e/main.rs",
         "tests/plans.rs",
         "tests/prs/main.rs",
         "tests/scripts/main.rs",

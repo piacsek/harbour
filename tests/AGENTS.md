@@ -6,6 +6,14 @@ these suites come from.
 
 ## Testing traps hit so far
 
+- **tmux is a test harness, not a dependency.** Only the `#[ignore]` tests of `tests/e2e/` use
+  it: they run the real binary in a scratch tmux server of their own (`-L harbour-e2e-<name>-<pid>`,
+  `-f /dev/null`, killed when the test's `Server` drops), never the user's server. They panic
+  with an install hint when tmux is missing; `gates.sh` runs them with `--include-ignored` when
+  tmux is installed and says it skipped them otherwise; the `check` job installs it. A pane whose
+  command exits at once loses its output before `capture-pane` reads it, even with
+  `remain-on-exit`, so the pane command ends in `echo "harbour exited $?"; exec sleep 600`.
+
 - **`awk` is not the same program everywhere.** macOS ships BSD awk, the ubuntu runner's `awk`
   is `mawk`, and either may be `gawk` where someone installed it; BSD awk (version 20200816)
   and `mawk` count bytes, `gawk` in a UTF-8 locale counts characters, so in conveyor a script
