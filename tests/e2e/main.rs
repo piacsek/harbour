@@ -94,6 +94,23 @@ fn keys_typed_in_the_focused_pane_reach_the_session_until_ctrl_h() {
     assert!(screen.contains("acme agent got: hello"), "{screen}");
 }
 
+#[test]
+#[ignore]
+fn a_terminal_made_narrow_shows_the_sidebar_alone() {
+    let home = tempfile::tempdir().unwrap();
+    let server = Server::start("narrow", 160, 20);
+    server.run(home.path(), &[(SESSION_COMMAND, AGENT)], &[]);
+    server.wait_for_screen("press n to start one");
+    server.send_keys(&["n"]);
+    server.wait_for_screen("acme agent in acme-api");
+
+    server.resize(50, 20);
+
+    let screen = server.wait_for_screen_without("acme agent in");
+    assert!(screen.contains("acme-api 1"), "{screen}");
+    assert!(!screen.contains("acme agent in"), "{screen}");
+}
+
 struct Server {
     socket: String,
 }
@@ -123,6 +140,22 @@ impl Server {
         server.option(&["default-shell", "/bin/sh"]);
         server.option(&["status", "off"]);
         server
+    }
+
+    fn resize(&self, width: u16, height: u16) {
+        let status = self
+            .tmux(&[
+                "resize-window",
+                "-t",
+                "e2e",
+                "-x",
+                &width.to_string(),
+                "-y",
+                &height.to_string(),
+            ])
+            .status()
+            .unwrap();
+        assert!(status.success(), "could not resize the window");
     }
 
     fn option(&self, args: &[&str]) {
@@ -198,6 +231,16 @@ impl Server {
         let deadline = Instant::now() + Duration::from_secs(10);
         let mut screen = self.screen();
         while !screen.contains(needle) && Instant::now() < deadline {
+            sleep(Duration::from_millis(50));
+            screen = self.screen();
+        }
+        screen
+    }
+
+    fn wait_for_screen_without(&self, needle: &str) -> String {
+        let deadline = Instant::now() + Duration::from_secs(10);
+        let mut screen = self.screen();
+        while screen.contains(needle) && Instant::now() < deadline {
             sleep(Duration::from_millis(50));
             screen = self.screen();
         }

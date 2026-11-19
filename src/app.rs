@@ -7,6 +7,7 @@ use ratatui::widgets::{Block, BorderType, HighlightSpacing, List, ListState, Par
 use crate::keys;
 use crate::session::Session;
 
+const NARROW: u16 = 60;
 const HINT: &str = "No session yet: press n to start one.";
 
 pub struct App {
@@ -88,14 +89,15 @@ impl App {
     }
 
     pub fn draw(&mut self, frame: &mut Frame) {
-        let [sidebar, pane] =
-            Layout::horizontal([Constraint::Ratio(1, 3), Constraint::Ratio(2, 3)])
-                .areas(frame.area());
+        let (sidebar, pane) = self.areas(frame.area());
         let sidebar_block = Block::bordered()
             .border_type(border(!self.pane_focused))
             .title(" sessions ");
         let pane_block = Block::bordered().border_type(border(self.pane_focused));
-        self.pane = pane_block.inner(pane);
+        self.pane = pane_block.inner(if pane.is_empty() { frame.area() } else { pane });
+        for entry in &mut self.sessions {
+            entry.session.resize(self.pane.height, self.pane.width);
+        }
         match self.sessions.get(self.selected) {
             None => {
                 frame.render_widget(Paragraph::new(HINT).block(sidebar_block), sidebar);
@@ -113,9 +115,23 @@ impl App {
                     .highlight_style(Modifier::BOLD);
                 let mut state = ListState::default().with_selected(Some(self.selected));
                 frame.render_stateful_widget(list, sidebar, &mut state);
-                frame.render_widget(pane_block, pane);
-                frame.render_widget(&shown.session, self.pane);
+                if !pane.is_empty() {
+                    frame.render_widget(pane_block, pane);
+                    frame.render_widget(&shown.session, self.pane);
+                }
             }
+        }
+    }
+
+    fn areas(&self, area: Rect) -> (Rect, Rect) {
+        if area.width >= NARROW {
+            let [sidebar, pane] =
+                Layout::horizontal([Constraint::Ratio(1, 3), Constraint::Ratio(2, 3)]).areas(area);
+            (sidebar, pane)
+        } else if self.pane_focused {
+            (Rect::default(), area)
+        } else {
+            (area, Rect::default())
         }
     }
 }

@@ -81,6 +81,45 @@ fn a_background_colour_query_is_answered() {
     assert!(screen.contains(expected), "{screen}");
 }
 
+#[test]
+fn a_resize_tells_the_command_its_new_size() {
+    let mut session =
+        start("trap 'echo \"size:$(stty size)\"' WINCH; echo ready; while :; do sleep 0.1; done");
+    wait_for(&session, "ready");
+
+    session.resize(8, 150);
+
+    let screen = wait_for(&session, "size:8 150");
+    assert!(screen.contains("size:8 150"), "{screen}");
+}
+
+#[test]
+fn a_resize_to_nothing_keeps_the_last_size() {
+    let mut session = start("echo ready; sleep 5");
+    wait_for(&session, "ready");
+
+    session.resize(0, 0);
+    session.resize(ROWS, COLS);
+
+    let screen = wait_for(&session, "ready");
+    assert!(screen.contains("ready"), "{screen}");
+}
+
+#[test]
+fn a_session_started_with_no_room_still_runs() {
+    let command = [
+        "/bin/sh".to_string(),
+        "-c".into(),
+        "echo ready; sleep 5".into(),
+    ];
+    let mut session = Session::start(&command, 0, 0).unwrap();
+
+    session.resize(ROWS, COLS);
+
+    let screen = wait_for(&session, "ready");
+    assert!(screen.contains("ready"), "{screen}");
+}
+
 fn replied(query: &str, length: usize) -> String {
     format!(
         "stty raw -echo; printf '{query}'; r=$(dd bs=1 count={length} 2>/dev/null); \

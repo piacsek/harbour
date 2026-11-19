@@ -154,6 +154,67 @@ fn ctrl_h_in_the_pane_gives_the_keys_back_to_the_sidebar() {
     assert!(shown.contains("acme agent 2"), "{shown}");
 }
 
+#[test]
+fn a_resize_reaches_a_session_that_is_not_shown() {
+    let scratch = tempfile::tempdir().unwrap();
+    let mut screen = Screen::new(sized_agent(scratch.path()));
+    screen.press('n');
+    screen.wait_for("acme agent 1");
+    screen.press('n');
+    screen.wait_for("acme agent 2");
+
+    screen.resize(90, 16);
+    screen.press('k');
+
+    let shown = screen.wait_for("size:14 58");
+    assert!(shown.contains("acme agent 1"), "{shown}");
+    assert!(shown.contains("size:14 58"), "{shown}");
+}
+
+#[test]
+fn a_narrow_terminal_shows_the_sidebar_alone_while_it_has_focus() {
+    let scratch = tempfile::tempdir().unwrap();
+    let mut screen = Screen::new(numbered_agent(scratch.path()));
+    screen.press('n');
+    screen.wait_for("acme agent 1");
+
+    screen.resize(50, 16);
+
+    let shown = screen.draw();
+    let row = format!("● {} 1", directory());
+    assert!(shown.contains(&row), "{shown}");
+    assert!(!shown.contains("acme agent 1"), "{shown}");
+}
+
+#[test]
+fn a_narrow_terminal_shows_the_pane_alone_while_it_has_focus() {
+    let scratch = tempfile::tempdir().unwrap();
+    let mut screen = Screen::new(numbered_agent(scratch.path()));
+    screen.press('n');
+    screen.wait_for("acme agent 1");
+    screen.resize(50, 16);
+
+    screen.key(KeyCode::Enter, KeyModifiers::NONE);
+
+    let shown = screen.wait_for("acme agent 1");
+    assert!(shown.contains("acme agent 1"), "{shown}");
+    assert!(!shown.contains("sessions"), "{shown}");
+}
+
+#[test]
+fn a_narrow_terminal_gives_a_session_the_whole_width() {
+    let scratch = tempfile::tempdir().unwrap();
+    let mut screen = Screen::new(sized_agent(scratch.path()));
+    screen.press('n');
+    screen.wait_for("acme agent 1");
+    screen.resize(50, 16);
+
+    screen.key(KeyCode::Enter, KeyModifiers::NONE);
+
+    let shown = screen.wait_for("size:14 48");
+    assert!(shown.contains("size:14 48"), "{shown}");
+}
+
 struct Screen {
     app: App,
     terminal: Terminal<TestBackend>,
@@ -175,6 +236,11 @@ impl Screen {
 
     fn key(&mut self, code: KeyCode, modifiers: KeyModifiers) {
         self.app.key(KeyEvent::new(code, modifiers));
+        self.draw();
+    }
+
+    fn resize(&mut self, width: u16, height: u16) {
+        self.terminal.backend_mut().resize(width, height);
         self.draw();
     }
 
@@ -216,6 +282,17 @@ fn reading_agent() -> Vec<String> {
     let script = "echo 'acme agent ready'; \
                   while read -r line; do echo \"acme agent got: $line\"; done; exec sleep 600";
     vec!["/bin/sh".into(), "-c".into(), script.into()]
+}
+
+fn sized_agent(scratch: &Path) -> Vec<String> {
+    let count = scratch.join("count");
+    let script = format!(
+        "n=$(($(cat '{count}' 2>/dev/null || echo 0) + 1)); echo $n > '{count}'; \
+         trap 'echo \"size:$(stty size)\"' WINCH; \
+         echo \"acme agent $n\"; while :; do sleep 0.1; done",
+        count = count.display()
+    );
+    vec!["/bin/sh".into(), "-c".into(), script]
 }
 
 fn directory() -> String {

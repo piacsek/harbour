@@ -15,12 +15,13 @@ type Writer = Arc<Mutex<Box<dyn Write + Send>>>;
 pub struct Session {
     parser: Arc<Mutex<Parser>>,
     writer: Writer,
-    _master: Box<dyn MasterPty + Send>,
+    master: Box<dyn MasterPty + Send>,
     _child: Box<dyn Child + Send + Sync>,
 }
 
 impl Session {
     pub fn start(command: &[String], rows: u16, cols: u16) -> io::Result<Session> {
+        let (rows, cols) = (rows.max(1), cols.max(1));
         let pty = native_pty_system()
             .openpty(PtySize {
                 rows,
@@ -66,9 +67,23 @@ impl Session {
         Ok(Session {
             parser,
             writer,
-            _master: pty.master,
+            master: pty.master,
             _child: child,
         })
+    }
+
+    pub fn resize(&mut self, rows: u16, cols: u16) {
+        let mut parser = self.parser.lock().unwrap();
+        if rows == 0 || cols == 0 || parser.screen().size() == (rows, cols) {
+            return;
+        }
+        parser.screen_mut().set_size(rows, cols);
+        let _ = self.master.resize(PtySize {
+            rows,
+            cols,
+            pixel_width: 0,
+            pixel_height: 0,
+        });
     }
 
     pub fn send(&self, bytes: &[u8]) {
