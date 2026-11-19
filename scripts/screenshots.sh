@@ -50,12 +50,15 @@ render() {
 shoot() {
   local name="$1" width="$2" height="$3" args="$4" keys="$5"
   t resize-window -t "$shot_window" -x "$width" -y "$height"
-  t respawn-pane -k -t "$shot_window" "env -u XDG_CONFIG_HOME -u XDG_STATE_HOME HOME=$(printf %q "$home") $(printf %q "$bin") $args; exec cat"
+  t respawn-pane -k -t "$shot_window" "cd $(printf %q "$home/acme-api") && env -u XDG_CONFIG_HOME -u XDG_STATE_HOME HOME=$(printf %q "$home") $(printf %q "$bin") $args; exec cat"
   sleep 1.5
   [ -n "$keys" ] && t send-keys -t "$shot_window" "$keys" && sleep 0.5
   t capture-pane -e -p -t "$shot_window" | python3 "$home/truecolor.py" >"$home/$name.ansi"
   render "$name" --padding 20,64,20,20 --window --language text
 }
 
+mkdir -p "$home/acme-api"
+shoot details 160 26 --demo ""
+echo "wrote $out/details.png"
 shoot help 160 4 --help ""
 echo "wrote $out/help.png"

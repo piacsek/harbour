@@ -40,7 +40,16 @@ asks for it, as its own step.
 4. **Attack the running binary.** Run `target/debug/harbour` and `target/release/harbour` with no
    argument, every documented argument, unknown and repeated arguments, empty strings and non-UTF-8
    bytes; check the exit code and which stream each output lands on. Debug panics on overflow that
-   release wraps silently, so a debug panic points at a release bug.
+   release wraps silently, so a debug panic points at a release bug. Then drive the interface at
+   sizes from tiny to huge with `drive-demo.sh`, which runs `harbour --demo` in a scratch tmux
+   server, sends the keys, prints `alive` or `died` with stderr, and leaves the screen in
+   `screen.txt`:
+
+   ```bash
+   for size in "1 1" "2 2" "3 3" "30 1" "200 3" "300 80"; do .claude/skills/adversarial-review/drive-demo.sh target/debug/harbour $size j k x n "?" a Enter C-h x y q y; done
+   ```
+
+   Run it under bash: zsh does not split `$size`. A panic in stderr is a bug.
 5. **Attack the process.** Look for:
    - claims in the `AGENTS.md` files that the code contradicts
    - rules the code breaks

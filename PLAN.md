@@ -30,7 +30,4 @@ In this order unless a retro says otherwise.
 These parts of conveyor need a product to show or drive, so phase 0 left them out. Bring each
 over, renamed and with its tests, in the phase that gives harbour that interface.
 
-- The `details` shot of the screenshot script, from a demo mode, and `docs/details.png` in the
-  README with the `tests/readme.rs` pin of it.
-- The adversarial-review skill's `drive-demo.sh`, which drives the binary's demo under tmux.
 - `tests/stage_dispatch.rs`, once harbour has a dispatch to keep in one place.

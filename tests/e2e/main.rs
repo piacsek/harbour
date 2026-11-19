@@ -182,6 +182,25 @@ fn q_with_a_running_session_asks_and_y_leaves() {
     assert!(screen.contains("harbour exited 0"), "{screen}");
 }
 
+#[test]
+#[ignore]
+fn the_demo_shows_made_up_sessions_one_of_them_exited() {
+    let home = tempfile::tempdir().unwrap();
+    let server = Server::start("demo", 160, 20);
+
+    server.run(home.path(), &[], &["--demo"]);
+
+    let screen = server.wait_for_screen("acme-api 2 exited");
+    assert!(screen.contains("● acme-api 1"), "{screen}");
+    assert!(screen.contains("○ acme-api 2 exited 1"), "{screen}");
+    assert!(screen.contains("● acme-api 3"), "{screen}");
+    let screen = server.wait_for_screen("fix the flaky retry test in acme/api");
+    assert!(
+        screen.contains("fix the flaky retry test in acme/api"),
+        "{screen}"
+    );
+}
+
 struct Server {
     socket: String,
 }

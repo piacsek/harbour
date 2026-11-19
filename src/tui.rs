@@ -12,16 +12,23 @@ use crate::app::App;
 pub const SESSION_COMMAND: &str = "HARBOUR_SESSION_COMMAND";
 
 pub fn run() -> io::Result<()> {
+    show(App::new(session_command()))
+}
+
+pub fn demo() -> io::Result<()> {
+    show(App::demo())
+}
+
+fn show(app: App) -> io::Result<()> {
     let mut terminal = ratatui::init();
     let result = execute!(io::stdout(), EnableBracketedPaste, EnableMouseCapture)
-        .and_then(|()| drive(&mut terminal));
+        .and_then(|()| drive(&mut terminal, app));
     let _ = execute!(io::stdout(), DisableMouseCapture, DisableBracketedPaste);
     ratatui::restore();
     result
 }
 
-fn drive(terminal: &mut ratatui::DefaultTerminal) -> io::Result<()> {
-    let mut app = App::new(session_command());
+fn drive(terminal: &mut ratatui::DefaultTerminal, mut app: App) -> io::Result<()> {
     while app.running() {
         terminal.draw(|frame| app.draw(frame))?;
         if event::poll(Duration::from_millis(30))? {

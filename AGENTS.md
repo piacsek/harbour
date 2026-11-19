@@ -43,11 +43,12 @@ The layout names what each file or directory is for; read its functions from the
 rules from the `AGENTS.md` of its directory.
 
 ```
-src/main.rs      the binary: `--version`/`-V`/`version`, `--help`/`-h`/`help`, `changelog`, the interface with no argument on a terminal, the usage on anything else
+src/main.rs      the binary: `--version`/`-V`/`version`, `--help`/`-h`/`help`, `changelog`, the interface with no argument on a terminal, the same with made-up sessions for `--demo` on a terminal, the usage on anything else
 src/lib.rs                    the library the binary and the tests share
 src/tui.rs                    the terminal: enters and restores it, reads its events, draws the app; the program a session runs (`claude`, or what `HARBOUR_SESSION_COMMAND` names)
 src/app.rs                    the app: what is on screen and what each key does
-src/session.rs                a session: a command in a PTY, its output parsed into a screen that renders as a widget, its terminal queries answered, its exit status; ending it (or dropping it) hangs it up, then kills it
+src/session.rs                a session: a command in a PTY, its output parsed into a screen that renders as a widget, its terminal queries answered, its exit status, its screen never under 2 rows (vt100 panics on a wrap in 1); ending it (or dropping it) hangs it up, then kills it
+src/demo.rs                   the made-up sessions of `--demo`: `acme/*` scripts, never real data
 src/help.rs                   what the help view shows: `KEYS`, which the README key table mirrors, and the tmux pattern
 src/keys.rs                   the bytes a terminal sends for a key (legacy encoding) or a mouse event (SGR), which a session receives
 src/changelog.rs              the bundled CHANGELOG.md and the rules a release entry must meet
@@ -77,7 +78,7 @@ scripts/homebrew-formula.sh   prints the tap formula for a released version
 scripts/formula-version.sh    the `tap` job's decision; never a version below the formula's
 scripts/stable-version.sh     the `stable-build` and `stable` jobs' decision, asked by both: the release the `stable` branch moves to, never below the version it holds
 scripts/sweep-report.sh       `[<first phase>]`: the sweep's data from `plans/`, as Markdown; counts and groups, judges nothing
-scripts/screenshots.sh        renders docs/help.png from `harbour --help`, plus one `shoot` per extra view (truecolor.py converts ANSI)
+scripts/screenshots.sh        renders docs/details.png from `harbour --demo` and docs/help.png from `harbour --help`, plus one `shoot` per extra view (truecolor.py converts ANSI)
 scripts/sweep-issue.sh        the `issue` job of `sweep.yml`: opens "Sweep due before phase N" with the report once the next phase is a multiple of 5, never twice
 docs/                         the screenshots `scripts/screenshots.sh` writes (see "Documentation rule")
 changes/                      one fragment per pull request that feeds the binary (`kind:` and the changelog bullets); add-only, see Releasing
@@ -99,7 +100,7 @@ tests/AGENTS.md  the testing traps hit so far
 .github/ISSUE_TEMPLATE/       the bug report and feature request forms, and `config.yml` sending questions to Discussions
 .github/CONTRIBUTING.md       where a newcomer starts: points here, to `scripts/gates.sh`, `scripts/ship.sh` and the fragment rule, restates none of them
 .claude/skills/sweep/          the `sweep` skill: runs `scripts/sweep-report.sh`, finds repeats and trends, proposes what each becomes, writes `### Sweep` on the user's yes
-.claude/skills/adversarial-review/ the `adversarial-review` skill: attack the repository, report what is bad, file the fixes as labelled issues on request
+.claude/skills/adversarial-review/ the `adversarial-review` skill: attack the repository, report what is bad, file the fixes as labelled issues on request; `drive-demo.sh` drives `harbour --demo` in a scratch tmux server at a given size
 ```
 
 ## Where the rest lives
@@ -153,14 +154,13 @@ impact.
 and `## Development`, with no subsection. `tests/readme.rs` fails when that shape changes, when
 the tap, the Nix or the source install line (built from `stable`) goes, when the usage stops showing `--version` and `--help`, or when the key table stops mirroring `KEYS` of `src/help.rs`, the keys the help view shows.
 Feature depth belongs in the `AGENTS.md` files, not there.
-**Every visible change to the main interface shows in `docs/details.png`**, from the phase that
-gives harbour its first interface: a new or changed line, glyph, bar, title, column or footer
-element. That phase adds the `details` shot to `scripts/screenshots.sh`, puts the image in
-`README.md` right below the description and makes `tests/readme.rs` pin it there. From then on,
-extend the demo until the change appears on screen, rerun the script, and commit the image in
-the same pull request; a reviewer reports a missing or stale screenshot as a should. Until then
-the script shoots one image, `docs/help.png`, the output of `harbour --help`, which the README
-does not embed. Run `scripts/screenshots.sh` (needs tmux, `brew install
+**Every visible change to the main interface shows in `docs/details.png`**: a new or changed
+line, glyph, bar, title, column or footer element. The `details` shot of `scripts/screenshots.sh`
+takes it from `harbour --demo`, `README.md` embeds it right below the description, and
+`tests/readme.rs` pins it there as the README's only image. Extend the demo (`src/demo.rs`)
+until the change appears on screen, rerun the script, and commit the image in the same pull
+request; a reviewer reports a missing or stale screenshot as a should. The script also shoots
+`docs/help.png`, the output of `harbour --help`, which the README does not embed. Run `scripts/screenshots.sh` (needs tmux, `brew install
 charmbracelet/tap/freeze`, Google Chrome or chromium, and the FiraCode Nerd Font in
 `~/Library/Fonts`) and commit the new images. Freeze lays out an SVG with the font embedded;
 headless Chrome rasterises it, because freeze's own PNG output cannot draw Nerd Font glyphs.

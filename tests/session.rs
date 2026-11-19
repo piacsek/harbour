@@ -122,6 +122,35 @@ fn a_session_started_with_no_room_still_runs() {
 }
 
 #[test]
+fn a_session_started_one_row_high_survives_a_wrapped_line() {
+    let command = [
+        "/bin/sh".to_string(),
+        "-c".into(),
+        "printf 'acme-api wraps'; echo; sleep 1; echo ready; sleep 5".into(),
+    ];
+    let mut session = Session::start(&command, 1, 4).unwrap();
+    sleep(Duration::from_millis(300));
+
+    session.resize(ROWS, COLS);
+
+    let screen = wait_for(&session, "ready");
+    assert!(screen.contains("ready"), "{screen}");
+}
+
+#[test]
+fn a_session_resized_to_one_row_survives_a_wrapped_line() {
+    let mut session =
+        start("sleep 0.3; printf 'acme-api wraps'; echo; sleep 1; echo ready; sleep 5");
+    session.resize(1, 4);
+    sleep(Duration::from_millis(600));
+
+    session.resize(ROWS, COLS);
+
+    let screen = wait_for(&session, "ready");
+    assert!(screen.contains("ready"), "{screen}");
+}
+
+#[test]
 fn dropping_a_session_ends_a_command_that_ignores_hangup() {
     let session = start("trap '' HUP; echo \"pid:$$\"; while :; do sleep 1; done");
     let pid = pid_shown(&session);

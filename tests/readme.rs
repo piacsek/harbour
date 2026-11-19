@@ -4,7 +4,19 @@ const README: &str = include_str!("../README.md");
 
 #[test]
 fn the_readme_opens_with_the_name_and_the_one_line_description() {
-    assert!(README.starts_with("# harbour\n\nHarbour: where shipping begins.\n\n## "));
+    assert!(README.starts_with("# harbour\n\nHarbour: where shipping begins.\n\n"));
+}
+
+#[test]
+fn the_readme_shows_the_details_screenshot_right_below_the_description() {
+    assert!(README.starts_with(
+        "# harbour\n\nHarbour: where shipping begins.\n\n![harbour: a sidebar of sessions beside a live pane](docs/details.png)\n\n## "
+    ));
+}
+
+#[test]
+fn the_readme_embeds_one_screenshot() {
+    assert_eq!(README.matches("![").count(), 1);
 }
 
 #[test]

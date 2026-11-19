@@ -2,6 +2,8 @@
 
 Harbour: where shipping begins.
 
+![harbour: a sidebar of sessions beside a live pane](docs/details.png)
+
 ## Installation
 
 ```sh
@@ -26,6 +28,7 @@ nix --extra-experimental-features 'nix-command flakes' profile install github:pi
 
 ```sh
 harbour             # on a terminal: a sidebar of Claude Code sessions beside a live pane
+harbour --demo      # the same with made-up acme sessions: no claude needed
 harbour --version   # or -V, or version
 harbour --help      # or -h, or help
 harbour changelog   # what each release changed

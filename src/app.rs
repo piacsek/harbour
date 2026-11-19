@@ -8,6 +8,7 @@ use ratatui::widgets::{
     Block, BorderType, Clear, HighlightSpacing, List, ListState, Paragraph, Wrap,
 };
 
+use crate::demo;
 use crate::help;
 use crate::keys;
 use crate::session::Session;
@@ -66,6 +67,14 @@ impl App {
             helping: false,
             quitting: false,
         }
+    }
+
+    pub fn demo() -> App {
+        let mut app = App::new(demo::working());
+        app.start();
+        app.start_with(&demo::failed());
+        app.start();
+        app
     }
 
     pub fn running(&self) -> bool {
@@ -174,7 +183,11 @@ impl App {
     }
 
     fn start(&mut self) {
-        match Session::start(&self.command, self.pane.height, self.pane.width) {
+        self.start_with(&self.command.clone());
+    }
+
+    fn start_with(&mut self, command: &[String]) {
+        match Session::start(command, self.pane.height, self.pane.width) {
             Ok(session) => {
                 self.started += 1;
                 self.sessions.push(Entry {
@@ -186,7 +199,7 @@ impl App {
             Err(_) => {
                 self.failed = Some(format!(
                     "Could not start {}: is it installed and on PATH?",
-                    self.command.first().map_or("", String::as_str)
+                    command.first().map_or("", String::as_str)
                 ))
             }
         }

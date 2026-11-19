@@ -21,17 +21,24 @@ fn main() -> ExitCode {
             print!("{CHANGELOG}");
             ExitCode::SUCCESS
         }
-        [] if std::io::stdin().is_terminal() && std::io::stdout().is_terminal() => {
-            match harbour::tui::run() {
-                Ok(()) => ExitCode::SUCCESS,
-                Err(err) => {
-                    eprintln!("harbour: {err}");
-                    ExitCode::FAILURE
-                }
-            }
-        }
+        [] if on_a_terminal() => shown(harbour::tui::run()),
+        [Some("--demo")] if on_a_terminal() => shown(harbour::tui::demo()),
         _ => {
             eprintln!("{USAGE}");
+            ExitCode::FAILURE
+        }
+    }
+}
+
+fn on_a_terminal() -> bool {
+    std::io::stdin().is_terminal() && std::io::stdout().is_terminal()
+}
+
+fn shown(result: std::io::Result<()>) -> ExitCode {
+    match result {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(err) => {
+            eprintln!("harbour: {err}");
             ExitCode::FAILURE
         }
     }

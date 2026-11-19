@@ -25,7 +25,7 @@ pub struct Session {
 
 impl Session {
     pub fn start(command: &[String], rows: u16, cols: u16) -> io::Result<Session> {
-        let (rows, cols) = (rows.max(1), cols.max(1));
+        let (rows, cols) = (rows.max(2), cols.max(1));
         let pty = native_pty_system()
             .openpty(PtySize {
                 rows,
@@ -78,8 +78,12 @@ impl Session {
     }
 
     pub fn resize(&mut self, rows: u16, cols: u16) {
+        if rows == 0 || cols == 0 {
+            return;
+        }
+        let rows = rows.max(2);
         let mut parser = self.parser.lock().unwrap();
-        if rows == 0 || cols == 0 || parser.screen().size() == (rows, cols) {
+        if parser.screen().size() == (rows, cols) {
             return;
         }
         parser.screen_mut().set_size(rows, cols);
