@@ -47,6 +47,7 @@ src/main.rs      the binary: `--version`/`-V`/`version`, `--help`/`-h`/`help`, `
 src/lib.rs                    the library the binary and the tests share
 src/tui.rs                    the terminal: enters and restores it, reads its events, draws the app
 src/app.rs                    the app: what is on screen and what each key does
+src/keys.rs                   the bytes a terminal sends for a key, in the legacy encoding, which a session receives
 src/changelog.rs              the bundled CHANGELOG.md and the rules a release entry must meet
 CHANGELOG.md                  only its `# Changelog` heading on `main`; each release commit writes its sections
 rust-toolchain.toml           the one Rust version (rustfmt and clippy with it) that local gates and CI run; see Development
