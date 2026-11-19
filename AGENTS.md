@@ -6,8 +6,9 @@ factual; verify against the code before treating anything here as live state.
 ## What this is
 
 harbour: Harbour: where shipping begins. What it does is not defined yet: Phase 1 defines the product.
-Until then the binary only answers `--help`, `-h`, `help`, `--version`, `-V`, `version` and
-`changelog`. Phase 0 scaffolded the guidelines, guardrails, CI and the automatic release
+Phase 1 gives it its first interface: with no argument on a terminal it opens a sidebar of agent
+sessions beside a live pane; it also answers `--help`, `-h`, `help`, `--version`, `-V`, `version`
+and `changelog`. Phase 0 scaffolded the guidelines, guardrails, CI and the automatic release
 from the `rust_tui` recipe, which descends from conveyor, an earlier project by the recipe's
 author; the conveyor history below is that project's. `PLAN.md` is the index of phases and the
 backlog; each phase's plan, outcome and hurdles are in `plans/`.
@@ -42,8 +43,10 @@ The layout names what each file or directory is for; read its functions from the
 rules from the `AGENTS.md` of its directory.
 
 ```
-src/main.rs      the binary: `--version`/`-V`/`version`, `--help`/`-h`/`help`, `changelog`, the usage on anything else
-src/lib.rs                    the library the binary and the tests share; today only `changelog`
+src/main.rs      the binary: `--version`/`-V`/`version`, `--help`/`-h`/`help`, `changelog`, the interface with no argument on a terminal, the usage on anything else
+src/lib.rs                    the library the binary and the tests share
+src/tui.rs                    the terminal: enters and restores it, reads its events, draws the app
+src/app.rs                    the app: what is on screen and what each key does
 src/changelog.rs              the bundled CHANGELOG.md and the rules a release entry must meet
 CHANGELOG.md                  only its `# Changelog` heading on `main`; each release commit writes its sections
 rust-toolchain.toml           the one Rust version (rustfmt and clippy with it) that local gates and CI run; see Development
@@ -108,7 +111,8 @@ next to the code; read the one for a directory before changing anything in it.
 ## Behaviour that is easy to break
 
 - **`--help`/`-h`/`help` and `--version`/`-V`/`version`** print to stdout and exit 0; anything
-  else, no argument included, prints the usage to stderr and exits 1. The Homebrew formula's
+  else prints the usage to stderr and exits 1, and so does no argument when stdin or stdout is not
+  a terminal (with both on a terminal it opens the interface). The Homebrew formula's
   `test` block and the `flake` and `stable-build` jobs rely on both.
 - **`changelog`** prints the bundled `CHANGELOG.md` to stdout and exits 0: the heading alone in a
   build from `main`, every release in a release build. `tests/changelog.rs` holds the rules a

@@ -15,6 +15,33 @@ fn the_binary_runs_in_a_scratch_tmux_server() {
     assert!(screen.contains("harbour 0.0.0"), "{screen}");
 }
 
+#[test]
+#[ignore]
+fn no_argument_on_a_terminal_opens_the_screen_with_the_hint() {
+    let home = tempfile::tempdir().unwrap();
+    let server = Server::start("empty", 120, 20);
+
+    server.run(home.path(), &[], &[]);
+
+    let screen = server.wait_for_screen("press n to start one");
+    assert!(screen.contains("No session yet"), "{screen}");
+}
+
+#[test]
+#[ignore]
+fn q_leaves_the_screen_and_restores_the_terminal() {
+    let home = tempfile::tempdir().unwrap();
+    let server = Server::start("quit", 120, 20);
+    server.run(home.path(), &[], &[]);
+    server.wait_for_screen("press n to start one");
+
+    server.send_keys(&["q"]);
+
+    let screen = server.wait_for_screen("harbour exited 0");
+    assert!(screen.contains("harbour exited 0"), "{screen}");
+    assert!(!screen.contains("press n to start one"), "{screen}");
+}
+
 struct Server {
     socket: String,
 }
@@ -89,6 +116,17 @@ impl Server {
             .status()
             .unwrap();
         assert!(status.success(), "could not start harbour in the pane");
+    }
+
+    fn send_keys(&self, keys: &[&str]) {
+        for key in keys {
+            let status = self
+                .tmux(&["send-keys", "-t", "e2e", key])
+                .status()
+                .unwrap();
+            assert!(status.success(), "could not send {key}");
+            sleep(Duration::from_millis(100));
+        }
     }
 
     fn screen(&self) -> String {

@@ -24,3 +24,7 @@ cast_lossless = "warn"
 lto = true
 codegen-units = 1
 strip = true
+
+[dependencies]
+crossterm = "0.29.0"
+ratatui = "0.30.2"

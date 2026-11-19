@@ -1,3 +1,4 @@
+use std::io::IsTerminal;
 use std::process::ExitCode;
 
 use harbour::changelog::CHANGELOG;
@@ -19,6 +20,15 @@ fn main() -> ExitCode {
         [Some("changelog")] => {
             print!("{CHANGELOG}");
             ExitCode::SUCCESS
+        }
+        [] if std::io::stdin().is_terminal() && std::io::stdout().is_terminal() => {
+            match harbour::tui::run() {
+                Ok(()) => ExitCode::SUCCESS,
+                Err(err) => {
+                    eprintln!("harbour: {err}");
+                    ExitCode::FAILURE
+                }
+            }
         }
         _ => {
             eprintln!("{USAGE}");
