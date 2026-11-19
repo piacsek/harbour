@@ -1,4 +1,5 @@
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers, MouseEvent, MouseEventKind};
+use portable_pty::ExitStatus;
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Layout, Position, Rect};
 use ratatui::style::Modifier;
@@ -20,6 +21,7 @@ pub struct App {
     shown_pane: Rect,
     sidebar: Rect,
     pane_focused: bool,
+    failed: Option<String>,
     quitting: bool,
 }
 
@@ -47,6 +49,7 @@ impl App {
             shown_pane: Rect::default(),
             sidebar: Rect::default(),
             pane_focused: false,
+            failed: None,
             quitting: false,
         }
     }
@@ -110,13 +113,21 @@ impl App {
     }
 
     fn start(&mut self) {
-        if let Ok(session) = Session::start(&self.command, self.pane.height, self.pane.width) {
-            self.started += 1;
-            self.sessions.push(Entry {
-                name: format!("{} {}", self.directory, self.started),
-                session,
-            });
-            self.selected = self.sessions.len() - 1;
+        match Session::start(&self.command, self.pane.height, self.pane.width) {
+            Ok(session) => {
+                self.started += 1;
+                self.sessions.push(Entry {
+                    name: format!("{} {}", self.directory, self.started),
+                    session,
+                });
+                self.selected = self.sessions.len() - 1;
+            }
+            Err(_) => {
+                self.failed = Some(format!(
+                    "Could not start {}: is it installed and on PATH?",
+                    self.command.first().map_or("", String::as_str)
+                ))
+            }
         }
     }
 
@@ -136,16 +147,25 @@ impl App {
         for entry in &mut self.sessions {
             entry.session.resize(self.pane.height, self.pane.width);
         }
+        let rows: Vec<String> = self
+            .sessions
+            .iter_mut()
+            .map(|entry| match entry.session.exit() {
+                None => format!("● {}", entry.name),
+                Some(status) => format!("○ {} exited{}", entry.name, exit_note(status)),
+            })
+            .collect();
+        let exited = self
+            .sessions
+            .get_mut(self.selected)
+            .is_some_and(|entry| entry.session.exit().is_some());
         match self.sessions.get(self.selected) {
             None => {
+                let message = self.failed.as_deref().unwrap_or(HINT);
                 frame.render_widget(Paragraph::new(HINT).block(sidebar_block), sidebar);
-                frame.render_widget(Paragraph::new(HINT).block(pane_block), pane);
+                frame.render_widget(Paragraph::new(message).block(pane_block), pane);
             }
             Some(shown) => {
-                let rows = self
-                    .sessions
-                    .iter()
-                    .map(|entry| format!("● {}", entry.name));
                 let list = List::new(rows)
                     .block(sidebar_block)
                     .highlight_symbol("› ")
@@ -156,6 +176,9 @@ impl App {
                 if !pane.is_empty() {
                     frame.render_widget(pane_block, pane);
                     frame.render_widget(&shown.session, self.pane);
+                    if exited {
+                        frame.buffer_mut().set_style(self.pane, Modifier::DIM);
+                    }
                 }
             }
         }
@@ -171,6 +194,14 @@ impl App {
         } else {
             (area, Rect::default())
         }
+    }
+}
+
+fn exit_note(status: &ExitStatus) -> String {
+    match (status.signal(), status.exit_code()) {
+        (Some(signal), _) => format!(" ({signal})"),
+        (None, 0) => String::new(),
+        (None, code) => format!(" {code}"),
     }
 }
 

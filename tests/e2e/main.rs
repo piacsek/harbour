@@ -145,6 +145,24 @@ fn a_click_in_the_pane_reaches_the_session() {
     assert!(screen.contains("read:^[<0;6;4M"), "{screen}");
 }
 
+#[test]
+#[ignore]
+fn a_command_that_cannot_start_is_named_in_the_pane() {
+    let home = tempfile::tempdir().unwrap();
+    let server = Server::start("missing", 160, 20);
+    server.run(home.path(), &[(SESSION_COMMAND, "acme-agent-missing")], &[]);
+    server.wait_for_screen("press n to start one");
+
+    server.send_keys(&["n"]);
+
+    let screen = server.wait_for_screen("Could not start acme-agent-missing");
+    assert!(
+        screen.contains("Could not start acme-agent-missing"),
+        "{screen}"
+    );
+    assert!(!screen.contains("acme-api 1"), "{screen}");
+}
+
 struct Server {
     socket: String,
 }

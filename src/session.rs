@@ -3,7 +3,7 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 
 use crossterm::event::MouseEventKind;
-use portable_pty::{Child, CommandBuilder, MasterPty, PtySize, native_pty_system};
+use portable_pty::{Child, CommandBuilder, ExitStatus, MasterPty, PtySize, native_pty_system};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::widgets::Widget;
@@ -19,7 +19,8 @@ pub struct Session {
     parser: Arc<Mutex<Parser>>,
     writer: Writer,
     master: Box<dyn MasterPty + Send>,
-    _child: Box<dyn Child + Send + Sync>,
+    child: Box<dyn Child + Send + Sync>,
+    exit: Option<ExitStatus>,
 }
 
 impl Session {
@@ -71,7 +72,8 @@ impl Session {
             parser,
             writer,
             master: pty.master,
-            _child: child,
+            child,
+            exit: None,
         })
     }
 
@@ -87,6 +89,13 @@ impl Session {
             pixel_width: 0,
             pixel_height: 0,
         });
+    }
+
+    pub fn exit(&mut self) -> Option<&ExitStatus> {
+        if self.exit.is_none() {
+            self.exit = self.child.try_wait().ok().flatten();
+        }
+        self.exit.as_ref()
     }
 
     pub fn send(&self, bytes: &[u8]) {
