@@ -25,10 +25,24 @@ nix --extra-experimental-features 'nix-command flakes' profile install github:pi
 ## Usage
 
 ```sh
+harbour             # on a terminal: a sidebar of Claude Code sessions beside a live pane
 harbour --version   # or -V, or version
 harbour --help      # or -h, or help
 harbour changelog   # what each release changed
 ```
+
+| Key | Action |
+|---|---|
+| `j/k` | select the next / previous session |
+| `n` | start a session |
+| `C-l/Enter` | focus the pane |
+| `C-h` | focus the sidebar, from the pane |
+| `x` | end the session, or remove it once it has exited |
+| `?` | show or hide the help |
+| `q` | quit, after a yes while a session runs |
+
+Sessions start in the current directory and end when harbour quits. Inside tmux with
+vim-tmux-navigator, add `harbour` to the pattern of processes it passes `C-h` and `C-l` to.
 
 ## Development
 

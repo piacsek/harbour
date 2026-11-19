@@ -1,3 +1,5 @@
+use harbour::help::KEYS;
+
 const README: &str = include_str!("../README.md");
 
 #[test]
@@ -62,6 +64,11 @@ fn the_readme_builds_from_source_at_the_newest_release() {
     ));
 }
 
+#[test]
+fn the_readme_key_table_mirrors_the_in_app_help() {
+    assert_eq!(readme_key_rows(), help_key_rows());
+}
+
 fn sections() -> Vec<&'static str> {
     prose()
         .into_iter()
@@ -81,4 +88,19 @@ fn prose() -> Vec<&'static str> {
             !fenced
         })
         .collect()
+}
+
+fn readme_key_rows() -> String {
+    README
+        .lines()
+        .filter(|line| line.starts_with("| `"))
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+fn help_key_rows() -> String {
+    KEYS.iter()
+        .map(|(key, what)| format!("| `{key}` | {what} |"))
+        .collect::<Vec<_>>()
+        .join("\n")
 }

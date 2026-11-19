@@ -3,8 +3,12 @@ use portable_pty::ExitStatus;
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Layout, Position, Rect};
 use ratatui::style::Modifier;
-use ratatui::widgets::{Block, BorderType, HighlightSpacing, List, ListState, Paragraph};
+use ratatui::text::Line;
+use ratatui::widgets::{
+    Block, BorderType, Clear, HighlightSpacing, List, ListState, Paragraph, Wrap,
+};
 
+use crate::help;
 use crate::keys;
 use crate::session::Session;
 
@@ -23,6 +27,7 @@ pub struct App {
     pane_focused: bool,
     failed: Option<String>,
     asking: Option<Question>,
+    helping: bool,
     quitting: bool,
 }
 
@@ -58,6 +63,7 @@ impl App {
             pane_focused: false,
             failed: None,
             asking: None,
+            helping: false,
             quitting: false,
         }
     }
@@ -75,6 +81,10 @@ impl App {
             session.send(&keys::encode(key, session.application_cursor()));
             return;
         }
+        if self.helping {
+            self.helping = false;
+            return;
+        }
         if let Some(question) = self.asking.take() {
             if key.code == KeyCode::Char('y') {
                 self.answer_yes(question);
@@ -87,6 +97,7 @@ impl App {
             KeyCode::Char('q') => self.quit(),
             KeyCode::Char('n') => self.start(),
             KeyCode::Char('x') => self.end_or_remove(),
+            KeyCode::Char('?') => self.helping = true,
             KeyCode::Char('j') => {
                 self.selected = (self.selected + 1).min(self.sessions.len().saturating_sub(1))
             }
@@ -237,6 +248,24 @@ impl App {
                 }
             }
         }
+        if self.helping {
+            self.draw_help(frame);
+        }
+    }
+
+    fn draw_help(&self, frame: &mut Frame) {
+        let keys = help::KEYS
+            .iter()
+            .map(|(key, what)| Line::from(format!("{key:<10} {what}")));
+        let tmux = help::TMUX.iter().map(|line| Line::from(*line));
+        let lines: Vec<Line> = keys.chain([Line::default()]).chain(tmux).collect();
+        frame.render_widget(Clear, frame.area());
+        frame.render_widget(
+            Paragraph::new(lines)
+                .wrap(Wrap { trim: false })
+                .block(Block::bordered().title(" help ")),
+            frame.area(),
+        );
     }
 
     fn areas(&self, area: Rect) -> (Rect, Rect) {

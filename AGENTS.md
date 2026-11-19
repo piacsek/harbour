@@ -48,6 +48,7 @@ src/lib.rs                    the library the binary and the tests share
 src/tui.rs                    the terminal: enters and restores it, reads its events, draws the app; the program a session runs (`claude`, or what `HARBOUR_SESSION_COMMAND` names)
 src/app.rs                    the app: what is on screen and what each key does
 src/session.rs                a session: a command in a PTY, its output parsed into a screen that renders as a widget, its terminal queries answered, its exit status; ending it (or dropping it) hangs it up, then kills it
+src/help.rs                   what the help view shows: `KEYS`, which the README key table mirrors, and the tmux pattern
 src/keys.rs                   the bytes a terminal sends for a key (legacy encoding) or a mouse event (SGR), which a session receives
 src/changelog.rs              the bundled CHANGELOG.md and the rules a release entry must meet
 CHANGELOG.md                  only its `# Changelog` heading on `main`; each release commit writes its sections
@@ -150,7 +151,7 @@ impact.
 `README.md` is minimal and holds only what a user needs, in this order and nothing else: the
 `# harbour` heading, the one line "Harbour: where shipping begins.", then `## Installation`, `## Usage`
 and `## Development`, with no subsection. `tests/readme.rs` fails when that shape changes, when
-the tap, the Nix or the source install line (built from `stable`) goes, or when the usage stops showing `--version` and `--help`.
+the tap, the Nix or the source install line (built from `stable`) goes, when the usage stops showing `--version` and `--help`, or when the key table stops mirroring `KEYS` of `src/help.rs`, the keys the help view shows.
 Feature depth belongs in the `AGENTS.md` files, not there.
 **Every visible change to the main interface shows in `docs/details.png`**, from the phase that
 gives harbour its first interface: a new or changed line, glyph, bar, title, column or footer

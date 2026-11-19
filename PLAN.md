@@ -33,5 +33,4 @@ over, renamed and with its tests, in the phase that gives harbour that interface
 - The `details` shot of the screenshot script, from a demo mode, and `docs/details.png` in the
   README with the `tests/readme.rs` pin of it.
 - The adversarial-review skill's `drive-demo.sh`, which drives the binary's demo under tmux.
-- The README key-table pin in `tests/readme.rs`, once harbour has keys and a help view.
 - `tests/stage_dispatch.rs`, once harbour has a dispatch to keep in one place.

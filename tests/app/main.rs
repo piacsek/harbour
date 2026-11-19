@@ -1,6 +1,7 @@
 mod ending;
 mod exits;
 mod focus;
+mod help;
 mod input;
 mod layout;
 mod selection;
