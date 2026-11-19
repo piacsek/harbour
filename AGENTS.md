@@ -48,7 +48,7 @@ src/lib.rs                    the library the binary and the tests share
 src/tui.rs                    the terminal: enters and restores it, reads its events, draws the app; the program a session runs (`claude`, or what `HARBOUR_SESSION_COMMAND` names)
 src/app.rs                    the app: what is on screen and what each key does
 src/session.rs                a session: a command in a PTY, its output parsed into a screen that renders as a widget, its terminal queries answered
-src/keys.rs                   the bytes a terminal sends for a key, in the legacy encoding, which a session receives
+src/keys.rs                   the bytes a terminal sends for a key (legacy encoding) or a mouse event (SGR), which a session receives
 src/changelog.rs              the bundled CHANGELOG.md and the rules a release entry must meet
 CHANGELOG.md                  only its `# Changelog` heading on `main`; each release commit writes its sections
 rust-toolchain.toml           the one Rust version (rustfmt and clippy with it) that local gates and CI run; see Development
@@ -84,7 +84,7 @@ plans/                        one versioned plan file per phase, ending with its
 plans/metrics.md              time and tokens, one row per phase
 tests/           outside-in: `tests/cli.rs` runs the real binary;
                  `tests/scripts/` runs the scripts in a scratch directory and repository, with `tests/fixtures/` standing in for `cargo`, `gh`, `curl` and the scripts they call;
-                 `tests/e2e/` runs the real binary in a scratch tmux server (`#[ignore]`, see `tests/AGENTS.md`), with `HARBOUR_SESSION_COMMAND` pointing sessions at `tests/fixtures/agent.sh` instead of `claude`;
+                 `tests/e2e/` runs the real binary in a scratch tmux server (`#[ignore]`, see `tests/AGENTS.md`), with `HARBOUR_SESSION_COMMAND` pointing sessions at `tests/fixtures/agent.sh` (prints what it reads, a line at a time) or `tests/fixtures/raw-agent.sh` (asks for bracketed paste and the mouse, prints every byte it reads) instead of `claude`;
                  `tests/session.rs` and `tests/app.rs` run sessions in process, as `/bin/sh -c` scripts;
                  `tests/readme.rs` pins the README shape (see "Documentation rule");
                  `tests/source_size.rs` fails while any Rust file under `src/` or `tests/` is longer than 700 lines, naming it;

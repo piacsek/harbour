@@ -1,4 +1,4 @@
-use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+use crossterm::event::{KeyCode, KeyEvent, KeyModifiers, MouseButton, MouseEventKind};
 
 pub fn encode(key: KeyEvent, application_cursor: bool) -> Vec<u8> {
     let modifier = modifier_parameter(key.modifiers);
@@ -85,4 +85,24 @@ fn modifier_parameter(modifiers: KeyModifiers) -> u8 {
     1 + u8::from(modifiers.contains(KeyModifiers::SHIFT))
         + 2 * u8::from(modifiers.contains(KeyModifiers::ALT))
         + 4 * u8::from(modifiers.contains(KeyModifiers::CONTROL))
+}
+
+pub fn mouse(kind: MouseEventKind, column: u16, row: u16) -> Option<Vec<u8>> {
+    let (code, last) = match kind {
+        MouseEventKind::Down(button) => (button_code(button), 'M'),
+        MouseEventKind::Up(button) => (button_code(button), 'm'),
+        MouseEventKind::Drag(button) => (button_code(button) + 32, 'M'),
+        MouseEventKind::ScrollUp => (64, 'M'),
+        MouseEventKind::ScrollDown => (65, 'M'),
+        _ => return None,
+    };
+    Some(format!("\x1b[<{code};{};{}{last}", column + 1, row + 1).into_bytes())
+}
+
+fn button_code(button: MouseButton) -> u8 {
+    match button {
+        MouseButton::Left => 0,
+        MouseButton::Middle => 1,
+        MouseButton::Right => 2,
+    }
 }

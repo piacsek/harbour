@@ -1,6 +1,6 @@
-use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+use crossterm::event::{KeyCode, KeyEvent, KeyModifiers, MouseEvent, MouseEventKind};
 use ratatui::Frame;
-use ratatui::layout::{Constraint, Layout, Rect};
+use ratatui::layout::{Constraint, Layout, Position, Rect};
 use ratatui::style::Modifier;
 use ratatui::widgets::{Block, BorderType, HighlightSpacing, List, ListState, Paragraph};
 
@@ -17,6 +17,8 @@ pub struct App {
     selected: usize,
     started: usize,
     pane: Rect,
+    shown_pane: Rect,
+    sidebar: Rect,
     pane_focused: bool,
     quitting: bool,
 }
@@ -42,6 +44,8 @@ impl App {
             selected: 0,
             started: 0,
             pane: Rect::default(),
+            shown_pane: Rect::default(),
+            sidebar: Rect::default(),
             pane_focused: false,
             quitting: false,
         }
@@ -56,12 +60,8 @@ impl App {
             self.pane_focused = false;
             return;
         }
-        if self.pane_focused
-            && let Some(shown) = self.sessions.get(self.selected)
-        {
-            shown
-                .session
-                .send(&keys::encode(key, shown.session.application_cursor()));
+        if let Some(session) = self.focused() {
+            session.send(&keys::encode(key, session.application_cursor()));
             return;
         }
         match key.code {
@@ -77,6 +77,38 @@ impl App {
         }
     }
 
+    pub fn paste(&mut self, text: &str) {
+        if let Some(session) = self.focused() {
+            session.paste(text);
+        }
+    }
+
+    pub fn mouse(&mut self, event: MouseEvent) {
+        let at = Position::new(event.column, event.row);
+        let pane = self.shown_pane;
+        if matches!(event.kind, MouseEventKind::Down(_)) {
+            if self.sidebar.contains(at) {
+                self.pane_focused = false;
+            } else if pane.contains(at) {
+                self.pane_focused = true;
+            }
+        }
+        if pane.contains(at)
+            && let Some(entry) = self.sessions.get(self.selected)
+        {
+            entry
+                .session
+                .mouse(event.kind, event.column - pane.x, event.row - pane.y);
+        }
+    }
+
+    fn focused(&self) -> Option<&Session> {
+        self.sessions
+            .get(self.selected)
+            .filter(|_| self.pane_focused)
+            .map(|entry| &entry.session)
+    }
+
     fn start(&mut self) {
         if let Ok(session) = Session::start(&self.command, self.pane.height, self.pane.width) {
             self.started += 1;
@@ -90,11 +122,17 @@ impl App {
 
     pub fn draw(&mut self, frame: &mut Frame) {
         let (sidebar, pane) = self.areas(frame.area());
+        self.sidebar = sidebar;
         let sidebar_block = Block::bordered()
             .border_type(border(!self.pane_focused))
             .title(" sessions ");
         let pane_block = Block::bordered().border_type(border(self.pane_focused));
         self.pane = pane_block.inner(if pane.is_empty() { frame.area() } else { pane });
+        self.shown_pane = if pane.is_empty() {
+            Rect::default()
+        } else {
+            self.pane
+        };
         for entry in &mut self.sessions {
             entry.session.resize(self.pane.height, self.pane.width);
         }

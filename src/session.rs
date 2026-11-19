@@ -2,11 +2,14 @@ use std::io::{self, Read, Write};
 use std::sync::{Arc, Mutex};
 use std::thread;
 
+use crossterm::event::MouseEventKind;
 use portable_pty::{Child, CommandBuilder, MasterPty, PtySize, native_pty_system};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::widgets::Widget;
 use tui_term::widget::PseudoTerminal;
+
+use crate::keys;
 
 type Parser = vt100::Parser<Replies>;
 
@@ -88,6 +91,23 @@ impl Session {
 
     pub fn send(&self, bytes: &[u8]) {
         write(&self.writer, bytes);
+    }
+
+    pub fn paste(&self, text: &str) {
+        if self.parser.lock().unwrap().screen().bracketed_paste() {
+            self.send(&[b"\x1b[200~", text.as_bytes(), b"\x1b[201~"].concat());
+        } else {
+            self.send(text.as_bytes());
+        }
+    }
+
+    pub fn mouse(&self, kind: MouseEventKind, column: u16, row: u16) {
+        let mode = self.parser.lock().unwrap().screen().mouse_protocol_mode();
+        if mode != vt100::MouseProtocolMode::None
+            && let Some(bytes) = keys::mouse(kind, column, row)
+        {
+            self.send(&bytes);
+        }
     }
 
     pub fn application_cursor(&self) -> bool {

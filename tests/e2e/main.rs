@@ -6,6 +6,7 @@ use std::time::{Duration, Instant};
 use harbour::tui::SESSION_COMMAND;
 
 const AGENT: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/agent.sh");
+const RAW_AGENT: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/raw-agent.sh");
 
 #[test]
 #[ignore]
@@ -111,6 +112,39 @@ fn a_terminal_made_narrow_shows_the_sidebar_alone() {
     assert!(!screen.contains("acme agent in"), "{screen}");
 }
 
+#[test]
+#[ignore]
+fn a_paste_reaches_the_focused_session_bracketed() {
+    let home = tempfile::tempdir().unwrap();
+    let server = Server::start("paste", 160, 20);
+    server.run(home.path(), &[(SESSION_COMMAND, RAW_AGENT)], &[]);
+    server.wait_for_screen("press n to start one");
+    server.send_keys(&["n"]);
+    server.wait_for_screen("acme agent ready");
+    server.send_keys(&["Enter"]);
+
+    server.paste("hello");
+
+    let screen = server.wait_for_screen("read:^[200~hello^[201~");
+    assert!(screen.contains("read:^[200~hello^[201~"), "{screen}");
+}
+
+#[test]
+#[ignore]
+fn a_click_in_the_pane_reaches_the_session() {
+    let home = tempfile::tempdir().unwrap();
+    let server = Server::start("mouse", 160, 20);
+    server.run(home.path(), &[(SESSION_COMMAND, RAW_AGENT)], &[]);
+    server.wait_for_screen("press n to start one");
+    server.send_keys(&["n"]);
+    server.wait_for_screen("acme agent ready");
+
+    server.send_bytes("\x1b[<0;60;5M");
+
+    let screen = server.wait_for_screen("read:^[<0;6;4M");
+    assert!(screen.contains("read:^[<0;6;4M"), "{screen}");
+}
+
 struct Server {
     socket: String,
 }
@@ -140,6 +174,26 @@ impl Server {
         server.option(&["default-shell", "/bin/sh"]);
         server.option(&["status", "off"]);
         server
+    }
+
+    fn paste(&self, text: &str) {
+        let status = self.tmux(&["set-buffer", text]).status().unwrap();
+        assert!(status.success(), "could not set the paste buffer");
+        let status = self
+            .tmux(&["paste-buffer", "-p", "-t", "e2e"])
+            .status()
+            .unwrap();
+        assert!(status.success(), "could not paste");
+    }
+
+    fn send_bytes(&self, bytes: &str) {
+        let hex: Vec<String> = bytes.bytes().map(|byte| format!("{byte:02x}")).collect();
+        let args: Vec<&str> = ["send-keys", "-t", "e2e", "-H"]
+            .into_iter()
+            .chain(hex.iter().map(String::as_str))
+            .collect();
+        let status = self.tmux(&args).status().unwrap();
+        assert!(status.success(), "could not send {bytes:?}");
     }
 
     fn resize(&self, width: u16, height: u16) {

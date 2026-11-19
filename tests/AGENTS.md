@@ -15,9 +15,10 @@ these suites come from.
   `remain-on-exit`, so the pane command ends in `echo "harbour exited $?"; exec sleep 600`.
 
 - **No test starts the real `claude`.** A session runs the program `HARBOUR_SESSION_COMMAND`
-  names (`SESSION_COMMAND` in `src/tui.rs`, on the `SEAMS` list), `claude` when it is unset. The
-  end-to-end tests set it to `tests/fixtures/agent.sh`; in-process tests hand `App::new` or
-  `Session::start` a `/bin/sh -c` script, so no test writes an executable.
+  names (`SESSION_COMMAND` in `src/tui.rs`, on the `SEAMS` list), `claude` when it is unset.
+  The end-to-end tests set it to `tests/fixtures/agent.sh` or `tests/fixtures/raw-agent.sh`;
+  in-process tests hand `App::new` or `Session::start` a `/bin/sh -c` script, so no test writes
+  an executable.
 
 - **`awk` is not the same program everywhere.** macOS ships BSD awk, the ubuntu runner's `awk`
   is `mawk`, and either may be `gawk` where someone installed it; BSD awk (version 20200816)
