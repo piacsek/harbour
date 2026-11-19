@@ -11,4 +11,4 @@ with "no release" for a branch that feeds nothing into the binary.
 
 | Phase | PR | Start | Draft PR | Clean review | Ready | Merged | Released | Start → end | Rounds | Builder | Claude reviewer | Codex reviewer | Orchestrator | Notes |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| 0 |  | 2026-11-19 16:52:13Z |  | no review | | | | | 0 | no agent | no agent | no agent | no agent | Rendered and shipped by the `tui_repo` script of the `rust_tui` recipe: no agent and no review round took part, so the token cells name no figure and there is no clean round. Start is the creation of the phase 0 worktree; start → end waits for the release. |
+| 0 | #1 | 2026-11-19 16:52:13Z | 16:56:55Z | no review | | | | | 0 | no agent | no agent | no agent | no agent | Rendered and shipped by the `tui_repo` script of the `rust_tui` recipe: no agent and no review round took part, so the token cells name no figure and there is no clean round. Start is the creation of the phase 0 worktree; start → end waits for the release. |
