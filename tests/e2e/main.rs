@@ -3,6 +3,10 @@ use std::process::Command;
 use std::thread::sleep;
 use std::time::{Duration, Instant};
 
+use harbour::tui::SESSION_COMMAND;
+
+const AGENT: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/agent.sh");
+
 #[test]
 #[ignore]
 fn the_binary_runs_in_a_scratch_tmux_server() {
@@ -40,6 +44,35 @@ fn q_leaves_the_screen_and_restores_the_terminal() {
     let screen = server.wait_for_screen("harbour exited 0");
     assert!(screen.contains("harbour exited 0"), "{screen}");
     assert!(!screen.contains("press n to start one"), "{screen}");
+}
+
+#[test]
+#[ignore]
+fn n_starts_a_session_named_after_the_directory_and_shows_it() {
+    let home = tempfile::tempdir().unwrap();
+    let server = Server::start("start", 160, 20);
+    server.run(home.path(), &[(SESSION_COMMAND, AGENT)], &[]);
+    server.wait_for_screen("press n to start one");
+
+    server.send_keys(&["n"]);
+
+    let screen = server.wait_for_screen("acme agent in acme-api");
+    assert!(screen.contains("acme agent in acme-api"), "{screen}");
+    assert!(screen.contains("acme-api 1"), "{screen}");
+}
+
+#[test]
+#[ignore]
+fn a_session_does_not_inherit_the_tmux_of_harbour() {
+    let home = tempfile::tempdir().unwrap();
+    let server = Server::start("tmux-env", 160, 20);
+    server.run(home.path(), &[(SESSION_COMMAND, AGENT)], &[]);
+    server.wait_for_screen("press n to start one");
+
+    server.send_keys(&["n"]);
+
+    let screen = server.wait_for_screen("acme agent in");
+    assert!(screen.contains("tmux:[]"), "{screen}");
 }
 
 struct Server {
@@ -93,7 +126,12 @@ impl Server {
     }
 
     fn run(&self, home: &Path, env: &[(&str, &str)], args: &[&str]) {
+        let directory = home.join("acme-api");
+        std::fs::create_dir_all(&directory).unwrap();
         let mut words = vec![
+            "cd".to_string(),
+            quoted(&directory.display().to_string()),
+            "&&".to_string(),
             "env".to_string(),
             "-u".to_string(),
             "XDG_CONFIG_HOME".to_string(),

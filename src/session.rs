@@ -29,6 +29,8 @@ impl Session {
         let mut builder = CommandBuilder::new(&command[0]);
         builder.args(&command[1..]);
         builder.cwd(std::env::current_dir()?);
+        builder.env_remove("TMUX");
+        builder.env_remove("TMUX_PANE");
         builder.env("TERM", "xterm-256color");
         builder.env("COLORTERM", "truecolor");
         let child = pty.slave.spawn_command(builder).map_err(io::Error::other)?;
