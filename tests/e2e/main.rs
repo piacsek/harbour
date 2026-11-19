@@ -163,6 +163,25 @@ fn a_command_that_cannot_start_is_named_in_the_pane() {
     assert!(!screen.contains("acme-api 1"), "{screen}");
 }
 
+#[test]
+#[ignore]
+fn q_with_a_running_session_asks_and_y_leaves() {
+    let home = tempfile::tempdir().unwrap();
+    let server = Server::start("quit-asks", 160, 20);
+    server.run(home.path(), &[(SESSION_COMMAND, AGENT)], &[]);
+    server.wait_for_screen("press n to start one");
+    server.send_keys(&["n"]);
+    server.wait_for_screen("acme agent in acme-api");
+
+    server.send_keys(&["q"]);
+    let screen = server.wait_for_screen("Quit? y/n");
+    assert!(screen.contains("Quit? y/n"), "{screen}");
+    server.send_keys(&["y"]);
+
+    let screen = server.wait_for_screen("harbour exited 0");
+    assert!(screen.contains("harbour exited 0"), "{screen}");
+}
+
 struct Server {
     socket: String,
 }

@@ -1,3 +1,4 @@
+mod ending;
 mod exits;
 mod focus;
 mod input;

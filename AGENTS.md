@@ -47,7 +47,7 @@ src/main.rs      the binary: `--version`/`-V`/`version`, `--help`/`-h`/`help`, `
 src/lib.rs                    the library the binary and the tests share
 src/tui.rs                    the terminal: enters and restores it, reads its events, draws the app; the program a session runs (`claude`, or what `HARBOUR_SESSION_COMMAND` names)
 src/app.rs                    the app: what is on screen and what each key does
-src/session.rs                a session: a command in a PTY, its output parsed into a screen that renders as a widget, its terminal queries answered, its exit status
+src/session.rs                a session: a command in a PTY, its output parsed into a screen that renders as a widget, its terminal queries answered, its exit status; ending it (or dropping it) hangs it up, then kills it
 src/keys.rs                   the bytes a terminal sends for a key (legacy encoding) or a mouse event (SGR), which a session receives
 src/changelog.rs              the bundled CHANGELOG.md and the rules a release entry must meet
 CHANGELOG.md                  only its `# Changelog` heading on `main`; each release commit writes its sections

@@ -1,3 +1,4 @@
+use std::process::Command;
 use std::thread::sleep;
 use std::time::{Duration, Instant};
 
@@ -120,6 +121,26 @@ fn a_session_started_with_no_room_still_runs() {
     assert!(screen.contains("ready"), "{screen}");
 }
 
+#[test]
+fn dropping_a_session_ends_a_command_that_ignores_hangup() {
+    let session = start("trap '' HUP; echo \"pid:$$\"; while :; do sleep 1; done");
+    let pid = pid_shown(&session);
+
+    drop(session);
+
+    assert!(!alive(&pid), "{pid} is still running");
+}
+
+#[test]
+fn dropping_a_session_ends_what_its_command_started() {
+    let session = start("(while :; do sleep 1; done) & echo \"pid:$!\"; wait");
+    let pid = pid_shown(&session);
+
+    drop(session);
+
+    assert!(!still_alive_after_a_while(&pid), "{pid} is still running");
+}
+
 fn replied(query: &str, length: usize) -> String {
     format!(
         "stty raw -echo; printf '{query}'; r=$(dd bs=1 count={length} 2>/dev/null); \
@@ -155,4 +176,30 @@ fn rendered(session: &Session) -> String {
         })
         .collect::<Vec<_>>()
         .join("\n")
+}
+
+fn pid_shown(session: &Session) -> String {
+    let screen = wait_for(session, "pid:");
+    screen
+        .split("pid:")
+        .nth(1)
+        .and_then(|rest| rest.split_whitespace().next())
+        .unwrap()
+        .to_string()
+}
+
+fn alive(pid: &str) -> bool {
+    Command::new("kill")
+        .args(["-0", pid])
+        .status()
+        .unwrap()
+        .success()
+}
+
+fn still_alive_after_a_while(pid: &str) -> bool {
+    let deadline = Instant::now() + Duration::from_secs(5);
+    while alive(pid) && Instant::now() < deadline {
+        sleep(Duration::from_millis(50));
+    }
+    alive(pid)
 }

@@ -98,6 +98,10 @@ impl Session {
         self.exit.as_ref()
     }
 
+    pub fn end(&mut self) {
+        let _ = self.child.kill();
+    }
+
     pub fn send(&self, bytes: &[u8]) {
         write(&self.writer, bytes);
     }
@@ -121,6 +125,15 @@ impl Session {
 
     pub fn application_cursor(&self) -> bool {
         self.parser.lock().unwrap().screen().application_cursor()
+    }
+}
+
+impl Drop for Session {
+    fn drop(&mut self) {
+        if self.exit().is_none() {
+            let _ = self.child.kill();
+            let _ = self.child.wait();
+        }
     }
 }
 

@@ -22,7 +22,14 @@ pub struct App {
     sidebar: Rect,
     pane_focused: bool,
     failed: Option<String>,
+    asking: Option<Question>,
     quitting: bool,
+}
+
+#[derive(Clone, Copy, PartialEq)]
+enum Question {
+    End,
+    Quit,
 }
 
 struct Entry {
@@ -50,6 +57,7 @@ impl App {
             sidebar: Rect::default(),
             pane_focused: false,
             failed: None,
+            asking: None,
             quitting: false,
         }
     }
@@ -67,11 +75,18 @@ impl App {
             session.send(&keys::encode(key, session.application_cursor()));
             return;
         }
+        if let Some(question) = self.asking.take() {
+            if key.code == KeyCode::Char('y') {
+                self.answer_yes(question);
+            }
+            return;
+        }
         match key.code {
             _ if is_ctrl(key, 'l') => self.pane_focused = !self.sessions.is_empty(),
             KeyCode::Enter => self.pane_focused = !self.sessions.is_empty(),
-            KeyCode::Char('q') => self.quitting = true,
+            KeyCode::Char('q') => self.quit(),
             KeyCode::Char('n') => self.start(),
+            KeyCode::Char('x') => self.end_or_remove(),
             KeyCode::Char('j') => {
                 self.selected = (self.selected + 1).min(self.sessions.len().saturating_sub(1))
             }
@@ -112,6 +127,41 @@ impl App {
             .map(|entry| &entry.session)
     }
 
+    fn end_or_remove(&mut self) {
+        let Some(entry) = self.sessions.get_mut(self.selected) else {
+            return;
+        };
+        if entry.session.exit().is_some() {
+            self.sessions.remove(self.selected);
+            self.selected = self.selected.min(self.sessions.len().saturating_sub(1));
+        } else {
+            self.asking = Some(Question::End);
+        }
+    }
+
+    fn quit(&mut self) {
+        if self
+            .sessions
+            .iter_mut()
+            .all(|entry| entry.session.exit().is_some())
+        {
+            self.quitting = true;
+        } else {
+            self.asking = Some(Question::Quit);
+        }
+    }
+
+    fn answer_yes(&mut self, question: Question) {
+        match question {
+            Question::End => {
+                if let Some(entry) = self.sessions.get_mut(self.selected) {
+                    entry.session.end();
+                }
+            }
+            Question::Quit => self.quitting = true,
+        }
+    }
+
     fn start(&mut self) {
         match Session::start(&self.command, self.pane.height, self.pane.width) {
             Ok(session) => {
@@ -134,9 +184,14 @@ impl App {
     pub fn draw(&mut self, frame: &mut Frame) {
         let (sidebar, pane) = self.areas(frame.area());
         self.sidebar = sidebar;
-        let sidebar_block = Block::bordered()
+        let mut sidebar_block = Block::bordered()
             .border_type(border(!self.pane_focused))
             .title(" sessions ");
+        match self.asking {
+            Some(Question::End) => sidebar_block = sidebar_block.title_bottom(" End? y/n "),
+            Some(Question::Quit) => sidebar_block = sidebar_block.title_bottom(" Quit? y/n "),
+            None => {}
+        }
         let pane_block = Block::bordered().border_type(border(self.pane_focused));
         self.pane = pane_block.inner(if pane.is_empty() { frame.area() } else { pane });
         self.shown_pane = if pane.is_empty() {
