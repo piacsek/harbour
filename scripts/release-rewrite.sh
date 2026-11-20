@@ -32,10 +32,11 @@ lock_reads() {
 root_package() {
   ROOT="$1" awk '
     BEGIN { want = "\"manifest_path\":\"" ENVIRON["ROOT"] "/Cargo.toml\""; size_want = length(want) }
-    NR > 1 { bad = 1; exit }
+    bad { next }
+    NR > 1 { bad = 1; next }
     {
       text = $0
-      if (substr(text, 1, 13) != "{\"packages\":[") { bad = 1; exit }
+      if (substr(text, 1, 13) != "{\"packages\":[") { bad = 1; next }
       size = length(text)
       depth = 2
       for (i = 14; i <= size; i++) {
@@ -60,13 +61,13 @@ root_package() {
         if (c != "[" && c != "{") continue
         depth++
         if (depth != 3) continue
-        if (c != "{" || !match(substr(text, i, 4096), /^\{"name":"[^"\\]+","version":"[^"\\]+","id":"[^"\\]*"/)) { bad = 1; exit }
+        if (c != "{" || !match(substr(text, i, 4096), /^\{"name":"[^"\\]+","version":"[^"\\]+","id":"[^"\\]*"/)) { bad = 1; next }
         split(substr(text, i, RLENGTH), field, "\"")
         name = field[4]
         version = field[8]
         mine = 0
       }
-      if (depth != 1 || roots > 1 || substr(text, i, 23) != "],\"workspace_members\":[") { bad = 1; exit }
+      if (depth != 1 || roots > 1 || substr(text, i, 23) != "],\"workspace_members\":[") { bad = 1; next }
       read = 1
     }
     END {
