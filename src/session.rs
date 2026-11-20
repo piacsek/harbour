@@ -214,6 +214,7 @@ pub fn containing() -> bool {
 }
 
 fn contained(parser: &mut Parser, rows: u16, cols: u16, work: impl FnOnce(&mut Parser)) {
+    let modes = modes(parser.screen());
     CONTAINING.set(true);
     let failed = panic::catch_unwind(AssertUnwindSafe(|| work(parser))).is_err();
     CONTAINING.set(false);
@@ -227,7 +228,16 @@ fn contained(parser: &mut Parser, rows: u16, cols: u16, work: impl FnOnce(&mut P
                 repaint: true,
             },
         );
+        parser.process(&modes);
     }
+}
+
+fn modes(screen: &vt100::Screen) -> Vec<u8> {
+    let mut modes = screen.input_mode_formatted();
+    if screen.hide_cursor() {
+        modes.extend_from_slice(b"\x1b[?25l");
+    }
+    modes
 }
 
 fn safe_size(rows: u16, cols: u16) -> (u16, u16) {

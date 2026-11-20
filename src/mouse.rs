@@ -6,22 +6,37 @@ use vt100::{MouseProtocolEncoding, MouseProtocolMode};
 pub enum Gesture {
     #[default]
     Idle,
-    Pane,
+    Pane(usize),
     Elsewhere,
+}
+
+#[derive(Clone, Copy, Debug)]
+pub struct Target {
+    pub session: usize,
+    pub mode: MouseProtocolMode,
+    pub encoding: MouseProtocolEncoding,
 }
 
 pub fn route(
     gesture: Gesture,
     event: MouseEvent,
     pane: Rect,
-    mode: MouseProtocolMode,
-    encoding: MouseProtocolEncoding,
+    target: Option<Target>,
 ) -> (Gesture, Option<Vec<u8>>) {
-    if pane.is_empty() {
+    let Some(Target {
+        session,
+        mode,
+        encoding,
+    }) = target.filter(|_| !pane.is_empty())
+    else {
         return (Gesture::Idle, None);
-    }
+    };
+    let gesture = match gesture {
+        Gesture::Pane(owner) if owner != session => Gesture::Idle,
+        gesture => gesture,
+    };
     let inside = if pane.contains(Position::new(event.column, event.row)) {
-        Gesture::Pane
+        Gesture::Pane(session)
     } else {
         Gesture::Elsewhere
     };
@@ -31,7 +46,7 @@ pub fn route(
         MouseEventKind::Drag(_) => (gesture, gesture),
         _ => (gesture, inside),
     };
-    if owner != Gesture::Pane {
+    if owner != Gesture::Pane(session) {
         return (next, None);
     }
     let column = event.column.clamp(pane.x, pane.right() - 1) - pane.x + 1;

@@ -7,6 +7,7 @@ use harbour::session::Session;
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::widgets::Widget;
+use vt100::{MouseProtocolEncoding, MouseProtocolMode};
 
 const ROWS: u16 = 10;
 const COLS: u16 = 200;
@@ -211,6 +212,25 @@ fn a_session_whose_screen_was_reset_is_asked_to_repaint() {
 }
 
 #[test]
+fn a_session_whose_screen_was_reset_keeps_the_modes_its_program_turned_on() {
+    let mut session = Session::start(&moded_wide_at_the_edge(), ROWS, 160).unwrap();
+    wait_for(&session, "ready");
+    session.resize(ROWS, 159);
+    session.send(b"x");
+    sleep(Duration::from_millis(300));
+
+    session.paste("P1\rP2");
+
+    let screen = wait_for(&session, "^[201~");
+    assert!(screen.contains("^[200~P1/P2^[201~"), "{screen}");
+    assert!(!screen.contains('█'), "{screen}");
+    assert_eq!(
+        session.mouse_protocol(),
+        (MouseProtocolMode::PressRelease, MouseProtocolEncoding::Sgr)
+    );
+}
+
+#[test]
 fn dropping_a_session_ends_a_command_that_ignores_hangup() {
     let session = start("trap '' HUP; echo \"pid:$$\"; while :; do sleep 1; done");
     let pid = pid_shown(&session);
@@ -282,6 +302,17 @@ fn wide_at_the_edge() -> [String; 3] {
                   printf '\\033[1;1H%*s' \"$cols\" ''; \
                   printf '\\033[4;1Hredrew %s' \"$cols\"; \
                   done";
+    ["/bin/sh".to_string(), "-c".into(), script.into()]
+}
+
+fn moded_wide_at_the_edge() -> [String; 3] {
+    let script = "printf '\\033[?2004h\\033[?1000h\\033[?1006h\\033[?25l'; \
+                  trap 'printf \"\\033[1;1H%*s\" \"$(stty size | cut -d\" \" -f2)\" \"\"' WINCH; \
+                  cols=$(stty size | cut -d' ' -f2); \
+                  printf '\\033[1;%dH\\343\\201\\202' $((cols-1)); \
+                  printf '\\033[3;1Hready\\033[5;1H'; \
+                  stty raw -echo; \
+                  while :; do dd bs=1 count=1 2>/dev/null | tr '\\033\\r' '^/'; done";
     ["/bin/sh".to_string(), "-c".into(), script.into()]
 }
 

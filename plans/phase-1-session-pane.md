@@ -51,7 +51,8 @@ hand in Ghostty inside tmux 3.7c, with Claude Code 2.1.328. The spike is not in 
 - **`vt100` and `tui-term` for this phase.** The emoji fault is a known limit, not a blocker. A
   second parser is not weighed until a user-visible fault that matters shows up. Its panics are
   contained: a call into `vt100` that panics gives that one session a fresh screen at its size
-  and asks the command to repaint, and harbour and the other sessions carry on. Replacing the
+  with the modes the command had turned on (keypad, cursor keys, bracketed paste, mouse, hidden
+  cursor) and asks the command to repaint, and harbour and the other sessions carry on. Replacing the
   parser is in the backlog of `PLAN.md`.
 - **Legacy key encoding only.** harbour does not track which keyboard protocol the child asked
   for. Shift+Enter is sent as ESC CR, which Claude Code reads as a newline.
@@ -62,7 +63,8 @@ hand in Ghostty inside tmux 3.7c, with Claude Code 2.1.328. The spike is not in 
 - **The mouse is forwarded to the pane** as the child asked for it: what its mode reports
   (presses, releases, the wheel, drags, moves), with Shift, Alt and Ctrl, in its encoding. A gesture
   belongs to where its button went down: one that starts in the pane reaches the session up to its
-  release, one that starts anywhere else never does. Claude Code opens a link on Ctrl-click, so the
+  release, one that starts anywhere else never does. It also belongs to the session shown when it
+  started: showing another session ends it, so no other session gets part of it. Claude Code opens a link on Ctrl-click, so the
   modifiers matter. A click on the sidebar focuses the sidebar.
 - **The sidebar shows what harbour knows by itself:** a name (`<directory> <n>`) and whether the
   process is running or has exited. What the agent is doing is a later phase.

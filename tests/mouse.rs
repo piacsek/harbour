@@ -1,5 +1,5 @@
 use crossterm::event::{KeyModifiers, MouseButton, MouseEvent, MouseEventKind};
-use harbour::mouse::{Gesture, route};
+use harbour::mouse::{Gesture, Target, route};
 use ratatui::layout::Rect;
 use vt100::{MouseProtocolEncoding, MouseProtocolMode};
 
@@ -10,7 +10,7 @@ const BUTTON: MouseProtocolMode = MouseProtocolMode::ButtonMotion;
 const ANY: MouseProtocolMode = MouseProtocolMode::AnyMotion;
 
 const IDLE: Gesture = Gesture::Idle;
-const IN_PANE: Gesture = Gesture::Pane;
+const IN_PANE: Gesture = Gesture::Pane(1);
 const ELSEWHERE: Gesture = Gesture::Elsewhere;
 
 const IN: (u16, u16) = (45, 3);
@@ -85,11 +85,32 @@ fn an_empty_pane_forwards_nothing_and_ends_the_gesture() {
         IN_PANE,
         event(DRAG, IN, PLAIN),
         Rect::default(),
-        BUTTON,
-        SGR,
+        Some(target(1, BUTTON, SGR)),
     );
     assert_eq!(gesture, IDLE);
     assert_eq!(bytes, None);
+}
+
+#[test]
+fn a_gesture_ends_when_its_session_is_no_longer_shown() {
+    assert_eq!(
+        shown_instead(Some(target(2, BUTTON, SGR)), UP),
+        (IDLE, None)
+    );
+    assert_eq!(
+        shown_instead(Some(target(2, BUTTON, SGR)), DRAG),
+        (IDLE, None)
+    );
+    assert_eq!(shown_instead(None, UP), (IDLE, None));
+    assert_eq!(shown_instead(None, DRAG), (IDLE, None));
+}
+
+#[test]
+fn a_press_in_another_session_starts_a_gesture_of_its_own() {
+    assert_eq!(
+        shown_instead(Some(target(2, BUTTON, SGR)), DOWN),
+        (Gesture::Pane(2), Some(b"\x1b[<0;5;3M".to_vec()))
+    );
 }
 
 #[test]
@@ -137,13 +158,24 @@ fn sent(
     at: (u16, u16),
     modifiers: KeyModifiers,
 ) -> Option<String> {
-    route(gesture, event(kind, at, modifiers), pane(), mode, SGR)
-        .1
-        .map(|bytes| String::from_utf8(bytes).unwrap())
+    route(
+        gesture,
+        event(kind, at, modifiers),
+        pane(),
+        Some(target(1, mode, SGR)),
+    )
+    .1
+    .map(|bytes| String::from_utf8(bytes).unwrap())
 }
 
 fn next(gesture: Gesture, kind: MouseEventKind, at: (u16, u16)) -> Gesture {
-    route(gesture, event(kind, at, PLAIN), pane(), BUTTON, SGR).0
+    route(
+        gesture,
+        event(kind, at, PLAIN),
+        pane(),
+        Some(target(1, BUTTON, SGR)),
+    )
+    .0
 }
 
 fn encoded(
@@ -156,10 +188,21 @@ fn encoded(
         IN_PANE,
         event(kind, at, modifiers),
         pane(),
-        BUTTON,
-        encoding,
+        Some(target(1, BUTTON, encoding)),
     )
     .1
+}
+
+fn shown_instead(shown: Option<Target>, kind: MouseEventKind) -> (Gesture, Option<Vec<u8>>) {
+    route(IN_PANE, event(kind, IN, PLAIN), pane(), shown)
+}
+
+fn target(session: usize, mode: MouseProtocolMode, encoding: MouseProtocolEncoding) -> Target {
+    Target {
+        session,
+        mode,
+        encoding,
+    }
 }
 
 fn sgr(report: &str) -> Option<String> {

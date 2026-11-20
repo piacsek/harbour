@@ -205,3 +205,22 @@ fn a_ctrl_click_reaches_the_session_with_its_modifier() {
     let shown = screen.wait_for("acme agent read:");
     assert!(shown.contains("acme agent read:[<16;5;3M"), "{shown}");
 }
+
+#[test]
+fn a_release_after_selecting_another_session_does_not_reach_it() {
+    let mut screen = Screen::new(raw_agent("\\033[?1000h\\033[?1006h", 9));
+    screen.press('n');
+    screen.wait_for("acme agent ready");
+    screen.press('n');
+    screen.wait_for("acme agent ready");
+    screen.press('k');
+    screen.mouse(MouseEventKind::Down(MouseButton::Left), 45, 3);
+    screen.key(KeyCode::Char('h'), KeyModifiers::CONTROL);
+    screen.press('j');
+
+    screen.mouse(MouseEventKind::Up(MouseButton::Left), 45, 3);
+    screen.mouse(MouseEventKind::Down(MouseButton::Left), 45, 3);
+
+    let shown = screen.wait_for("acme agent read:");
+    assert!(shown.contains("acme agent read:[<0;5;3M"), "{shown}");
+}

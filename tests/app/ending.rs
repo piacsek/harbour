@@ -68,6 +68,44 @@ fn x_on_an_exited_session_removes_its_row() {
 }
 
 #[test]
+fn ctrl_y_to_the_question_keeps_the_session_running() {
+    let mut screen = Screen::new(reading_agent());
+    screen.press('n');
+    screen.wait_for("acme agent ready");
+    screen.press('x');
+
+    screen.key(KeyCode::Char('y'), KeyModifiers::CONTROL);
+
+    let shown = screen.draw();
+    assert!(!shown.contains("y/n"), "{shown}");
+    assert!(shown.contains(&format!("● {} 1", directory())), "{shown}");
+}
+
+#[test]
+fn alt_y_to_the_quit_question_keeps_harbour_running() {
+    let mut screen = Screen::new(reading_agent());
+    screen.press('n');
+    screen.wait_for("acme agent ready");
+    screen.press('q');
+
+    screen.key(KeyCode::Char('y'), KeyModifiers::ALT);
+
+    assert!(screen.app.running());
+}
+
+#[test]
+fn shift_y_to_the_quit_question_quits() {
+    let mut screen = Screen::new(reading_agent());
+    screen.press('n');
+    screen.wait_for("acme agent ready");
+    screen.press('q');
+
+    screen.key(KeyCode::Char('Y'), KeyModifiers::SHIFT);
+
+    assert!(!screen.app.running());
+}
+
+#[test]
 fn q_with_a_running_session_asks_before_quitting() {
     let mut screen = Screen::new(reading_agent());
     screen.press('n');

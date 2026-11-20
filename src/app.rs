@@ -11,7 +11,7 @@ use ratatui::widgets::{
 use crate::demo;
 use crate::help;
 use crate::keys;
-use crate::mouse::{self, Gesture};
+use crate::mouse::{self, Gesture, Target};
 use crate::session::{self, Session};
 
 const NARROW: u16 = 60;
@@ -41,6 +41,7 @@ enum Question {
 }
 
 struct Entry {
+    id: usize,
     name: String,
     session: Session,
 }
@@ -85,7 +86,7 @@ impl App {
     }
 
     pub fn key(&mut self, key: KeyEvent) {
-        if self.dismiss(key.code == KeyCode::Char('y')) {
+        if self.dismiss(is_yes(key)) {
             return;
         }
         if self.pane_focused && is_ctrl(key, 'h') {
@@ -136,12 +137,19 @@ impl App {
                 self.pane_focused = !self.sessions.is_empty();
             }
         }
-        let session = self.sessions.get(self.selected).map(|entry| &entry.session);
-        let (mode, encoding) = session.map_or_else(Default::default, Session::mouse_protocol);
-        let (gesture, bytes) = mouse::route(self.gesture, event, self.shown_pane, mode, encoding);
+        let entry = self.sessions.get(self.selected);
+        let target = entry.map(|entry| {
+            let (mode, encoding) = entry.session.mouse_protocol();
+            Target {
+                session: entry.id,
+                mode,
+                encoding,
+            }
+        });
+        let (gesture, bytes) = mouse::route(self.gesture, event, self.shown_pane, target);
         self.gesture = gesture;
-        if let (Some(session), Some(bytes)) = (session, bytes) {
-            session.send(&bytes);
+        if let (Some(entry), Some(bytes)) = (entry, bytes) {
+            entry.session.send(&bytes);
         }
     }
 
@@ -211,6 +219,7 @@ impl App {
                 self.failed = None;
                 self.started += 1;
                 self.sessions.push(Entry {
+                    id: self.started,
                     name: format!("{} {}", self.directory, self.started),
                     session,
                 });
@@ -367,4 +376,8 @@ fn border(focused: bool) -> BorderType {
 
 fn is_ctrl(key: KeyEvent, c: char) -> bool {
     key.code == KeyCode::Char(c) && key.modifiers == KeyModifiers::CONTROL
+}
+
+fn is_yes(key: KeyEvent) -> bool {
+    matches!(key.code, KeyCode::Char('y' | 'Y')) && KeyModifiers::SHIFT.contains(key.modifiers)
 }

@@ -28,8 +28,8 @@ In this order unless a retro says otherwise.
 ### Fixes to weigh
 
 - Replace the terminal parser. `vt100` panics on a wide character cut by a resize and gives some
-  emoji the wrong width; harbour contains its panics, but each one blanks a session's screen
-  until it repaints. Weigh `alacritty_terminal` as the candidate.
+  emoji the wrong width; harbour contains its panics and keeps the modes the program turned on,
+  but each one blanks a session's screen until it repaints. Weigh `alacritty_terminal` as the candidate.
 
 ### Bring from conveyor when the interface exists
 
