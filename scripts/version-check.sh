@@ -82,13 +82,15 @@ refuse_pending_repeats() {
           if (tab && !(bullet in owner)) owner[bullet] = substr(lines[i], 1, tab - 1)
         }
       }
+      refused { next }
       {
         bullet = substr($0, index($0, "\t") + 1)
         if (bullet in owner) {
           print ENVIRON["FILE"] " repeats a bullet of " owner[bullet] ", which main holds and no release has shipped yet: " bullet
-          exit 1
+          refused = 1
         }
       }
+      END { exit refused }
     ' >&2 || return 1
   done <<<"$3"
 }
@@ -130,7 +132,7 @@ metadata() {
 
 lock_version() {
   awk '
-    entry && /^version = / { sub(/^version = "/, ""); sub(/".*$/, ""); print; exit }
+    !done && entry && /^version = / { sub(/^version = "/, ""); sub(/".*$/, ""); print; done = 1 }
     { entry = ($0 == "name = \"harbour\"") }
   '
 }
@@ -179,11 +181,10 @@ if metadata; then
   esac
 else
   answer="$(awk -v tree="$tree/" '
-    /^error/ {
+    !found && /^error/ {
       while ((at = index($0, tree)) > 0) $0 = substr($0, 1, at - 1) substr($0, at + length(tree))
       print
       found = 1
-      exit
     }
     END { if (!found) print "nothing" }
   ' "$errors" | tr '[:cntrl:]' ' ')"
@@ -201,9 +202,10 @@ case "$lockfile" in
   *)
     shape="$(printf '%s\n' "$lockfile" | awk -v q="'" '
       function outside(line) { return "line " line " is a `name = \"harbour\"` that is not right after a `[[package]]` line and right before its `version = \"...\"` line" }
-      entry && !/^version = "[^"]*"$/ { print outside(NR - 1); done = 1; exit }
-      $0 ~ "^[ \t]*(name|\"[^=]*\"|" q "[^=]*" q ")[ \t]*[=.]" && !/^name = "[A-Za-z0-9_-]+"$/ { print "line " NR " is a `name` or quoted key other than `name = \"<crate>\"` (letters, digits, `_` and `-`)"; done = 1; exit }
-      $0 == "name = \"harbour\"" && previous != "[[package]]" { print outside(NR); done = 1; exit }
+      done { next }
+      entry && !/^version = "[^"]*"$/ { print outside(NR - 1); done = 1; next }
+      $0 ~ "^[ \t]*(name|\"[^=]*\"|" q "[^=]*" q ")[ \t]*[=.]" && !/^name = "[A-Za-z0-9_-]+"$/ { print "line " NR " is a `name` or quoted key other than `name = \"<crate>\"` (letters, digits, `_` and `-`)"; done = 1; next }
+      $0 == "name = \"harbour\"" && previous != "[[package]]" { print outside(NR); done = 1; next }
       { entry = ($0 == "name = \"harbour\""); previous = $0 }
       END { if (entry && !done) print outside(NR) }
     ')"

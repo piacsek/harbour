@@ -17,7 +17,7 @@ released_tree() {
 refuse_strays() {
   local listing stray
   listing="$(git -c core.quotePath=false ls-tree -r --name-only "$fragments_at" -- changes/)" || return 1
-  stray="$(printf '%s\n' "$listing" | awk '$0 != "" && !/^changes\/[^\/]+\.md$/ { print; exit }')"
+  stray="$(printf '%s\n' "$listing" | awk '!found && $0 != "" && !/^changes\/[^\/]+\.md$/ { print; found = 1 }')"
   if [ -n "$stray" ]; then
     echo "$stray is not a fragment: a fragment is a file changes/<name>.md" >&2
     return 1
@@ -97,13 +97,15 @@ refuse_repeats() {
           if (!(bullet in version)) version[bullet] = substr(lines[i], 1, tab - 1)
         }
       }
+      refused { next }
       {
         bullet = substr($0, index($0, "\t") + 1)
         if (bullet in version) {
           print ENVIRON["FILE"] " repeats a bullet of v" version[bullet] ": " bullet
-          exit 1
+          refused = 1
         }
       }
+      END { exit refused }
     ' >&2 || return 1
   done <<<"$2"
 }

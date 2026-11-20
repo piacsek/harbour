@@ -23,7 +23,7 @@ release_state() {
   rm -f "$errors"
   draft="$(head -n 1 <<<"$view")"
   published="$(tail -n +2 <<<"$view")"
-  unexpected="$(grep -vxF -e '' -f <(printf '%s\n' "$RELEASE_ASSETS") <<<"$published" | head -n 1 || true)"
+  unexpected="$(grep -vxF -e '' -f <(printf '%s\n' "$RELEASE_ASSETS") <<<"$published" | sed -n 1p || true)"
   if [ -n "$unexpected" ]; then
     echo "the release of $tag holds $unexpected besides the three tarballs and their .sha256; remove it by hand" >&2
     return 1

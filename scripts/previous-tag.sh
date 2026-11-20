@@ -12,6 +12,6 @@ rm -f "$errors"
 previous="$(
   { grep -xE 'v[0-9]+\.[0-9]+\.[0-9]+' <<<"$names" || true; echo "$tag"; } \
     | sort -u -t. -k1.2,1n -k2,2n -k3,3n \
-    | awk -v tag="$tag" '$0 == tag { print prev; exit } { prev = $0 }'
+    | awk -v tag="$tag" '!found && $0 == tag { print prev; found = 1 } { prev = $0 }'
 )"
 echo "previous_tag=$previous"

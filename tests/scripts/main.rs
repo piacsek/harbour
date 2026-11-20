@@ -11,6 +11,7 @@ mod gates;
 mod helpers;
 mod homebrew_formula;
 mod next_version;
+mod pipe_readers;
 mod previous_tag;
 mod release_commit;
 mod release_commit_cargo;
