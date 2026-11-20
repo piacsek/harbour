@@ -82,3 +82,26 @@ pub fn title<'a>(sessions: impl Iterator<Item = (bool, Option<&'a Record>)>) -> 
         Span::from(format!(" {} ", counts[2])),
     ])
 }
+
+pub fn legend() -> Vec<Line<'static>> {
+    [
+        (State::Working, "working: thinking, or running a command"),
+        (
+            State::Blocked,
+            "blocked, waiting on you: the row says what for",
+        ),
+        (State::Idle, "idle, or exited"),
+        (
+            State::Unknown,
+            "status unknown: not Claude Code, or not written yet",
+        ),
+    ]
+    .into_iter()
+    .map(|(state, what)| {
+        Line::from(vec![
+            Span::styled(state.glyph(), state.style()),
+            Span::from(format!(" {what}")),
+        ])
+    })
+    .collect()
+}
