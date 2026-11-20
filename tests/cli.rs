@@ -162,6 +162,40 @@ fn edit_takes_a_file_named_like_a_flag_after_a_double_dash() {
 }
 
 #[test]
+fn edit_with_an_empty_file_prints_the_usage_on_stderr() {
+    assert_eq!(stderr(&launch(&["edit", ""])), USAGE);
+}
+
+#[test]
+fn edit_with_an_empty_file_exits_one() {
+    assert_eq!(launch(&["edit", ""]).status.code(), Some(1));
+}
+
+#[test]
+fn edit_with_an_empty_file_after_a_double_dash_prints_the_usage_on_stderr() {
+    assert_eq!(stderr(&launch(&["edit", "--", ""])), USAGE);
+}
+
+#[test]
+fn edit_with_a_missing_folder_exits_two() {
+    let scratch = tempfile::tempdir().unwrap();
+
+    let output = launch_at_home(scratch.path(), &["edit", "acme-missing/main.rs"]);
+
+    assert_eq!(output.status.code(), Some(2));
+}
+
+#[test]
+fn edit_with_no_harbour_running_exits_three() {
+    let scratch = tempfile::tempdir().unwrap();
+    std::fs::write(scratch.path().join("main.rs"), "").unwrap();
+
+    let output = launch_at_home(scratch.path(), &["edit", "main.rs"]);
+
+    assert_eq!(output.status.code(), Some(3));
+}
+
+#[test]
 fn edit_with_only_a_double_dash_prints_the_usage_on_stderr() {
     let scratch = tempfile::tempdir().unwrap();
 
@@ -210,6 +244,9 @@ idle or unknown. For tmux, put #(harbour status) in your status-right, for examp
 and raise status-right-length if the counts are cut off.
 edit <file> opens the file in the Neovim editor of the harbour session whose
 repository or worktree holds it, selects that session and shows the editor.
+It exits 0 when harbour took the file, 3 when no harbour runs or answers or no
+session holds the file (open it yourself), 2 when harbour or Neovim refused it,
+and 1 on a usage error.
 In tmux, splits and popups opened at #{pane_current_path} follow the selected
 session when harbour is typed at a shell prompt, or when a pane command or a
 wrapper script ends with exec harbour.

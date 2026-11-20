@@ -44,7 +44,7 @@ The layout names what each file or directory is for; read its functions from the
 rules from the `AGENTS.md` of its directory.
 
 ```
-src/main.rs      the binary: `--version`/`-V`/`version`, `--help`/`-h`/`help`, `changelog`, `status` (the counts for the tmux status line), `edit <file>` (`src/handoff.rs`), the interface with no argument on a terminal, the same with made-up sessions for `--demo` on a terminal, the usage on anything else
+src/main.rs      the binary: `--version`/`-V`/`version`, `--help`/`-h`/`help`, `changelog`, `status` (the counts for the tmux status line), `edit <file>` (`src/handoff.rs`; exits 0 opened, 3 untaken, 2 refused, 1 usage), the interface with no argument on a terminal, the same with made-up sessions for `--demo` on a terminal, the usage on anything else
 src/lib.rs                    the library the binary and the tests share
 src/tui.rs                    the terminal: enters and restores it, reads its events, draws the app, and hands it the listener of `harbour edit` (never in the demo); the program a session runs (`claude`, given `--session-id`, or what `HARBOUR_SESSION_COMMAND` names, given none; the transcripts are read for both); the directory picker (fzf over zoxide's list, or what `HARBOUR_DIR_PICKER` names); the editor (`nvim`, or the one program `HARBOUR_EDITOR` names, Neovim when its file name is `nvim`); it hands the app the real `chdir`, and makes a relative `CLAUDE_CONFIG_DIR` absolute before harbour moves
 src/picker.rs                 the directory picker of `n`: a program run as a session in a popup, its standard output sent to a file in a temporary directory only its owner can open (0700), the first line it prints, as bytes, canonicalized (read from where harbour was opened when relative), every path kept as bytes on the way into its arguments, exit statuses 126 and 127 (and 2 for fzf) named as "could not start"; fzf given `--no-expect --no-print-query --no-read0 --no-print0` after the user's `FZF_DEFAULT_OPTS`, so it prints one directory a line; for fzf the popup's own shell writes the list (harbour's directory first, then the list command's lines without it) into a FIFO fzf reads, so a slow list never holds up harbour, and a missing fzf means "start at once"; a bare program name is searched on `PATH` with each relative entry taken from where harbour was opened, where the popup's shell runs it
@@ -185,7 +185,9 @@ impact.
   Unix socket (104 bytes on macOS) means harbour never listens and `harbour edit` says none is
   running (`plans/phase-12-edit-from-outside.md`).
 - **A harbour killed or hung up leaves its `harbour edit` socket behind** until the next
-  harbour to start sweeps it: senders skip it, since its connect is refused (`src/handoff.rs`).
+  harbour to start sweeps it: senders skip it, since its connect is refused; under a flood from
+  the same user, a starting harbour can take a live harbour's socket for dead and sweep it; the
+  listener binds again within 5 s (`src/handoff.rs`).
 - **An editor's empty socket directory stays behind when a signal kills harbour**, a kill or the
   hangup of closing its terminal window: each Neovim's private directory in the temp directory is
   removed when its editor is dropped, which neither reaches (`src/editor.rs`).

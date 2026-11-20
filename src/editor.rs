@@ -147,7 +147,7 @@ impl Editor {
                 None => return Err(silent()),
             }
         };
-        if mode.blocking {
+        if mode.blocking || mode.mode.starts_with('c') || mode.mode.starts_with("no") {
             return Err("Neovim is waiting for a key; answer it and try again".to_string());
         }
         match nvim::edit(socket, file, deadline) {

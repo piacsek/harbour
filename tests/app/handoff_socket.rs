@@ -5,13 +5,14 @@ use std::os::unix::ffi::OsStrExt;
 use std::os::unix::fs::symlink;
 use std::os::unix::net::UnixStream;
 use std::path::{Path, PathBuf};
-use std::thread::sleep;
+use std::thread::{self, sleep};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use harbour::editor::Program;
 use harbour::handoff::{Listener, Reply, Verb};
 
+use crate::handing::answering;
 use crate::handoff::{app_with, file, listening, socket_in, soon, start_in};
 use crate::{Screen, script};
 
@@ -131,11 +132,14 @@ fn an_editor_that_exited_before_the_frame_is_replaced_by_the_open() {
     let editor = Program::neovim(
         "nvim",
         script(&format!(
-            "stty raw -echo; echo 'acme nvim ready'; dd bs=1 count=1 >/dev/null 2>&1; \
+            "{{ pwd -P; printf '%s\\n' \"$0\" \"$@\"; }} > '{}/args'; \
+             stty raw -echo; echo 'acme nvim ready'; dd bs=1 count=1 >/dev/null 2>&1; \
              touch '{}'",
+            scratch.path().display(),
             gone.display()
         )),
     );
+    let _asked = answering(scratch.path());
     let listener = Listener::new(&scratch.path().join("edit"));
     let mut screen = Screen::of(app_with(scratch.path(), editor).with_handoff(listener));
     start_in(&mut screen, scratch.path(), "acme-api", 1);
@@ -148,13 +152,48 @@ fn an_editor_that_exited_before_the_frame_is_replaced_by_the_open() {
         .key(KeyEvent::new(KeyCode::Char('x'), KeyModifiers::NONE));
     assert!(appeared(&gone));
     sleep(Duration::from_millis(200));
+
+    let reply = asked_about(&mut screen, scratch.path(), "open", &file);
+
+    assert_eq!(reply, "opened\n");
+}
+
+#[test]
+fn one_frame_answers_at_most_four_requests() {
+    let scratch = tempfile::tempdir().unwrap();
+    let mut screen = listening(scratch.path());
+    start_in(&mut screen, scratch.path(), "acme-api", 1);
     let socket = socket_in(&scratch.path().join("edit"));
-    let mut stream = requested(&socket, "open", Duration::from_secs(5), &file);
-    sleep(Duration::from_millis(300));
+    let file = file(scratch.path(), "acme-api");
+    let asking = {
+        let (socket, file) = (socket.clone(), file.clone());
+        let started = scratch.path().join("args");
+        thread::spawn(move || {
+            assert!(appeared(&started));
+            (0..5)
+                .map(|_| requested(&socket, "ask", Duration::from_secs(5), &file))
+                .collect::<Vec<_>>()
+        })
+    };
 
+    let mut opening = requested(&socket, "open", Duration::from_secs(5), &file);
+    let opened = first_frame_answering(&mut screen, &mut opening);
+
+    assert!(
+        opened.starts_with("refused Neovim did not answer"),
+        "{opened}"
+    );
+    let mut streams = asking.join().unwrap();
+    let answered: Vec<Option<String>> = streams.iter_mut().map(pending).collect();
+    assert_eq!(answered.iter().flatten().count(), 3);
     screen.draw();
-
-    assert_eq!(answered(&mut stream), "opened\n");
+    let mut waiting: Vec<UnixStream> = streams
+        .into_iter()
+        .zip(&answered)
+        .filter(|(_, answered)| answered.is_none())
+        .map(|(stream, _)| stream)
+        .collect();
+    assert!(pending(&mut waiting[0]).unwrap().starts_with("holds "));
 }
 
 fn root(scratch: &Path, folder: &str) -> PathBuf {
@@ -210,4 +249,31 @@ fn appeared(path: &Path) -> bool {
         sleep(Duration::from_millis(10));
     }
     path.exists()
+}
+
+fn pending(stream: &mut UnixStream) -> Option<String> {
+    let _ = stream.set_read_timeout(Some(Duration::from_millis(300)));
+    let mut text = String::new();
+    match stream.read_to_string(&mut text) {
+        Err(error) if matches!(error.kind(), ErrorKind::WouldBlock | ErrorKind::TimedOut) => None,
+        result => {
+            result.unwrap();
+            Some(text)
+        }
+    }
+}
+
+fn first_frame_answering(screen: &mut Screen, stream: &mut UnixStream) -> String {
+    stream.set_nonblocking(true).unwrap();
+    let deadline = Instant::now() + Duration::from_secs(5);
+    let mut buffer = [0; 256];
+    while Instant::now() < deadline {
+        screen.draw();
+        match stream.read(&mut buffer) {
+            Ok(read) => return String::from_utf8_lossy(&buffer[..read]).into_owned(),
+            Err(error) if error.kind() == ErrorKind::WouldBlock => sleep(Duration::from_millis(5)),
+            Err(error) => panic!("{error}"),
+        }
+    }
+    panic!("no frame answered");
 }

@@ -4,5 +4,6 @@ kind: feat
   worktree holds it, from a script or another terminal: harbour selects that session and shows
   its editor with the file open and the keys in it. The selected session wins when two hold
   the file, else the one used last. The editor must be Neovim; one is started with the file
-  when the session has none open. Anything else (no session holds the file, no harbour running,
-  Neovim waiting for a key) prints why and exits 1.
+  when the session has none open. Anything else prints why: it exits 3 when no harbour runs or
+  answers or no session holds the file, so a script can open it itself, and 2 when harbour or
+  Neovim refused it (Neovim waiting for a key, for one).

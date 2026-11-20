@@ -44,22 +44,49 @@ pub fn directory_from_env() -> Option<PathBuf> {
     .map(|dir| dir.join("harbour/edit"))
 }
 
-pub fn edit(argument: &OsStr) -> Result<(), String> {
-    let file = resolve(argument)?;
+#[derive(Debug, PartialEq)]
+pub enum Failure {
+    Refused(String),
+    Untaken(String),
+}
+
+impl Failure {
+    pub fn message(&self) -> &str {
+        match self {
+            Failure::Refused(message) | Failure::Untaken(message) => message,
+        }
+    }
+
+    pub fn status(&self) -> u8 {
+        match self {
+            Failure::Refused(_) => 2,
+            Failure::Untaken(_) => 3,
+        }
+    }
+}
+
+pub fn edit(argument: &OsStr) -> Result<(), Failure> {
+    let file = resolve(argument).map_err(Failure::Refused)?;
     send(directory_from_env().as_deref(), &file)
 }
 
-pub fn send(dir: Option<&Path>, file: &Path) -> Result<(), String> {
-    let none_running = || "no harbour is running".to_string();
+pub fn send(dir: Option<&Path>, file: &Path) -> Result<(), Failure> {
+    let none_running = || Failure::Untaken("no harbour is running".to_string());
     let dir = dir.ok_or_else(none_running)?;
     match fs::symlink_metadata(dir) {
         Err(error) if error.kind() == io::ErrorKind::NotFound => return Err(none_running()),
-        Err(error) => return Err(format!("{}: {}", dir.display(), plain(&error))),
+        Err(error) => {
+            return Err(Failure::Refused(format!(
+                "{}: {}",
+                dir.display(),
+                plain(&error)
+            )));
+        }
         Ok(meta) if !private(&meta) => {
-            return Err(format!(
+            return Err(Failure::Refused(format!(
                 "{} is not private; refusing to use it",
                 dir.display()
-            ));
+            )));
         }
         Ok(_) => {}
     }
@@ -85,7 +112,7 @@ pub fn send(dir: Option<&Path>, file: &Path) -> Result<(), String> {
         .iter()
         .any(|reply| matches!(reply, Exchange::Replied(_)))
     {
-        return Err("no harbour answered".to_string());
+        return Err(Failure::Untaken("no harbour answered".to_string()));
     }
     let mut chosen: Option<(&Path, u128)> = None;
     for (socket, reply) in sockets.iter().zip(&replies) {
@@ -100,15 +127,19 @@ pub fn send(dir: Option<&Path>, file: &Path) -> Result<(), String> {
         }
     }
     let Some((socket, _)) = chosen else {
-        return Err(format!("no harbour session holds {}", file.display()));
+        return Err(Failure::Untaken(format!(
+            "no harbour session holds {}",
+            file.display()
+        )));
     };
+    let unanswered = || Failure::Refused("no answer from harbour".to_string());
     match exchange(socket, "open", file, Instant::now() + OPENING).text() {
         Some("opened") => Ok(()),
         Some(reply) => match reply.strip_prefix("refused ") {
-            Some(message) => Err(message.to_string()),
-            None => Err("no answer from harbour".to_string()),
+            Some(message) => Err(Failure::Refused(message.to_string())),
+            None => Err(unanswered()),
         },
-        None => Err("no answer from harbour".to_string()),
+        None => Err(unanswered()),
     }
 }
 
@@ -181,6 +212,9 @@ fn exchange(socket: &Path, verb: &str, file: &Path, deadline: Instant) -> Exchan
     let Ok(mut stream) = connect(socket, deadline) else {
         return Exchange::Unreached;
     };
+    if peer(&stream) != Some(Uid::current()) {
+        return Exchange::Unreached;
+    }
     replied(&mut stream, verb, file, deadline).map_or(Exchange::Silent, Exchange::Replied)
 }
 
@@ -193,7 +227,8 @@ fn replied(stream: &mut UnixStream, verb: &str, file: &Path, deadline: Instant) 
     stream.set_read_timeout(Some(left)).ok()?;
     stream.write_all(&request).ok()?;
     stream.shutdown(Shutdown::Write).ok()?;
-    let reply = read_until_closed(stream, LONGEST_REPLY, deadline)?;
+    let reply =
+        read_until_closed(stream, LONGEST_REPLY, deadline).filter(|reply| !reply.is_empty())?;
     let line = reply.split(|byte| *byte == b'\n').next()?;
     Some(String::from_utf8_lossy(line).into_owned())
 }

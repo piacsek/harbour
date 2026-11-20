@@ -80,7 +80,7 @@ writes it, shuts its side, reads one reply line and closes.
 | Only harbour's naming | Harbour sweeps and the sender connects only to `<digits>-<digits>.sock` (and harbour to `.new`) entries; anything else in the folder is never read, connected to or removed. Harbour removes only its own file on exit, and others' only after a refused connect. |
 | No other user, no planted file | Only the user can create entries in a 0700 folder they own; on each accepted connection harbour also checks the peer's uid (`getpeereid` on macOS, `SO_PEERCRED` on Linux) and drops a peer of another uid unanswered. A planted regular file or symlink is not a socket and is skipped. |
 | Data, never code | The path travels as bytes after a NUL, at most 4096 bytes, never decoded as UTF-8. Harbour sends it to Neovim as a msgpack binary in `nvim_cmd({cmd = "edit", args = [path], magic = {file = false, bar = false}}, {})`: no command string is built, `%` and `#` are not expanded (`magic.file`), `\|` does not end the command (`magic.bar`), a space, quote or newline is part of the name (one argument), and a leading `+` or `-` cannot occur because the path is absolute. A Neovim harbour starts gets it after `--` on its command line, also as one argument. |
-| The sender never hangs | Non-blocking connects; one deadline for all the `ask`s (2 s) and one for the `open` (5 s), covering connect, write and read. On a deadline: a message and exit 1. |
+| The sender never hangs | Non-blocking connects; one deadline for all the `ask`s (2 s) and one for the `open` (5 s), covering connect, write and read. On a deadline: a message, exit 3 for the `ask`s (nobody took the file) and 2 for the `open`. |
 | Stale requests swept, never replayed | A request lives only in its connection: nothing is written to disk, so nothing is left to replay when a sender dies. The expiry in the request is the sender's deadline: harbour answers an expired request with nothing and does not act on it, so a sender that gave up never has its file opened later. Dead harbours' sockets are swept as above. |
 | The draw and key thread | The listener's threads accept, check and read; a flood of silent connections never reaches the draw thread. The draw loop answers at most 4 requests a frame. An `open` to a running Neovim makes its RPC calls (`nvim_get_mode`, retried every 10 ms while the socket is not up, then `nvim_cmd`) on that thread under the request's deadline and 1 s at most: a Known limits line. |
 | One deadline to the end | The request's deadline reaches the last step: an open past it starts no editor and sends Neovim nothing. Once `nvim_cmd` has been sent, its outcome may still land after the sender gave up (a swap prompt answered after "Neovim did not answer" still switches the buffer): a Known limits line. |
@@ -103,7 +103,8 @@ writes it, shuts its side, reads one reply line and closes.
 ## States and what the user sees
 
 `harbour edit` exits 0 with no output only on success; every other row prints
-`harbour: <message>` on stderr and exits 1.
+`harbour: <message>` on stderr and exits 3 when nobody took the file (a script opens it itself),
+2 when harbour or Neovim refused it, and 1 on a usage error.
 
 | State | In harbour | `harbour edit` prints | Exit |
 | --- | --- | --- | --- |
@@ -113,33 +114,37 @@ writes it, shuts its side, reads one reply line and closes.
 | Two sessions in one harbour hold it, one selected | the selected one gets it | nothing | 0 |
 | Two sessions hold it, neither selected | the one used last gets it | nothing | 0 |
 | Two harbours hold it | the harbour whose holder was used last gets it; the other is unchanged | nothing | 0 |
-| No session holds it | unchanged | `no harbour session holds <path>` | 1 |
-| Only a stopped card (a remembered session not resumed) holds it | unchanged, nothing resumed | `no harbour session holds <path>` | 1 |
+| No session holds it | unchanged | `no harbour session holds <path>` | 3 |
+| Only a stopped card (a remembered session not resumed) holds it | unchanged, nothing resumed | `no harbour session holds <path>` | 3 |
 | A stopped card is selected and a running session also holds it | the running session gets it | nothing | 0 |
-| No harbour running (no folder, an empty one, only dead sockets) | (none) | `no harbour is running` | 1 |
-| `HARBOUR_EDITOR` is not Neovim | unchanged | `a file can only be handed to Neovim, and HARBOUR_EDITOR is <name>` | 1 |
-| Neovim is waiting for a key (`blocking`) | unchanged | `Neovim is waiting for a key; answer it and try again` | 1 |
-| Neovim does not answer (no socket, or no reply in 1 s) | unchanged | `Neovim did not answer` | 1 |
-| Neovim refuses (E37 with `hidden` off, a swap file) | unchanged; Neovim shows nothing new | `Neovim refused: <its error>` | 1 |
-| Neovim cannot start | unchanged | `Could not start <name>: <error>` | 1 |
-| Neovim's socket not up yet (two opens back to back) | the second waits for it, up to the deadline, then as the first row | nothing | 0 |
-| A question (End?/Quit?) or the directory picker is open | unchanged; it answers the `ask` `none` | `no harbour session holds <path>` (another harbour that holds it gets it) | 1 |
-| A question or the picker opens between the `ask` and the `open` | unchanged | `harbour is waiting for an answer; try again after it` | 1 |
-| The request reaches the open past its deadline | unchanged, no editor started | `harbour took too long` | 1 |
+| No harbour running (no folder, an empty one, only dead sockets) | (none) | `no harbour is running` | 3 |
+| `HARBOUR_EDITOR` is not Neovim | unchanged | `a file can only be handed to Neovim, and HARBOUR_EDITOR is <name>` | 2 |
+| Neovim is waiting for a key (`blocking`) | unchanged | `Neovim is waiting for a key; answer it and try again` | 2 |
+| Neovim does not answer (no socket, or no reply in 1 s) | unchanged | `Neovim did not answer` | 2 |
+| Neovim that harbour starts for the open is not answering within 1 s (or the deadline), or stops at a prompt (a swap file left by a crashed Neovim) | unchanged; the started Neovim stays behind C-l | `Neovim did not answer`, or `Neovim is waiting for a key; answer it and try again` | 2 |
+| Neovim is on its command line (`c` modes) or waits for an operator's motion (`no` modes) | unchanged, nothing sent to it | `Neovim is waiting for a key; answer it and try again` | 2 |
+| A harbour closes the connection without a reply (over its 16 in flight, the request expired) | unchanged | `no harbour answered` when no other harbour answered | 3 |
+| The socket is held by another user (only root can place one in the folder) | never asked | `no harbour is running` when it is the only one | 3 |
+| Neovim refuses (E37 with `hidden` off, a swap file) | unchanged; Neovim shows nothing new | `Neovim refused: <its error>` | 2 |
+| Neovim cannot start | unchanged | `Could not start <name>: <error>` | 2 |
+| Neovim's socket not up yet (harbour just started it) | the open waits for it, up to 1 s and the deadline, and confirms it has the file | nothing | 0 |
+| A question (End?/Quit?) or the directory picker is open | unchanged; it answers the `ask` `none` | `no harbour session holds <path>` (another harbour that holds it gets it) | 3 |
+| A question or the picker opens between the `ask` and the `open` | unchanged | `harbour is waiting for an answer; try again after it` | 2 |
+| The request reaches the open past its deadline | unchanged, no editor started | `harbour took too long` | 2 |
 | The help view is open | it closes, then as the first row | nothing | 0 |
-| Harbour busy past the deadline | the expired request is dropped, nothing opens | `no answer from harbour` | 1 |
-| Harbours connected but none answered the `ask` in time | unchanged | `no harbour answered` | 1 |
-| A path climbing out of the root (`..`), a symlink in the root to a file outside it (dangling or not), a folder whose name only starts like the root | unchanged | `no harbour session holds <path>` | 1 |
-| A message holding control characters | (none) | the characters escaped (`\n`, `\u{1b}`) | 1 |
-| The path is a directory | (no request) | `<path> is a directory` | 1 |
-| Its folder does not exist | (no request) | `<path>: No such file or directory` | 1 |
-| Path longer than 4096 bytes | (no request) | `the path is longer than 4096 bytes` | 1 |
-| The state folder is not private (symlink, other owner, group or other bits) | (no request) | `<folder> is not private; refusing to use it` | 1 |
-| The socket path would not fit an `AF_UNIX` address | harbour does not listen | `no harbour is running` (Known limits line) | 1 |
-| No `XDG_STATE_HOME` or `HOME` | harbour does not listen | `no harbour is running` | 1 |
+| Harbour busy past the deadline | the expired request is dropped, nothing opens | `no answer from harbour` | 2 |
+| Harbours connected but none answered the `ask` in time | unchanged | `no harbour answered` | 3 |
+| A path climbing out of the root (`..`), a symlink in the root to a file outside it (dangling or not), a folder whose name only starts like the root | unchanged | `no harbour session holds <path>` | 3 |
+| A message holding control characters | (none) | the characters escaped (`\n`, `\u{1b}`) | as for that message |
+| The path is a directory | (no request) | `<path> is a directory` | 2 |
+| Its folder does not exist | (no request) | `<path>: No such file or directory` | 2 |
+| Path longer than 4096 bytes | (no request) | `the path is longer than 4096 bytes` | 2 |
+| The state folder is not private (symlink, other owner, group or other bits) | (no request) | `<folder> is not private; refusing to use it` | 2 |
+| The socket path would not fit an `AF_UNIX` address | harbour does not listen | `no harbour is running` (Known limits line) | 3 |
+| No `XDG_STATE_HOME` or `HOME` | harbour does not listen | `no harbour is running` | 3 |
 | `harbour edit -- <file>` | as `harbour edit <file>`, for a file whose name starts with `-` | as for that file | as for it |
-| `harbour edit` with no file or more than one | (no request) | the usage | 1 |
-| `harbour --demo` | never listens | `no harbour is running` when it is the only one | 1 |
+| `harbour edit` with no file, an empty one (`""`) or more than one | (no request) | the usage | 1 |
+| `harbour --demo` | never listens | `no harbour is running` when it is the only one | 3 |
 
 ## Decisions
 
@@ -220,3 +225,5 @@ Product decisions the issue did not settle, each taken the most conservative way
 - `review-loop` Review round 1 found 7 should findings in the channel and the open (socket I/O on the draw thread, the receiver trusting the sender's path, dangling symlinks, back-to-back opens, a refusal changing the screen, the deadline not reaching the last step, a stale root) → code
 - `design` Reading sockets on the draw thread let a flood of silent connections freeze the keys for seconds; the listener became a thread of its own with a reader per connection and a channel, and only the Neovim RPC stays on the draw thread → rule in `AGENTS.md`
 - `ci` On Linux, a connection the listener closes without reading its request is reset, so the cap test's read failed with `ECONNRESET` where macOS gives an empty read; the test takes either as closed unanswered, verified in a Linux container before the push → code
+- `review-loop` Review round 2 found 2 should findings (a Neovim harbour started was never confirmed to have the file, and a script could not tell "open it yourself" from a refusal, both exiting 1) and 6 minor ones; the started Neovim is now confirmed under the deadline, and the exit statuses split into 0, 1, 2 and 3 → code
+- `test-seam` The stale swap e2e test waited for the swap file, which Neovim writes on load before the change, so under a ship's load it killed Neovim before `preserve` and the unmodified swap was deleted; it waits for a file Neovim writes after `preserve` → code

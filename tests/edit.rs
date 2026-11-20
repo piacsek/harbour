@@ -19,11 +19,11 @@ fn a_directory_is_refused() {
 }
 
 #[test]
-fn a_directory_exits_one() {
+fn a_directory_exits_two() {
     let scratch = tempfile::tempdir().unwrap();
     fs::create_dir(scratch.path().join("acme-api")).unwrap();
 
-    assert_eq!(edit(scratch.path(), "acme-api").status.code(), Some(1));
+    assert_eq!(edit(scratch.path(), "acme-api").status.code(), Some(2));
 }
 
 #[test]
@@ -39,12 +39,12 @@ fn a_file_in_a_missing_folder_is_refused() {
 }
 
 #[test]
-fn a_file_in_a_missing_folder_exits_one() {
+fn a_file_in_a_missing_folder_exits_two() {
     let scratch = tempfile::tempdir().unwrap();
 
     let output = edit(scratch.path(), "acme-api/src/main.rs");
 
-    assert_eq!(output.status.code(), Some(1));
+    assert_eq!(output.status.code(), Some(2));
 }
 
 #[test]
@@ -71,11 +71,11 @@ fn with_no_harbour_running_a_file_is_refused() {
 }
 
 #[test]
-fn with_no_harbour_running_a_file_exits_one() {
+fn with_no_harbour_running_a_file_exits_three() {
     let scratch = tempfile::tempdir().unwrap();
     fs::write(scratch.path().join("main.rs"), "").unwrap();
 
-    assert_eq!(edit(scratch.path(), "main.rs").status.code(), Some(1));
+    assert_eq!(edit(scratch.path(), "main.rs").status.code(), Some(3));
 }
 
 #[test]
@@ -154,11 +154,11 @@ fn a_harbour_holding_nothing_leaves_the_file_unopened() {
         stderr(&output),
         format!("harbour: no harbour session holds {}\n", file.display())
     );
-    assert_eq!(output.status.code(), Some(1));
+    assert_eq!(output.status.code(), Some(3));
 }
 
 #[test]
-fn a_refusal_is_printed_and_exits_one() {
+fn a_refusal_is_printed_and_exits_two() {
     let scratch = tempfile::tempdir().unwrap();
     existing(scratch.path(), "main.rs");
 
@@ -172,7 +172,7 @@ fn a_refusal_is_printed_and_exits_one() {
     );
 
     assert_eq!(stderr(&output), "harbour: acme refusal\n");
-    assert_eq!(output.status.code(), Some(1));
+    assert_eq!(output.status.code(), Some(2));
 }
 
 #[test]
@@ -187,7 +187,7 @@ fn an_open_that_is_never_answered_says_so() {
     );
 
     assert_eq!(stderr(&output), "harbour: no answer from harbour\n");
-    assert_eq!(output.status.code(), Some(1));
+    assert_eq!(output.status.code(), Some(2));
 }
 
 #[test]
@@ -271,12 +271,27 @@ fn a_socket_that_never_answers_says_no_harbour_answered_within_seconds() {
 }
 
 #[test]
-fn a_socket_that_never_answers_exits_one() {
+fn a_socket_that_never_answers_exits_three() {
     let scratch = tempfile::tempdir().unwrap();
     existing(scratch.path(), "main.rs");
     let _silent = UnixListener::bind(folder(scratch.path()).join("99999-0.sock")).unwrap();
 
-    assert_eq!(edit(scratch.path(), "main.rs").status.code(), Some(1));
+    assert_eq!(edit(scratch.path(), "main.rs").status.code(), Some(3));
+}
+
+#[test]
+fn a_harbour_that_closes_without_a_reply_has_not_answered() {
+    let scratch = tempfile::tempdir().unwrap();
+    existing(scratch.path(), "main.rs");
+
+    let (output, _) = served(
+        scratch.path(),
+        "main.rs",
+        vec![listening(scratch.path(), Box::new(|_| None))],
+    );
+
+    assert_eq!(stderr(&output), "harbour: no harbour answered\n");
+    assert_eq!(output.status.code(), Some(3));
 }
 
 #[test]
@@ -319,7 +334,7 @@ fn a_symlink_that_loops_is_refused() {
 
     let output = edit(scratch.path(), "main.rs");
 
-    assert_eq!(output.status.code(), Some(1));
+    assert_eq!(output.status.code(), Some(2));
     assert!(
         stderr(&output).starts_with("harbour: main.rs: "),
         "{}",
@@ -378,7 +393,7 @@ fn a_folder_open_to_others_is_refused() {
             folder.display()
         )
     );
-    assert_eq!(output.status.code(), Some(1));
+    assert_eq!(output.status.code(), Some(2));
 }
 
 #[test]

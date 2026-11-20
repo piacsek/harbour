@@ -1,12 +1,8 @@
 use std::fs;
-use std::io::{ErrorKind, Read, Write};
-use std::net::Shutdown;
 use std::os::unix::ffi::OsStrExt;
-use std::os::unix::net::{UnixListener, UnixStream};
 use std::path::{Path, PathBuf};
-use std::sync::mpsc::{self, Receiver};
 use std::thread::{self, sleep};
-use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant, SystemTime};
 
 use crossterm::event::{KeyCode, KeyModifiers};
 use harbour::app::App;
@@ -18,6 +14,7 @@ use ratatui::Terminal;
 use ratatui::backend::TestBackend;
 use rmpv::Value;
 
+use crate::handing::{Edit, answering, called, neovim_at};
 use crate::remembering::{ID, TITLE};
 use crate::{Screen, numbered_agent, script};
 
@@ -91,6 +88,7 @@ fn a_key_moves_the_last_use_of_the_selected_session_forward() {
 #[test]
 fn open_with_no_editor_running_starts_neovim_at_the_sessions_root() {
     let scratch = tempfile::tempdir().unwrap();
+    let _asked = answering(scratch.path());
     let mut screen = harbour(scratch.path());
     start_in(&mut screen, scratch.path(), "acme-api", 1);
 
@@ -108,6 +106,7 @@ fn open_with_no_editor_running_starts_neovim_at_the_sessions_root() {
 #[test]
 fn the_opened_editor_takes_the_keys() {
     let scratch = tempfile::tempdir().unwrap();
+    let _asked = answering(scratch.path());
     let mut screen = harbour(scratch.path());
     start_in(&mut screen, scratch.path(), "acme-api", 1);
     screen
@@ -252,6 +251,7 @@ fn open_to_a_neovim_that_never_answers_says_so() {
 #[test]
 fn open_goes_to_the_selected_holder_over_one_used_later() {
     let scratch = tempfile::tempdir().unwrap();
+    let _asked = answering(scratch.path());
     let mut screen = harbour(scratch.path());
     start_in(&mut screen, scratch.path(), "acme-api", 1);
     start_in(&mut screen, scratch.path(), "acme-api", 2);
@@ -268,6 +268,7 @@ fn open_goes_to_the_selected_holder_over_one_used_later() {
 #[test]
 fn without_a_selected_holder_open_goes_to_the_one_used_last() {
     let scratch = tempfile::tempdir().unwrap();
+    let _asked = answering(scratch.path());
     let mut screen = harbour(scratch.path());
     start_in(&mut screen, scratch.path(), "acme-api", 1);
     start_in(&mut screen, scratch.path(), "acme-api", 2);
@@ -342,6 +343,7 @@ fn open_while_the_picker_is_open_is_refused() {
 #[test]
 fn open_while_the_help_is_shown_closes_it_and_opens_the_file() {
     let scratch = tempfile::tempdir().unwrap();
+    let _asked = answering(scratch.path());
     let mut screen = harbour(scratch.path());
     start_in(&mut screen, scratch.path(), "acme-api", 1);
     screen.press('?');
@@ -391,6 +393,7 @@ fn a_stopped_card_holds_no_file() {
 #[test]
 fn open_passes_over_a_selected_stopped_card_to_the_live_holder() {
     let scratch = tempfile::tempdir().unwrap();
+    let _asked = answering(scratch.path());
     let mut screen = remembering(scratch.path());
     start_in(&mut screen, scratch.path(), "acme-api", 1);
     screen.press('k');
@@ -410,6 +413,7 @@ fn open_passes_over_a_selected_stopped_card_to_the_live_holder() {
 #[test]
 fn harbour_edit_reaching_a_listening_harbour_opens_the_file_there() {
     let scratch = tempfile::tempdir().unwrap();
+    let _asked = answering(scratch.path());
     let mut screen = listening(scratch.path());
     start_in(&mut screen, scratch.path(), "acme-api", 1);
     let dir = scratch.path().join("edit");
@@ -420,29 +424,6 @@ fn harbour_edit_reaching_a_listening_harbour_opens_the_file_there() {
     let shown = screen.wait_for("acme nvim ready");
     assert!(shown.contains("acme nvim ready"), "{shown}");
     assert_eq!(sent.join().unwrap(), Ok(()));
-}
-
-#[test]
-fn one_frame_answers_at_most_four_requests() {
-    let scratch = tempfile::tempdir().unwrap();
-    let mut screen = listening(scratch.path());
-    let socket = socket_in(&scratch.path().join("edit"));
-    let file = file(scratch.path(), "acme-api");
-    let mut streams: Vec<UnixStream> = (0..5).map(|_| asked(&socket, &file)).collect();
-    sleep(Duration::from_millis(300));
-
-    screen.draw();
-
-    let answered: Vec<Option<String>> = streams.iter_mut().map(answer).collect();
-    assert_eq!(answered.iter().flatten().count(), 4);
-    screen.draw();
-    let mut waiting: Vec<UnixStream> = streams
-        .into_iter()
-        .zip(&answered)
-        .filter(|(_, answered)| answered.is_none())
-        .map(|(stream, _)| stream)
-        .collect();
-    assert_eq!(answer(&mut waiting[0]), Some("none\n".to_string()));
 }
 
 const WAITING: &str = "harbour is waiting for an answer; try again after it";
@@ -515,7 +496,7 @@ pub(crate) fn start_in(screen: &mut Screen, scratch: &Path, folder: &str, number
     screen.key(KeyCode::Char('h'), KeyModifiers::CONTROL);
 }
 
-fn editing(scratch: &Path) -> (Screen, PathBuf) {
+pub(crate) fn editing(scratch: &Path) -> (Screen, PathBuf) {
     let mut screen = harbour(scratch);
     start_in(&mut screen, scratch, "acme-api", 1);
     screen.key(KeyCode::Enter, KeyModifiers::NONE);
@@ -527,56 +508,6 @@ fn editing(scratch: &Path) -> (Screen, PathBuf) {
     assert!(!shown.contains("acme nvim ready"), "{shown}");
     let socket = PathBuf::from(&recorded(scratch)[2]);
     (screen, socket)
-}
-
-pub(crate) fn neovim_at(
-    socket: &Path,
-    blocking: bool,
-    edit: Edit,
-) -> Receiver<(String, Vec<Value>)> {
-    let listener = UnixListener::bind(socket).unwrap();
-    let (asked, calls) = mpsc::channel();
-    thread::spawn(move || {
-        while let Ok((mut stream, _)) = listener.accept() {
-            let request = rmpv::decode::read_value(&mut stream).unwrap();
-            let fields = request.as_array().unwrap().clone();
-            let method = fields[2].as_str().unwrap().to_string();
-            let (error, result) = match (method.as_str(), edit) {
-                ("nvim_get_mode", _) => (
-                    Value::Nil,
-                    Value::Map(vec![
-                        (Value::from("mode"), Value::from("n")),
-                        (Value::from("blocking"), Value::from(blocking)),
-                    ]),
-                ),
-                (_, Edit::Silent) => {
-                    let _ = asked.send((method, fields[3].as_array().unwrap().clone()));
-                    thread::sleep(Duration::from_secs(5));
-                    continue;
-                }
-                (_, Edit::Refused(refusal)) => (
-                    Value::Array(vec![Value::from(0), Value::from(refusal)]),
-                    Value::Nil,
-                ),
-                _ => (Value::Nil, Value::Map(Vec::new())),
-            };
-            let _ = asked.send((method, fields[3].as_array().unwrap().clone()));
-            let reply = Value::Array(vec![Value::from(1), fields[1].clone(), error, result]);
-            rmpv::encode::write_value(&mut stream, &reply).unwrap();
-        }
-    });
-    calls
-}
-
-#[derive(Clone, Copy)]
-pub(crate) enum Edit {
-    Done,
-    Refused(&'static str),
-    Silent,
-}
-
-pub(crate) fn called(asked: &Receiver<(String, Vec<Value>)>) -> (String, Vec<Value>) {
-    asked.recv_timeout(Duration::from_secs(5)).unwrap()
 }
 
 fn field(map: &Value, name: &str) -> Value {
@@ -645,31 +576,4 @@ pub(crate) fn socket_in(dir: &Path) -> PathBuf {
                 .is_some_and(|extension| extension == "sock")
         })
         .unwrap()
-}
-
-fn asked(socket: &Path, file: &Path) -> UnixStream {
-    let mut stream = UnixStream::connect(socket).unwrap();
-    let expires = (SystemTime::now() + Duration::from_secs(5))
-        .duration_since(UNIX_EPOCH)
-        .unwrap()
-        .as_millis();
-    stream
-        .write_all(format!("ask {expires}\0{}", file.display()).as_bytes())
-        .unwrap();
-    stream.shutdown(Shutdown::Write).unwrap();
-    stream
-        .set_read_timeout(Some(Duration::from_millis(300)))
-        .unwrap();
-    stream
-}
-
-fn answer(stream: &mut UnixStream) -> Option<String> {
-    let mut text = String::new();
-    match stream.read_to_string(&mut text) {
-        Err(error) if matches!(error.kind(), ErrorKind::WouldBlock | ErrorKind::TimedOut) => None,
-        result => {
-            result.unwrap();
-            Some(text)
-        }
-    }
 }

@@ -202,11 +202,10 @@ fn a_request_arrives_while_nobody_asks_for_it() {
     let mut listener = Listener::new(&dir);
     let file = existing(scratch.path(), "acme/main.rs");
     let _stream = sent(&socket_files(&dir)[0], "ask", later(), &bytes(&file));
-    sleep(Duration::from_millis(300));
 
-    let request = listener.incoming();
+    let request = arrived(&mut listener);
 
-    assert_eq!(request.map(|request| request.file), Some(file));
+    assert_eq!(request.file, file);
 }
 
 #[test]

@@ -16,6 +16,9 @@ idle or unknown. For tmux, put #(harbour status) in your status-right, for examp
 and raise status-right-length if the counts are cut off.
 edit <file> opens the file in the Neovim editor of the harbour session whose
 repository or worktree holds it, selects that session and shows the editor.
+It exits 0 when harbour took the file, 3 when no harbour runs or answers or no
+session holds the file (open it yourself), 2 when harbour or Neovim refused it,
+and 1 on a usage error.
 In tmux, splits and popups opened at #{pane_current_path} follow the selected
 session when harbour is typed at a shell prompt, or when a pane command or a
 wrapper script ends with exec harbour.";
@@ -39,8 +42,8 @@ fn main() -> ExitCode {
             print_status();
             ExitCode::SUCCESS
         }
-        [Some("edit"), Some("--"), _] => edit(&args[2]),
-        [Some("edit"), file] if file != Some("--") => edit(&args[1]),
+        [Some("edit"), Some("--"), file] if file != Some("") => edit(&args[2]),
+        [Some("edit"), file] if !matches!(file, Some("--" | "")) => edit(&args[1]),
         [] if on_a_terminal() => shown(harbour::tui::run()),
         [Some("--demo")] if on_a_terminal() => shown(harbour::tui::demo()),
         _ => {
@@ -63,9 +66,9 @@ fn print_status() {
 fn edit(file: &std::ffi::OsStr) -> ExitCode {
     match handoff::edit(file) {
         Ok(()) => ExitCode::SUCCESS,
-        Err(message) => {
-            eprintln!("harbour: {}", escaped(&message));
-            ExitCode::FAILURE
+        Err(failure) => {
+            eprintln!("harbour: {}", escaped(failure.message()));
+            ExitCode::from(failure.status())
         }
     }
 }

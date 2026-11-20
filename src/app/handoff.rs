@@ -147,6 +147,9 @@ impl App {
                     self.pane,
                     file.map(|(file, _)| file),
                 )?);
+                if let Some((file, deadline)) = file {
+                    entry.editors[entry.editors.len() - 1].open(file, deadline)?;
+                }
                 self.failed = None;
                 entry.editors.len() - 1
             }
