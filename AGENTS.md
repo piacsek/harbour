@@ -422,6 +422,16 @@ nearest the code the guideline is about.
   shape of the change: the modules and what moved between them, or the steps of the flow and
   who calls whom. For a reorganization, a before and an after. Keep each diagram small enough
   to read without scrolling, and leave it out when the change has no structure to draw.
+- **Issue dependencies are linked on GitHub, without asking.** When an issue cannot be built
+  before another one lands, whoever notices it (while logging the issue or later) records it at
+  once as a blocked-by link, and says so in the report; the owner is not asked first. An order
+  that only lives in a chat message or an issue body is lost.
+
+  ```bash
+  gh api -X POST repos/<owner>/<repo>/issues/<blocked>/dependencies/blocked_by -F issue_id="$(gh api repos/<owner>/<repo>/issues/<blocking> --jq .id)"
+  ```
+
+  Read it back with `gh api repos/<owner>/<repo>/issues/<blocked>/dependencies/blocked_by --jq '.[].number'`.
 - **Review before ready.** Marking a PR ready for review means the orchestrator (the main
   session) running Claude Code's built-in `/code-review high <N>` on the PR first, each round,
   and acting on what it finds. The skill's own background agent is the fresh reviewer, on the
