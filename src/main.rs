@@ -5,10 +5,12 @@ use harbour::changelog::CHANGELOG;
 
 const USAGE: &str = "harbour: Harbour: where shipping begins
 
-usage: harbour [--demo | --help | --version | changelog]
+usage: harbour [--demo | --help | --version | changelog | status]
 
 With no argument on a terminal, harbour opens a sidebar of Claude Code sessions
-beside a live pane. --demo opens the same with made-up sessions: no claude needed.";
+beside a live pane. --demo opens the same with made-up sessions: no claude needed.
+status prints how many sessions of every running harbour are blocked, working,
+idle or unknown, for tmux: set -g status-right '#(harbour status)'";
 
 fn main() -> ExitCode {
     let args: Vec<_> = std::env::args_os().skip(1).collect();
@@ -25,6 +27,7 @@ fn main() -> ExitCode {
             print!("{CHANGELOG}");
             ExitCode::SUCCESS
         }
+        [Some("status")] => ExitCode::SUCCESS,
         [] if on_a_terminal() => shown(harbour::tui::run()),
         [Some("--demo")] if on_a_terminal() => shown(harbour::tui::demo()),
         _ => {

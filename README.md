@@ -32,6 +32,7 @@ harbour --demo      # the same with made-up acme sessions: no claude needed
 harbour --version   # or -V, or version
 harbour --help      # or -h, or help
 harbour changelog   # what each release changed
+harbour status      # blocked, working and idle counts for the tmux status line
 ```
 
 | Key | Action |
