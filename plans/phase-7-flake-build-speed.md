@@ -103,4 +103,37 @@ One red-green-refactor cycle each, shipped with `scripts/ship.sh`.
 
 ## Outcome
 
+- The `flake` job restores `/nix` with `nix-community/cache-nix-action` v7.0.2 and saves it
+  only on a `push` to `main`; the job's permissions stay `contents: read`. The whole job is
+  pinned in `tests/scripts/flake_workflow.rs`, where the job already was, and
+  `tests/scripts/ci_workflow.rs` pins the workflow's one `permissions:` to `contents: read`.
+- The flake builds with `(rust-bin.fromRustupToolchainFile ./rust-toolchain.toml).override
+  { extensions = [ ]; }`, pinned in `tests/toolchain.rs`.
+- Measured on the pull request (run 44690818423, at 62f1c7e) against `main` before it (run
+  44682655741). The pull request's cache missed, as it must: nothing is saved before the merge.
+
+  | Leg | `nix build` before | `nix build` after | Leg before | Leg after | Derivations built |
+  | --- | --- | --- | --- | --- | --- |
+  | Linux | 55 s | 52 s | 63 s | 59 s | 108 → 104 |
+  | macOS | 105 s | 113 s | 142 s | 149 s | 121 → 117 |
+
+  The four derivations gone are `clippy`, `clippy-preview`, `rustfmt` and `rustfmt-preview`;
+  neither log names clippy or rustfmt any more. Both runs fetched the same 259 (Linux) and 262
+  (macOS) paths from `cache.nixos.org`: the component tarballs were fixed-output derivations
+  built in the sandbox, not substituted paths. The time saved is within the runners' noise
+  (the nixpkgs `source` download alone varies by several seconds). The post step saved nothing
+  on the pull request, and `gh cache list` shows no `nix-` key.
+- Not done here, by design: the cache's effect can only be measured once the first `push` run
+  on `main` has saved it, on a later pull request that changes only `src/`. That measurement,
+  and the issue's "drop part 1" decision, are the follow-up, so the pull request says
+  `Refs #17`.
+- The root `AGENTS.md` now has the owner's rule: read the pull request's comments and reviews,
+  and the comments of its issue, before `gh pr ready` and again right before the merge.
+
 ## Hurdles
+
+- `process` the brief named `tests/scripts/ci_workflow.rs` for the cache step, but the `flake`
+  job was already pinned whole in `tests/scripts/flake_workflow.rs`; the pin moved there and the
+  red run was redone → none
+- `process` `main` moved mid-phase (phase 5 merged), and the merge conflicted in `PLAN.md` and
+  `plans/metrics.md`, the files every parallel phase appends to → none
