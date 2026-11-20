@@ -2,7 +2,7 @@ use std::fs;
 use std::path::PathBuf;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use harbour::registry::{Record, Status, read, sessions_dir};
+use harbour::registry::{Record, Status, projects_dir, read, sessions_dir};
 
 const SAMPLE: &str = r#"{"pid":27756,"sessionId":"0f1e2d3c-4b5a-6978-8a9b-0c1d2e3f4a5b","cwd":"/home/acme/api","startedAt":1788798199062,"procStart":"Mon Sep  7 16:23:16 2026","version":"2.1.328","peerProtocol":1,"peerFeatures":["notify_idle","reply_across_default_dirs","artifact_yield"],"kind":"interactive","entrypoint":"cli","pidDomain":"darwin","messagingSocketPath":"/tmp/cc-socks/27756.sock","name":"api-d8","nameSource":"derived","nameSince":1788798199063,"status":"busy","updatedAt":1788804089018,"statusUpdatedAt":1788804089018}"#;
 
@@ -18,6 +18,9 @@ fn a_session_file_is_read_by_pid_ignoring_unknown_fields() {
         Some(Record {
             status: Status::Busy,
             waiting_for: None,
+            status_since: Some(UNIX_EPOCH + Duration::from_millis(1788804089018)),
+            session_id: Some("0f1e2d3c-4b5a-6978-8a9b-0c1d2e3f4a5b".to_string()),
+            cwd: Some(PathBuf::from("/home/acme/api")),
         })
     );
 }
@@ -76,8 +79,49 @@ fn a_waiting_for_that_is_not_text_keeps_the_status_and_drops_the_reason() {
         Some(Record {
             status: Status::Waiting,
             waiting_for: None,
+            status_since: None,
+            session_id: None,
+            cwd: None,
         })
     );
+}
+
+#[test]
+fn a_status_change_time_that_is_not_a_number_keeps_the_last_one() {
+    let dir = tempfile::tempdir().unwrap();
+    fs::write(
+        dir.path().join("1.json"),
+        r#"{"status":"busy","statusUpdatedAt":"soon"}"#,
+    )
+    .unwrap();
+
+    let record = read(dir.path(), 1, UNIX_EPOCH, Some(busy())).unwrap();
+
+    assert_eq!(record.status_since, busy().status_since);
+}
+
+#[test]
+fn a_status_change_time_missing_from_a_first_read_is_unknown() {
+    let dir = tempfile::tempdir().unwrap();
+    fs::write(dir.path().join("1.json"), r#"{"status":"busy"}"#).unwrap();
+
+    let record = read(dir.path(), 1, UNIX_EPOCH, None).unwrap();
+
+    assert_eq!(record.status_since, None);
+}
+
+#[test]
+fn a_session_id_that_is_not_text_keeps_the_last_one() {
+    let dir = tempfile::tempdir().unwrap();
+    fs::write(
+        dir.path().join("1.json"),
+        r#"{"status":"busy","sessionId":7}"#,
+    )
+    .unwrap();
+
+    let record = read(dir.path(), 1, UNIX_EPOCH, Some(busy())).unwrap();
+
+    assert_eq!(record.session_id, busy().session_id);
 }
 
 #[test]
@@ -164,10 +208,28 @@ fn the_sessions_dir_honours_the_config_dir_and_defaults_to_home() {
     assert_eq!(sessions_dir(None, None), None);
 }
 
+#[test]
+fn the_projects_dir_sits_beside_the_sessions_dir() {
+    let home = Some(PathBuf::from("/home/acme"));
+
+    assert_eq!(
+        projects_dir(Some(PathBuf::from("/cfg")), home.clone()),
+        Some(PathBuf::from("/cfg/projects"))
+    );
+    assert_eq!(
+        projects_dir(Some(PathBuf::new()), home),
+        Some(PathBuf::from("/home/acme/.claude/projects"))
+    );
+    assert_eq!(projects_dir(None, None), None);
+}
+
 fn busy() -> Record {
     Record {
         status: Status::Busy,
         waiting_for: None,
+        status_since: Some(UNIX_EPOCH + Duration::from_millis(1788804089018)),
+        session_id: Some("0f1e2d3c-4b5a-6978-8a9b-0c1d2e3f4a5b".to_string()),
+        cwd: None,
     }
 }
 

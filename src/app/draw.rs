@@ -3,29 +3,36 @@ use ratatui::Frame;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::{Color, Modifier, Stylize};
 use ratatui::text::{Line, Span};
-use ratatui::widgets::{
-    Block, BorderType, Clear, HighlightSpacing, List, ListState, Paragraph, Wrap,
-};
-use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
+use ratatui::widgets::{Block, BorderType, Clear, Paragraph, Wrap};
+use std::time::Instant;
 
 use super::{App, HINT, NARROW, Question};
+use crate::card::Card;
 use crate::editor::Changes;
 use crate::help;
 use crate::state;
 use crate::tabs;
+use crate::text;
+use crate::transcript::Transcript;
 
 impl App {
     pub fn draw(&mut self, frame: &mut Frame) {
         self.finish_pick();
         self.finish_editors();
-        self.read_registry();
+        self.read_files();
         self.screen = frame.area();
         let (sidebar, pane) = self.areas(frame.area());
         self.sidebar = sidebar;
         let notes: Vec<Option<String>> = self
             .sessions
             .iter_mut()
-            .map(|entry| entry.session.exit().map(exit_note))
+            .map(|entry| {
+                let note = entry.session.exit().map(exit_note);
+                if note.is_some() {
+                    entry.exited_at.get_or_insert_with(Instant::now);
+                }
+                note
+            })
             .collect();
         let counts = state::counts(
             self.sessions
@@ -55,16 +62,18 @@ impl App {
                 editor.session.resize(self.pane.height, self.pane.width);
             }
         }
-        let rows: Vec<Line> = self
+        let cards: Vec<Card> = self
             .sessions
             .iter()
             .zip(notes)
             .map(|(entry, note)| {
-                state::row(
+                Card::new(
                     &entry.name,
                     note,
                     entry.record.as_ref(),
-                    usize::from(below_rows.width.saturating_sub(2)),
+                    &entry.place,
+                    entry.elapsed(),
+                    entry.transcript.as_ref().map(Transcript::facts),
                 )
             })
             .collect();
@@ -89,16 +98,9 @@ impl App {
                 );
             }
             Some(shown) => {
-                let list = List::new(rows)
-                    .block(sidebar_block)
-                    .highlight_symbol(Line::from(vec![
-                        Span::from("▌").fg(Color::Cyan),
-                        Span::from(" "),
-                    ]))
-                    .highlight_spacing(HighlightSpacing::Always)
-                    .highlight_style(Modifier::BOLD);
-                let mut state = ListState::default().with_selected(Some(self.selected));
-                frame.render_stateful_widget(list, sidebar, &mut state);
+                frame.render_widget(sidebar_block, sidebar);
+                self.cards
+                    .draw(&cards, self.selected, below_rows, frame.buffer_mut());
                 if !pane.is_empty() {
                     frame.render_widget(pane_block, pane);
                     frame.render_widget(shown.shown(), self.pane);
@@ -190,38 +192,17 @@ impl App {
 }
 
 fn failure_lines(failed: &str, width: u16) -> Vec<Line<'static>> {
-    wrapped(failed, width).into_iter().map(Line::from).collect()
-}
-
-fn question_lines(question: Question, width: u16) -> Vec<Line<'static>> {
-    wrapped(&asked(question), width)
+    text::wrap(failed, usize::from(width))
         .into_iter()
-        .map(|line| Line::from(line).bold())
+        .map(Line::from)
         .collect()
 }
 
-fn wrapped(text: &str, width: u16) -> Vec<String> {
-    let width = usize::from(width.max(1));
-    let mut lines: Vec<String> = Vec::new();
-    for word in text.split(' ') {
-        match lines.last_mut() {
-            Some(line) if line.width() + 1 + word.width() <= width => {
-                line.push(' ');
-                line.push_str(word);
-            }
-            _ => lines.push(String::new()),
-        }
-        if lines.last().is_some_and(String::is_empty) {
-            for c in word.chars() {
-                let line = lines.last_mut().expect("a line was pushed");
-                if !line.is_empty() && line.width() + c.width().unwrap_or(0) > width {
-                    lines.push(String::new());
-                }
-                lines.last_mut().expect("a line was pushed").push(c);
-            }
-        }
-    }
-    lines
+fn question_lines(question: Question, width: u16) -> Vec<Line<'static>> {
+    text::wrap(&asked(question), usize::from(width))
+        .into_iter()
+        .map(|line| Line::from(line).bold())
+        .collect()
 }
 
 fn draw_bottom(frame: &mut Frame, lines: Vec<Line<'static>>, area: Rect) -> Rect {

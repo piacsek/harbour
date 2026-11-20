@@ -49,21 +49,51 @@ render() {
     --window-size="$w,$h" --screenshot="$out/$name.png" "file://$svg" >/dev/null 2>&1
 }
 
+wait_for() {
+  local tries=0
+  until t capture-pane -p -t "$shot_window" | grep -F "$1" >/dev/null || [ "$tries" -ge 40 ]; do
+    sleep 0.25
+    tries=$((tries + 1))
+  done
+  sleep 0.6
+}
+
+press() {
+  local before tries sent=0
+  before="$(t capture-pane -e -p -t "$shot_window")"
+  until [ "$sent" -ge 3 ]; do
+    t send-keys -t "$shot_window" "$1"
+    sent=$((sent + 1))
+    tries=0
+    until [ "$(t capture-pane -e -p -t "$shot_window")" != "$before" ] || [ "$tries" -ge 20 ]; do
+      sleep 0.25
+      tries=$((tries + 1))
+    done
+    [ "$tries" -lt 20 ] && break
+  done
+  sleep 0.6
+}
+
 shoot() {
-  local name="$1" width="$2" height="$3" args="$4" keys="$5"
+  local name="$1" width="$2" height="$3" args="$4" keys="$5" shown="${6:-}"
   t resize-window -t "$shot_window" -x "$width" -y "$height"
-  t respawn-pane -k -t "$shot_window" "cd $(printf %q "$home/acme-api") && env -u XDG_CONFIG_HOME -u XDG_STATE_HOME -u FZF_DEFAULT_OPTS -u FZF_DEFAULT_OPTS_FILE -u HARBOUR_DIR_PICKER -u HARBOUR_SESSION_COMMAND -u HARBOUR_EDITOR HOME=$(printf %q "$home") $(printf %q "$bin") $args; exec cat"
+  t respawn-pane -k -t "$shot_window" "exec cat"
+  t send-keys -R -t "$shot_window"
+  t clear-history -t "$shot_window"
+  t respawn-pane -k -t "$shot_window" "cd $(printf %q "$home/acme-api") && env -u XDG_CONFIG_HOME -u XDG_STATE_HOME -u FZF_DEFAULT_OPTS -u FZF_DEFAULT_OPTS_FILE -u HARBOUR_DIR_PICKER -u HARBOUR_SESSION_COMMAND -u HARBOUR_EDITOR HOME=$(printf %q "$home") TMPDIR=$(printf %q "$home/tmp") $(printf %q "$bin") $args; exec cat"
   sleep 1.5
+  [ "$args" = --demo ] && wait_for "permission prompt"
   local key
   read -ra keys <<<"$keys"
   for key in ${keys[@]+"${keys[@]}"}; do
-    t send-keys -t "$shot_window" "$key" && sleep 0.5
+    press "$key"
   done
-  t capture-pane -e -p -t "$shot_window" | python3 "$home/truecolor.py" >"$home/$name.ansi"
+  [ -n "$shown" ] && wait_for "$shown"
+  t capture-pane -e -p -t "$shot_window" | sed -E 's/harbour-demo-[A-Za-z0-9]{6}/harbour-demo-x7q2mf/g' | python3 "$home/truecolor.py" >"$home/$name.ansi"
   render "$name" --padding 20,64,20,20 --window --language text
 }
 
-mkdir -p "$home/acme-api"
+mkdir -p "$home/acme-api" "$home/tmp"
 shoot details 160 26 --demo ""
 echo "wrote $out/details.png"
 shoot pane 160 26 --demo "Enter"
@@ -72,9 +102,9 @@ shoot keys 160 26 --demo "?"
 echo "wrote $out/keys.png"
 shoot question 160 26 --demo "x"
 echo "wrote $out/question.png"
-shoot picker 160 26 --demo "n"
+shoot picker 160 26 --demo "n" "5/5"
 echo "wrote $out/picker.png"
-shoot editor 160 26 --demo "Enter C-l"
+shoot editor 160 26 --demo "Enter C-l" "src/retry.rs"
 echo "wrote $out/editor.png"
 shoot narrow 56 26 --demo ""
 echo "wrote $out/narrow.png"

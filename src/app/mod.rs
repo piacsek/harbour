@@ -9,15 +9,17 @@ mod draw;
 
 use draw::exit_note;
 
+use crate::card::Sidebar;
 use crate::demo;
 use crate::editor::{self, Changes, Editor, Program};
 use crate::keys;
 use crate::mouse::{self, Gesture, Target};
 use crate::picker::{Pick, Picked, Picker};
 use crate::registry::{self, Record};
+use crate::repo::{self, Place};
 use crate::session::{self, Session};
 use crate::summary::Summary;
-use crate::transcript::Transcript;
+use crate::transcript::{self, Transcript};
 
 const NARROW: u16 = 60;
 const HINT: &str = "No session yet: press n to start one.";
@@ -28,7 +30,6 @@ pub struct App {
     home: PathBuf,
     picker: Option<Picker>,
     editor: Option<Program>,
-    transcripts: Option<PathBuf>,
     picking: Option<Pick>,
     picking_area: Rect,
     screen: Rect,
@@ -39,6 +40,7 @@ pub struct App {
     pane: Rect,
     shown_pane: Rect,
     sidebar: Rect,
+    cards: Sidebar,
     pane_focused: bool,
     gesture: Gesture,
     failed: Option<String>,
@@ -46,6 +48,8 @@ pub struct App {
     helping: bool,
     quitting: bool,
     registry: Option<PathBuf>,
+    transcripts: Option<PathBuf>,
+    naming: bool,
     read_at: Option<Instant>,
     summary: Option<Summary>,
 }
@@ -62,6 +66,8 @@ struct Entry {
     session: Session,
     started_at: SystemTime,
     record: Option<Record>,
+    place: Place,
+    exited_at: Option<Instant>,
     transcript: Option<Transcript>,
     editors: Vec<Editor>,
     editor: Option<usize>,
@@ -98,6 +104,17 @@ impl Entry {
             None => &self.session,
         }
     }
+
+    fn elapsed(&self) -> Option<Duration> {
+        match self.exited_at {
+            Some(at) => Some(at.elapsed()),
+            None => self
+                .record
+                .as_ref()
+                .and_then(|record| record.status_since)
+                .map(|since| SystemTime::now().duration_since(since).unwrap_or_default()),
+        }
+    }
 }
 
 impl App {
@@ -111,7 +128,6 @@ impl App {
             home,
             picker: None,
             editor: None,
-            transcripts: None,
             picking: None,
             picking_area: Rect::default(),
             screen: Rect::new(0, 0, 80, 24),
@@ -122,6 +138,7 @@ impl App {
             pane: Rect::new(0, 0, 80, 24),
             shown_pane: Rect::default(),
             sidebar: Rect::default(),
+            cards: Sidebar::default(),
             pane_focused: false,
             gesture: Gesture::Idle,
             failed: None,
@@ -129,9 +146,16 @@ impl App {
             helping: false,
             quitting: false,
             registry: None,
+            transcripts: None,
+            naming: false,
             read_at: None,
             summary: None,
         }
+    }
+
+    pub fn with_home(mut self, home: PathBuf) -> App {
+        self.home = home;
+        self
     }
 
     pub fn with_picker(mut self, picker: Picker) -> App {
@@ -144,13 +168,18 @@ impl App {
         self
     }
 
+    pub fn with_registry(mut self, dir: PathBuf) -> App {
+        self.registry = Some(dir);
+        self
+    }
+
     pub fn with_transcripts(mut self, projects: PathBuf) -> App {
         self.transcripts = Some(projects);
         self
     }
 
-    pub fn with_registry(mut self, dir: PathBuf) -> App {
-        self.registry = Some(dir);
+    pub fn naming_sessions(mut self) -> App {
+        self.naming = true;
         self
     }
 
@@ -160,15 +189,23 @@ impl App {
     }
 
     pub fn demo(registry: PathBuf) -> App {
-        let mut app = App::new(demo::working(&registry))
+        let mut app = App::new(demo::fresh())
+            .with_home(demo::checkout(&registry, "acme-api", "main"))
             .with_registry(registry.clone())
+            .with_transcripts(registry.join("projects"))
             .with_picker(demo::picker())
             .with_editor(demo::editor());
-        app.start();
+        app.start_with(&demo::working(&registry));
         app.start_with(&demo::blocked(&registry));
         app.start_with(&demo::idle(&registry));
-        app.start_with(&demo::failed());
-        app.start_with(&demo::unknown());
+        app.start_in(
+            &demo::failed(),
+            &demo::checkout(&registry, "acme-web", "main"),
+        );
+        app.start_in(
+            &demo::unknown(),
+            &demo::checkout(&registry, "acme-infra", "tidy-dns"),
+        );
         app.selected = 0;
         app
     }
@@ -320,7 +357,13 @@ impl App {
         let Some(entry) = self.sessions.get_mut(self.selected) else {
             return;
         };
-        let directory = editor::root(&where_claude_code_is(entry, self.registry.as_deref()));
+        read_entry(
+            entry,
+            self.registry.as_deref(),
+            self.transcripts.as_deref(),
+            true,
+        );
+        let directory = editor::root(&entry.seen);
         if let Some(index) = entry
             .editors
             .iter()
@@ -481,10 +524,17 @@ impl App {
         let transcript = self
             .transcripts
             .as_deref()
-            .and_then(|projects| Transcript::new(projects).ok());
+            .filter(|_| self.naming)
+            .and_then(|projects| {
+                let id = transcript::new_session_id().ok()?;
+                Some(Transcript::new(projects, &id).since(started_at))
+            });
         let mut command = command.to_vec();
         if let Some(transcript) = &transcript {
-            command.extend(["--session-id".to_string(), transcript.id().to_string()]);
+            command.extend([
+                "--session-id".to_string(),
+                transcript.session_id().to_string(),
+            ]);
         }
         match Session::start(&command, directory, self.pane.height, self.pane.width) {
             Ok(session) => {
@@ -497,6 +547,8 @@ impl App {
                     session,
                     started_at,
                     record: None,
+                    place: repo::place(directory),
+                    exited_at: None,
                     transcript,
                     editors: Vec::new(),
                     editor: None,
@@ -512,23 +564,18 @@ impl App {
         }
     }
 
-    fn read_registry(&mut self) {
-        let Some(dir) = &self.registry else {
-            return;
-        };
+    fn read_files(&mut self) {
         if self.read_at.is_some_and(|at| at.elapsed() < READ_EVERY) {
             return;
         }
         self.read_at = Some(Instant::now());
         for entry in &mut self.sessions {
-            let last = entry.record.take();
-            entry.record = match entry.session.exit() {
-                Some(_) => None,
-                None => entry
-                    .session
-                    .pid()
-                    .and_then(|pid| registry::read(dir, pid, entry.started_at, last)),
-            };
+            read_entry(
+                entry,
+                self.registry.as_deref(),
+                self.transcripts.as_deref(),
+                false,
+            );
         }
     }
 }
@@ -539,33 +586,56 @@ impl Drop for App {
     }
 }
 
-fn where_claude_code_is(entry: &mut Entry, registry: Option<&Path>) -> PathBuf {
-    let running = entry.session.exit().is_none();
-    let place = registry
-        .filter(|_| running)
-        .zip(entry.session.pid())
-        .and_then(|(dir, pid)| registry::place(dir, pid, entry.started_at));
-    let transcript = entry.transcript.as_ref();
-    let (session_id, cwd) = place.map_or((None, None), |place| (place.session_id, place.cwd));
-    let current = match (running, session_id) {
-        (false, _) => None,
-        (true, Some(id)) => transcript.and_then(|transcript| transcript.directory_of(&id)),
-        (true, None) => transcript.and_then(Transcript::directory),
-    };
-    let found = match (current, entry.followed) {
-        (Some(directory), _) => Some(directory),
-        (None, false) => transcript.and_then(Transcript::directory),
-        (None, _) => None,
-    };
-    match (found, cwd) {
-        (Some(directory), _) => {
-            entry.seen = directory;
-            entry.followed = true;
-        }
-        (None, Some(cwd)) if !entry.followed => entry.seen = cwd,
-        _ => {}
+fn read_entry(
+    entry: &mut Entry,
+    registry: Option<&Path>,
+    transcripts: Option<&Path>,
+    searching: bool,
+) {
+    let last = entry.record.take();
+    if entry.session.exit().is_some() {
+        return;
     }
-    entry.seen.clone()
+    entry.record = registry.and_then(|dir| {
+        let pid = entry.session.pid()?;
+        registry::read(dir, pid, entry.started_at, last)
+    });
+    follow(entry, searching);
+    let id = entry
+        .record
+        .as_ref()
+        .and_then(|record| record.session_id.clone());
+    if let (Some(id), Some(projects)) = (id, transcripts)
+        && entry
+            .transcript
+            .as_ref()
+            .is_none_or(|transcript| transcript.session_id() != id)
+    {
+        entry.transcript = Some(Transcript::new(projects, &id).since(entry.started_at));
+        follow(entry, searching);
+    }
+    let cwd = entry.record.as_ref().and_then(|record| record.cwd.clone());
+    if let Some(cwd) = cwd
+        && !entry.followed
+    {
+        entry.seen = cwd;
+    }
+    entry.place = repo::place(&entry.seen);
+}
+
+fn follow(entry: &mut Entry, searching: bool) {
+    let Some(transcript) = &mut entry.transcript else {
+        return;
+    };
+    if searching {
+        transcript.read_now();
+    } else {
+        transcript.read();
+    }
+    if let Some(directory) = transcript.facts().directory.clone() {
+        entry.seen = directory;
+        entry.followed = true;
+    }
 }
 
 fn changes<'a>(editors: impl IntoIterator<Item = &'a Editor>) -> Changes {

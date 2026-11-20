@@ -17,7 +17,8 @@ these suites come from; the ones about sessions were hit in harbour.
 - **No test starts the real `claude`.** A session runs the program `HARBOUR_SESSION_COMMAND`
   names (`SESSION_COMMAND` in `src/tui.rs`, on the `SEAMS` list), `claude` when it is unset.
   The end-to-end tests set it to `tests/fixtures/agent.sh`, `tests/fixtures/raw-agent.sh` or
-  `tests/fixtures/registered-agent.sh` (which writes a registry file, so only under a scratch `HOME`);
+  `tests/fixtures/registered-agent.sh` or `tests/fixtures/titled-agent.sh` (which write a registry
+  file, and the second a transcript, so only under a scratch `HOME`);
   in-process tests hand `App::new` or `Session::start` a `/bin/sh -c` script; the one executable
   a test writes is a picker whose interpreter is missing.
 
@@ -97,12 +98,14 @@ these suites come from; the ones about sessions were hit in harbour.
   `scrub-check.sh` tests remove `HARBOUR_DENYLIST` next to their scratch `HOME`, and `isolated`
   (`tests/scripts/helpers.rs`) drops the git variables and configs; any new launcher that sets a
   scratch `HOME` removes what outranks it too.
-- **A sidebar row carries the name of the checkout's folder.** A session is named after the
-  directory harbour starts in, so in-process tests name their rows after the folder the tests
-  run from, and the sidebar is a third of the screen: in a folder named longer than about 22
-  characters, `exited 3` fell off the end of the row at 120 columns and ten `tests/app/` tests
-  failed in a review worktree. A test that asserts on a row (or waits for `exited`) builds its
-  screen with `Screen::wide`, which sizes the screen to the folder name; one that cannot widen
-  (the narrow layout) asserts only on the row's start, and a test that prints a path sizes the
-  session to it. Before pushing such a test, run it once from a worktree whose folder name is 40
-  characters or more.
+- **A sidebar row carries the name of the folder its session starts in.** Harbour starts
+  sessions in the directory it runs from, so in-process tests once named their rows after the
+  checkout's folder, and three phases had tests that failed only in a worktree with a long name.
+  Every `tests/app/` screen is now built by `Screen::of`, which gives the app a scratch folder
+  named `acme-home` (`home()`, `directory()` in `tests/app/main.rs`), so a row reads `acme-home 1`
+  wherever the tests run. A test that builds an `App` and starts a session before `Screen::of`
+  gives it `.with_home(home())` itself; a relative path is read from `home()`, not the checkout.
+- **`wait_for` returns after its timeout without failing.** It hands back the last screen it drew,
+  so a wait used only to sync passes even when its text never shows. When a later assertion relies
+  on that text having been on screen (the state before a change, a count before an exit), assert on
+  what the wait returned.

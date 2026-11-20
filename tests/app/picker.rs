@@ -9,7 +9,7 @@ use crossterm::event::{KeyCode, KeyModifiers, MouseButton, MouseEventKind};
 
 use harbour::picker::Picker;
 
-use crate::{Screen, directory, reading_agent, script};
+use crate::{Screen, directory, home, reading_agent, script};
 
 #[test]
 fn a_directory_the_picker_prints_starts_a_session_there_named_after_it() {
@@ -84,6 +84,7 @@ fn a_path_that_is_not_a_directory_is_named_and_starts_nothing() {
 
 #[test]
 fn a_relative_path_is_read_from_the_directory_of_harbour() {
+    std::fs::create_dir_all(home().join("src")).unwrap();
     let picker = script("echo 'acme picker' >&2; read -r line; echo src");
     let mut screen = Screen::picking(placed_agent(), Picker::Command(picker));
     screen.press('n');
@@ -115,7 +116,6 @@ fn enter_in_fzf_starts_the_session_where_harbour_was_opened() {
         placed_agent(),
         fuzzy(first_line_fzf(), listing("/acme/web")),
     );
-    widen(&mut screen);
     screen.press('n');
     screen.wait_for("acme picker");
 
@@ -159,7 +159,6 @@ fn without_zoxide_fzf_lists_only_the_directory_of_harbour() {
 fn without_fzf_n_starts_the_session_where_harbour_was_opened_at_once() {
     let picker = fuzzy(vec!["acme-nofzf".into()], listing("/acme/web"));
     let mut screen = Screen::picking(placed_agent(), picker);
-    widen(&mut screen);
 
     screen.press('n');
 
@@ -232,7 +231,6 @@ fn a_click_in_the_popup_reaches_a_picker_that_asked_for_the_mouse() {
 fn a_slow_list_holds_up_neither_harbour_nor_the_picker() {
     let slow = script("sleep 10; printf '/acme/web\\n'");
     let mut screen = Screen::picking(placed_agent(), fuzzy(first_line_fzf(), slow));
-    widen(&mut screen);
     let pressed = Instant::now();
 
     screen.press('n');
@@ -276,7 +274,6 @@ fn a_picker_whose_interpreter_is_missing_is_named_and_starts_nothing() {
     std::fs::set_permissions(&broken, std::fs::Permissions::from_mode(0o755)).unwrap();
     let picker = Picker::Command(vec![broken.display().to_string()]);
     let mut screen = Screen::picking(placed_agent(), picker);
-    widen(&mut screen);
 
     screen.press('n');
 
@@ -346,7 +343,6 @@ fn fzf_is_given_the_options_that_fix_what_it_prints() {
 fn fzf_exiting_with_an_error_is_named_and_starts_nothing() {
     let picker = fuzzy(script("echo 'acme fzf' >&2; exit 2"), listing(""));
     let mut screen = Screen::picking(placed_agent(), picker);
-    widen(&mut screen);
 
     screen.press('n');
 
@@ -402,7 +398,6 @@ fn a_picked_path_through_dot_dot_starts_in_the_directory_it_names() {
     directory_in(&api, "acme-web");
     let printing = script(&format!("echo '{}/acme-web/..'", api.display()));
     let mut screen = Screen::picking(placed_agent(), Picker::Command(printing));
-    widen(&mut screen);
 
     screen.press('n');
 
@@ -453,12 +448,7 @@ fn recording_fzf(scratch: &Path) -> Vec<String> {
 }
 
 fn here() -> String {
-    std::env::current_dir().unwrap().display().to_string()
-}
-
-fn widen(screen: &mut Screen) {
-    let width = 3 * (directory().chars().count() + 32);
-    screen.resize(u16::try_from(width.max(120)).unwrap(), 20);
+    home().display().to_string()
 }
 
 fn closed(screen: &mut Screen) -> String {

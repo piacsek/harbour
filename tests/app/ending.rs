@@ -2,7 +2,7 @@ use std::time::{Duration, Instant};
 
 use crossterm::event::{KeyCode, KeyModifiers, MouseButton, MouseEventKind};
 
-use crate::{Screen, directory, numbered_agent, raw_agent, reading_agent, script};
+use crate::{Screen, below, directory, numbered_agent, raw_agent, reading_agent, script};
 
 #[test]
 fn x_on_a_running_session_asks_before_ending_it() {
@@ -20,22 +20,22 @@ fn x_on_a_running_session_asks_before_ending_it() {
 
 #[test]
 fn y_to_the_question_ends_the_session() {
-    let mut screen = Screen::wide(reading_agent());
+    let mut screen = Screen::new(reading_agent());
     screen.press('n');
     screen.wait_for("acme agent ready");
     screen.press('x');
 
     screen.press('y');
 
-    let row = format!("○ {} 1 exited", directory());
-    let shown = screen.wait_for(&row);
-    assert!(shown.contains(&row), "{shown}");
+    let shown = screen.wait_for("exited");
+    let doing = below(&shown, &format!("○ {} 1", directory()));
+    assert!(doing.starts_with("exited"), "{shown}");
     assert!(!shown.contains("y/n"), "{shown}");
 }
 
 #[test]
 fn another_answer_to_the_question_keeps_the_session_running() {
-    let mut screen = Screen::wide(reading_agent());
+    let mut screen = Screen::new(reading_agent());
     screen.press('n');
     screen.wait_for("acme agent ready");
     screen.press('x');
@@ -51,26 +51,25 @@ fn another_answer_to_the_question_keeps_the_session_running() {
 
 #[test]
 fn x_on_an_exited_session_removes_its_row() {
-    let mut screen = Screen::wide(script("exit 0"));
+    let mut screen = Screen::new(script("exit 0"));
     screen.press('n');
     screen.press('n');
-    screen.wait_for(&format!("○ {} 1 exited", directory()));
-    screen.wait_for(&format!("○ {} 2 exited", directory()));
+    screen.wait_for(&format!("○ {} 1", directory()));
+    screen.wait_for(&format!("○ {} 2", directory()));
 
     screen.press('x');
 
     let shown = screen.draw();
-    assert!(
-        shown.contains(&format!("▌ ○ {} 1 exited", directory())),
-        "{shown}"
-    );
+    let first = format!("▌ ○ {} 1", directory());
+    assert!(shown.contains(&first), "{shown}");
+    assert_eq!(below(&shown, &first), "exited");
     assert!(!shown.contains(&format!("{} 2", directory())), "{shown}");
     assert!(!shown.contains("y/n"), "{shown}");
 }
 
 #[test]
 fn ctrl_y_to_the_question_keeps_the_session_running() {
-    let mut screen = Screen::wide(reading_agent());
+    let mut screen = Screen::new(reading_agent());
     screen.press('n');
     screen.wait_for("acme agent ready");
     screen.press('x');
@@ -123,7 +122,7 @@ fn q_with_a_running_session_asks_before_quitting() {
 
 #[test]
 fn q_with_only_exited_sessions_quits_without_asking() {
-    let mut screen = Screen::wide(script("exit 0"));
+    let mut screen = Screen::new(script("exit 0"));
     screen.press('n');
     screen.wait_for("exited");
 

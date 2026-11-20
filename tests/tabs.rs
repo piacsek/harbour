@@ -45,7 +45,7 @@ fn the_editor_name_is_cut_before_claude() {
     let [claude, editor] = strip("nvim", None, 13);
 
     assert_eq!(claude, "claude");
-    assert_eq!(editor, "nv");
+    assert_eq!(editor, "n…");
 }
 
 #[test]
@@ -53,7 +53,7 @@ fn a_wide_editor_name_is_cut_by_display_width() {
     let [claude, editor] = strip("編集器", None, 14);
 
     assert_eq!(claude, "claude");
-    assert_eq!(editor, "編");
+    assert_eq!(editor, "編…");
 }
 
 #[test]

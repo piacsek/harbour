@@ -1,4 +1,5 @@
 pub mod app;
+pub mod card;
 pub mod changelog;
 pub mod demo;
 pub mod editor;
@@ -8,9 +9,11 @@ pub mod mouse;
 pub mod nvim;
 pub mod picker;
 pub mod registry;
+pub mod repo;
 pub mod session;
 pub mod state;
 pub mod summary;
 pub mod tabs;
+pub mod text;
 pub mod transcript;
 pub mod tui;

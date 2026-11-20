@@ -1,4 +1,5 @@
 use std::fs;
+use std::io::Write;
 use std::path::{Path, PathBuf};
 
 use crossterm::event::{KeyCode, KeyModifiers};
@@ -88,6 +89,26 @@ fn claude_code_gets_no_session_id_when_harbour_does_not_read_its_transcripts() {
 }
 
 #[test]
+fn claude_code_gets_no_session_id_from_a_harbour_that_reads_transcripts_but_does_not_name_sessions()
+{
+    let scratch = tempfile::tempdir().unwrap();
+    let start = folder(scratch.path(), "acme-api");
+    let mut screen = Screen {
+        app: App::new(recording_agent(scratch.path()))
+            .with_picker(choosing(&start))
+            .with_transcripts(scratch.path().join("projects")),
+        terminal: Terminal::new(TestBackend::new(200, 20)).unwrap(),
+    };
+    screen.draw();
+
+    screen.press('n');
+
+    screen.wait_for("acme agent ready");
+    let args = fs::read_to_string(scratch.path().join("args")).unwrap();
+    assert!(!args.contains("--session-id"), "{args}");
+}
+
+#[test]
 fn the_editor_opens_at_the_root_of_the_directory_the_transcript_names_last() {
     let scratch = tempfile::tempdir().unwrap();
     let one = repository(scratch.path(), "acme-one");
@@ -160,22 +181,6 @@ fn without_a_transcript_the_editor_opens_at_the_root_of_the_start_directory() {
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = following(scratch.path(), &[]);
     fs::remove_dir_all(scratch.path().join("projects")).unwrap();
-
-    screen.key(KeyCode::Char('l'), KeyModifiers::CONTROL);
-
-    let shown = screen.wait_for("acme editor at");
-    assert!(shown.contains("acme editor at acme-start"), "{shown}");
-}
-
-#[test]
-fn a_directory_named_further_back_than_the_last_four_mebibytes_is_not_read() {
-    let scratch = tempfile::tempdir().unwrap();
-    let one = repository(scratch.path(), "acme-one");
-    let filler = format!("{{\"message\":\"{}\"}}", "a".repeat(1024));
-    let mut lines = vec![cwd(&one)];
-    lines.extend(std::iter::repeat_n(filler, 4 * 1024));
-    let lines: Vec<&str> = lines.iter().map(String::as_str).collect();
-    let mut screen = following(scratch.path(), &lines);
 
     screen.key(KeyCode::Char('l'), KeyModifiers::CONTROL);
 
@@ -443,6 +448,7 @@ fn following(scratch: &Path, lines: &[&str]) -> Screen {
             .with_editor(locating_editor())
             .with_picker(choosing(&start))
             .with_transcripts(scratch.join("projects"))
+            .naming_sessions()
             .with_registry(folder(scratch, "sessions")),
         terminal: Terminal::new(TestBackend::new(200, 20)).unwrap(),
     };
@@ -472,7 +478,13 @@ fn write_named_transcript(scratch: &Path, id: &str, lines: &[&str]) {
     let project = folder(scratch, "projects/-acme-start");
     let mut text = lines.join("\n");
     text.push('\n');
-    fs::write(project.join(format!("{id}.jsonl")), text).unwrap();
+    fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(project.join(format!("{id}.jsonl")))
+        .unwrap()
+        .write_all(text.as_bytes())
+        .unwrap();
 }
 
 fn cwd(directory: &Path) -> String {

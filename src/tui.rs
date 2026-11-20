@@ -27,10 +27,13 @@ pub fn run() -> io::Result<()> {
         .with_picker(dir_picker())
         .with_editor(editor());
     if let Some(dir) = claude_sessions() {
-        if std::env::var_os(SESSION_COMMAND).is_none() {
-            app = app.with_transcripts(dir.with_file_name("projects"));
-        }
         app = app.with_registry(dir);
+    }
+    if let Some(dir) = claude_projects() {
+        app = app.with_transcripts(dir);
+    }
+    if std::env::var_os(SESSION_COMMAND).is_none() {
+        app = app.naming_sessions();
     }
     if let Some(summary) = published() {
         app = app.with_summary(summary);
@@ -106,6 +109,13 @@ fn session_command() -> Vec<String> {
 
 fn claude_sessions() -> Option<std::path::PathBuf> {
     registry::sessions_dir(
+        std::env::var_os("CLAUDE_CONFIG_DIR").map(Into::into),
+        std::env::var_os("HOME").map(Into::into),
+    )
+}
+
+fn claude_projects() -> Option<std::path::PathBuf> {
+    registry::projects_dir(
         std::env::var_os("CLAUDE_CONFIG_DIR").map(Into::into),
         std::env::var_os("HOME").map(Into::into),
     )
