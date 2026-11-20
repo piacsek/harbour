@@ -12,6 +12,7 @@ use draw::exit_note;
 use crate::card::Sidebar;
 use crate::demo;
 use crate::editor::{self, Changes, Editor, Program};
+use crate::follow::{Follow, Mover};
 use crate::keys;
 use crate::mouse::{self, Gesture, Target};
 use crate::picker::{Pick, Picked, Picker};
@@ -52,6 +53,7 @@ pub struct App {
     naming: bool,
     read_at: Option<Instant>,
     summary: Option<Summary>,
+    follow: Option<Follow>,
 }
 
 #[derive(Clone, Copy, PartialEq)]
@@ -150,6 +152,7 @@ impl App {
             naming: false,
             read_at: None,
             summary: None,
+            follow: None,
         }
     }
 
@@ -185,6 +188,11 @@ impl App {
 
     pub fn with_summary(mut self, summary: Summary) -> App {
         self.summary = Some(summary);
+        self
+    }
+
+    pub fn with_mover(mut self, mover: Mover) -> App {
+        self.follow = Some(Follow::new(mover));
         self
     }
 

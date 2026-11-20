@@ -12,6 +12,7 @@ mod following;
 mod help;
 mod input;
 mod layout;
+mod moving;
 mod neovim;
 mod picker;
 mod selection;

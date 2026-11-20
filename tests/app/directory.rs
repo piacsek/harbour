@@ -465,7 +465,7 @@ pub(crate) fn following(scratch: &Path, lines: &[&str]) -> Screen {
     screen
 }
 
-fn recording_agent(scratch: &Path) -> Vec<String> {
+pub(crate) fn recording_agent(scratch: &Path) -> Vec<String> {
     script(&format!(
         "printf '%s %s' \"$0\" \"$1\" > '{scratch}/args'; echo $$ > '{scratch}/pid'; \
          echo 'acme agent ready'; exec sleep 600",
