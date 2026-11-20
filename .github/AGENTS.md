@@ -56,13 +56,28 @@ speed-up, when its pipeline went from about 3 min 20 s to 37 s:
   builds the flake on Linux only, and nothing after the merge builds it on macOS. Requiring it is
   the owner's step (see the ruleset bullet). The cost once it is: a Nix, nixpkgs or
   `cache.nixos.org` outage, or a stalled macOS runner, blocks every pull request that touches the
-  flake's inputs; the way out is the one the ruleset bullet gives. No Nix store cache: the build
-  is the crate and its dependencies from source, which a store cache would not skip for a changed
-  `Cargo.lock` or `src/`.
+  flake's inputs; the way out is the one the ruleset bullet gives.
+- **The flake job caches the Nix store, saved only from `main`.** Most of `nix build` fetched
+  and unpacked what stays the same until a lockfile changes (nixpkgs' source, clang, llvm, the
+  toolchain and the crate tarballs), so `nix-community/cache-nix-action` restores `/nix` under
+  `nix-<OS>-<hash of flake.lock and Cargo.lock>`, falling back to the newest `nix-<OS>-` key, and
+  saves only on a `push` to `main`: a pull request, a fork's included, restores `main`'s cache and
+  never writes one, so none can put a path into the store a later `main` build reads. That is
+  the guarantee: Nix does not re-hash a restored path (the action merges the cached store
+  database, so its paths count as registered), it only checks against the declared hash what it
+  downloads itself. A miss (no key yet, every key
+  evicted, the cache service down) is as slow as before the cache, never wrong. On a save after a
+  lockfile change it collects garbage down to 3 GiB on Linux and 5 GiB on macOS, with
+  `keep-outputs = true` so the build's own closure stays. No purge: GitHub's eviction (7 days
+  unused, least recently used above 10 GB) removes old keys, and without it no job needs
+  `actions: write`. A change to `flake.nix` alone hits the old key and builds the difference, on
+  every run until a lockfile changes, since the action saves only on a miss of the primary key.
 - **The flake builds with the Rust of `rust-toolchain.toml`**, through the locked
-  `rust-overlay`, rustfmt and clippy included, as the file lists them, in the file's `minimal`
-  profile (the default one adds `rust-docs`, whose unpacking cost conveyor's macOS job one to two
-  minutes; `dtolnay/rust-toolchain` installs `minimal` anyway). The overlay only knows the Rust
+  `rust-overlay`, in the file's `minimal` profile but without the `components` it lists
+  (`.override { extensions = [ ]; }`): rustfmt and clippy are for the gates, and the build never
+  runs them. The profile is `minimal` because the default one adds `rust-docs`, whose unpacking
+  cost conveyor's macOS job one to two minutes (`dtolnay/rust-toolchain` installs `minimal`
+  anyway). The overlay only knows the Rust
   releases up to its locked commit, so every toolchain bump updates the locked `rust-overlay` in
   `flake.lock` in the same pull request (the command is under Development in the root
   `AGENTS.md`). The `version` check refuses a channel change that keeps the locked revision (see

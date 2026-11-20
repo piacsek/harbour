@@ -29,7 +29,7 @@
         pkgs:
         let
           rust-bin = rust-overlay.lib.mkRustBin { } pkgs;
-          toolchain = rust-bin.fromRustupToolchainFile ./rust-toolchain.toml;
+          toolchain = (rust-bin.fromRustupToolchainFile ./rust-toolchain.toml).override { extensions = [ ]; };
           rustPlatform = pkgs.makeRustPlatform {
             cargo = toolchain;
             rustc = toolchain;
