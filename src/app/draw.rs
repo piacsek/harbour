@@ -5,7 +5,7 @@ use ratatui::style::{Color, Modifier, Stylize};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, BorderType, Clear, Paragraph, Wrap};
 
-use super::{App, Entry, HINT, NARROW, Question, remember};
+use super::{App, Entry, HINT, NARROW, Question, remember, user_home};
 use crate::card::{Card, Ended};
 use crate::editor::Changes;
 use crate::help;
@@ -15,11 +15,22 @@ use crate::text;
 use crate::transcript::Transcript;
 
 impl App {
+    fn follow_selected(&mut self) {
+        if let Some(follow) = &mut self.follow {
+            let seen = self
+                .sessions
+                .get(self.selected)
+                .map(|entry| entry.seen.as_path());
+            follow.to(seen, &self.home, user_home().as_deref());
+        }
+    }
+
     pub fn draw(&mut self, frame: &mut Frame) {
         self.finish_pick();
         self.finish_editors();
         self.read_files();
         self.settle_exited();
+        self.follow_selected();
         self.screen = frame.area();
         let (sidebar, pane) = self.areas(frame.area());
         self.sidebar = sidebar;

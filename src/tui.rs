@@ -51,6 +51,7 @@ pub fn demo() -> io::Result<()> {
 }
 
 fn show(app: App) -> io::Result<()> {
+    let app = app.with_mover(Box::new(|directory| std::env::set_current_dir(directory)));
     let mut terminal = ratatui::init();
     std::panic::set_hook(panic_hook(std::panic::take_hook()));
     let result = execute!(io::stdout(), EnableBracketedPaste, EnableMouseCapture)
@@ -116,6 +117,7 @@ fn claude_sessions() -> Option<std::path::PathBuf> {
         std::env::var_os("CLAUDE_CONFIG_DIR").map(Into::into),
         std::env::var_os("HOME").map(Into::into),
     )
+    .and_then(|dir| std::path::absolute(dir).ok())
 }
 
 fn claude_projects() -> Option<std::path::PathBuf> {
@@ -123,6 +125,7 @@ fn claude_projects() -> Option<std::path::PathBuf> {
         std::env::var_os("CLAUDE_CONFIG_DIR").map(Into::into),
         std::env::var_os("HOME").map(Into::into),
     )
+    .and_then(|dir| std::path::absolute(dir).ok())
 }
 
 fn remembered() -> Option<Memory> {

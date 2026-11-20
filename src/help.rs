@@ -16,7 +16,7 @@ pub const KEYS: [(&str, &str); 8] = [
 ];
 
 pub const NOTES: [&str; 6] = [
-    "n runs fzf over . and zoxide's list; HARBOUR_DIR_PICKER names another picker.",
+    "n runs fzf over the directory harbour was opened in and zoxide's list; HARBOUR_DIR_PICKER names another picker.",
     "C-l opens nvim at Claude Code's repository root; HARBOUR_EDITOR names another.",
     "In Neovim, C-h goes back only from the leftmost window, in normal mode.",
     "Most terminals send C-Backspace as C-h, so it acts as C-h.",

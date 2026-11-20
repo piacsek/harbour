@@ -3,6 +3,7 @@ pub mod card;
 pub mod changelog;
 pub mod demo;
 pub mod editor;
+pub mod follow;
 pub mod help;
 pub mod keys;
 pub mod memory;

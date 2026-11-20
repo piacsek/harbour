@@ -143,6 +143,19 @@ fn question_mark_names_the_setting_for_another_dir_picker() {
 }
 
 #[test]
+fn question_mark_says_the_picker_starts_where_harbour_was_opened() {
+    let mut screen = Screen::new(reading_agent());
+
+    screen.press('?');
+
+    let shown = screen.draw();
+    assert!(
+        shown.contains("n runs fzf over the directory harbour was opened in and zoxide's list"),
+        "{shown}"
+    );
+}
+
+#[test]
 fn the_next_key_hides_the_help_and_does_nothing_else() {
     let mut screen = Screen::new(reading_agent());
     screen.press('?');

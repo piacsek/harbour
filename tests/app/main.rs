@@ -13,6 +13,7 @@ mod help;
 mod input;
 mod keeping;
 mod layout;
+mod moving;
 mod neovim;
 mod picker;
 mod reconciling;

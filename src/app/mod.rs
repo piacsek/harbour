@@ -14,6 +14,7 @@ use draw::exit_note;
 use crate::card::Sidebar;
 use crate::demo;
 use crate::editor::{self, Changes, Editor, Program};
+use crate::follow::{self, Follow, Mover};
 use crate::keys;
 use crate::memory::{Memory, Remembered, Reservation};
 use crate::mouse::{self, Gesture, Target};
@@ -57,6 +58,8 @@ pub struct App {
     summary: Option<Summary>,
     memory: Option<Memory>,
     recalled: bool,
+    follow: Option<Follow>,
+    temporary: PathBuf,
 }
 
 #[derive(Clone, Copy, PartialEq)]
@@ -163,6 +166,8 @@ impl App {
             summary: None,
             memory: None,
             recalled: false,
+            follow: None,
+            temporary: follow::temporary(),
         }
     }
 
@@ -198,6 +203,11 @@ impl App {
 
     pub fn with_summary(mut self, summary: Summary) -> App {
         self.summary = Some(summary);
+        self
+    }
+
+    pub fn with_mover(mut self, mover: Mover) -> App {
+        self.follow = Some(Follow::new(mover));
         self
     }
 
@@ -402,6 +412,7 @@ impl App {
         match Editor::start(
             program,
             &directory,
+            &self.temporary,
             self.started,
             self.pane.height,
             self.pane.width,
@@ -516,7 +527,13 @@ impl App {
             return;
         };
         let popup = draw::popup(self.screen);
-        match Pick::open(picker, &self.home, popup.height, popup.width) {
+        match Pick::open(
+            picker,
+            &self.home,
+            &self.temporary,
+            popup.height,
+            popup.width,
+        ) {
             Ok(Some(pick)) => {
                 self.gesture = Gesture::Idle;
                 self.picking = Some(pick);
