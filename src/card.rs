@@ -5,6 +5,7 @@ use ratatui::text::{Line, Span};
 use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 
 use crate::registry::Record;
+use crate::repo::Place;
 use crate::state::State;
 
 const HEIGHT: usize = 3;
@@ -15,10 +16,16 @@ pub struct Card {
     state: State,
     title: String,
     doing: Option<(String, Style)>,
+    place: String,
 }
 
 impl Card {
-    pub fn new(title: &str, exit_note: Option<String>, record: Option<&Record>) -> Card {
+    pub fn new(
+        title: &str,
+        exit_note: Option<String>,
+        record: Option<&Record>,
+        place: &Place,
+    ) -> Card {
         let state = State::of(exit_note.is_some(), record);
         let doing = match (exit_note, state) {
             (Some(note), _) => Some((format!("exited{note}"), Style::default())),
@@ -31,6 +38,7 @@ impl Card {
             state,
             title: clean(title),
             doing,
+            place: clean(&place.to_string()),
         }
     }
 
@@ -47,7 +55,8 @@ impl Card {
             ]),
             None => Line::default(),
         };
-        [first, second, Line::default()]
+        let third = Line::from(vec![Span::from(INDENT), Span::from(fit(&self.place, room))]);
+        [first, second, third]
     }
 }
 

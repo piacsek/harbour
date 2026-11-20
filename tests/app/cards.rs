@@ -1,3 +1,9 @@
+use std::fs;
+use std::path::{Path, PathBuf};
+use std::thread::sleep;
+use std::time::Duration;
+
+use harbour::picker::Picker;
 use ratatui::style::{Color, Modifier};
 
 use crate::{Screen, below, directory, numbered_agent, script};
@@ -167,6 +173,79 @@ fn the_narrow_layout_shows_the_same_cards_across_the_whole_width() {
     let name = format!("○ {}", directory());
     assert!(shown.contains(&name), "{shown}");
     assert_eq!(below(&shown, &name), "exited 3");
+}
+
+#[test]
+fn the_third_line_shows_the_repository_and_branch_the_session_started_in() {
+    let scratch = tempfile::tempdir().unwrap();
+    let repository = repository(scratch.path(), "acme-api", "main");
+    let mut screen = picked_in(&repository, "sleep 600");
+
+    let shown = screen.wait_for("acme-api · main");
+
+    assert_eq!(third_line(&shown, "acme-api 1"), "acme-api · main");
+}
+
+#[test]
+fn the_third_line_follows_a_branch_switch() {
+    let scratch = tempfile::tempdir().unwrap();
+    let repository = repository(scratch.path(), "acme-api", "main");
+    let mut screen = picked_in(&repository, "sleep 600");
+    screen.wait_for("acme-api · main");
+
+    fs::write(repository.join(".git/HEAD"), "ref: refs/heads/fix-login\n").unwrap();
+
+    let shown = screen.wait_for("acme-api · fix-login");
+    assert_eq!(third_line(&shown, "acme-api 1"), "acme-api · fix-login");
+}
+
+#[test]
+fn an_exited_session_keeps_the_place_it_last_ran_in() {
+    let scratch = tempfile::tempdir().unwrap();
+    let repository = repository(scratch.path(), "acme-api", "main");
+    let mut screen = picked_in(&repository, "exit 3");
+    screen.wait_for("exited 3");
+    screen.wait_for("acme-api · main");
+
+    fs::write(repository.join(".git/HEAD"), "ref: refs/heads/fix-login\n").unwrap();
+    sleep(Duration::from_millis(700));
+
+    let shown = screen.draw();
+    assert_eq!(third_line(&shown, "acme-api 1"), "acme-api · main");
+}
+
+fn picked_in(directory: &Path, agent: &str) -> Screen {
+    let picker = script(&format!("printf '%s\\n' '{}'", directory.display()));
+    let mut screen = Screen::picking(script(agent), Picker::Command(picker));
+    screen.press('n');
+    screen
+}
+
+fn repository(parent: &Path, name: &str, branch: &str) -> PathBuf {
+    let repository = parent.join(name);
+    fs::create_dir_all(repository.join(".git")).unwrap();
+    fs::write(
+        repository.join(".git/HEAD"),
+        format!("ref: refs/heads/{branch}\n"),
+    )
+    .unwrap();
+    repository
+}
+
+fn third_line(shown: &str, title: &str) -> String {
+    let mut lines = shown.lines();
+    lines.find(|line| line.contains(title));
+    lines.next();
+    lines
+        .next()
+        .unwrap_or_default()
+        .chars()
+        .skip(1)
+        .take_while(|c| !matches!(c, '│' | '┃'))
+        .collect::<String>()
+        .trim_start_matches(['▌', ' '])
+        .trim_end()
+        .to_string()
 }
 
 fn top_card(shown: &str) -> String {

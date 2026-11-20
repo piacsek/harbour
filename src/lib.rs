@@ -7,6 +7,7 @@ pub mod keys;
 pub mod mouse;
 pub mod picker;
 pub mod registry;
+pub mod repo;
 pub mod session;
 pub mod state;
 pub mod summary;

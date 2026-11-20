@@ -17,6 +17,7 @@ use crate::keys;
 use crate::mouse::{self, Gesture, Target};
 use crate::picker::{Pick, Picked, Picker};
 use crate::registry::{self, Record};
+use crate::repo::{self, Place};
 use crate::session::{self, Session};
 use crate::state;
 use crate::summary::Summary;
@@ -62,6 +63,8 @@ struct Entry {
     session: Session,
     started_at: SystemTime,
     record: Option<Record>,
+    directory: PathBuf,
+    place: Place,
 }
 
 impl App {
@@ -331,6 +334,8 @@ impl App {
                     session,
                     started_at,
                     record: None,
+                    directory: directory.to_path_buf(),
+                    place: repo::place(directory),
                 });
                 self.selected = self.sessions.len() - 1;
             }
@@ -340,29 +345,27 @@ impl App {
         }
     }
 
-    fn read_registry(&mut self) {
-        let Some(dir) = &self.registry else {
-            return;
-        };
+    fn read_files(&mut self) {
         if self.read_at.is_some_and(|at| at.elapsed() < READ_EVERY) {
             return;
         }
         self.read_at = Some(Instant::now());
         for entry in &mut self.sessions {
             let last = entry.record.take();
-            entry.record = match entry.session.exit() {
-                Some(_) => None,
-                None => entry
-                    .session
-                    .pid()
-                    .and_then(|pid| registry::read(dir, pid, entry.started_at, last)),
-            };
+            if entry.session.exit().is_some() {
+                continue;
+            }
+            entry.place = repo::place(&entry.directory);
+            entry.record = self.registry.as_deref().and_then(|dir| {
+                let pid = entry.session.pid()?;
+                registry::read(dir, pid, entry.started_at, last)
+            });
         }
     }
 
     pub fn draw(&mut self, frame: &mut Frame) {
         self.finish_pick();
-        self.read_registry();
+        self.read_files();
         self.screen = frame.area();
         let (sidebar, pane) = self.areas(frame.area());
         self.sidebar = sidebar;
@@ -402,7 +405,7 @@ impl App {
             .sessions
             .iter()
             .zip(notes)
-            .map(|(entry, note)| Card::new(&entry.name, note, entry.record.as_ref()))
+            .map(|(entry, note)| Card::new(&entry.name, note, entry.record.as_ref(), &entry.place))
             .collect();
         let exited = self
             .sessions
