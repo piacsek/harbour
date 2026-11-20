@@ -237,16 +237,14 @@ impl App {
     pub fn draw(&mut self, frame: &mut Frame) {
         let (sidebar, pane) = self.areas(frame.area());
         self.sidebar = sidebar;
-        let mut sidebar_block = Block::bordered()
-            .border_type(border(!self.pane_focused))
-            .title(" sessions ");
+        let mut sidebar_block = bordered(!self.pane_focused).title(" sessions ");
         match self.asking {
             Some(Question::End) => sidebar_block = sidebar_block.title_bottom(" End? y/n "),
             Some(Question::Quit) => sidebar_block = sidebar_block.title_bottom(" Quit? y/n "),
             None => {}
         }
         let below_rows = sidebar_block.inner(sidebar);
-        let pane_block = Block::bordered().border_type(border(self.pane_focused));
+        let pane_block = bordered(self.pane_focused);
         self.pane = pane_block.inner(if pane.is_empty() { frame.area() } else { pane });
         self.shown_pane = if pane.is_empty() {
             Rect::default()
@@ -369,11 +367,13 @@ fn exit_note(status: &ExitStatus) -> String {
     }
 }
 
-fn border(focused: bool) -> BorderType {
+fn bordered(focused: bool) -> Block<'static> {
     if focused {
-        BorderType::Thick
+        Block::bordered()
+            .border_type(BorderType::Thick)
+            .border_style(Color::Cyan)
     } else {
-        BorderType::Plain
+        Block::bordered().border_type(BorderType::Plain)
     }
 }
 

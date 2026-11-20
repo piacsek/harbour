@@ -1,4 +1,5 @@
 use crossterm::event::{KeyCode, KeyModifiers};
+use ratatui::style::Color;
 
 use crate::{Screen, numbered_agent, reading_agent};
 
@@ -82,4 +83,55 @@ fn ctrl_h_in_the_pane_gives_the_keys_back_to_the_sidebar() {
 
     let shown = screen.wait_for("acme agent 2");
     assert!(shown.contains("acme agent 2"), "{shown}");
+}
+
+#[test]
+fn a_focused_pane_has_the_cyan_border() {
+    let scratch = tempfile::tempdir().unwrap();
+    let mut screen = Screen::new(numbered_agent(scratch.path()));
+    screen.press('n');
+    screen.wait_for("acme agent 1");
+
+    screen.key(KeyCode::Enter, KeyModifiers::NONE);
+
+    let pane = pane_corner(&screen.draw());
+    assert_eq!(screen.cell(pane, 0).fg, Color::Cyan);
+    assert_eq!(screen.cell(0, 0).fg, Color::Reset);
+}
+
+#[test]
+fn a_focused_sidebar_has_the_cyan_border() {
+    let scratch = tempfile::tempdir().unwrap();
+    let mut screen = Screen::new(numbered_agent(scratch.path()));
+    screen.press('n');
+
+    let shown = screen.wait_for("acme agent 1");
+
+    let pane = pane_corner(&shown);
+    assert_eq!(screen.cell(0, 0).fg, Color::Cyan);
+    assert_eq!(screen.cell(pane, 0).fg, Color::Reset);
+}
+
+#[test]
+fn the_bar_stays_on_the_selected_session_while_the_pane_has_focus() {
+    let scratch = tempfile::tempdir().unwrap();
+    let mut screen = Screen::new(numbered_agent(scratch.path()));
+    screen.press('n');
+    screen.wait_for("acme agent 1");
+
+    screen.key(KeyCode::Enter, KeyModifiers::NONE);
+    screen.draw();
+
+    assert_eq!(screen.cell(1, 1).symbol(), "▌");
+    assert_eq!(screen.cell(1, 1).fg, Color::Cyan);
+}
+
+fn pane_corner(shown: &str) -> u16 {
+    let top = shown.lines().next().unwrap();
+    let column = top
+        .chars()
+        .skip(1)
+        .position(|c| c == '┌' || c == '┏')
+        .unwrap();
+    u16::try_from(column + 1).unwrap()
 }
