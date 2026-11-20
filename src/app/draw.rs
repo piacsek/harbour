@@ -34,6 +34,7 @@ impl App {
         self.follow_selected();
         self.screen = frame.area();
         self.log_start();
+        self.log_changes();
         let (sidebar, pane) = self.areas(frame.area());
         self.sidebar = sidebar;
         let notes: Vec<Option<Ended>> = self
