@@ -16,7 +16,7 @@ const UNSAVED: &str = "len(filter(getbufinfo({'bufmodified': 1}), \
 
 pub struct Program {
     name: String,
-    command: Vec<String>,
+    command: Vec<OsString>,
     neovim: bool,
     patience: Duration,
 }
@@ -25,7 +25,7 @@ impl Program {
     pub fn new(name: &str, command: Vec<String>) -> Program {
         Program {
             name: name.to_string(),
-            command,
+            command: command.into_iter().map(OsString::from).collect(),
             neovim: false,
             patience: nvim::PATIENCE,
         }
@@ -35,6 +35,20 @@ impl Program {
         Program {
             neovim: true,
             ..Program::new(name, command)
+        }
+    }
+
+    pub fn named(program: OsString) -> Program {
+        let name = Path::new(&program)
+            .file_name()
+            .unwrap_or(&program)
+            .to_string_lossy()
+            .into_owned();
+        Program {
+            neovim: name == "nvim",
+            name,
+            command: vec![program],
+            patience: nvim::PATIENCE,
         }
     }
 
@@ -65,7 +79,7 @@ impl Editor {
         rows: u16,
         cols: u16,
     ) -> io::Result<Editor> {
-        let mut command: Vec<OsString> = program.command.iter().map(OsString::from).collect();
+        let mut command = program.command.clone();
         let socket = if program.neovim {
             let private = tempfile::Builder::new()
                 .prefix("harbour-nvim")

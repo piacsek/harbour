@@ -12,10 +12,38 @@ fn question_mark_shows_the_keys_and_the_tmux_pattern() {
     let shown = screen.draw();
     assert!(shown.contains("j/k"), "{shown}");
     assert!(
-        shown.contains("end the session, or remove it once it has exited"),
+        shown.contains("end the session and its editors, or remove it once it has exited"),
         "{shown}"
     );
     assert!(shown.contains("vim-tmux-navigator"), "{shown}");
+}
+
+#[test]
+fn question_mark_shows_the_editor_keys() {
+    let mut screen = Screen::new(reading_agent());
+
+    screen.press('?');
+
+    let shown = screen.draw();
+    assert!(
+        shown.contains("from Claude Code, C-l opens its editor"),
+        "{shown}"
+    );
+    assert!(
+        shown.contains("from the editor, Claude Code (Neovim: leftmost window, normal mode)"),
+        "{shown}"
+    );
+    assert!(shown.contains("the session and its editors"), "{shown}");
+}
+
+#[test]
+fn question_mark_names_the_setting_for_another_editor() {
+    let mut screen = Screen::new(reading_agent());
+
+    screen.press('?');
+
+    let shown = screen.draw();
+    assert!(shown.contains("HARBOUR_EDITOR"), "{shown}");
 }
 
 #[test]

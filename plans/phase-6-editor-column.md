@@ -125,3 +125,7 @@ One red-green-refactor cycle each, shipped with `scripts/ship.sh`.
   has closed fails, so `eval` gave up with the whole reply buffered. A real bug, found only by
   tracing a stress loop; the timeout error is now ignored, and tests that need an answer get a
   long patience through the `with_patience` seam → code
+- `test-seam` Under load (load average 9 to 16 on the build machine), an in-process test now and
+  then ran out its 5 s `wait_for` before a picker or agent started, and `wait_for` returned
+  quietly, so one failed later on a missing file with no screen shown; the helper that waits
+  for the agent now asserts what it saw. The 5 s deadline itself was left as is → none

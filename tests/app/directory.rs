@@ -246,7 +246,8 @@ fn following(scratch: &Path, lines: &[&str]) -> Screen {
     };
     screen.draw();
     screen.press('n');
-    screen.wait_for("acme agent ready");
+    let shown = screen.wait_for("acme agent ready");
+    assert!(shown.contains("acme agent ready"), "{shown}");
     write_transcript(scratch, lines);
     screen
 }

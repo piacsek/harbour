@@ -3,7 +3,7 @@ use std::process::Command;
 use std::thread::sleep;
 use std::time::{Duration, Instant};
 
-use harbour::tui::{DIR_PICKER, SESSION_COMMAND};
+use harbour::tui::{DIR_PICKER, EDITOR, SESSION_COMMAND};
 
 mod editor;
 mod picker;
@@ -486,6 +486,8 @@ impl Server {
             DIR_PICKER.to_string(),
             "-u".to_string(),
             SESSION_COMMAND.to_string(),
+            "-u".to_string(),
+            EDITOR.to_string(),
             "-u".to_string(),
             "CLAUDE_CONFIG_DIR".to_string(),
             quoted(&format!("HOME={}", home.display())),
