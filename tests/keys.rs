@@ -1,5 +1,5 @@
-use crossterm::event::{KeyCode, KeyEvent, KeyModifiers, MouseButton, MouseEventKind};
-use harbour::keys::{encode, mouse};
+use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+use harbour::keys::encode;
 
 #[test]
 fn a_letter_is_sent_as_itself() {
@@ -123,59 +123,6 @@ fn ctrl_and_a_bracket_is_sent_as_an_escape() {
         encode(with(KeyCode::Char('['), KeyModifiers::CONTROL), false),
         [0x1b]
     );
-}
-
-#[test]
-fn a_release_ends_with_a_small_m() {
-    assert_eq!(
-        mouse(MouseEventKind::Up(MouseButton::Left), 4, 2),
-        Some(b"\x1b[<0;5;3m".to_vec())
-    );
-}
-
-#[test]
-fn the_right_button_is_button_two() {
-    assert_eq!(
-        mouse(MouseEventKind::Down(MouseButton::Right), 0, 0),
-        Some(b"\x1b[<2;1;1M".to_vec())
-    );
-}
-
-#[test]
-fn the_middle_button_is_button_one() {
-    assert_eq!(
-        mouse(MouseEventKind::Down(MouseButton::Middle), 0, 0),
-        Some(b"\x1b[<1;1;1M".to_vec())
-    );
-}
-
-#[test]
-fn a_drag_adds_thirty_two() {
-    assert_eq!(
-        mouse(MouseEventKind::Drag(MouseButton::Left), 0, 0),
-        Some(b"\x1b[<32;1;1M".to_vec())
-    );
-}
-
-#[test]
-fn the_wheel_up_is_sixty_four() {
-    assert_eq!(
-        mouse(MouseEventKind::ScrollUp, 0, 0),
-        Some(b"\x1b[<64;1;1M".to_vec())
-    );
-}
-
-#[test]
-fn the_wheel_down_is_sixty_five() {
-    assert_eq!(
-        mouse(MouseEventKind::ScrollDown, 0, 0),
-        Some(b"\x1b[<65;1;1M".to_vec())
-    );
-}
-
-#[test]
-fn a_move_without_a_button_is_not_sent() {
-    assert_eq!(mouse(MouseEventKind::Moved, 0, 0), None);
 }
 
 fn key(code: KeyCode) -> KeyEvent {

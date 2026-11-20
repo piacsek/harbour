@@ -6,7 +6,6 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 
-use crossterm::event::MouseEventKind;
 use nix::sys::signal::{Signal, killpg};
 use nix::unistd::Pid;
 use portable_pty::{Child, CommandBuilder, ExitStatus, MasterPty, PtySize, native_pty_system};
@@ -14,8 +13,6 @@ use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::widgets::Widget;
 use tui_term::widget::PseudoTerminal;
-
-use crate::keys;
 
 const HANGUP_GRACE: Duration = Duration::from_millis(200);
 
@@ -157,13 +154,13 @@ impl Session {
         }
     }
 
-    pub fn mouse(&self, kind: MouseEventKind, column: u16, row: u16) {
-        let mode = self.parser.lock().unwrap().screen().mouse_protocol_mode();
-        if mode != vt100::MouseProtocolMode::None
-            && let Some(bytes) = keys::mouse(kind, column, row)
-        {
-            self.send(&bytes);
-        }
+    pub fn mouse_protocol(&self) -> (vt100::MouseProtocolMode, vt100::MouseProtocolEncoding) {
+        let parser = self.parser.lock().unwrap();
+        let screen = parser.screen();
+        (
+            screen.mouse_protocol_mode(),
+            screen.mouse_protocol_encoding(),
+        )
     }
 
     pub fn application_cursor(&self) -> bool {

@@ -49,8 +49,9 @@ src/tui.rs                    the terminal: enters and restores it, reads its ev
 src/app.rs                    the app: what is on screen and what each key does
 src/session.rs                a session: a command in a PTY, its output parsed into a screen that renders as a widget, its terminal queries answered, its exit status, its screen never under 2 rows or 2 columns (vt100 panics below that); every call into vt100 contained, so a panic gives that session a fresh screen and a repaint instead of taking harbour down, and the panic hook stays silent for it; writes go through a writer thread so a child that does not read never blocks the interface; ending it (or dropping it) hangs up its whole process group, then kills it, only while the child is unreaped; quitting hangs up every session first and waits once
 src/demo.rs                   the made-up sessions of `--demo`: `acme/*` scripts, never real data
-src/help.rs                   what the help view shows: `KEYS`, which the README key table mirrors, and the tmux pattern
-src/keys.rs                   the bytes a terminal sends for a key (legacy encoding) or a mouse event (SGR), which a session receives
+src/help.rs                   what the help view shows: `KEYS`, which the README key table mirrors, and `NOTES` (C-Backspace arriving as C-h, the tmux pattern)
+src/keys.rs                   the bytes a terminal sends for a key (legacy encoding), which a session receives
+src/mouse.rs                  `route`, a pure function: a gesture belongs to where its button went down, and the selected session gets only what its mouse mode asked for (`?9` presses, `?1000` presses, releases and the wheel, `?1002` drags too, `?1003` moves too), with Shift, Alt and Ctrl, in its encoding (SGR, UTF-8 or the legacy bytes), clamped to the pane; an empty pane forwards nothing and ends the gesture
 src/changelog.rs              the bundled CHANGELOG.md and the rules a release entry must meet
 CHANGELOG.md                  only its `# Changelog` heading on `main`; each release commit writes its sections
 rust-toolchain.toml           the one Rust version (rustfmt and clippy with it) that local gates and CI run; see Development
@@ -88,6 +89,7 @@ tests/           outside-in: `tests/cli.rs` runs the real binary;
                  `tests/scripts/` runs the scripts in a scratch directory and repository, with `tests/fixtures/` standing in for `cargo`, `gh`, `curl` and the scripts they call;
                  `tests/e2e/` runs the real binary in a scratch tmux server (`#[ignore]`, see `tests/AGENTS.md`), with `HARBOUR_SESSION_COMMAND` pointing sessions at `tests/fixtures/agent.sh` (prints what it reads, a line at a time) or `tests/fixtures/raw-agent.sh` (asks for bracketed paste and the mouse, prints every byte it reads) instead of `claude`;
                  `tests/session.rs` and `tests/app/` run sessions in process, as `/bin/sh -c` scripts;
+                 `tests/mouse.rs` is the table of what a session receives for each mouse event, mode, gesture and modifier;
                  `tests/readme.rs` pins the README shape (see "Documentation rule");
                  `tests/source_size.rs` fails while any Rust file under `src/` or `tests/` is longer than 700 lines, naming it;
                  `tests/toolchain.rs` fails while the `toolchain:` of `ci.yml` or `release.yml` differs from the channel of `rust-toolchain.toml`, or the `components:` of `ci.yml` or of the `build` job of `release.yml` from its `components`, or `rust-version` in `Cargo.toml` from its `major.minor`, or the `tag` job of `release.yml` loses `RUSTUP_TOOLCHAIN: stable`;

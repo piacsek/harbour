@@ -156,3 +156,52 @@ fn a_drag_held_while_a_narrow_terminal_hides_the_pane_is_dropped() {
         "{shown}"
     );
 }
+
+#[test]
+fn a_drag_that_started_on_the_sidebar_never_reaches_the_session() {
+    let mut screen = Screen::new(raw_agent("\\033[?1002h\\033[?1006h", 9));
+    screen.press('n');
+    screen.wait_for("acme agent ready");
+
+    screen.mouse(MouseEventKind::Down(MouseButton::Left), 5, 5);
+    screen.mouse(MouseEventKind::Drag(MouseButton::Left), 50, 5);
+    screen.mouse(MouseEventKind::Up(MouseButton::Left), 52, 5);
+    screen.mouse(MouseEventKind::Down(MouseButton::Left), 45, 3);
+
+    let shown = screen.wait_for("acme agent read:");
+    assert!(shown.contains("acme agent read:[<0;5;3M"), "{shown}");
+}
+
+#[test]
+fn a_session_that_asked_for_presses_and_releases_gets_no_drag() {
+    let mut screen = Screen::new(raw_agent("\\033[?1000h\\033[?1006h", 18));
+    screen.press('n');
+    screen.wait_for("acme agent ready");
+
+    screen.mouse(MouseEventKind::Down(MouseButton::Left), 45, 3);
+    screen.mouse(MouseEventKind::Drag(MouseButton::Left), 46, 3);
+    screen.mouse(MouseEventKind::Up(MouseButton::Left), 46, 3);
+
+    let shown = screen.wait_for("acme agent read:");
+    assert!(
+        shown.contains("acme agent read:[<0;5;3M[<0;6;3m"),
+        "{shown}"
+    );
+}
+
+#[test]
+fn a_ctrl_click_reaches_the_session_with_its_modifier() {
+    let mut screen = Screen::new(raw_agent("\\033[?1000h\\033[?1006h", 10));
+    screen.press('n');
+    screen.wait_for("acme agent ready");
+
+    screen.mouse_with(
+        MouseEventKind::Down(MouseButton::Left),
+        KeyModifiers::CONTROL,
+        45,
+        3,
+    );
+
+    let shown = screen.wait_for("acme agent read:");
+    assert!(shown.contains("acme agent read:[<16;5;3M"), "{shown}");
+}

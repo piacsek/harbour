@@ -40,11 +40,15 @@ impl Screen {
     }
 
     fn mouse(&mut self, kind: MouseEventKind, column: u16, row: u16) {
+        self.mouse_with(kind, KeyModifiers::NONE, column, row);
+    }
+
+    fn mouse_with(&mut self, kind: MouseEventKind, modifiers: KeyModifiers, column: u16, row: u16) {
         self.app.mouse(MouseEvent {
             kind,
             column,
             row,
-            modifiers: KeyModifiers::NONE,
+            modifiers,
         });
         self.draw();
     }

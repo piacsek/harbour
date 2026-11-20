@@ -11,6 +11,7 @@ use ratatui::widgets::{
 use crate::demo;
 use crate::help;
 use crate::keys;
+use crate::mouse::{self, Gesture};
 use crate::session::{self, Session};
 
 const NARROW: u16 = 60;
@@ -26,7 +27,7 @@ pub struct App {
     shown_pane: Rect,
     sidebar: Rect,
     pane_focused: bool,
-    dragging: bool,
+    gesture: Gesture,
     failed: Option<String>,
     asking: Option<Question>,
     helping: bool,
@@ -63,7 +64,7 @@ impl App {
             shown_pane: Rect::default(),
             sidebar: Rect::default(),
             pane_focused: false,
-            dragging: false,
+            gesture: Gesture::Idle,
             failed: None,
             asking: None,
             helping: false,
@@ -121,40 +122,26 @@ impl App {
 
     pub fn mouse(&mut self, event: MouseEvent) {
         if self.helping || self.asking.is_some() {
+            self.gesture = Gesture::Idle;
             if matches!(event.kind, MouseEventKind::Down(_)) {
                 self.dismiss(false);
             }
             return;
         }
         let at = Position::new(event.column, event.row);
-        let pane = self.shown_pane;
         if matches!(event.kind, MouseEventKind::Down(_)) {
             if self.sidebar.contains(at) {
                 self.pane_focused = false;
-            } else if pane.contains(at) {
+            } else if self.shown_pane.contains(at) {
                 self.pane_focused = !self.sessions.is_empty();
             }
         }
-        if pane.is_empty() {
-            self.dragging = false;
-            return;
-        }
-        let inside = pane.contains(at);
-        let held =
-            self.dragging && matches!(event.kind, MouseEventKind::Drag(_) | MouseEventKind::Up(_));
-        match event.kind {
-            MouseEventKind::Down(_) => self.dragging = inside,
-            MouseEventKind::Up(_) => self.dragging = false,
-            _ => {}
-        }
-        if (inside || held)
-            && let Some(entry) = self.sessions.get(self.selected)
-        {
-            let column = event.column.clamp(pane.x, pane.right().saturating_sub(1));
-            let row = event.row.clamp(pane.y, pane.bottom().saturating_sub(1));
-            entry
-                .session
-                .mouse(event.kind, column - pane.x, row - pane.y);
+        let session = self.sessions.get(self.selected).map(|entry| &entry.session);
+        let (mode, encoding) = session.map_or_else(Default::default, Session::mouse_protocol);
+        let (gesture, bytes) = mouse::route(self.gesture, event, self.shown_pane, mode, encoding);
+        self.gesture = gesture;
+        if let (Some(session), Some(bytes)) = (session, bytes) {
+            session.send(&bytes);
         }
     }
 
@@ -317,8 +304,8 @@ impl App {
         let keys = help::KEYS
             .iter()
             .map(|(key, what)| Line::from(format!("{key:<10} {what}")));
-        let tmux = help::TMUX.iter().map(|line| Line::from(*line));
-        let lines: Vec<Line> = keys.chain([Line::default()]).chain(tmux).collect();
+        let notes = help::NOTES.iter().map(|line| Line::from(*line));
+        let lines: Vec<Line> = keys.chain([Line::default()]).chain(notes).collect();
         frame.render_widget(Clear, frame.area());
         frame.render_widget(
             Paragraph::new(lines)

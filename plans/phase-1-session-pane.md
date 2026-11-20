@@ -56,9 +56,14 @@ hand in Ghostty inside tmux 3.7c, with Claude Code 2.1.328. The spike is not in 
 - **Legacy key encoding only.** harbour does not track which keyboard protocol the child asked
   for. Shift+Enter is sent as ESC CR, which Claude Code reads as a newline.
 - **`Ctrl-h` always returns to the sidebar from a Claude Code pane.** Claude Code loses it as a
-  backspace alias. `Ctrl-l` passes through, since nothing is to the right of the pane.
-- **The mouse is forwarded to the pane** (wheel and clicks, SGR encoding) when the child asked
-  for it. A click on the sidebar focuses the sidebar.
+  backspace alias. `Ctrl-l` passes through, since nothing is to the right of the pane. A terminal
+  that sends 0x08 for Ctrl+Backspace (xterm's default and those that follow it) arrives as `Ctrl-h`
+  too, so Ctrl+Backspace in the pane focuses the sidebar instead of deleting; the help view says so.
+- **The mouse is forwarded to the pane** as the child asked for it: what its mode reports
+  (presses, releases, the wheel, drags, moves), with Shift, Alt and Ctrl, in its encoding. A gesture
+  belongs to where its button went down: one that starts in the pane reaches the session up to its
+  release, one that starts anywhere else never does. Claude Code opens a link on Ctrl-click, so the
+  modifiers matter. A click on the sidebar focuses the sidebar.
 - **The sidebar shows what harbour knows by itself:** a name (`<directory> <n>`) and whether the
   process is running or has exited. What the agent is doing is a later phase.
 - **The tmux pattern is documented in the help view,** not fixed by harbour. harbour never edits

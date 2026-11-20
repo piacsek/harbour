@@ -8,7 +8,8 @@ pub const KEYS: [(&str, &str); 7] = [
     ("q", "quit, after a yes while a session runs"),
 ];
 
-pub const TMUX: [&str; 2] = [
+pub const NOTES: [&str; 3] = [
+    "C-Backspace arrives as C-h on most terminals, so in the pane it focuses the sidebar instead of deleting.",
     "Inside tmux with vim-tmux-navigator, add harbour to the pattern of processes it passes C-h and C-l to.",
     "Under tmux, Shift-Enter arrives as Enter: use Alt-Enter for a newline.",
 ];

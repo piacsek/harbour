@@ -18,6 +18,16 @@ fn question_mark_shows_the_keys_and_the_tmux_pattern() {
 }
 
 #[test]
+fn question_mark_says_that_ctrl_backspace_focuses_the_sidebar() {
+    let mut screen = Screen::new(reading_agent());
+
+    screen.press('?');
+
+    let shown = screen.draw();
+    assert!(shown.contains("C-Backspace"), "{shown}");
+}
+
+#[test]
 fn the_next_key_hides_the_help_and_does_nothing_else() {
     let mut screen = Screen::new(reading_agent());
     screen.press('?');
