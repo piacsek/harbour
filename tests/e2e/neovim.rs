@@ -24,6 +24,26 @@ fn ctrl_h_in_normal_mode_in_the_leftmost_window_goes_to_claude_code() {
 
 #[test]
 #[ignore]
+fn ctrl_h_in_the_normal_mode_of_a_terminal_buffer_goes_to_claude_code() {
+    let Some(neovim) = Neovim::start("nvim-terminal") else {
+        return;
+    };
+    neovim
+        .server
+        .send_keys(&[":terminal sleep 600", "Enter", "i", "C-\\", "C-n"]);
+    neovim
+        .server
+        .send_keys(&[":echo 'acme-mode-' . mode(1)", "Enter"]);
+    let screen = neovim.server.wait_for_screen("acme-mode-nt");
+    assert!(screen.contains("acme-mode-nt"), "{screen}");
+
+    neovim.server.send_keys(&["C-h"]);
+
+    neovim.assert_in_claude_code();
+}
+
+#[test]
+#[ignore]
 fn ctrl_h_with_a_window_on_the_left_reaches_the_mapping_that_moves_to_it() {
     let Some(neovim) = Neovim::start("nvim-split") else {
         return;

@@ -110,6 +110,61 @@ fn claude_code_keeps_the_keys_when_the_editor_cannot_start() {
     assert!(shown.contains("acme agent got: hi"), "{shown}");
 }
 
+#[test]
+fn a_narrow_pane_shows_that_the_editor_cannot_start() {
+    let missing = Program::new("acme-edit", vec!["acme-editor-missing".to_string()]);
+    let mut screen = narrow_with(missing);
+
+    screen.key(KeyCode::Char('l'), KeyModifiers::CONTROL);
+
+    let shown = screen.wait_for("Could not start acme-edit");
+    assert!(shown.contains("Could not start acme-edit"), "{shown}");
+    assert!(shown.contains("on PATH?"), "{shown}");
+    assert!(shown.contains("acme agent ready"), "{shown}");
+}
+
+#[test]
+fn a_narrow_pane_shows_that_the_editor_exited_with_a_code() {
+    let mut screen = narrow_with(exiting_editor("exit 1"));
+    screen.key(KeyCode::Char('l'), KeyModifiers::CONTROL);
+    screen.wait_for("acme editor up");
+
+    screen.type_text("done\r");
+
+    let shown = screen.wait_for_all(&["acme agent ready", "acme-edit exited 1"]);
+    assert!(shown.contains("acme agent ready"), "{shown}");
+    assert!(shown.contains("acme-edit exited 1"), "{shown}");
+}
+
+#[test]
+fn a_narrow_pane_wraps_the_message_by_display_columns() {
+    let missing = Program::new(
+        "acme-編集編集編集編集",
+        vec!["acme-editor-missing".to_string()],
+    );
+    let mut screen = narrow_with(missing);
+
+    screen.key(KeyCode::Char('l'), KeyModifiers::CONTROL);
+
+    let shown = screen.wait_for("on PATH?");
+    assert!(shown.contains("installed"), "{shown}");
+    assert!(shown.contains("on PATH?"), "{shown}");
+}
+
+#[test]
+fn the_next_key_clears_the_message_from_a_narrow_pane() {
+    let missing = Program::new("acme-edit", vec!["acme-editor-missing".to_string()]);
+    let mut screen = narrow_with(missing);
+    screen.key(KeyCode::Char('l'), KeyModifiers::CONTROL);
+    screen.wait_for("Could not start acme-edit");
+
+    screen.type_text("hi\r");
+
+    let shown = screen.wait_for("acme agent got: hi");
+    assert!(shown.contains("acme agent got: hi"), "{shown}");
+    assert!(!shown.contains("Could not start"), "{shown}");
+}
+
 fn with_editor(editor: Program) -> Screen {
     let mut screen = Screen::editing(reading_agent(), editor);
     screen.press('n');
@@ -125,4 +180,13 @@ fn exiting_editor(end: &str) -> Program {
         "acme-edit",
         script(&format!("echo 'acme editor up'; read -r line; {end}")),
     )
+}
+
+fn narrow_with(editor: Program) -> Screen {
+    let mut screen = Screen::editing(reading_agent(), editor);
+    screen.resize(50, 16);
+    screen.press('n');
+    screen.wait_for("acme agent ready");
+    screen.key(KeyCode::Enter, KeyModifiers::NONE);
+    screen
 }

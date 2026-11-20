@@ -57,10 +57,26 @@ fn a_wide_editor_name_is_cut_by_display_width() {
 }
 
 #[test]
-fn claude_is_cut_once_the_editor_name_is_gone() {
+fn nothing_shows_once_the_editor_name_is_gone() {
     let [claude, editor] = strip("nvim", None, 9);
 
-    assert_eq!(claude, "clau");
+    assert_eq!(claude, "");
+    assert_eq!(editor, "");
+}
+
+#[test]
+fn nothing_shows_in_the_narrowest_pane() {
+    let [claude, editor] = strip("nvim", Some("~/work/acme/api"), 6);
+
+    assert_eq!(claude, "");
+    assert_eq!(editor, "");
+}
+
+#[test]
+fn nothing_shows_when_not_one_wide_character_of_the_editor_name_fits() {
+    let [claude, editor] = strip("編集器", None, 12);
+
+    assert_eq!(claude, "");
     assert_eq!(editor, "");
 }
 

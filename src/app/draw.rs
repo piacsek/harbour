@@ -6,7 +6,7 @@ use ratatui::text::{Line, Span};
 use ratatui::widgets::{
     Block, BorderType, Clear, HighlightSpacing, List, ListState, Paragraph, Wrap,
 };
-use unicode_width::UnicodeWidthStr;
+use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 
 use super::{App, HINT, NARROW, Question};
 use crate::editor::Changes;
@@ -113,7 +113,12 @@ impl App {
             free = draw_bottom(frame, question_lines(question, below_rows.width), free);
         }
         if let Some(failed) = &self.failed {
-            draw_bottom(frame, failure_lines(failed, free.width), free);
+            let area = if sidebar.is_empty() && !self.sessions.is_empty() {
+                self.pane
+            } else {
+                free
+            };
+            draw_bottom(frame, failure_lines(failed, area.width), area);
         }
         if self.helping {
             self.draw_help(frame);
@@ -189,29 +194,38 @@ impl App {
 }
 
 fn failure_lines(failed: &str, width: u16) -> Vec<Line<'static>> {
-    let chars: Vec<char> = failed.chars().collect();
-    chars
-        .chunks(usize::from(width.max(1)))
-        .map(|chunk| Line::from(chunk.iter().collect::<String>()))
-        .collect()
+    wrapped(failed, width).into_iter().map(Line::from).collect()
 }
 
 fn question_lines(question: Question, width: u16) -> Vec<Line<'static>> {
-    let width = usize::from(width);
+    wrapped(&asked(question), width)
+        .into_iter()
+        .map(|line| Line::from(line).bold())
+        .collect()
+}
+
+fn wrapped(text: &str, width: u16) -> Vec<String> {
+    let width = usize::from(width.max(1));
     let mut lines: Vec<String> = Vec::new();
-    for word in asked(question).split(' ') {
+    for word in text.split(' ') {
         match lines.last_mut() {
             Some(line) if line.width() + 1 + word.width() <= width => {
                 line.push(' ');
                 line.push_str(word);
             }
-            _ => lines.push(word.to_string()),
+            _ => lines.push(String::new()),
+        }
+        if lines.last().is_some_and(String::is_empty) {
+            for c in word.chars() {
+                let line = lines.last_mut().expect("a line was pushed");
+                if !line.is_empty() && line.width() + c.width().unwrap_or(0) > width {
+                    lines.push(String::new());
+                }
+                lines.last_mut().expect("a line was pushed").push(c);
+            }
         }
     }
     lines
-        .into_iter()
-        .map(|line| Line::from(line).bold())
-        .collect()
 }
 
 fn draw_bottom(frame: &mut Frame, lines: Vec<Line<'static>>, area: Rect) -> Rect {

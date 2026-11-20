@@ -242,6 +242,30 @@ fn ctrl_h_after_ctrl_o_in_insert_mode_reaches_neovim() {
 }
 
 #[test]
+fn ctrl_h_in_the_leftmost_window_in_terminal_normal_mode_shows_claude_code() {
+    let scratch = tempfile::tempdir().unwrap();
+    let mut screen = open(scratch.path(), "exec sleep 600");
+    let _asked = answering(&socket(scratch.path()), Some(("nt", false)), Some(1));
+
+    screen.key(KeyCode::Char('h'), KeyModifiers::CONTROL);
+
+    let shown = screen.wait_for("acme agent ready");
+    assert!(shown.contains("acme agent ready"), "{shown}");
+}
+
+#[test]
+fn ctrl_h_in_terminal_normal_mode_with_a_window_to_the_left_reaches_neovim() {
+    let scratch = tempfile::tempdir().unwrap();
+    let mut screen = open(scratch.path(), "exec sleep 600");
+    let _asked = answering(&socket(scratch.path()), Some(("nt", false)), Some(0));
+
+    screen.key(KeyCode::Char('h'), KeyModifiers::CONTROL);
+
+    let shown = screen.wait_for("acme nvim read:08");
+    assert!(shown.contains("acme nvim read:08"), "{shown}");
+}
+
+#[test]
 fn a_notification_before_the_answer_does_not_hide_it() {
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = in_the_sidebar(scratch.path());

@@ -108,6 +108,42 @@ fn the_editor_opens_at_the_root_of_the_directory_the_transcript_names_last() {
 }
 
 #[test]
+fn a_new_session_id_without_a_transcript_keeps_the_directory_claude_code_was_in() {
+    let scratch = tempfile::tempdir().unwrap();
+    let one = repository(scratch.path(), "acme-one");
+    let start = repository(scratch.path(), "acme-start");
+    let mut screen = following(scratch.path(), &[&cwd(&one)]);
+    write_registry(scratch.path(), "acme-cleared", &start);
+
+    screen.key(KeyCode::Char('l'), KeyModifiers::CONTROL);
+
+    let shown = screen.wait_for("acme editor at");
+    assert!(shown.contains("acme editor at acme-one"), "{shown}");
+}
+
+#[test]
+fn a_second_new_session_id_without_a_transcript_keeps_the_directory_found_last() {
+    let scratch = tempfile::tempdir().unwrap();
+    let one = repository(scratch.path(), "acme-one");
+    let two = repository(scratch.path(), "acme-two");
+    let start = repository(scratch.path(), "acme-start");
+    let mut screen = following(scratch.path(), &[&cwd(&one)]);
+    write_registry(scratch.path(), "acme-first", &start);
+    write_named_transcript(scratch.path(), "acme-first", &[&cwd(&two)]);
+    screen.key(KeyCode::Char('l'), KeyModifiers::CONTROL);
+    screen.wait_for("acme editor at acme-two");
+    screen.key(KeyCode::Char('h'), KeyModifiers::CONTROL);
+    write_registry(scratch.path(), "acme-second", &start);
+
+    screen.key(KeyCode::Char('l'), KeyModifiers::CONTROL);
+
+    let shown = screen.wait_for("acme editor at");
+    assert!(shown.contains("acme editor at acme-two"), "{shown}");
+    assert!(!shown.contains("acme editor at acme-one"), "{shown}");
+    assert!(!shown.contains("acme editor at acme-start"), "{shown}");
+}
+
+#[test]
 fn a_line_that_is_not_json_is_skipped() {
     let scratch = tempfile::tempdir().unwrap();
     let one = repository(scratch.path(), "acme-one");
@@ -223,9 +259,8 @@ fn after_claude_code_changes_its_session_the_editor_follows_the_transcript_the_r
 #[test]
 fn the_registry_names_the_directory_while_its_session_has_no_transcript() {
     let scratch = tempfile::tempdir().unwrap();
-    let one = repository(scratch.path(), "acme-one");
     let two = repository(scratch.path(), "acme-two");
-    let mut screen = following(scratch.path(), &[&cwd(&one)]);
+    let mut screen = following(scratch.path(), &[]);
     write_registry(scratch.path(), "acme-fresh", &folder(&two, "src"));
 
     screen.key(KeyCode::Char('l'), KeyModifiers::CONTROL);

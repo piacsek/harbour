@@ -10,7 +10,7 @@ use tempfile::TempDir;
 use crate::nvim;
 use crate::session::Session;
 
-const NORMAL_MODE: &str = "n";
+const NORMAL_MODES: [&str; 2] = ["n", "nt"];
 const LEFTMOST: &str = "winnr('h') == winnr()";
 const UNSAVED: &str = "len(filter(getbufinfo({'bufmodified': 1}), \
                        {_, b -> index(['', 'acwrite'], getbufvar(b.bufnr, '&buftype')) >= 0}))";
@@ -112,7 +112,7 @@ impl Editor {
     pub fn wants_ctrl_h(&self) -> bool {
         match self.listening() {
             Listening::Blocking => true,
-            Listening::Ready(_, _, mode) if mode != NORMAL_MODE => true,
+            Listening::Ready(_, _, mode) if !NORMAL_MODES.contains(&mode.as_str()) => true,
             Listening::Ready(socket, deadline, _) => {
                 nvim::eval(socket, LEFTMOST, deadline) == Some(0)
             }

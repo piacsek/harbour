@@ -58,7 +58,7 @@ to another worktree, `Ctrl-l` opens a second editor there and the first keeps ru
 | Sidebar | `Ctrl-l` or Enter | whatever the pane last showed for that session |
 | Claude Code | `Ctrl-l` | the editor of the directory Claude Code is in, started on first use |
 | Claude Code | `Ctrl-h` | the sidebar |
-| Neovim, mode exactly `n`, not blocking, leftmost window | `Ctrl-h` | Claude Code |
+| Neovim, mode exactly `n` or `nt`, not blocking, leftmost window | `Ctrl-h` | Claude Code |
 | Neovim, anywhere else (another window, any other mode, blocking) | `Ctrl-h` | Neovim |
 | Neovim not answering on its socket | `Ctrl-h` | Claude Code |
 | Another editor | `Ctrl-h` | Claude Code, always |
@@ -68,7 +68,7 @@ to another worktree, `Ctrl-l` opens a second editor there and the first keeps ru
 
 One rule settles `Ctrl-h` and the questions: harbour asks `nvim_get_mode` first, and only a
 Neovim that answers it with `blocking: false` is asked `nvim_eval`; both share one 100 ms
-deadline. `Ctrl-h` leaves Neovim only when the `mode` field is exactly `n`, `blocking` is false
+deadline. `Ctrl-h` leaves Neovim only when the `mode` field is exactly `n` or `nt`, `blocking` is false
 and the window is leftmost; every other mode keeps the key in Neovim. A key Neovim is waiting
 for goes to Neovim, and an editor harbour cannot ask may have unsaved changes. Measured with a
 real Neovim (see Verified facts):
@@ -83,7 +83,8 @@ real Neovim (see Verified facts):
 | `Ctrl-w`, `g`, `z`, `f`, `"`, `r`, a count or a partial mapping pending (blocking) | Neovim | `May have unsaved changes. End? y/n` |
 | "Press ENTER" prompt (blocking) | Neovim | `May have unsaved changes. End? y/n` |
 | Command line | Neovim (blocking, or mode `c`) | `May have unsaved changes. End? y/n` when blocking, else as normal mode |
-| Terminal buffer | Neovim (mode `t`) | as normal mode |
+| Terminal buffer, terminal mode | Neovim (mode `t`) | as normal mode |
+| Terminal buffer, normal mode (`nt`, after `Ctrl-\ Ctrl-n`), leftmost window | Claude Code | as normal mode |
 | No answer (busy, gone, socket not made) | Claude Code, after at most 100 ms | `May have unsaved changes. End? y/n` |
 | Answers its mode, not `nvim_eval` | Claude Code | `May have unsaved changes. End? y/n` |
 | Not Neovim (another `HARBOUR_EDITOR`) | Claude Code | `May have unsaved changes. End? y/n` |
@@ -103,14 +104,15 @@ prompt, `nofile`, `nowrite`, help or quickfix buffer holds nothing to save and d
 | Running, hidden behind Claude Code | the border names its directory, Claude Code marked; the next `Ctrl-l` shows it again with its buffers when Claude Code is still in that directory |
 | Claude Code moved to another repository or worktree | `Ctrl-l` starts a second editor there; the first keeps running hidden; moving back and `Ctrl-l` shows the first again |
 | Claude Code changed session (`/clear`, `/resume`) | `Ctrl-l` reads the registry's `sessionId` and follows that transcript's `cwd` |
-| The registry's session has no transcript yet | the registry's `cwd` |
+| The registry's session has no transcript yet (after `/clear`, before the next prompt) | the directory last found for the session (an earlier `Ctrl-l`, or harbour's own `--session-id` transcript), else the registry's `cwd` |
+| The last 4 MiB of the transcript is one line with no complete `cwd` (a pasted image) | falls back as above until the next message writes a line with `cwd`; not fixed |
 | The registry's `sessionId` is not a plain name (letters, digits, `-`, `_`) | it is not looked up; the registry's `cwd` |
 | The registry and both transcripts cannot be read (not `claude`, no line with `cwd`, unreadable) | the editor opens at the root of the session's start directory |
 | Claude Code's directory is gone | nothing starts, focus stays on Claude Code; the bottom of the sidebar says `Not a directory: <path>` |
 | Not in a repository | the editor opens in Claude Code's directory itself |
-| The editor cannot start (not installed, not executable) | nothing starts, focus stays on Claude Code; the sidebar says `Could not start nvim: is it installed and on PATH?` |
+| The editor cannot start (not installed, not executable) | nothing starts, focus stays on Claude Code; the sidebar says `Could not start nvim: is it installed and on PATH?`, or, when a narrow terminal hides the sidebar, the bottom of the pane says it until the next key |
 | The editor exits with 0 | the pane shows Claude Code, focused; no message; the next `Ctrl-l` starts a fresh editor |
-| The editor exits with an error or a signal | as with 0, and the sidebar says `nvim exited 1` (or `nvim exited (Killed: 9)` for a signal) until the next start |
+| The editor exits with an error or a signal | as with 0, and the sidebar says `nvim exited 1` (or `nvim exited (Killed: 9)` for a signal) until the next start; with the sidebar hidden, the bottom of the pane says it until the next key |
 | A hidden editor exits | it is forgotten; an error exit is named the same way |
 | Not answering on its socket (busy, or its socket could not be made) | `Ctrl-h` goes to Claude Code after at most the timeout; it is never stuck; `x` and `q` say `May have unsaved changes.` |
 | The temporary directory is too long for a socket path (macOS allows 103 bytes) | the socket goes under `/tmp` instead |
@@ -120,7 +122,8 @@ prompt, `nofile`, `nowrite`, help or quickfix buffer holds nothing to save and d
 | `x` on an exited session whose editors still run | the same question; yes ends the editors and removes the row |
 | `q` with any session or editor running | `Quit? y/n`, `Unsaved changes. Quit? y/n` when a Neovim says so, or `May have unsaved changes. Quit? y/n`; yes ends all |
 | A question in the narrowest sidebar (20 columns at 60, 26 at 80) | it wraps by words, measured in display columns, at the bottom of the sidebar, and shows whole |
-| Narrow terminal (under 60 columns) | the focused pane takes the screen as before; the border's directory loses its start first (`…/acme/api`), then the names are cut, all by display width |
+| Narrow terminal (under 60 columns) | the focused pane takes the screen as before; the border's directory loses its start first (`…/acme/api`), then the editor's name is cut, all by display width; once not one column of it fits, the border shows no names |
+| A failure message where the sidebar or pane is narrow | it wraps by words, measured in display columns, and a word wider than the line breaks by columns |
 | The picker popup open while an editor exists | every key, paste and mouse event goes to the picker; nothing reaches an editor |
 | The help view or a question open | as before: the next key closes or answers it; the editor gets nothing |
 | The help view at 80x24 or 120x20 | every key and note shows (18 rows) |
@@ -137,8 +140,11 @@ prompt, `nofile`, `nowrite`, help or quickfix buffer holds nothing to save and d
   session's start directory. The transcript is found by its file name under every project
   directory, so harbour does not reproduce Claude Code's name for that directory. It is looked
   up again at every `Ctrl-l`, from the freshest source that is right: the transcript of the
-  registry's `sessionId` (a plain name only), then the registry's `cwd`, then the transcript of
-  harbour's own `--session-id`, then the start directory. The registry is skipped once the
+  registry's `sessionId` (a plain name only, else harbour's own `--session-id`), then the
+  directory last found that way for the session (else the transcript of harbour's own
+  `--session-id`), then the registry's `cwd`, then the start directory. Round 3 put the last
+  directory found before the registry's `cwd`, which is the directory Claude Code started in:
+  after `/clear` the new id has no transcript until the next prompt. The registry is skipped once the
   session has exited, since its pid may be reused.
 - **The root is the nearest directory up from Claude Code's that holds `.git`** (a directory, or
   the file of a worktree or submodule), found without running git; none means the directory
@@ -157,9 +163,15 @@ prompt, `nofile`, `nowrite`, help or quickfix buffer holds nothing to save and d
 - **The tab strip is in the pane's top border**: `claude | <editor>` before the first editor
   starts for the session, `claude | <editor>: <directory>` with the directory of the editor the
   pane would show; the shown one is bold, the other dim.
-- **`Ctrl-h` leaves Neovim only from mode exactly `n`, not blocking, in the leftmost window.**
+- **`Ctrl-h` leaves Neovim only from mode exactly `n` or `nt`, not blocking, in the leftmost window.**
   Round 2 showed `mode()` reads `n` with an operator pending, so the rule reads the `mode` field
-  of `nvim_get_mode` itself instead of `mode()`.
+  of `nvim_get_mode` itself instead of `mode()`. Round 3 added `nt`, a terminal buffer's normal
+  mode, which Neovim calls normal mode too.
+- **A failure message shows where the user is looking**: at the bottom of the sidebar, or, when
+  a narrow terminal hides it, at the bottom of the pane, where the next key clears it so it does
+  not cover Claude Code's input for good.
+- **The tab strip shows both names or none**: a lone `claude | ` with no editor name read as a
+  broken border.
 - **Editors take ids from the counter of rows, but not their numbers**: a session's name counts
   sessions only, so opening an editor does not make the next session `sub 3` instead of `sub 2`.
 - **A real Neovim runs in the end-to-end tests of `tests/e2e/neovim.rs` only**, with `--clean`
@@ -194,8 +206,8 @@ One red-green-refactor cycle each, shipped with `scripts/ship.sh`.
   `tests/app/neovim.rs`, `tests/app/directory.rs`) with `/bin/sh` scripts standing in for the
   editor, Neovim and `claude`, and end to end (`tests/e2e/editor.rs`) with
   `tests/fixtures/editor.sh`, also linked as `nvim`, on the scratch `PATH`.
-- New modules: `src/editor.rs` (the program, the editor, its socket), `src/nvim.rs` (one
-  `nvim_eval` over msgpack-RPC, 100 ms), `src/transcript.rs` (Claude Code's `cwd` from its
+- New modules: `src/editor.rs` (the program, the editor, its socket), `src/nvim.rs` (`nvim_get_mode`,
+  then `nvim_eval`, over msgpack-RPC within one 100 ms deadline), `src/transcript.rs` (Claude Code's `cwd` from its
   transcript), `src/tabs.rs` (the border strip). `src/app.rs` became `src/app/mod.rs` and
   `src/app/draw.rs` to stay under 700 lines.
 - Editors are not rows: a session with its editor open is counted once by the sidebar title
@@ -220,8 +232,14 @@ One red-green-refactor cycle each, shipped with `scripts/ship.sh`.
   notification before the reply is skipped; opening an editor no longer skips a session number;
   the C-Backspace note no longer says where C-h goes. Ten end-to-end tests run a real
   `nvim --clean` when one is installed (`tests/e2e/neovim.rs`), and pass without one, as in CI.
-- When harbour is killed by a signal, each editor's empty socket directory stays in the temp
-  directory: declined, a known limit in `AGENTS.md`.
+- Review round 3 fixes: a failure message shows at the bottom of the pane while a narrow
+  terminal hides the sidebar, until the next key, wrapped by display columns; `Ctrl-h` leaves
+  Neovim from `nt` too, checked against a real Neovim; after `/clear` the editor stays at the
+  directory last found instead of the one Claude Code started in; the tab strip shows no names
+  once the editor's name cannot show.
+- When harbour is killed by a signal or its terminal window is closed, each editor's empty
+  socket directory stays in the temp directory: declined, a known limit in `AGENTS.md`. A
+  transcript whose last 4 MiB is one huge line falls back until the next message: declined.
 - Every Decision above was taken without the owner, as the most conservative reading of issue #4.
 
 ## Hurdles

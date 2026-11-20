@@ -67,6 +67,7 @@ struct Entry {
     editors: Vec<Editor>,
     editor: Option<usize>,
     on_editor: bool,
+    known: Option<PathBuf>,
 }
 
 impl Entry {
@@ -184,6 +185,9 @@ impl App {
         }
         if self.dismiss(is_yes(key)) {
             return;
+        }
+        if self.sidebar.is_empty() && !self.sessions.is_empty() {
+            self.failed = None;
         }
         if self.pane_focused && is_ctrl(key, 'h') {
             match self.sessions.get_mut(self.selected) {
@@ -482,6 +486,7 @@ impl App {
                     editors: Vec::new(),
                     editor: None,
                     on_editor: false,
+                    known: None,
                 });
                 self.selected = self.sessions.len() - 1;
             }
@@ -526,12 +531,21 @@ fn where_claude_code_is(entry: &mut Entry, registry: Option<&Path>) -> PathBuf {
         .and_then(|(dir, pid)| registry::place(dir, pid, entry.started_at));
     let transcript = entry.transcript.as_ref();
     let (session_id, cwd) = place.map_or((None, None), |place| (place.session_id, place.cwd));
-    session_id
-        .zip(transcript)
-        .and_then(|(id, transcript)| transcript.directory_of(&id))
+    let current = match session_id {
+        Some(id) => transcript.and_then(|transcript| transcript.directory_of(&id)),
+        None => transcript.and_then(Transcript::directory),
+    };
+    let own = || transcript.and_then(Transcript::directory);
+    let found = current
+        .clone()
+        .or_else(|| entry.known.clone())
+        .or_else(own)
         .or(cwd)
-        .or_else(|| transcript.and_then(Transcript::directory))
-        .unwrap_or_else(|| entry.directory.clone())
+        .unwrap_or_else(|| entry.directory.clone());
+    if current.is_some() {
+        entry.known = current;
+    }
+    found
 }
 
 fn changes<'a>(editors: impl IntoIterator<Item = &'a Editor>) -> Changes {

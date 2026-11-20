@@ -21,8 +21,10 @@ pub fn strip(editor: &str, directory: Option<&str>, width: usize) -> [String; 2]
         }
     }
     let editor = head(editor, left);
-    let claude = head(CLAUDE, room.saturating_sub(editor.width()));
-    [claude, editor]
+    if editor.is_empty() {
+        return [String::new(), String::new()];
+    }
+    [CLAUDE.to_string(), editor]
 }
 
 fn head(text: &str, width: usize) -> String {
