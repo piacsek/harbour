@@ -6,8 +6,6 @@ use crossterm::event::{KeyCode, KeyModifiers};
 use harbour::app::App;
 use harbour::editor::Program;
 use harbour::picker::Picker;
-use ratatui::Terminal;
-use ratatui::backend::TestBackend;
 
 use crate::{Screen, reading_agent, script};
 
@@ -98,13 +96,11 @@ fn claude_code_gets_no_session_id_from_a_harbour_that_reads_transcripts_but_does
 {
     let scratch = tempfile::tempdir().unwrap();
     let start = folder(scratch.path(), "acme-api");
-    let mut screen = Screen {
-        app: App::new(recording_agent(scratch.path()))
+    let mut screen = Screen::wide(
+        App::new(recording_agent(scratch.path()))
             .with_picker(choosing(&start))
             .with_transcripts(scratch.path().join("projects")),
-        terminal: Terminal::new(TestBackend::new(200, 20)).unwrap(),
-    };
-    screen.draw();
+    );
 
     screen.press('n');
 
@@ -414,13 +410,11 @@ fn e_in_the_sidebar_comes_back_round_to_the_first_editor() {
 }
 
 fn started_in(directory: &Path, agent: Vec<String>) -> Screen {
-    let mut screen = Screen {
-        app: App::new(agent)
+    let mut screen = Screen::wide(
+        App::new(agent)
             .with_editor(locating_editor())
             .with_picker(choosing(directory)),
-        terminal: Terminal::new(TestBackend::new(200, 20)).unwrap(),
-    };
-    screen.draw();
+    );
     screen.press('n');
     screen.wait_for("acme agent ready");
     screen
@@ -452,16 +446,14 @@ pub(crate) fn following(scratch: &Path, lines: &[&str]) -> Screen {
 
 pub(crate) fn following_with(scratch: &Path, lines: &[&str], editor: Program) -> Screen {
     let start = repository(scratch, "acme-start");
-    let mut screen = Screen {
-        app: App::new(recording_agent(scratch))
+    let mut screen = Screen::wide(
+        App::new(recording_agent(scratch))
             .with_editor(editor)
             .with_picker(choosing(&start))
             .with_transcripts(scratch.join("projects"))
             .naming_sessions()
             .with_registry(folder(scratch, "sessions")),
-        terminal: Terminal::new(TestBackend::new(200, 20)).unwrap(),
-    };
-    screen.draw();
+    );
     screen.press('n');
     let shown = screen.wait_for("acme agent ready");
     assert!(shown.contains("acme agent ready"), "{shown}");

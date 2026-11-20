@@ -134,10 +134,22 @@ these suites come from; the ones about sessions were hit in harbour.
 - **A sidebar row carries the name of the folder its session starts in.** Harbour starts
   sessions in the directory it runs from, so in-process tests once named their rows after the
   checkout's folder, and three phases had tests that failed only in a worktree with a long name.
-  Every `tests/app/` screen is now built by `Screen::of`, which gives the app a scratch folder
-  named `acme-home` (`home()`, `directory()` in `tests/app/main.rs`), so a row reads `acme-home 1`
-  wherever the tests run. A test that builds an `App` and starts a session before `Screen::of`
-  gives it `.with_home(home())` itself; a relative path is read from `home()`, not the checkout.
+  Every `tests/app/` screen is now built by `Screen::of` (or `Screen::wide`, 200 columns), which
+  gives the app a scratch folder named `acme-home` (`home()`, `directory()` in
+  `tests/app/main.rs`), so a row reads `acme-home 1` wherever the tests run; `Screen::at` takes
+  the home as an argument for a test that needs its own. A test that builds an `App` and starts a
+  session before `Screen::of` gives it `.with_home(home())` itself; a relative path is read from
+  `home()`, not the checkout. In phase 6 three new tests broke this rule while it was enforced by
+  review alone, so `tests/checkout_name.rs` now reads every Rust file under `tests/` and fails,
+  naming the file and line, on a `current_dir()` call (the process's directory, which cargo sets
+  to the checkout; a `Command`'s `.current_dir(<dir>)` is left alone) and on a `Screen` built as a
+  struct literal outside `tests/app/main.rs`. Its `ALLOWED` list holds the two lines of
+  `tests/app/moving.rs` that compare the process's directory before and after, never draw it. It
+  cannot see, so this rule covers: `CARGO_MANIFEST_DIR` or a path built from it handed to a
+  session, an app's home, a picker or a socket (every current use reads a file of the repository
+  or names a fixture); the directory read another way (`$PWD`, `std::env::var("PWD")`, `"."`, a
+  relative path); and an `App` started outside a `Screen`, which takes the process's directory
+  as its home.
 - **`wait_for` returns after its timeout without failing.** It hands back the last screen it drew,
   so a wait used only to sync passes even when its text never shows. When a later assertion relies
   on that text having been on screen (the state before a change, a count before an exit), assert on

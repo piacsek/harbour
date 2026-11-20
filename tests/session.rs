@@ -1,4 +1,3 @@
-use std::path::PathBuf;
 use std::process::Command;
 use std::sync::mpsc;
 use std::thread::{self, sleep};
@@ -149,7 +148,7 @@ fn a_session_started_with_no_room_still_runs() {
         "-c".into(),
         "echo ready; sleep 5".into(),
     ];
-    let mut session = Session::start(&command, &here(), 0, 0).unwrap();
+    let mut session = Session::start(&command, &std::env::temp_dir(), 0, 0).unwrap();
 
     session.resize(ROWS, COLS);
 
@@ -164,7 +163,7 @@ fn a_session_started_one_row_high_survives_a_wrapped_line() {
         "-c".into(),
         "printf 'acme-api wraps'; echo; sleep 1; echo ready; sleep 5".into(),
     ];
-    let mut session = Session::start(&command, &here(), 1, 4).unwrap();
+    let mut session = Session::start(&command, &std::env::temp_dir(), 1, 4).unwrap();
     sleep(Duration::from_millis(300));
 
     session.resize(ROWS, COLS);
@@ -193,7 +192,7 @@ fn a_session_started_one_column_wide_survives_a_wide_character() {
         "-c".into(),
         "printf '\\344\\270\\226'; echo; sleep 1; echo ready; sleep 5".into(),
     ];
-    let mut session = Session::start(&command, &here(), 10, 1).unwrap();
+    let mut session = Session::start(&command, &std::env::temp_dir(), 10, 1).unwrap();
     sleep(Duration::from_millis(300));
 
     session.resize(ROWS, COLS);
@@ -217,7 +216,8 @@ fn a_session_resized_to_one_column_survives_a_wide_character() {
 
 #[test]
 fn a_session_survives_a_wide_character_cut_by_a_resize() {
-    let mut session = Session::start(&wide_at_the_edge(), &here(), ROWS, 160).unwrap();
+    let mut session =
+        Session::start(&wide_at_the_edge(), &std::env::temp_dir(), ROWS, 160).unwrap();
     wait_for(&session, "ready");
     session.resize(ROWS, 159);
 
@@ -231,7 +231,8 @@ fn a_session_survives_a_wide_character_cut_by_a_resize() {
 
 #[test]
 fn a_session_whose_screen_was_reset_is_asked_to_repaint() {
-    let mut session = Session::start(&wide_at_the_edge(), &here(), ROWS, 160).unwrap();
+    let mut session =
+        Session::start(&wide_at_the_edge(), &std::env::temp_dir(), ROWS, 160).unwrap();
     wait_for(&session, "ready");
     session.resize(ROWS, 159);
     wait_for(&session, "repainted");
@@ -247,7 +248,8 @@ fn a_session_whose_screen_was_reset_is_asked_to_repaint() {
 
 #[test]
 fn a_session_whose_screen_was_reset_keeps_the_modes_its_program_turned_on() {
-    let mut session = Session::start(&moded_wide_at_the_edge(), &here(), ROWS, 160).unwrap();
+    let mut session =
+        Session::start(&moded_wide_at_the_edge(), &std::env::temp_dir(), ROWS, 160).unwrap();
     wait_for(&session, "ready");
     session.resize(ROWS, 159);
     session.send(b"x");
@@ -352,7 +354,7 @@ fn moded_wide_at_the_edge() -> [String; 3] {
 
 fn start(script: &str) -> Session {
     let command = ["/bin/sh".to_string(), "-c".into(), script.into()];
-    Session::start(&command, &here(), ROWS, COLS).unwrap()
+    Session::start(&command, &std::env::temp_dir(), ROWS, COLS).unwrap()
 }
 
 fn wait_for(session: &Session, text: &str) -> String {
@@ -404,8 +406,4 @@ fn still_alive_after_a_while(pid: &str) -> bool {
         sleep(Duration::from_millis(50));
     }
     alive(pid)
-}
-
-fn here() -> PathBuf {
-    std::env::current_dir().unwrap()
 }
