@@ -12,6 +12,10 @@ step() {
 step scripts/scrub-check.sh
 step cargo fmt --check
 step cargo clippy --all-targets -- -D warnings
+separate=scripts
+if command -v tmux >/dev/null; then
+  separate=e2e
+fi
 if [ -z "${CI:-}" ] && reason="$(scripts/script-tests-skippable.sh)"; then
   targets=()
   for file in tests/*.rs tests/*/main.rs; do
@@ -19,7 +23,10 @@ if [ -z "${CI:-}" ] && reason="$(scripts/script-tests-skippable.sh)"; then
     name="${file#tests/}"
     name="${name%/main.rs}"
     name="${name%.rs}"
-    [ "$name" = scripts ] || targets+=(--test "$name")
+    case "$name" in
+      scripts | "$separate") ;;
+      *) targets+=(--test "$name") ;;
+    esac
   done
   echo "==> skipping the script tests: $reason; CI runs them" >&2
   step cargo test --lib --bins ${targets[@]+"${targets[@]}"}
@@ -27,7 +34,7 @@ if [ -z "${CI:-}" ] && reason="$(scripts/script-tests-skippable.sh)"; then
 else
   step cargo test
 fi
-if command -v tmux >/dev/null; then
+if [ "$separate" = e2e ]; then
   step cargo test --test e2e -- --include-ignored --test-threads=2
 else
   echo "==> skipping the ignored e2e tests: tmux is not installed (brew install tmux); CI runs them" >&2

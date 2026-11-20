@@ -91,7 +91,7 @@ fn gates_on_a_branch_the_script_tests_do_not_read_run_every_other_test_target() 
     );
     assert_eq!(
         calls(dir.path())[3],
-        "cargo test --lib --bins --test cli --test plans --test e2e --test prs"
+        "cargo test --lib --bins --test cli --test plans --test prs"
     );
     assert_eq!(calls(dir.path())[4], "cargo test --doc");
     assert_eq!(
