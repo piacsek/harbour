@@ -334,9 +334,9 @@ container before its first push; tests that time out or race under a ship's full
 its timeout (phase 12, row 2). Declined: putting a sweep to the owner before its phase goes
 ready; Codex without network (phase 13; the Codex reviewer was removed in PR #45); a reviewer
 running one read-only command in the branch's worktree (phase 13, once); one-off tooling dead
-ends. The phase 15 sweep starts after phase 13 with these already handled
-(`scripts/sweep-report.sh 14`; the report's default start, after this phase, would count them
-again).
+ends. The phase 15 sweep's report will list phases 11 to 13 again; their hurdles named here
+are already decided, so that sweep reads this paragraph and does not propose them a second
+time.
 
 ### Built
 

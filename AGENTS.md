@@ -266,7 +266,7 @@ line, glyph, bar, title, column or footer element. The `details` shot of `script
 takes it from `harbour --demo`, `README.md` embeds it right below the description, and
 `tests/readme.rs` pins it there as the README's only image. Extend the demo (`src/demo.rs`)
 until the change appears on screen, rerun the script, and commit the image in the same pull
-request; a reviewer reports a missing or stale screenshot as a should. The script also shoots
+request; the orchestrator's review reports a missing or stale screenshot as a should. The script also shoots
 `docs/help.png`, the output of `harbour --help`, which the README does not embed. Run `scripts/screenshots.sh` (needs tmux, fzf, `brew install
 charmbracelet/tap/freeze`, Google Chrome or chromium, and the FiraCode Nerd Font in
 `~/Library/Fonts`) and commit the new images. Freeze lays out an SVG with the font embedded;
@@ -307,9 +307,11 @@ nearest the code the guideline is about.
      how it runs, what counts as must or should, when to redesign, who fixes). Every must and
      should finding is fixed, TDD like any change, one ship per round, and reviewed again.
      Minor findings are fixed when cheap, else listed in the PR body. The loop ends only on a
-     round with no must/should findings. Every round is **unprimed** by construction: the
+     round with no must/should findings. The reviewer is **unprimed** by construction: the
      skill gets only the level and the PR number, never the list of earlier findings or what
-     was decided about them. Never post the review on the PR.
+     was decided about them. The orchestrator's memory of earlier rounds is no reason to drop
+     a finding; only "Known limits" or another rule of this file is. Never post the review on
+     the PR.
   4. The plan file's `## Outcome` and `## Hurdles` are filled, its `plans/metrics.md` row
      holds what is known by now (see "Time and tokens"), and, when the branch feeds the binary,
      its fragment `changes/<branch>.md` is on it (no version bump, no `CHANGELOG.md` edit). Re-read
@@ -417,15 +419,21 @@ nearest the code the guideline is about.
   to read without scrolling, and leave it out when the change has no structure to draw.
 - **Review before ready.** Marking a PR ready for review means the orchestrator (the main
   session) running Claude Code's built-in `/code-review high <N>` on the PR first, each round,
-  and acting on what it finds. The skill's own background agent is the fresh reviewer; no
-  coordinator or second model sits between them, so only findings reach the orchestrator (on
-  PR #49's own review, three nested agents misrouted their reports: the coordinator ended its
-  turn before the skill's result existed, and the reviewer's report reached the orchestrator
-  instead). The skill is never given `--fix` or `--comment`, and the review is never posted on
-  the PR. The skill cannot be handed this file, so the orchestrator checks each finding's
-  premise in the repository, drops what "Known limits" already decides, and rates what holds by
-  the severity definition below. `gh pr ready` comes after the findings are addressed, not
-  before.
+  and acting on what it finds. The skill's own background agent is the fresh reviewer, on the
+  model it inherits from the main session, which the skill does not let the orchestrator set;
+  no coordinator or second model sits between them, so only findings reach the orchestrator.
+  The skill is never given `--fix` or `--comment`, and the review is never posted on the PR.
+  The skill's agent sees the `AGENTS.md` of the checkout the session runs in, usually `main`'s
+  and not the PR head's, so the orchestrator checks each finding's premise against the PR head,
+  drops only what "Known limits" or another rule of this file states (never because an earlier
+  round declined it: a finding declined for good is first written into "Known limits"), and
+  rates what holds by the severity definition below. The skill's conventions pass reads
+  `CLAUDE.md` files and this repository has only `AGENTS.md` files, so each round the
+  orchestrator also checks the diff against their rules (the fragment, the screenshot of a
+  visible change, TDD shown red, the public-repo rule, the README shape) and reports a break
+  as a finding like any other. No reviewer runs the gates: `scripts/ship.sh` runs them, the
+  scrub check included, before every push, and the required `check` job tests the pull
+  request. `gh pr ready` comes after the findings are addressed, not before.
   - **Severity by reachability.** A finding is must or should only when the user hits it while
     using harbour, the release pipeline hits it in normal operation, or a pull request could
     execute code or reach a token or secret. A bypass that needs a deliberately forged file,
