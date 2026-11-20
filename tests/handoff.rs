@@ -5,7 +5,9 @@ use std::os::unix::ffi::OsStrExt;
 use std::os::unix::fs::{MetadataExt, PermissionsExt};
 use std::os::unix::net::{UnixListener, UnixStream};
 use std::path::{Path, PathBuf};
-use std::thread::sleep;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::thread::{self, sleep};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use harbour::handoff::{Listener, Reply, Verb};
@@ -312,6 +314,53 @@ fn a_connection_over_the_limit_in_flight_is_closed_at_once() {
         started.elapsed()
     );
     assert_eq!(arrived(&mut listener).verb, Verb::Ask);
+}
+
+#[test]
+fn dropping_an_idle_listener_returns_at_once() {
+    let scratch = tempfile::tempdir().unwrap();
+    let mut listener = Listener::new(&scratch.path().join("edit"));
+    listener.incoming();
+    sleep(Duration::from_millis(50));
+    let started = Instant::now();
+
+    drop(listener);
+
+    assert!(
+        started.elapsed() < Duration::from_millis(500),
+        "{:?}",
+        started.elapsed()
+    );
+}
+
+#[test]
+fn dropping_a_listener_during_a_flood_of_connections_returns_at_once() {
+    let scratch = tempfile::tempdir().unwrap();
+    let dir = scratch.path().join("edit");
+    let listener = Listener::new(&dir);
+    let socket = socket_files(&dir)[0].clone();
+    let flooding = Arc::new(AtomicBool::new(true));
+    let flood = {
+        let flooding = Arc::clone(&flooding);
+        thread::spawn(move || {
+            let mut connected = 0;
+            while flooding.load(Ordering::Relaxed) {
+                if UnixStream::connect(&socket).is_ok() {
+                    connected += 1;
+                }
+            }
+            connected
+        })
+    };
+    sleep(Duration::from_millis(200));
+    let started = Instant::now();
+
+    drop(listener);
+
+    let elapsed = started.elapsed();
+    flooding.store(false, Ordering::Relaxed);
+    assert!(flood.join().unwrap() > 0);
+    assert!(elapsed < Duration::from_millis(500), "{elapsed:?}");
 }
 
 fn arrived(listener: &mut Listener) -> harbour::handoff::Request {

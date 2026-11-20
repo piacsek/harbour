@@ -274,33 +274,34 @@ fn harbour_edit_starting_a_neovim_stopped_at_a_stale_swap_prompt_is_refused() {
         return;
     };
     let file = source_file(neovim.home.path(), "main.rs");
-    let xdg = neovim.home.path().join("xdg");
-    let state = xdg.join("state");
-    let preserved = neovim.home.path().join("preserved");
-    let mut other = Command::new(nvim_on_path().unwrap())
-        .args(["--headless", "--clean", "-c", "normal! oacme unsaved"])
-        .args(["-c", "preserve", "-c"])
-        .arg(format!("call writefile([], '{}')", preserved.display()))
-        .arg(&file)
-        .env("HOME", neovim.home.path())
-        .env("XDG_CONFIG_HOME", xdg.join("config"))
-        .env("XDG_DATA_HOME", xdg.join("data"))
-        .env("XDG_STATE_HOME", &state)
-        .env("XDG_CACHE_HOME", xdg.join("cache"))
-        .stdin(Stdio::null())
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .spawn()
-        .unwrap();
-    let swapped = appeared(&preserved);
-    other.kill().unwrap();
-    other.wait().unwrap();
-    assert!(swapped, "the swap file was never preserved");
+    let state = neovim.home.path().join("xdg/state");
+    left_unsaved(&neovim, &file);
 
     let output = handed(neovim.home.path(), Some(state.to_str().unwrap()), &file);
 
     assert_eq!(String::from_utf8_lossy(&output.stderr), WAITING);
     assert_eq!(output.status.code(), Some(2));
+}
+
+#[test]
+#[ignore]
+fn harbour_edit_while_neovim_shows_a_swap_prompt_is_refused_and_leaves_it_up() {
+    let Some(neovim) = Neovim::start_with_rows("nvim-edit-prompt", 50) else {
+        return;
+    };
+    let first = source_file(neovim.home.path(), "main.rs");
+    let second = source_file(neovim.home.path(), "lib.rs");
+    let state = neovim.home.path().join("xdg/state");
+    left_unsaved(&neovim, &first);
+    let stalled = handed(neovim.home.path(), Some(state.to_str().unwrap()), &first);
+    assert_eq!(stalled.status.code(), Some(2));
+    neovim.shows("Found a swap file");
+
+    let output = handed(neovim.home.path(), Some(state.to_str().unwrap()), &second);
+
+    assert_eq!(String::from_utf8_lossy(&output.stderr), WAITING);
+    assert_eq!(output.status.code(), Some(2));
+    neovim.shows("Found a swap file");
 }
 
 struct Neovim {
@@ -310,7 +311,11 @@ struct Neovim {
 
 impl Neovim {
     fn start(name: &str) -> Option<Neovim> {
-        let neovim = Neovim::beside_claude(name)?;
+        Neovim::start_with_rows(name, 24)
+    }
+
+    fn start_with_rows(name: &str, rows: u16) -> Option<Neovim> {
+        let neovim = Neovim::beside_claude_with_rows(name, rows)?;
         neovim.server.send_keys(&["C-l"]);
         let editing = neovim.server.wait_for_screen("claude | nvim: ");
         assert!(editing.contains("claude | nvim: "), "{editing}");
@@ -319,6 +324,10 @@ impl Neovim {
     }
 
     fn beside_claude(name: &str) -> Option<Neovim> {
+        Neovim::beside_claude_with_rows(name, 24)
+    }
+
+    fn beside_claude_with_rows(name: &str, rows: u16) -> Option<Neovim> {
         let Some(real) = nvim_on_path() else {
             eprintln!(
                 "skipping {name}: no nvim on PATH, so the real-Neovim test has nothing to run"
@@ -330,7 +339,7 @@ impl Neovim {
         std::os::unix::fs::symlink(real, bin.join("real-nvim")).unwrap();
         let xdg = |name: &str| home.path().join("xdg").join(name).display().to_string();
         let (config, data, state, cache) = (xdg("config"), xdg("data"), xdg("state"), xdg("cache"));
-        let server = Server::start(name, 200, 24);
+        let server = Server::start(name, 200, rows);
         server.run(
             home.path(),
             &[
@@ -363,10 +372,13 @@ impl Neovim {
         let screen = self.server.wait_for_screen("acme-settled");
         assert!(screen.contains("acme-settled"), "{screen}");
         self.server.send_keys(&[":echo ''", "Enter"]);
-        let cleared = self
-            .server
-            .wait_for_screen_showing_without("claude | nvim: ", "acme-settled");
+        let cleared = self.server.wait_until(|screen| {
+            screen.contains("claude | nvim: ")
+                && !screen.contains("acme-settled")
+                && !screen.contains(":echo")
+        });
         assert!(!cleared.contains("acme-settled"), "{cleared}");
+        assert!(!cleared.contains(":echo"), "{cleared}");
     }
 
     fn shows(&self, text: &str) {
@@ -447,4 +459,31 @@ fn appeared(file: &Path) -> bool {
         std::thread::sleep(Duration::from_millis(20));
     }
     false
+}
+
+fn left_unsaved(neovim: &Neovim, file: &Path) {
+    let xdg = neovim.home.path().join("xdg");
+    let preserved = neovim.home.path().join(format!(
+        "preserved-{}",
+        file.file_name().unwrap().to_string_lossy()
+    ));
+    let mut other = Command::new(nvim_on_path().unwrap())
+        .args(["--headless", "--clean", "-c", "normal! oacme unsaved"])
+        .args(["-c", "preserve", "-c"])
+        .arg(format!("call writefile([], '{}')", preserved.display()))
+        .arg(file)
+        .env("HOME", neovim.home.path())
+        .env("XDG_CONFIG_HOME", xdg.join("config"))
+        .env("XDG_DATA_HOME", xdg.join("data"))
+        .env("XDG_STATE_HOME", xdg.join("state"))
+        .env("XDG_CACHE_HOME", xdg.join("cache"))
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()
+        .unwrap();
+    let swapped = appeared(&preserved);
+    other.kill().unwrap();
+    other.wait().unwrap();
+    assert!(swapped, "the swap file was never preserved");
 }

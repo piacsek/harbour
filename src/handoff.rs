@@ -2,7 +2,7 @@ use std::ffi::OsStr;
 use std::fs::{self, DirBuilder, Permissions};
 use std::io::{self, Read, Write};
 use std::net::Shutdown;
-use std::os::fd::AsRawFd;
+use std::os::fd::{AsFd, AsRawFd};
 use std::os::unix::ffi::OsStrExt;
 use std::os::unix::fs::{DirBuilderExt, FileTypeExt, MetadataExt, PermissionsExt};
 use std::os::unix::net::{UnixListener, UnixStream};
@@ -14,6 +14,7 @@ use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant, SystemTime};
 
 use nix::errno::Errno;
+use nix::poll::{PollFd, PollFlags, PollTimeout};
 use nix::sys::socket::{AddressFamily, SockFlag, SockType, UnixAddr};
 use nix::unistd::Uid;
 
@@ -25,7 +26,6 @@ const OPENING: Duration = Duration::from_secs(5);
 const ARRIVING: Duration = Duration::from_millis(100);
 const RETRY: Duration = Duration::from_secs(5);
 const RETRY_CONNECT: Duration = Duration::from_millis(2);
-const POLL: Duration = Duration::from_millis(5);
 const IN_FLIGHT: usize = 16;
 const LONGEST_CHAIN: usize = 40;
 const SOCKET: &str = "sock";
@@ -114,16 +114,12 @@ pub fn send(dir: Option<&Path>, file: &Path) -> Result<(), Failure> {
     {
         return Err(Failure::Untaken("no harbour answered".to_string()));
     }
-    let mut chosen: Option<(&Path, u128)> = None;
+    let mut chosen: Option<(&Path, (usize, bool, u128))> = None;
     for (socket, reply) in sockets.iter().zip(&replies) {
-        let used = reply
-            .text()
-            .and_then(|reply| reply.strip_prefix("holds "))
-            .and_then(|used| used.parse::<u128>().ok());
-        if let Some(used) = used
-            && chosen.is_none_or(|(_, best)| used > best)
+        if let Some(claim) = reply.text().and_then(claim)
+            && chosen.is_none_or(|(_, best)| claim > best)
         {
-            chosen = Some((socket, used));
+            chosen = Some((socket, claim));
         }
     }
     let Some((socket, _)) = chosen else {
@@ -135,12 +131,25 @@ pub fn send(dir: Option<&Path>, file: &Path) -> Result<(), Failure> {
     let unanswered = || Failure::Refused("no answer from harbour".to_string());
     match exchange(socket, "open", file, Instant::now() + OPENING).text() {
         Some("opened") => Ok(()),
-        Some(reply) => match reply.strip_prefix("refused ") {
-            Some(message) => Err(Failure::Refused(message.to_string())),
-            None => Err(unanswered()),
+        Some(reply) => match reply.split_once(' ') {
+            Some(("refused", message)) => Err(Failure::Refused(message.to_string())),
+            Some(("untaken", message)) => Err(Failure::Untaken(message.to_string())),
+            _ => Err(unanswered()),
         },
         None => Err(unanswered()),
     }
+}
+
+fn claim(reply: &str) -> Option<(usize, bool, u128)> {
+    let mut fields = reply.strip_prefix("holds ")?.split(' ');
+    let depth = fields.next()?.parse().ok()?;
+    let selected = match fields.next()? {
+        "1" => true,
+        "0" => false,
+        _ => return None,
+    };
+    let used = fields.next()?.parse().ok()?;
+    fields.next().is_none().then_some((depth, selected, used))
 }
 
 fn resolve(argument: &OsStr) -> Result<PathBuf, String> {
@@ -331,12 +340,20 @@ pub enum Verb {
     Open,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Claim {
+    pub depth: usize,
+    pub selected: bool,
+    pub used: SystemTime,
+}
+
 #[derive(Debug, PartialEq, Eq)]
 pub enum Reply {
-    Holds(SystemTime),
+    Holds(Claim),
     None,
     Opened,
     Refused(String),
+    Untaken(String),
 }
 
 pub struct Request {
@@ -355,10 +372,16 @@ impl Request {
 
 fn say(stream: &mut UnixStream, reply: Reply) {
     let line = match reply {
-        Reply::Holds(used) => format!("holds {}", unix_millis(used)),
+        Reply::Holds(claim) => format!(
+            "holds {} {} {}",
+            claim.depth,
+            u8::from(claim.selected),
+            unix_millis(claim.used)
+        ),
         Reply::None => "none".to_string(),
         Reply::Opened => "opened".to_string(),
         Reply::Refused(message) => format!("refused {}", message.replace('\n', " ")),
+        Reply::Untaken(message) => format!("untaken {}", message.replace('\n', " ")),
     };
     let _ = stream.set_nonblocking(true);
     let _ = stream.write_all(format!("{line}\n").as_bytes());
@@ -375,6 +398,7 @@ impl Drop for Slot {
 pub struct Listener {
     requests: Receiver<Request>,
     stop: Arc<AtomicBool>,
+    wake: Option<UnixStream>,
     thread: Option<JoinHandle<()>>,
 }
 
@@ -386,11 +410,20 @@ impl Listener {
     pub fn retrying_every(dir: &Path, retry: Duration) -> Listener {
         let (sender, requests) = mpsc::channel();
         let stop = Arc::new(AtomicBool::new(false));
+        let Ok((wake, woken)) = UnixStream::pair() else {
+            return Listener {
+                requests,
+                stop,
+                wake: None,
+                thread: None,
+            };
+        };
         let watching = Watch {
             dir: dir.to_path_buf(),
             retry,
             bound: Bound::create(dir).ok(),
             stop: Arc::clone(&stop),
+            woken,
             sender,
             in_flight: Arc::new(AtomicUsize::new(0)),
         };
@@ -401,6 +434,7 @@ impl Listener {
         Listener {
             requests,
             stop,
+            wake: Some(wake),
             thread,
         }
     }
@@ -413,6 +447,9 @@ impl Listener {
 impl Drop for Listener {
     fn drop(&mut self) {
         self.stop.store(true, Ordering::Release);
+        if let Some(wake) = self.wake.take() {
+            let _ = wake.shutdown(Shutdown::Both);
+        }
         if let Some(thread) = self.thread.take() {
             let _ = thread.join();
         }
@@ -424,6 +461,7 @@ struct Watch {
     retry: Duration,
     bound: Option<Bound>,
     stop: Arc<AtomicBool>,
+    woken: UnixStream,
     sender: Sender<Request>,
     in_flight: Arc<AtomicUsize>,
 }
@@ -441,9 +479,33 @@ impl Watch {
                     self.bound = Bound::create(&self.dir).ok();
                 }
             }
+            if self.waited(due) {
+                self.accept_waiting();
+            }
+        }
+    }
+
+    fn waited(&self, due: Instant) -> bool {
+        let timeout = PollTimeout::try_from(due.saturating_duration_since(Instant::now()))
+            .unwrap_or(PollTimeout::MAX);
+        let mut watched = vec![PollFd::new(self.woken.as_fd(), PollFlags::POLLIN)];
+        if let Some(bound) = &self.bound {
+            watched.push(PollFd::new(bound.listener.as_fd(), PollFlags::POLLIN));
+        }
+        if nix::poll::poll(&mut watched, timeout).is_err() {
+            return false;
+        }
+        watched
+            .get(1)
+            .and_then(|watched| watched.revents())
+            .is_some_and(|ready| !ready.is_empty())
+    }
+
+    fn accept_waiting(&self) {
+        while !self.stop.load(Ordering::Acquire) {
             match self.bound.as_ref().map(|bound| bound.listener.accept()) {
                 Some(Ok((stream, _))) => self.admit(stream),
-                _ => thread::sleep(POLL),
+                _ => return,
             }
         }
     }

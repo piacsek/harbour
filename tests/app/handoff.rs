@@ -7,7 +7,7 @@ use std::time::{Duration, Instant, SystemTime};
 use crossterm::event::{KeyCode, KeyModifiers};
 use harbour::app::App;
 use harbour::editor::Program;
-use harbour::handoff::{self, Listener, Reply, Verb};
+use harbour::handoff::{self, Claim, Listener, Reply, Verb};
 use harbour::memory::{Memory, Remembered};
 use harbour::picker::Picker;
 use ratatui::Terminal;
@@ -70,19 +70,6 @@ fn a_session_started_through_a_symlink_holds_the_files_behind_it() {
         .hand(Verb::Ask, &file(scratch.path(), "acme-api"), soon());
 
     assert_ne!(reply, Reply::None);
-}
-
-#[test]
-fn a_key_moves_the_last_use_of_the_selected_session_forward() {
-    let scratch = tempfile::tempdir().unwrap();
-    let mut screen = harbour(scratch.path());
-    start_in(&mut screen, scratch.path(), "acme-api", 1);
-    let earlier = last_use(&mut screen, scratch.path());
-    sleep(Duration::from_millis(5));
-
-    screen.press('k');
-
-    assert!(last_use(&mut screen, scratch.path()) > earlier);
 }
 
 #[test]
@@ -273,6 +260,9 @@ fn without_a_selected_holder_open_goes_to_the_one_used_last() {
     start_in(&mut screen, scratch.path(), "acme-api", 1);
     start_in(&mut screen, scratch.path(), "acme-api", 2);
     screen.press('k');
+    screen.key(KeyCode::Enter, KeyModifiers::NONE);
+    screen.press('a');
+    screen.key(KeyCode::Char('h'), KeyModifiers::CONTROL);
     start_in(&mut screen, scratch.path(), "acme-web", 3);
 
     screen
@@ -446,6 +436,10 @@ pub(crate) fn listening(scratch: &Path) -> Screen {
 }
 
 pub(crate) fn app_with(scratch: &Path, editor: Program) -> App {
+    app_running(scratch, numbered_agent(scratch), editor)
+}
+
+pub(crate) fn app_running(scratch: &Path, agent: Vec<String>, editor: Program) -> App {
     fs::create_dir_all(scratch.join("acme-api/src")).unwrap();
     fs::create_dir_all(scratch.join("acme-web")).unwrap();
     let next = scratch.join("next").display().to_string();
@@ -453,7 +447,7 @@ pub(crate) fn app_with(scratch: &Path, editor: Program) -> App {
         "d=$(cat '{next}' 2>/dev/null); rm -f '{next}'; \
          if [ -n \"$d\" ]; then printf '%s\\n' \"$d\"; else exec sleep 600; fi"
     ));
-    App::new(numbered_agent(scratch))
+    App::new(agent)
         .with_picker(Picker::Command(picker))
         .with_editor(editor)
 }
@@ -519,7 +513,7 @@ fn field(map: &Value, name: &str) -> Value {
         .unwrap()
 }
 
-fn opened_beside(screen: &mut Screen) -> String {
+pub(crate) fn opened_beside(screen: &mut Screen) -> String {
     let shown = screen.wait_for("acme nvim ready");
     assert!(shown.contains("acme nvim ready"), "{shown}");
     screen.key(KeyCode::Char('h'), KeyModifiers::CONTROL);
@@ -532,7 +526,7 @@ pub(crate) fn last_use(screen: &mut Screen, scratch: &Path) -> SystemTime {
     let reply = screen
         .app
         .hand(Verb::Ask, &file(scratch, "acme-api"), soon());
-    let Reply::Holds(used) = reply else {
+    let Reply::Holds(Claim { used, .. }) = reply else {
         panic!("not held: {reply:?}");
     };
     used

@@ -9,7 +9,7 @@ const FIXTURE_EDITOR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixture
 
 #[test]
 #[ignore]
-fn harbour_edit_starting_a_neovim_that_never_answers_says_so_and_exits_two() {
+fn harbour_edit_starting_a_neovim_that_never_answers_closes_it_and_exits_three() {
     let home = tempfile::tempdir().unwrap();
     let nvim = Path::new(&tools(home.path())).join("nvim");
     std::os::unix::fs::symlink(FIXTURE_EDITOR, nvim).unwrap();
@@ -25,9 +25,9 @@ fn harbour_edit_starting_a_neovim_that_never_answers_says_so_and_exits_two() {
 
     assert_eq!(
         String::from_utf8_lossy(&output.stderr),
-        "harbour: Neovim did not answer\n"
+        "harbour: Neovim did not start in time; harbour closed it\n"
     );
-    assert_eq!(output.status.code(), Some(2));
+    assert_eq!(output.status.code(), Some(3));
 }
 
 #[test]

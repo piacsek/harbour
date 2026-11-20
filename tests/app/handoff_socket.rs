@@ -176,11 +176,11 @@ fn one_frame_answers_at_most_four_requests() {
         })
     };
 
-    let mut opening = requested(&socket, "open", Duration::from_secs(5), &file);
+    let mut opening = requested(&socket, "open", Duration::from_millis(800), &file);
     let opened = first_frame_answering(&mut screen, &mut opening);
 
     assert!(
-        opened.starts_with("refused Neovim did not answer"),
+        opened.starts_with("untaken Neovim did not start in time"),
         "{opened}"
     );
     let mut streams = asking.join().unwrap();

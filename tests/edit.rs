@@ -6,7 +6,7 @@ use std::process::{Child, Command, Output, Stdio};
 use std::thread::sleep;
 use std::time::{Duration, Instant, SystemTime};
 
-use harbour::handoff::{Listener, Reply, Verb};
+use harbour::handoff::{Claim, Listener, Reply, Verb};
 
 #[test]
 fn a_directory_is_refused() {
@@ -95,7 +95,7 @@ fn a_harbour_holding_the_file_is_asked_then_told_to_open_it() {
         scratch.path(),
         "main.rs",
         vec![harbour(scratch.path(), |verb| match verb {
-            Verb::Ask => Reply::Holds(SystemTime::now()),
+            Verb::Ask => held(1, SystemTime::now()),
             Verb::Open => Reply::Opened,
         })],
     );
@@ -166,13 +166,31 @@ fn a_refusal_is_printed_and_exits_two() {
         scratch.path(),
         "main.rs",
         vec![harbour(scratch.path(), |verb| match verb {
-            Verb::Ask => Reply::Holds(SystemTime::now()),
+            Verb::Ask => held(1, SystemTime::now()),
             Verb::Open => Reply::Refused("acme refusal".to_string()),
         })],
     );
 
     assert_eq!(stderr(&output), "harbour: acme refusal\n");
     assert_eq!(output.status.code(), Some(2));
+}
+
+#[test]
+fn an_open_harbour_could_not_take_is_printed_and_exits_three() {
+    let scratch = tempfile::tempdir().unwrap();
+    existing(scratch.path(), "main.rs");
+
+    let (output, _) = served(
+        scratch.path(),
+        "main.rs",
+        vec![harbour(scratch.path(), |verb| match verb {
+            Verb::Ask => held(1, SystemTime::now()),
+            Verb::Open => Reply::Untaken("acme untaken".to_string()),
+        })],
+    );
+
+    assert_eq!(stderr(&output), "harbour: acme untaken\n");
+    assert_eq!(output.status.code(), Some(3));
 }
 
 #[test]
@@ -201,11 +219,11 @@ fn of_two_harbours_the_one_whose_session_was_used_last_opens_the_file() {
         "main.rs",
         vec![
             harbour(scratch.path(), move |verb| match verb {
-                Verb::Ask => Reply::Holds(earlier),
+                Verb::Ask => held(1, earlier),
                 Verb::Open => Reply::Opened,
             }),
             harbour(scratch.path(), |verb| match verb {
-                Verb::Ask => Reply::Holds(SystemTime::now()),
+                Verb::Ask => held(1, SystemTime::now()),
                 Verb::Open => Reply::Opened,
             }),
         ],
@@ -220,6 +238,67 @@ fn of_two_harbours_the_one_whose_session_was_used_last_opens_the_file() {
 }
 
 #[test]
+fn of_two_harbours_the_one_holding_the_file_deeper_opens_it_over_one_used_later() {
+    let scratch = tempfile::tempdir().unwrap();
+    let file = existing(scratch.path(), "main.rs");
+    let earlier = SystemTime::now() - Duration::from_secs(60);
+
+    let (output, heard) = served(
+        scratch.path(),
+        "main.rs",
+        vec![
+            harbour(scratch.path(), move |verb| match verb {
+                Verb::Ask => held(5, earlier),
+                Verb::Open => Reply::Opened,
+            }),
+            harbour(scratch.path(), |verb| match verb {
+                Verb::Ask => held(3, SystemTime::now()),
+                Verb::Open => Reply::Opened,
+            }),
+        ],
+    );
+
+    assert_eq!(
+        heard[0],
+        vec![(Verb::Ask, file.clone()), (Verb::Open, file.clone())]
+    );
+    assert_eq!(heard[1], vec![(Verb::Ask, file)]);
+    assert_eq!(output.status.code(), Some(0));
+}
+
+#[test]
+fn of_two_harbours_holding_the_file_as_deep_the_selected_holder_opens_it_over_one_used_later() {
+    let scratch = tempfile::tempdir().unwrap();
+    let file = existing(scratch.path(), "main.rs");
+    let earlier = SystemTime::now() - Duration::from_secs(60);
+
+    let (_, heard) = served(
+        scratch.path(),
+        "main.rs",
+        vec![
+            harbour(scratch.path(), move |verb| match verb {
+                Verb::Ask => Reply::Holds(Claim {
+                    depth: 3,
+                    selected: true,
+                    used: earlier,
+                }),
+                Verb::Open => Reply::Opened,
+            }),
+            harbour(scratch.path(), |verb| match verb {
+                Verb::Ask => held(3, SystemTime::now()),
+                Verb::Open => Reply::Opened,
+            }),
+        ],
+    );
+
+    assert_eq!(
+        heard[0],
+        vec![(Verb::Ask, file.clone()), (Verb::Open, file.clone())]
+    );
+    assert_eq!(heard[1], vec![(Verb::Ask, file)]);
+}
+
+#[test]
 fn a_harbour_holding_nothing_does_not_hide_one_that_holds_the_file() {
     let scratch = tempfile::tempdir().unwrap();
     let file = existing(scratch.path(), "main.rs");
@@ -230,7 +309,7 @@ fn a_harbour_holding_nothing_does_not_hide_one_that_holds_the_file() {
         vec![
             harbour(scratch.path(), |_| Reply::None),
             harbour(scratch.path(), |verb| match verb {
-                Verb::Ask => Reply::Holds(SystemTime::now()),
+                Verb::Ask => held(1, SystemTime::now()),
                 Verb::Open => Reply::Opened,
             }),
         ],
@@ -462,7 +541,7 @@ fn silent_on_open(scratch: &Path) -> (Listener, Answer) {
     listening(
         scratch,
         Box::new(|verb| match verb {
-            Verb::Ask => Some(Reply::Holds(SystemTime::now())),
+            Verb::Ask => Some(held(1, SystemTime::now())),
             Verb::Open => None,
         }),
     )
@@ -523,4 +602,12 @@ fn folder(scratch: &Path) -> PathBuf {
 
 fn stderr(output: &Output) -> String {
     String::from_utf8_lossy(&output.stderr).into_owned()
+}
+
+fn held(depth: usize, used: SystemTime) -> Reply {
+    Reply::Holds(Claim {
+        depth,
+        selected: false,
+        used,
+    })
 }

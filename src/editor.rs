@@ -17,8 +17,9 @@ const LEFTMOST: &str = "winnr('h') == winnr()";
 const UNSAVED: &str = "len(filter(getbufinfo({'bufmodified': 1}), \
                        {_, b -> index(['', 'acwrite'], getbufvar(b.bufnr, '&buftype')) >= 0}))";
 
-const OPEN_PATIENCE: Duration = Duration::from_secs(1);
 const RETRY_OPEN: Duration = Duration::from_millis(10);
+const LOOKING: Duration = Duration::from_millis(100);
+const WAITING: &str = "Neovim is waiting for a key; answer it and try again";
 
 const SOCKET_PREFIX: &str = "harbour-nvim";
 const SOCKET_RANDOM: usize = 6;
@@ -74,6 +75,11 @@ impl Program {
     pub fn is_neovim(&self) -> bool {
         self.neovim
     }
+}
+
+pub enum Unopened {
+    Refused(String),
+    Silent,
 }
 
 pub struct Editor {
@@ -136,24 +142,26 @@ impl Editor {
         }
     }
 
-    pub fn open(&self, file: &Path, deadline: Instant) -> Result<(), String> {
-        let silent = || "Neovim did not answer".to_string();
-        let (socket, _) = self.socket.as_ref().ok_or_else(silent)?;
-        let deadline = deadline.min(Instant::now() + OPEN_PATIENCE);
+    pub fn open(&self, file: &Path, deadline: Instant) -> Result<(), Unopened> {
+        let (socket, _) = self.socket.as_ref().ok_or(Unopened::Silent)?;
         let mode = loop {
             match nvim::mode(socket, deadline) {
                 Some(mode) => break mode,
                 None if Instant::now() + RETRY_OPEN < deadline => thread::sleep(RETRY_OPEN),
-                None => return Err(silent()),
+                None => return Err(Unopened::Silent),
             }
         };
-        if mode.blocking || mode.mode.starts_with('c') || mode.mode.starts_with("no") {
-            return Err("Neovim is waiting for a key; answer it and try again".to_string());
+        if waiting(&mode) {
+            return Err(Unopened::Refused(WAITING.to_string()));
         }
-        match nvim::edit(socket, file, deadline) {
+        let editing = deadline.checked_sub(LOOKING).unwrap_or(deadline);
+        match nvim::edit(socket, file, editing) {
             Some(Ok(())) => Ok(()),
-            Some(Err(error)) => Err(format!("Neovim refused: {error}")),
-            None => Err(silent()),
+            Some(Err(error)) => Err(Unopened::Refused(format!("Neovim refused: {error}"))),
+            None => match nvim::mode(socket, deadline) {
+                Some(mode) if waiting(&mode) => Err(Unopened::Refused(WAITING.to_string())),
+                _ => Err(Unopened::Silent),
+            },
         }
     }
 
@@ -219,4 +227,8 @@ fn label(directory: &Path) -> String {
         Some(below) => format!("~/{}", below.display()),
         None => directory.display().to_string(),
     }
+}
+
+fn waiting(mode: &nvim::Mode) -> bool {
+    mode.blocking || mode.mode.starts_with(['c', 'r']) || mode.mode.starts_with("no")
 }

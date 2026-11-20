@@ -177,6 +177,26 @@ fn edit_with_an_empty_file_after_a_double_dash_prints_the_usage_on_stderr() {
 }
 
 #[test]
+fn edit_help_prints_the_usage_on_stdout() {
+    assert_eq!(stdout(&launch(&["edit", "--help"])), USAGE);
+}
+
+#[test]
+fn edit_help_exits_zero() {
+    assert_eq!(launch(&["edit", "--help"]).status.code(), Some(0));
+}
+
+#[test]
+fn edit_with_the_short_help_flag_prints_the_usage_on_stdout() {
+    assert_eq!(stdout(&launch(&["edit", "-h"])), USAGE);
+}
+
+#[test]
+fn edit_with_the_short_help_flag_exits_zero() {
+    assert_eq!(launch(&["edit", "-h"]).status.code(), Some(0));
+}
+
+#[test]
 fn edit_with_a_missing_folder_exits_two() {
     let scratch = tempfile::tempdir().unwrap();
 
@@ -244,9 +264,9 @@ idle or unknown. For tmux, put #(harbour status) in your status-right, for examp
 and raise status-right-length if the counts are cut off.
 edit <file> opens the file in the Neovim editor of the harbour session whose
 repository or worktree holds it, selects that session and shows the editor.
-It exits 0 when harbour took the file, 3 when no harbour runs or answers or no
-session holds the file (open it yourself), 2 when harbour or Neovim refused it,
-and 1 on a usage error.
+It exits 0 when harbour took the file, 3 when no harbour runs or answers, no
+session holds the file or the Neovim harbour started did not answer in time
+(open it yourself), 2 when harbour or Neovim refused it, and 1 on a usage error.
 In tmux, splits and popups opened at #{pane_current_path} follow the selected
 session when harbour is typed at a shell prompt, or when a pane command or a
 wrapper script ends with exec harbour.

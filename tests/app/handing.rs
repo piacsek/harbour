@@ -3,17 +3,20 @@ use std::os::unix::net::UnixListener;
 use std::path::Path;
 use std::sync::mpsc::{self, Receiver};
 use std::thread::{self, sleep};
-use std::time::{Duration, Instant, SystemTime};
+use std::time::{Duration, Instant};
 
+use crossterm::event::{KeyCode, KeyModifiers};
 use harbour::editor::Program;
 use harbour::handoff::{Reply, Verb};
 use rmpv::Value;
 
 use crate::directory::{cwd, following_with, repository, write_transcript};
-use crate::handoff::{editing, file, harbour, last_use, soon, start_in};
+use crate::handoff::{editing, file, harbour, soon, start_in};
 use crate::script;
 
 const WAITING: &str = "Neovim is waiting for a key; answer it and try again";
+const BUSY: &str = "harbour was busy and did not get to it in time";
+const CLOSED: &str = "Neovim did not start in time; harbour closed it";
 
 #[test]
 fn an_open_that_starts_neovim_answers_once_it_has_the_file() {
@@ -31,18 +34,68 @@ fn an_open_that_starts_neovim_answers_once_it_has_the_file() {
 }
 
 #[test]
-fn an_open_that_starts_a_neovim_that_never_answers_says_so() {
+fn an_open_that_starts_a_neovim_that_never_answers_closes_it_and_leaves_the_file() {
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = harbour(scratch.path());
     start_in(&mut screen, scratch.path(), "acme-api", 1);
+
+    let reply = screen.app.hand(
+        Verb::Open,
+        &file(scratch.path(), "acme-api"),
+        Instant::now() + Duration::from_millis(600),
+    );
+
+    assert_eq!(reply, Reply::Untaken(CLOSED.to_string()));
+    let shown = screen.draw();
+    assert!(!shown.contains("acme nvim ready"), "{shown}");
+}
+
+#[test]
+fn a_neovim_harbour_closed_for_not_answering_is_started_anew_by_ctrl_l() {
+    let scratch = tempfile::tempdir().unwrap();
+    let mut screen = harbour(scratch.path());
+    start_in(&mut screen, scratch.path(), "acme-api", 1);
+    screen.app.hand(
+        Verb::Open,
+        &file(scratch.path(), "acme-api"),
+        Instant::now() + Duration::from_millis(600),
+    );
+    fs::remove_file(scratch.path().join("args")).unwrap();
+
+    screen.key(KeyCode::Enter, KeyModifiers::NONE);
+    screen.key(KeyCode::Char('l'), KeyModifiers::CONTROL);
+
+    let shown = screen.wait_for("acme nvim ready");
+    assert!(shown.contains("acme nvim ready"), "{shown}");
+    assert!(scratch.path().join("args").exists());
+}
+
+#[test]
+fn a_neovim_harbour_starts_for_an_open_has_until_the_deadline_to_answer() {
+    let scratch = tempfile::tempdir().unwrap();
+    let mut screen = harbour(scratch.path());
+    start_in(&mut screen, scratch.path(), "acme-api", 1);
+    let _asked = answering_after(scratch.path(), Duration::from_millis(1500));
 
     let reply = screen
         .app
         .hand(Verb::Open, &file(scratch.path(), "acme-api"), soon());
 
-    assert_eq!(reply, Reply::Refused("Neovim did not answer".to_string()));
-    let shown = screen.draw();
-    assert!(!shown.contains("acme nvim ready"), "{shown}");
+    assert_eq!(reply, Reply::Opened);
+}
+
+#[test]
+fn an_open_whose_deadline_runs_out_before_a_running_neovim_answers_says_harbour_was_busy() {
+    let scratch = tempfile::tempdir().unwrap();
+    let (mut screen, _socket) = editing(scratch.path());
+
+    let reply = screen.app.hand(
+        Verb::Open,
+        &file(scratch.path(), "acme-api"),
+        Instant::now() + Duration::from_millis(500),
+    );
+
+    assert_eq!(reply, Reply::Refused(BUSY.to_string()));
 }
 
 #[test]
@@ -50,7 +103,21 @@ fn an_open_that_starts_a_neovim_waiting_for_a_key_is_refused() {
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = harbour(scratch.path());
     start_in(&mut screen, scratch.path(), "acme-api", 1);
-    let _asked = answering_in(scratch.path(), "n", true);
+    let _asked = answering_in(scratch.path(), "n", true, Duration::ZERO, Edit::Done);
+
+    let reply = screen
+        .app
+        .hand(Verb::Open, &file(scratch.path(), "acme-api"), soon());
+
+    assert_eq!(reply, Reply::Refused(WAITING.to_string()));
+}
+
+#[test]
+fn an_open_that_starts_a_neovim_which_stops_at_a_prompt_on_loading_the_file_is_refused() {
+    let scratch = tempfile::tempdir().unwrap();
+    let mut screen = harbour(scratch.path());
+    start_in(&mut screen, scratch.path(), "acme-api", 1);
+    let _asked = answering_in(scratch.path(), "n", false, Duration::ZERO, Edit::Prompting);
 
     let reply = screen
         .app
@@ -64,6 +131,21 @@ fn open_while_neovim_is_on_its_command_line_is_refused() {
     let scratch = tempfile::tempdir().unwrap();
     let (mut screen, socket) = editing(scratch.path());
     let asked = neovim_in(&socket, "c", false, Edit::Done);
+
+    let reply = screen
+        .app
+        .hand(Verb::Open, &file(scratch.path(), "acme-api"), soon());
+
+    assert_eq!(reply, Reply::Refused(WAITING.to_string()));
+    assert_eq!(called(&asked).0, "nvim_get_mode");
+    assert!(asked.recv_timeout(Duration::from_millis(200)).is_err());
+}
+
+#[test]
+fn open_while_neovim_shows_a_prompt_is_refused() {
+    let scratch = tempfile::tempdir().unwrap();
+    let (mut screen, socket) = editing(scratch.path());
+    let asked = neovim_in(&socket, "r?", false, Edit::Done);
 
     let reply = screen
         .app
@@ -101,7 +183,7 @@ fn an_open_past_its_deadline_starts_no_editor() {
         Instant::now(),
     );
 
-    assert_eq!(reply, Reply::Refused("harbour took too long".to_string()));
+    assert_eq!(reply, Reply::Refused(BUSY.to_string()));
     sleep(Duration::from_millis(200));
     assert!(!scratch.path().join("args").exists());
 }
@@ -150,21 +232,6 @@ fn ask_while_the_picker_is_open_is_answered_none() {
     assert_eq!(reply, Reply::None);
 }
 
-#[test]
-fn a_key_that_selects_another_session_counts_as_a_use_of_that_session() {
-    let scratch = tempfile::tempdir().unwrap();
-    let mut screen = harbour(scratch.path());
-    start_in(&mut screen, scratch.path(), "acme-api", 1);
-    start_in(&mut screen, scratch.path(), "acme-web", 2);
-    let before = SystemTime::now();
-    sleep(Duration::from_millis(5));
-
-    screen.press('k');
-
-    assert!(last_use(&mut screen, scratch.path()) >= before);
-    assert!(used(&mut screen, &file(scratch.path(), "acme-web")) < before);
-}
-
 fn locating_neovim(scratch: &Path) -> Program {
     Program::neovim(
         "nvim",
@@ -174,14 +241,6 @@ fn locating_neovim(scratch: &Path) -> Program {
             scratch.display()
         )),
     )
-}
-
-fn used(screen: &mut crate::Screen, file: &Path) -> SystemTime {
-    let reply = screen.app.hand(Verb::Ask, file, soon());
-    let Reply::Holds(used) = reply else {
-        panic!("not held: {reply:?}");
-    };
-    used
 }
 
 pub(crate) fn neovim_at(
@@ -201,6 +260,7 @@ fn neovim_in(
     let listener = UnixListener::bind(socket).unwrap();
     let (asked, calls) = mpsc::channel();
     thread::spawn(move || {
+        let mut held = Vec::new();
         while let Ok((mut stream, _)) = listener.accept() {
             let request = rmpv::decode::read_value(&mut stream).unwrap();
             let fields = request.as_array().unwrap().clone();
@@ -210,12 +270,20 @@ fn neovim_in(
                     Value::Nil,
                     Value::Map(vec![
                         (Value::from("mode"), Value::from(mode)),
-                        (Value::from("blocking"), Value::from(blocking)),
+                        (
+                            Value::from("blocking"),
+                            Value::from(blocking || !held.is_empty()),
+                        ),
                     ]),
                 ),
                 (_, Edit::Silent) => {
                     let _ = asked.send((method, fields[3].as_array().unwrap().clone()));
                     thread::sleep(Duration::from_secs(5));
+                    continue;
+                }
+                (_, Edit::Prompting) => {
+                    let _ = asked.send((method, fields[3].as_array().unwrap().clone()));
+                    held.push(stream);
                     continue;
                 }
                 (_, Edit::Refused(refusal)) => (
@@ -237,6 +305,7 @@ pub(crate) enum Edit {
     Done,
     Refused(&'static str),
     Silent,
+    Prompting,
 }
 
 pub(crate) fn called(asked: &Receiver<(String, Vec<Value>)>) -> (String, Vec<Value>) {
@@ -244,13 +313,19 @@ pub(crate) fn called(asked: &Receiver<(String, Vec<Value>)>) -> (String, Vec<Val
 }
 
 pub(crate) fn answering(scratch: &Path) -> Receiver<(String, Vec<Value>)> {
-    answering_in(scratch, "n", false)
+    answering_in(scratch, "n", false, Duration::ZERO, Edit::Done)
+}
+
+fn answering_after(scratch: &Path, delay: Duration) -> Receiver<(String, Vec<Value>)> {
+    answering_in(scratch, "n", false, delay, Edit::Done)
 }
 
 fn answering_in(
     scratch: &Path,
     mode: &'static str,
     blocking: bool,
+    delay: Duration,
+    edit: Edit,
 ) -> Receiver<(String, Vec<Value>)> {
     let scratch = scratch.to_path_buf();
     let (forward, calls) = mpsc::channel();
@@ -264,7 +339,8 @@ fn answering_in(
                 .collect();
             if lines.len() >= 5 && !bound.contains(&lines[2]) {
                 bound.push(lines[2].clone());
-                let asked = neovim_in(Path::new(&lines[2]), mode, blocking, Edit::Done);
+                sleep(delay);
+                let asked = neovim_in(Path::new(&lines[2]), mode, blocking, edit);
                 let forward = forward.clone();
                 thread::spawn(move || {
                     for call in asked {

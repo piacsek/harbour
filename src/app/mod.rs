@@ -254,7 +254,6 @@ impl App {
 
     pub fn key(&mut self, key: KeyEvent) {
         self.key_handled(key);
-        self.touch();
     }
 
     fn key_handled(&mut self, key: KeyEvent) {
@@ -292,10 +291,12 @@ impl App {
                 .is_some_and(|entry| !entry.on_editor)
         {
             self.open_editor();
+            self.touch();
             return;
         }
         if let Some(session) = self.focused() {
             session.send(&keys::encode(key, session.application_cursor()));
+            self.touch();
             return;
         }
         match key.code {
@@ -316,7 +317,6 @@ impl App {
 
     pub fn paste(&mut self, text: &str) {
         self.paste_handled(text);
-        self.touch();
     }
 
     fn paste_handled(&mut self, text: &str) {
@@ -329,12 +329,12 @@ impl App {
         }
         if let Some(session) = self.focused() {
             session.paste(text);
+            self.touch();
         }
     }
 
     pub fn mouse(&mut self, event: MouseEvent) {
         self.mouse_handled(event);
-        self.touch();
     }
 
     fn mouse_handled(&mut self, event: MouseEvent) {
@@ -384,6 +384,7 @@ impl App {
         self.gesture = gesture;
         if let (Some((_, session)), Some(bytes)) = (shown, bytes) {
             session.send(&bytes);
+            self.touch();
         }
     }
 

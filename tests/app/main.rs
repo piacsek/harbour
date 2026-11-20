@@ -17,6 +17,7 @@ mod input;
 mod keeping;
 mod layout;
 mod moving;
+mod nearest;
 mod neovim;
 mod picker;
 mod reconciling;

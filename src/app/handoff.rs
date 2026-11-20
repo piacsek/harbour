@@ -1,13 +1,17 @@
 use std::path::{Path, PathBuf};
-use std::time::{Instant, SystemTime};
+use std::time::{Duration, Instant, SystemTime};
 
 use super::read::{self, Reading};
 use super::{App, refusal, user_home};
-use crate::editor::{self, Editor, Program};
-use crate::handoff::{Listener, Reply, Verb};
+use crate::editor::{self, Editor, Program, Unopened};
+use crate::handoff::{Claim, Listener, Reply, Verb};
 
 const WAITING: &str = "harbour is waiting for an answer; try again after it";
-const LATE: &str = "harbour took too long";
+const BUSY: &str = "harbour was busy and did not get to it in time";
+const SILENT: &str = "Neovim did not answer";
+const CLOSED: &str = "Neovim did not start in time; harbour closed it";
+const OPEN_PATIENCE: Duration = Duration::from_secs(1);
+const REPLYING: Duration = Duration::from_millis(250);
 const SERVED_PER_FRAME: usize = 4;
 
 impl App {
@@ -22,7 +26,11 @@ impl App {
             self.refresh_live();
         }
         match (verb, self.holder(file)) {
-            (Verb::Ask, Some((holder, _))) => Reply::Holds(self.sessions[holder].used_at),
+            (Verb::Ask, Some((holder, root))) => Reply::Holds(Claim {
+                depth: canonical(&root).components().count(),
+                selected: holder == self.selected,
+                used: self.sessions[holder].used_at,
+            }),
             (Verb::Ask, None) => Reply::None,
             (Verb::Open, Some((holder, root))) => self.open_in(holder, &root, file, deadline),
             (Verb::Open, None) => {
@@ -54,7 +62,7 @@ impl App {
             return;
         }
         let root = self.fresh_root(self.selected);
-        if let Err(refused) = self.show_editor(self.selected, &root, None) {
+        if let Err(Reply::Refused(refused)) = self.show_editor(self.selected, &root, None) {
             self.failed = Some(refused);
         }
     }
@@ -84,14 +92,16 @@ impl App {
         let holds = |index: &usize| {
             self.sessions[*index].session.is_some() && file.starts_with(canonical(&root(*index)))
         };
-        let chosen = if self.selected < self.sessions.len() && holds(&self.selected) {
-            Some(self.selected)
-        } else {
-            (0..self.sessions.len())
-                .filter(holds)
-                .max_by_key(|index| self.sessions[*index].used_at)
-        };
-        chosen.map(|index| (index, root(index)))
+        (0..self.sessions.len())
+            .filter(holds)
+            .max_by_key(|index| {
+                (
+                    canonical(&root(*index)).components().count(),
+                    *index == self.selected,
+                    self.sessions[*index].used_at,
+                )
+            })
+            .map(|index| (index, root(index)))
     }
 
     fn open_in(&mut self, holder: usize, root: &Path, file: &Path, deadline: Instant) -> Reply {
@@ -109,7 +119,7 @@ impl App {
                 self.failed = None;
                 Reply::Opened
             }
-            Err(refused) => Reply::Refused(refused),
+            Err(reply) => reply,
         }
     }
 
@@ -118,13 +128,20 @@ impl App {
         index: usize,
         directory: &Path,
         file: Option<(&Path, Instant)>,
-    ) -> Result<(), String> {
+    ) -> Result<(), Reply> {
         let Some(program) = &self.editor else {
             return Ok(());
         };
-        if file.is_some_and(|(_, deadline)| Instant::now() >= deadline) {
-            return Err(LATE.to_string());
-        }
+        let file = match file {
+            None => None,
+            Some((file, deadline)) => match deadline
+                .checked_sub(REPLYING)
+                .filter(|last| Instant::now() < *last)
+            {
+                Some(last) => Some((file, last)),
+                None => return Err(Reply::Refused(BUSY.to_string())),
+            },
+        };
         let entry = &mut self.sessions[index];
         let shown = match entry
             .editors
@@ -132,23 +149,36 @@ impl App {
             .position(|editor| editor.directory == directory)
         {
             Some(running) => {
-                if let Some((file, deadline)) = file {
-                    entry.editors[running].open(file, deadline)?;
+                if let Some((file, last)) = file {
+                    let patient = Instant::now() + OPEN_PATIENCE;
+                    let busy = if last < patient { BUSY } else { SILENT };
+                    entry.editors[running]
+                        .open(file, last.min(patient))
+                        .map_err(|unopened| refused(unopened, busy))?;
                 }
                 running
             }
             None => {
                 self.started += 1;
-                entry.editors.push(started(
-                    program,
-                    directory,
-                    &self.temporary,
-                    self.started,
-                    self.pane,
-                    file.map(|(file, _)| file),
-                )?);
-                if let Some((file, deadline)) = file {
-                    entry.editors[entry.editors.len() - 1].open(file, deadline)?;
+                entry.editors.push(
+                    started(
+                        program,
+                        directory,
+                        &self.temporary,
+                        self.started,
+                        self.pane,
+                        file.map(|(file, _)| file),
+                    )
+                    .map_err(Reply::Refused)?,
+                );
+                if let Some((file, last)) = file
+                    && let Err(unopened) = entry.editors[entry.editors.len() - 1].open(file, last)
+                {
+                    if let Unopened::Silent = unopened {
+                        entry.editors.pop();
+                        return Err(Reply::Untaken(CLOSED.to_string()));
+                    }
+                    return Err(refused(unopened, SILENT));
                 }
                 self.failed = None;
                 entry.editors.len() - 1
@@ -178,6 +208,13 @@ fn started(
         file,
     )
     .map_err(|error| refusal(program.name(), &error))
+}
+
+fn refused(unopened: Unopened, silent: &str) -> Reply {
+    match unopened {
+        Unopened::Refused(message) => Reply::Refused(message),
+        Unopened::Silent => Reply::Refused(silent.to_string()),
+    }
 }
 
 fn canonical(path: &Path) -> PathBuf {
