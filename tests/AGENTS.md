@@ -16,7 +16,8 @@ these suites come from; the ones about sessions were hit in harbour.
 
 - **No test starts the real `claude`.** A session runs the program `HARBOUR_SESSION_COMMAND`
   names (`SESSION_COMMAND` in `src/tui.rs`, on the `SEAMS` list), `claude` when it is unset.
-  The end-to-end tests set it to `tests/fixtures/agent.sh` or `tests/fixtures/raw-agent.sh`;
+  The end-to-end tests set it to `tests/fixtures/agent.sh`, `tests/fixtures/raw-agent.sh` or
+  `tests/fixtures/registered-agent.sh` (which writes a registry file, so only under a scratch `HOME`);
   in-process tests hand `App::new` or `Session::start` a `/bin/sh -c` script, so no test writes
   an executable.
 

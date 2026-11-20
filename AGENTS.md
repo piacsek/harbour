@@ -89,7 +89,7 @@ plans/                        one versioned plan file per phase, ending with its
 plans/metrics.md              time and tokens, one row per phase
 tests/           outside-in: `tests/cli.rs` runs the real binary;
                  `tests/scripts/` runs the scripts in a scratch directory and repository, with `tests/fixtures/` standing in for `cargo`, `gh`, `curl` and the scripts they call;
-                 `tests/e2e/` runs the real binary in a scratch tmux server (`#[ignore]`, see `tests/AGENTS.md`), with `HARBOUR_SESSION_COMMAND` pointing sessions at `tests/fixtures/agent.sh` (prints what it reads, a line at a time) or `tests/fixtures/raw-agent.sh` (asks for bracketed paste and the mouse, prints every byte it reads) instead of `claude`;
+                 `tests/e2e/` runs the real binary in a scratch tmux server (`#[ignore]`, see `tests/AGENTS.md`), with `HARBOUR_SESSION_COMMAND` pointing sessions at `tests/fixtures/agent.sh` (prints what it reads, a line at a time) or `tests/fixtures/raw-agent.sh` (asks for bracketed paste and the mouse, prints every byte it reads) instead of `claude`, or at `tests/fixtures/registered-agent.sh` (writes a busy registry file under `CLAUDE_CONFIG_DIR`, else `HOME`, so it only runs with a scratch `HOME`);
                  `tests/session.rs` and `tests/app/` run sessions in process, as `/bin/sh -c` scripts;
                  `tests/keys.rs` is the table of the bytes each key sends, `tests/mouse.rs` the table of what a session receives for each mouse event, mode, gesture and modifier;
                  `tests/tui.rs` covers leaving the terminal (mouse capture and bracketed paste off) and the panic hook;

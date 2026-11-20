@@ -111,8 +111,19 @@ One red-green-refactor cycle each, shipped with `scripts/ship.sh`.
   refuses that. Task 5 kept the e2e tests and the help legend.
 - `serde` and `serde_json` are new dependencies, for the session file.
 - The demo shows a session in each state (working, blocked on a permission prompt, idle,
-  exited 1, unknown) by writing its own registry under the temp dir, removed when it ends; the
-  screenshots were rerun.
+  exited 1, unknown) by writing its own registry in a fresh temp directory, removed when it
+  ends; the screenshots were rerun.
+- Three review rounds, all unprimed; the third was clean (no must, no should from either
+  reviewer). Round 1: the title and the waiting reason cut off at the narrowest sidebars, the
+  `$$` quoting in two tests, exited sessions still read, a strict parse, unknown sharing `○`,
+  the demo registry left behind on a panic, stale files from an earlier pid; reads on the draw
+  thread were declined as a known limit. Round 2: widths counted in characters, not display
+  columns; unknown counted under `○`; a half-written file flipping the dot; a predictable,
+  reusable demo directory. Round 3: two minors fixed (the FIFO helper of a test spinning after
+  its directory is gone, the registry fixture missing from the layout) and two listed in the PR
+  body.
+- `tempfile` moved to the dependencies for the demo directory, and `unicode-width` became a
+  direct one for the widths.
 
 ## Hurdles
 
@@ -121,4 +132,5 @@ One red-green-refactor cycle each, shipped with `scripts/ship.sh`.
 - `review-loop` Round 1 found the title and the waiting reason cut off at the narrowest sidebars, which the plan's state table never covered by width → code
 - `review-loop` Round 2 found the round 1 width fix counting characters, not display columns, so a CJK name still hid the reason; the second finding on the same mechanism, settled by measuring every width with `unicode-width` → code
 - `test-seam` Two tests quoted `$$` in single quotes, so they wrote a literal `$$.json` and tested a missing file instead of the malformed and stale files they named → code
+- `test-seam` A detached test thread that unblocks a FIFO looped forever and spun once its scratch directory was gone, found in round 3 → code
 - `process` The dead-code rule pulled the binary's registry wiring from task 5 into task 2, so the plan's task order did not hold → none

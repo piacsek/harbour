@@ -390,9 +390,7 @@ fn only_file(registry: &Path) -> PathBuf {
 fn unblock_after(delay: Duration, fifo: PathBuf) {
     std::thread::spawn(move || {
         sleep(delay);
-        loop {
-            drop(std::fs::OpenOptions::new().write(true).open(&fifo));
-        }
+        while std::fs::OpenOptions::new().write(true).open(&fifo).is_ok() {}
     });
 }
 
