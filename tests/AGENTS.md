@@ -45,7 +45,8 @@ these suites come from; the ones about sessions were hit in harbour.
   tmux server does not end it, and one stuck at a swap prompt ignores SIGTERM and outlives the
   run. Dropping a `Neovim` of either file ends what it started, then SIGKILLs every `real-nvim`
   whose command line names the test's scratch `HOME`, and fails the test while one was still
-  alive.
+  alive; a test of `tests/e2e/neovim.rs` that leaves one behind on purpose ends it with
+  `end_every_neovim`.
 - **The Neovim contract tests run its TUI in a harbour `Session`, never headless.** A
   `--headless` Neovim never reaches the prompt states (NVIM v0.12.6): a multi-line `:echo`
   leaves mode `n`, a stale swap file opens without asking. So `tests/app/real_neovim.rs` starts

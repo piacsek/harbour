@@ -46,7 +46,7 @@ fn the_normal_mode_of_a_terminal_buffer_lets_ctrl_h_go_to_claude_code() {
 }
 
 #[test]
-fn ctrl_h_with_a_window_on_the_left_stays_in_neovim_and_reaches_its_mapping() {
+fn a_window_on_the_left_makes_neovim_want_ctrl_h_and_its_mapping_moves_there() {
     let Some(neovim) = Neovim::start("split") else {
         return;
     };
@@ -241,6 +241,21 @@ fn an_open_while_a_swap_prompt_is_up_is_refused_and_leaves_it_up() {
     neovim.in_mode("r?");
 
     let opened = neovim.open(&second);
+    let after = nvim::mode(&neovim.socket(), Instant::now() + PATIENCE);
+
+    assert_eq!(opened, WAITING);
+    assert_eq!(after.map(|mode| mode.mode).as_deref(), Some("r?"));
+}
+
+#[test]
+fn an_open_that_raises_a_swap_prompt_in_a_running_neovim_is_refused_and_leaves_it_up() {
+    let Some(mut neovim) = Neovim::start("raised-swap") else {
+        return;
+    };
+    let file = neovim.scratch.file("main.rs");
+    neovim.scratch.left_unsaved(&file);
+
+    let opened = neovim.open(&file);
     let after = nvim::mode(&neovim.socket(), Instant::now() + PATIENCE);
 
     assert_eq!(opened, WAITING);
@@ -497,7 +512,7 @@ fn lingering(home: &Path, patience: Duration) -> Vec<String> {
     let deadline = Instant::now() + patience;
     loop {
         let listed = Command::new("ps")
-            .args(["-axo", "pid=,command="])
+            .args(["-axww", "-o", "pid=,command="])
             .output()
             .unwrap();
         let alive: Vec<String> = String::from_utf8_lossy(&listed.stdout)

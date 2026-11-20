@@ -254,7 +254,7 @@ fn lingering(home: &Path, patience: Duration) -> Vec<String> {
     let deadline = Instant::now() + patience;
     loop {
         let listed = Command::new("ps")
-            .args(["-axo", "pid=,command="])
+            .args(["-axww", "-o", "pid=,command="])
             .output()
             .unwrap();
         let alive: Vec<String> = String::from_utf8_lossy(&listed.stdout)
