@@ -13,10 +13,11 @@ file under `plans/`; its time and tokens are a row of [`plans/metrics.md`](plans
 | 3 | [whether each agent is working, idle or waiting on you](plans/phase-3-status-dots.md) | [v0.3.0](https://github.com/piacsek/harbour/releases/tag/v0.3.0) |
 | 4 | [choose the directory a new session starts in, by fuzzy search](plans/phase-4-directory-picker.md) | [v0.4.0](https://github.com/piacsek/harbour/releases/tag/v0.4.0) |
 | 5 | [the counts in the tmux status line](plans/phase-5-tmux-status-line.md) | [v0.5.0](https://github.com/piacsek/harbour/releases/tag/v0.5.0) |
-| 6 | [an editor beside each session's Claude Code pane](plans/phase-6-editor-column.md) | |
+| 6 | [an editor beside each session's Claude Code pane](plans/phase-6-editor-column.md) | [v0.7.0](https://github.com/piacsek/harbour/releases/tag/v0.7.0) |
 | 7 | [a faster macOS flake build: a Nix store cache, and no clippy or rustfmt in the flake's toolchain](plans/phase-7-flake-build-speed.md); the cache was dropped after measuring it | [v0.5.1](https://github.com/piacsek/harbour/releases/tag/v0.5.1) |
 | 8 | [each session's title, activity, repository and branch in the sidebar](plans/phase-8-session-card.md) | [v0.6.0](https://github.com/piacsek/harbour/releases/tag/v0.6.0) |
 | 9 | [no script dies of SIGPIPE when its reader stops early](plans/phase-9-pipe-race.md) | |
+| 11 | [tmux shortcuts that use the current directory follow the selected session](plans/phase-11-follow-selected-session.md) | |
 
 ## Backlog
 
