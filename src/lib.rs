@@ -4,5 +4,7 @@ pub mod demo;
 pub mod help;
 pub mod keys;
 pub mod mouse;
+pub mod registry;
 pub mod session;
+pub mod state;
 pub mod tui;

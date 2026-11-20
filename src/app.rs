@@ -1,3 +1,6 @@
+use std::path::PathBuf;
+use std::time::{Duration, Instant, SystemTime};
+
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers, MouseEvent, MouseEventKind};
 use portable_pty::ExitStatus;
 use ratatui::Frame;
@@ -12,10 +15,13 @@ use crate::demo;
 use crate::help;
 use crate::keys;
 use crate::mouse::{self, Gesture, Target};
+use crate::registry::{self, Record};
 use crate::session::{self, Session};
+use crate::state;
 
 const NARROW: u16 = 60;
 const HINT: &str = "No session yet: press n to start one.";
+const READ_EVERY: Duration = Duration::from_millis(500);
 
 pub struct App {
     command: Vec<String>,
@@ -32,6 +38,8 @@ pub struct App {
     asking: Option<Question>,
     helping: bool,
     quitting: bool,
+    registry: Option<PathBuf>,
+    read_at: Option<Instant>,
 }
 
 #[derive(Clone, Copy, PartialEq)]
@@ -44,6 +52,8 @@ struct Entry {
     id: usize,
     name: String,
     session: Session,
+    started_at: SystemTime,
+    record: Option<Record>,
 }
 
 impl App {
@@ -70,14 +80,24 @@ impl App {
             asking: None,
             helping: false,
             quitting: false,
+            registry: None,
+            read_at: None,
         }
     }
 
-    pub fn demo() -> App {
-        let mut app = App::new(demo::working());
+    pub fn with_registry(mut self, dir: PathBuf) -> App {
+        self.registry = Some(dir);
+        self
+    }
+
+    pub fn demo(registry: PathBuf) -> App {
+        let mut app = App::new(demo::working(&registry)).with_registry(registry.clone());
         app.start();
+        app.start_with(&demo::blocked(&registry));
+        app.start_with(&demo::idle(&registry));
         app.start_with(&demo::failed());
-        app.start();
+        app.start_with(&demo::unknown());
+        app.selected = 0;
         app
     }
 
@@ -214,6 +234,7 @@ impl App {
     }
 
     fn start_with(&mut self, command: &[String]) {
+        let started_at = SystemTime::now();
         match Session::start(command, self.pane.height, self.pane.width) {
             Ok(session) => {
                 self.failed = None;
@@ -222,6 +243,8 @@ impl App {
                     id: self.started,
                     name: format!("{} {}", self.directory, self.started),
                     session,
+                    started_at,
+                    record: None,
                 });
                 self.selected = self.sessions.len() - 1;
             }
@@ -234,10 +257,43 @@ impl App {
         }
     }
 
+    fn read_registry(&mut self) {
+        let Some(dir) = &self.registry else {
+            return;
+        };
+        if self.read_at.is_some_and(|at| at.elapsed() < READ_EVERY) {
+            return;
+        }
+        self.read_at = Some(Instant::now());
+        for entry in &mut self.sessions {
+            let last = entry.record.take();
+            entry.record = match entry.session.exit() {
+                Some(_) => None,
+                None => entry
+                    .session
+                    .pid()
+                    .and_then(|pid| registry::read(dir, pid, entry.started_at, last)),
+            };
+        }
+    }
+
     pub fn draw(&mut self, frame: &mut Frame) {
+        self.read_registry();
         let (sidebar, pane) = self.areas(frame.area());
         self.sidebar = sidebar;
-        let mut sidebar_block = bordered(!self.pane_focused).title(" sessions ");
+        let notes: Vec<Option<String>> = self
+            .sessions
+            .iter_mut()
+            .map(|entry| entry.session.exit().map(exit_note))
+            .collect();
+        let title = state::title(
+            self.sessions
+                .iter()
+                .zip(&notes)
+                .map(|(entry, note)| (note.is_some(), entry.record.as_ref())),
+            usize::from(sidebar.width.saturating_sub(2)),
+        );
+        let mut sidebar_block = bordered(!self.pane_focused).title(title);
         match self.asking {
             Some(Question::End) => sidebar_block = sidebar_block.title_bottom(" End? y/n "),
             Some(Question::Quit) => sidebar_block = sidebar_block.title_bottom(" Quit? y/n "),
@@ -254,12 +310,17 @@ impl App {
         for entry in &mut self.sessions {
             entry.session.resize(self.pane.height, self.pane.width);
         }
-        let rows: Vec<String> = self
+        let rows: Vec<Line> = self
             .sessions
-            .iter_mut()
-            .map(|entry| match entry.session.exit() {
-                None => format!("● {}", entry.name),
-                Some(status) => format!("○ {} exited{}", entry.name, exit_note(status)),
+            .iter()
+            .zip(notes)
+            .map(|(entry, note)| {
+                state::row(
+                    &entry.name,
+                    note,
+                    entry.record.as_ref(),
+                    usize::from(below_rows.width.saturating_sub(2)),
+                )
             })
             .collect();
         let exited = self
@@ -315,7 +376,12 @@ impl App {
             .iter()
             .map(|(key, what)| Line::from(format!("{key:<10} {what}")));
         let notes = help::NOTES.iter().map(|line| Line::from(*line));
-        let lines: Vec<Line> = keys.chain([Line::default()]).chain(notes).collect();
+        let lines: Vec<Line> = keys
+            .chain([Line::default()])
+            .chain(state::legend())
+            .chain([Line::default()])
+            .chain(notes)
+            .collect();
         frame.render_widget(Clear, frame.area());
         frame.render_widget(
             Paragraph::new(lines)

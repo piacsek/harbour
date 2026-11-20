@@ -5,6 +5,7 @@ mod help;
 mod input;
 mod layout;
 mod selection;
+mod status;
 
 use std::path::Path;
 use std::thread::sleep;

@@ -61,8 +61,8 @@ fn the_sidebar_marks_the_selected_session() {
     screen.press('k');
 
     let shown = screen.wait_for("acme agent 1");
-    let first = format!("▌ ● {} 1", directory());
-    let second = format!("▌ ● {} 2", directory());
+    let first = format!("▌ · {} 1", directory());
+    let second = format!("▌ · {} 2", directory());
     assert!(shown.contains(&first), "{shown}");
     assert!(!shown.contains(&second), "{shown}");
 }
