@@ -47,4 +47,41 @@ One red-green-refactor cycle each, shipped with `scripts/ship.sh`.
 
 ## Outcome
 
+- All 3 tasks shipped: the bar (b1a04fb), the border with the fragment (cedc23a), and the
+  screenshots rerun (ad573cb). The selected row starts with a cyan `▌` in place of `›`, and the
+  focused side's border is thick and cyan while the other side's is plain and uncoloured.
+- The decisions held as planned: an exited session keeps the cyan bar, and its dimmed pane keeps
+  the cyan border while it has focus, since the dim covers only the pane's inside; the narrow
+  layout draws only the focused side, with the cyan border; colour is never the only signal,
+  since the thick border and the bold name stay.
+- Not in the plan, added on the way or by review:
+  - `scripts/truecolor.py` carries the current colour to the start of each line, since
+    `tmux capture-pane -e` does not repeat it, and leaves an empty line bare so freeze does not
+    panic on the capture's end. Both have tests in `tests/scripts/truecolor.rs`.
+  - `docs/pane.png`, the demo with the pane focused, so the cyan pane border shows in a shot.
+  - Two cell-colour tests: an exited session's pane keeps the undimmed cyan border, and the
+    narrow layout's one side has it. Both passed at once and were proved by breaking the code.
+  - 17 tests no longer depend on the length of the checkout's folder name, which every sidebar
+    row carries: 15 `tests/app` tests build a screen sized to it with `Screen::wide`, the narrow
+    sidebar test asserts on the row's start, and the session working-directory test sizes the
+    session to the path. A run from a 49-character folder name passed the app, session and e2e
+    targets.
+- Review: 3 rounds, each with both reviewers (Claude and Codex), all unprimed; the last was
+  clean. Round 1's only finding was the PR body, which still carried phase 1's text: the edit
+  command was blocked by the text guard hook for an em dash, and the next command uploaded a
+  stale `body.md` left in the shared scratchpad by phase 1, which nobody fetched back.
+- Left as it is: the " sessions " and " End? y/n " titles turn cyan with the focused border,
+  since ratatui lays a title over its border's style. Both reviewers saw it and neither called
+  it a fault.
+
 ## Hurdles
+
+- `test-seam` Ten `tests/app` tests failed in a checkout whose folder name is longer than about 22 characters, since every sidebar row carries that name and the sidebar is a third of the screen → rule in `tests/AGENTS.md`
+- `test-seam` The two cell-colour tests passed on their first run because the code already did both; each was proved by breaking the code → none
+- `tooling` `tmux capture-pane -e` does not repeat a colour that runs across a line break, so the narrow shot lost the cyan on its left and bottom edges → code
+- `tooling` Once the converter carried colour to every line, freeze panicked on colour codes after the capture's last newline → code
+- `ci` The `version` check failed on the bar commit, which changed `src/` before the fragment was written → none
+- `tooling` A shell command holding an em dash was blocked whole by the text guard hook, so the new PR body file was never written → none
+- `process` The builder reported a PR body edit as done without fetching it back, so round 1 was spent on a description that still carried phase 1's text → rule in `AGENTS.md`
+- `tooling` The scratchpad is shared between phases of one orchestrator session, so a stale `body.md` from phase 1 was uploaded by mistake → none
+- `tooling` The long-folder worktree reused this worktree's target dir, and cargo then kept an e2e binary pointing at the removed worktree's fixtures, so the first ship failed 7 e2e tests until a rebuild was forced → none

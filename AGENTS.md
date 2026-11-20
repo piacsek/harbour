@@ -286,8 +286,10 @@ nearest the code the guideline is about.
   every later commit lands on that PR. The subject is a starting point: before review, rewrite
   the title in plain language that says what the change does for whoever uses it, and fill the
   body. `## Summary` holds at most 3 sentences, split across 2 lines with a blank line between
-  them; `## Changes` holds the rest. Before merging, re-read the PR title and body and fix
-  what went stale without rewording the user's edits.
+  them; `## Changes` holds the rest. After every edit of a PR body, fetch it back
+  (`gh pr view <N> --json body`) and compare it with what you wrote: an edit can upload the
+  wrong file. Before merging, re-read the PR title and body and fix what went stale without
+  rewording the user's edits.
 - **Screenshots in PRs.** A PR with a visible change embeds a screenshot that shows that
   change in its body, as a commit-pinned `raw.githubusercontent.com` URL. A change to the main
   interface goes into `docs/details.png` once it exists (see "Documentation rule"); for a view
