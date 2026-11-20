@@ -1,0 +1,137 @@
+# Phase 5: the counts in the tmux status line
+
+## Context
+
+With harbour off screen, in another tmux window, the user cannot see that an agent is waiting
+on them. tmux-agents prints such counts for Claude Code sessions in plain tmux panes, but it
+cannot see the sessions harbour starts: harbour removes `TMUX` from their environment, so they
+belong to no pane. Issue #8 asks for `harbour status`, which prints the counts of every running
+harbour's sessions as tmux status-line text, for `status-right`. Only counts, only harbour's own
+sessions.
+
+Phase 5 is a sweep phase, so its `## Outcome` opens with the sweep of phases 0 to 3. Phase 4
+(PR #14, the directory picker) is still open, so its hurdles are not on `main` and are not swept.
+
+## Verified facts (2026-11-20 UTC, `main` at 57065de)
+
+- `src/state.rs` already turns each session into a state (working, blocked, idle, exited,
+  unknown) and counts them for the sidebar title inside `state::title`, as `[working, blocked,
+  idle and exited, unknown]`. `App::draw` calls it on every draw, after `read_registry`, which
+  reads the registry at most every 500 ms.
+- tmux-agents (`src/status.rs`) prints its segments in the order blocked, working, idle, unknown,
+  each `#[<style>]<glyph> <count>#[default]`, joined by one space, a state with no agent left
+  out; its styles are `fg=red,bold`, `fg=yellow`, `dim` and `fg=brightblack`. Issue #8 asks for
+  `#[fg=red]`, not bold, and for the sidebar's glyphs, so unknown is `·` here, not tmux-agents'
+  `○`.
+- tmux 3.7c accepts `brightblack` as a colour name (`man tmux`, "bright variants brightblack,
+  brightred, ..."), and refreshes `#()` commands at `status-interval`, 15 s by default.
+- Rust 1.98.1 (the pinned toolchain) has `File::lock`, `File::try_lock_shared` and
+  `TryLockError::WouldBlock` in `std`, stable since 1.89. They are `flock` on Unix: the kernel
+  drops the lock when its holder dies, however it dies.
+- The e2e launcher and `scripts/screenshots.sh` already unset `XDG_STATE_HOME` beside their
+  scratch `HOME`, so a harbour they start writes its state under the scratch `HOME`.
+- The `help` shot of `scripts/screenshots.sh` is 7 rows high, one more than today's usage; a
+  longer usage needs a taller shot (phase 1 hurdle: a fixed height cut it off silently).
+- `tests/cli.rs` pins the usage text word for word; `tests/readme.rs` pins `--version`,
+  `--help` and `changelog` in the README usage. The Homebrew formula's test needs only
+  `--version` and `usage: harbour` on an unknown argument.
+
+## How a running harbour tells `harbour status`
+
+Each harbour on a terminal (not `--demo`) owns two files named after its process id in
+`$XDG_STATE_HOME/harbour/status/`, else `~/.local/state/harbour/status/`:
+
+- `<pid>.lock`, empty, which it holds an exclusive `flock` on for as long as it runs;
+- `<pid>.counts`, one line `<blocked> <working> <idle> <unknown>`, written to `<pid>.tmp` and
+  renamed over, so a reader never sees half of it, and only when a count changed.
+
+`harbour status` lists the `*.counts` files, takes a non-blocking shared lock on the matching
+`.lock` for each: if the lock is free, its harbour is gone and the file is skipped; if it is held,
+the counts are added. It never waits, writes nothing and deletes nothing.
+
+## States
+
+| State | `harbour status` prints | Exit |
+| --- | --- | --- |
+| no harbour has ever run (no directory) | nothing | 0 |
+| no harbour running (directory empty) | nothing | 0 |
+| a harbour with no session (all counts zero) | nothing | 0 |
+| one harbour with sessions | its counts, states with zero left out | 0 |
+| two harbours with sessions | the sum of both | 0 |
+| a summary left by a harbour that crashed or was killed (lock free) | nothing for it | 0 |
+| a crashed harbour's pid reused by another process | nothing for it: the lock died with the old process | 0 |
+| a summary that cannot be read or parsed | nothing for it | 0 |
+| a `.counts` with no `.lock` beside it | nothing for it | 0 |
+| a harbour that just started, before its first draw | nothing for it (no counts yet) | 0 |
+| a harbour that quit normally | nothing: it removed both files | 0 |
+| no `HOME` and no `XDG_STATE_HOME` | nothing | 0 |
+| `harbour --demo` running | nothing for it: the demo writes no summary | 0 |
+| the state directory cannot be created or written (harbour side) | harbour runs as before, publishing nothing | n/a |
+
+The line, for one blocked, one working, three idle and no unknown session:
+
+```text
+#[fg=red]◉ 1#[default] #[fg=yellow]● 1#[default] #[dim]○ 3#[default]
+```
+
+followed by a newline; when nothing is counted, nothing at all is printed.
+
+## Decisions
+
+- **The counts are the sidebar title's counts.** `○` counts idle and exited sessions together, as
+  in the title, so the status line and the sidebar never disagree. One function counts for both.
+- **Liveness is a lock, not a pid check.** `kill(pid, 0)` would trust a crashed harbour's file
+  again as soon as its pid is reused; a `flock` dies with its holder, so a stale file can never
+  count again. Two files per harbour, since an atomic rename would replace the locked file.
+- **Nothing deletes another harbour's files.** A stale pair stays until a harbour with that pid
+  overwrites it; deleting it from `harbour status` could race a new harbour that reuses the pid
+  and unlink its lock. The pair is a few bytes.
+- **The demo publishes nothing**, so made-up acme sessions never reach the user's real status
+  line.
+- **Publishing is best effort.** A state directory harbour cannot create or write leaves the
+  interface as it was; nothing is drawn about it.
+- **The directory is private**: created `0700`, files `0600`. An `XDG_STATE_HOME` that is empty
+  or relative counts as unset, as the XDG spec says.
+- **`harbour status` takes no option** and always exits 0, so a status line never shows an
+  error; the tmux line to add goes into `--help`.
+
+## Tasks
+
+One red-green-refactor cycle each, shipped with `scripts/ship.sh`.
+
+1. This plan with the sweep, its rows in `PLAN.md` and `plans/metrics.md`, and the phase 3
+   backfill.
+2. `harbour status` prints nothing without summaries, the usage and README list it, and the
+   fragment.
+3. `harbour status` adds up the summaries of running harbours, in the issue's format, and skips
+   stale, unreadable and lock-less ones: one test per row of the table, against the real binary.
+4. A running harbour writes its summary when a count changes (private, atomic) and removes it on
+   quit; `state` counts once for the title and the summary.
+5. The binary wires it up: an e2e test runs harbour in a scratch tmux server and reads its
+   counts with `harbour status`; the help shot is rerun.
+
+## Outcome
+
+### Sweep
+
+Range: phases 0 to 3, read from `scripts/sweep-report.sh` and each plan's `## Outcome` and
+`## Hurdles`. Phase 4 (PR #14) was still open, so its hurdles were not on `main`. This is the
+first sweep. The owner was away, so nothing below was applied: every line is a **proposal
+awaiting the owner's yes**, and no `AGENTS.md` changed.
+
+| # | Finding | Phases | Proposal (awaiting the owner) | Where |
+| --- | --- | --- | --- | --- |
+| 1 | A test passed on its first run because earlier code already did it, three times, each `→ none` and each proved by breaking the code by hand | 1, 2, 3 | Rule: a test that is green on its first run is not red: break the code it covers, show that red run, restore, and say so in the update | root `AGENTS.md`, "TDD is never skipped" |
+| 2 | The text guard hook blocked a whole shell command for holding an em dash, so a PR body was never written and a stale one went up instead | 2 | Rule: PR bodies, plans and other prose are written with the Write tool, never through a shell argument or heredoc (already the orchestrator's practice; it recurred once, so a rule rather than a repeat) | root `AGENTS.md`, "Draft PR first" |
+| 3 | A shared scratchpad let a stale `body.md` from an earlier phase be uploaded | 2 | Decline as its own rule: the "fetch it back and compare" rule added in phase 2 already catches it | none |
+| 4 | Width and layout bugs found by review, not by the plan: questions too long for 80 columns, the title and reason cut at the narrowest sidebar, then counted in characters | 1, 3 | Rule: a plan whose change draws text adds the narrowest sidebar and a CJK name as rows of its state table | root `AGENTS.md`, "Plan before code" |
+| 5 | Review rounds found faults in the previous round's own fixes (phase 1, four of six rounds; phase 3, round 2 on round 1's width fix) | 1, 3 | Decline as a rule: "Two strikes, then redesign" already covers it and held in phase 3 | none |
+| 6 | One-off tooling dead ends with `→ none` (cargo-audit not installed locally, pty exhaustion when tests run beside the gates, a stale e2e binary in a shared `target/`, a `sed` that rewrote other tests, Codex capacity) | 1, 2, 3 | Decline: no two are the same problem | none |
+| 7 | A plan's task order broke because the dead-code rule pulls wiring forward | 3 | Decline: one occurrence; a plan names the caller of each new `pub` item in the same task | none |
+
+Metrics (from `plans/metrics.md`): review rounds 6, 3, 3 for phases 1 to 3; start to release
+4 h 13 min, 44 min, 1 h 3 min; Claude reviewer tokens per round about 115k to 140k, flat; builder
+notices per phase 12, 4, 4. Three comparable rows are too few to call a trend in tokens; rounds
+dropped from 6 to 3 and held. Codex and orchestrator usage remain unknown in every row.
+
+## Hurdles
