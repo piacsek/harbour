@@ -501,10 +501,10 @@ nearest the code the guideline is about.
   adds logic over external state (check states, merge states, write results) carries a table of
   the states and what the user sees for each, and that table is reviewed before any code is
   written: in conveyor, three review rounds in a row each found states such a table would have
-  listed up front. A plan's state table lists, for each thing the change reads from outside
-  harbour (a path, the user's environment or configuration, another process or host), what the
-  user sees when it is missing, changed in between, or shared. A plan whose change draws text
-  adds the narrowest sidebar and a CJK name as rows of its state table.
+  listed up front. A plan that reads from outside harbour carries that table too, with, for each
+  thing it reads (a path, the user's environment or configuration, another process or host),
+  what the user sees when it is missing, changed in between, or shared. A plan whose change
+  draws text carries one with the narrowest sidebar and a CJK name as rows.
 
 ## Development
 
