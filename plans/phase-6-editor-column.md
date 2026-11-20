@@ -119,3 +119,9 @@ One red-green-refactor cycle each, shipped with `scripts/ship.sh`.
 ## Outcome
 
 ## Hurdles
+
+- `test-seam` The Neovim routing test failed about one full run in five: the fake Neovim wrote
+  its reply in pieces and closed, and on macOS setting a read timeout on a socket whose peer
+  has closed fails, so `eval` gave up with the whole reply buffered. A real bug, found only by
+  tracing a stress loop; the timeout error is now ignored, and tests that need an answer get a
+  long patience through the `with_patience` seam → code

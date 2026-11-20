@@ -11,4 +11,5 @@ pub mod registry;
 pub mod session;
 pub mod state;
 pub mod tabs;
+pub mod transcript;
 pub mod tui;

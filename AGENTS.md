@@ -45,12 +45,13 @@ rules from the `AGENTS.md` of its directory.
 ```
 src/main.rs      the binary: `--version`/`-V`/`version`, `--help`/`-h`/`help`, `changelog`, the interface with no argument on a terminal, the same with made-up sessions for `--demo` on a terminal, the usage on anything else
 src/lib.rs                    the library the binary and the tests share
-src/tui.rs                    the terminal: enters and restores it, reads its events, draws the app; the program a session runs (`claude`, or what `HARBOUR_SESSION_COMMAND` names); the directory picker (fzf over zoxide's list, or what `HARBOUR_DIR_PICKER` names)
+src/tui.rs                    the terminal: enters and restores it, reads its events, draws the app; the program a session runs (`claude`, given `--session-id` and its transcripts read, or what `HARBOUR_SESSION_COMMAND` names, given neither); the directory picker (fzf over zoxide's list, or what `HARBOUR_DIR_PICKER` names)
 src/picker.rs                 the directory picker of `n`: a program run as a session in a popup, its standard output sent to a file in a temporary directory only its owner can open (0700), the first line it prints, as bytes, canonicalized (read from harbour's directory when relative), every path kept as bytes on the way into its arguments, exit statuses 126 and 127 (and 2 for fzf) named as "could not start"; fzf given `--no-expect --no-print-query --no-read0 --no-print0` after the user's `FZF_DEFAULT_OPTS`, so it prints one directory a line; for fzf the popup's own shell writes the list (harbour's directory first, then the list command's lines without it) into a FIFO fzf reads, so a slow list never holds up harbour, and a missing fzf means "start at once"
 src/app/mod.rs                the app: its state and what each key, paste and mouse event does
 src/app/draw.rs               what the app draws
-src/editor.rs                 an editor beside a session's Claude Code pane: the program it runs and the directory it belongs to; Neovim listens on a socket in a private (0700) temporary directory removed with the editor
+src/editor.rs                 an editor beside a session's Claude Code pane: the program it runs and the directory it belongs to, `root` (the nearest directory up holding `.git`, never walked up from a directory that is gone); Neovim listens on a socket in a private (0700) temporary directory removed with the editor
 src/nvim.rs                   `eval`: one msgpack-RPC `nvim_eval` over that socket, `None` for no answer within 100 ms
+src/transcript.rs             a session's Claude Code transcript: its random session id, the file `<config>/projects/*/<id>.jsonl` (found once, then kept), the last `cwd` in its last 4 MiB
 src/tabs.rs                   `strip`, a pure function: the pane border's `claude | <editor>: <directory>`, fitted by display width (the directory loses its start first, then the editor's name, then `claude`)
 src/session.rs                a session: a command in a PTY, refused as `Not a directory: <path>` when its directory is not one, its output parsed into a screen that renders as a widget, its terminal queries answered, its exit status, its screen never under 2 rows or 2 columns (vt100 panics below that); every call into vt100 contained, so a panic gives that session a fresh screen with the modes its program had turned on and a repaint instead of taking harbour down, and the panic hook stays silent for it; writes go through a writer thread so a child that does not read never blocks the interface; ending it (or dropping it) hangs up its whole process group, then kills it, only while the child is unreaped; quitting hangs up every session first and waits once
 src/demo.rs                   the made-up sessions of `--demo` and its picker (fzf over made-up directories, without harbour's directory): `acme/*` scripts, never real data; the registry they write in the temp dir, removed when dropped
@@ -94,7 +95,7 @@ plans/                        one versioned plan file per phase, ending with its
 plans/metrics.md              time and tokens, one row per phase
 tests/           outside-in: `tests/cli.rs` runs the real binary;
                  `tests/scripts/` runs the scripts in a scratch directory and repository, with `tests/fixtures/` standing in for `cargo`, `gh`, `curl` and the scripts they call;
-                 `tests/e2e/` runs the real binary in a scratch tmux server (`#[ignore]`, see `tests/AGENTS.md`), with `HARBOUR_SESSION_COMMAND` pointing sessions at `tests/fixtures/agent.sh` (prints what it reads, a line at a time) or `tests/fixtures/raw-agent.sh` (asks for bracketed paste and the mouse, prints every byte it reads) instead of `claude`, or at `tests/fixtures/registered-agent.sh` (writes a busy registry file under `CLAUDE_CONFIG_DIR`, else `HOME`, so it only runs with a scratch `HOME`), `HARBOUR_DIR_PICKER` at `tests/fixtures/picker.sh` (prints the line it reads), both cleared from the environment unless the test sets them, `CLAUDE_CONFIG_DIR` cleared, `TMPDIR` a directory under the scratch `HOME` (so a picker left open leaves nothing behind), and `PATH` a scratch directory of links to the few tools the fixtures run, so no fzf or zoxide is on it;
+                 `tests/e2e/` runs the real binary in a scratch tmux server (`#[ignore]`, see `tests/AGENTS.md`), with `HARBOUR_SESSION_COMMAND` pointing sessions at `tests/fixtures/agent.sh` (prints what it reads, a line at a time) or `tests/fixtures/raw-agent.sh` (asks for bracketed paste and the mouse, prints every byte it reads) instead of `claude`, or at `tests/fixtures/args-agent.sh` (prints its arguments, also linked as `claude` on the scratch `PATH` to see what the default gets), or at `tests/fixtures/registered-agent.sh` (writes a busy registry file under `CLAUDE_CONFIG_DIR`, else `HOME`, so it only runs with a scratch `HOME`), `HARBOUR_DIR_PICKER` at `tests/fixtures/picker.sh` (prints the line it reads), both cleared from the environment unless the test sets them, `CLAUDE_CONFIG_DIR` cleared, `TMPDIR` a directory under the scratch `HOME` (so a picker left open leaves nothing behind), and `PATH` a scratch directory of links to the few tools the fixtures run, so no fzf or zoxide is on it;
                  `tests/session.rs` and `tests/app/` run sessions in process, as `/bin/sh -c` scripts;
                  `tests/tabs.rs` is the table of how the pane border's names fit a width;
                  `tests/keys.rs` is the table of the bytes each key sends, `tests/mouse.rs` the table of what a session receives for each mouse event, mode, gesture and modifier;
@@ -150,9 +151,11 @@ impact.
 - **`check` builds and tests on Linux only**: the tests never run on macOS, and a macOS-only
   break of the release build itself fails in the release run; the flake's macOS leg catches a
   plain macOS build break (`.github/AGENTS.md`).
-- **C-h over Neovim asks it a question on the key thread**: harbour waits up to 100 ms for
-  Neovim to say whether its leftmost window is in normal mode; a Neovim that never answers
-  costs that much per C-h, and the pane shows Claude Code (`src/nvim.rs`).
+- **C-h over Neovim and C-l from Claude Code do their I/O on the key thread**: C-h waits up to
+  100 ms for Neovim to say whether its leftmost window is in normal mode (a Neovim that never
+  answers costs that much per C-h, and the pane shows Claude Code, `src/nvim.rs`); C-l lists
+  the transcript projects until it finds the session's file and reads at most its last 4 MiB
+  (`src/transcript.rs`).
 - **A session that exited by itself leaves behind what ignores hangup**: once its command is
   reaped its pid can be reused, so harbour never signals its group again, and a background
   process that ignores hangup keeps running after its row is removed or harbour quits, as in any

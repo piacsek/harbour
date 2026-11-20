@@ -21,13 +21,16 @@ pub const SESSION_COMMAND: &str = "HARBOUR_SESSION_COMMAND";
 pub const DIR_PICKER: &str = "HARBOUR_DIR_PICKER";
 
 pub fn run() -> io::Result<()> {
-    let app = App::new(session_command())
+    let mut app = App::new(session_command())
         .with_picker(dir_picker())
         .with_editor(Program::neovim("nvim", vec!["nvim".to_string()]));
-    show(match claude_sessions() {
-        Some(dir) => app.with_registry(dir),
-        None => app,
-    })
+    if let Some(dir) = claude_sessions() {
+        if std::env::var_os(SESSION_COMMAND).is_none() {
+            app = app.with_transcripts(dir.with_file_name("projects"));
+        }
+        app = app.with_registry(dir);
+    }
+    show(app)
 }
 
 pub fn demo() -> io::Result<()> {

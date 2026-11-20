@@ -10,12 +10,13 @@ mod draw;
 use draw::exit_note;
 
 use crate::demo;
-use crate::editor::{Editor, Program};
+use crate::editor::{self, Editor, Program};
 use crate::keys;
 use crate::mouse::{self, Gesture, Target};
 use crate::picker::{Pick, Picked, Picker};
 use crate::registry::{self, Record};
 use crate::session::{self, Session};
+use crate::transcript::Transcript;
 
 const NARROW: u16 = 60;
 const HINT: &str = "No session yet: press n to start one.";
@@ -26,6 +27,7 @@ pub struct App {
     home: PathBuf,
     picker: Option<Picker>,
     editor: Option<Program>,
+    transcripts: Option<PathBuf>,
     picking: Option<Pick>,
     picking_area: Rect,
     screen: Rect,
@@ -58,6 +60,7 @@ struct Entry {
     session: Session,
     started_at: SystemTime,
     record: Option<Record>,
+    transcript: Option<Transcript>,
     editors: Vec<Editor>,
     editor: Option<usize>,
     on_editor: bool,
@@ -95,6 +98,7 @@ impl App {
             home,
             picker: None,
             editor: None,
+            transcripts: None,
             picking: None,
             picking_area: Rect::default(),
             screen: Rect::new(0, 0, 80, 24),
@@ -122,6 +126,11 @@ impl App {
 
     pub fn with_editor(mut self, editor: Program) -> App {
         self.editor = Some(editor);
+        self
+    }
+
+    pub fn with_transcripts(mut self, projects: PathBuf) -> App {
+        self.transcripts = Some(projects);
         self
     }
 
@@ -286,14 +295,25 @@ impl App {
         let Some(entry) = self.sessions.get_mut(self.selected) else {
             return;
         };
-        if entry.editor().is_some() {
+        let at = entry
+            .transcript
+            .as_mut()
+            .and_then(Transcript::directory)
+            .unwrap_or_else(|| entry.directory.clone());
+        let directory = editor::root(&at);
+        if let Some(index) = entry
+            .editors
+            .iter()
+            .position(|editor| editor.directory == directory)
+        {
+            entry.editor = Some(index);
             entry.on_editor = true;
             return;
         }
         self.started += 1;
         match Editor::start(
             program,
-            &entry.directory,
+            &directory,
             self.started,
             self.pane.height,
             self.pane.width,
@@ -413,7 +433,15 @@ impl App {
 
     fn start_in(&mut self, command: &[String], directory: &Path) {
         let started_at = SystemTime::now();
-        match Session::start(command, directory, self.pane.height, self.pane.width) {
+        let transcript = self
+            .transcripts
+            .as_deref()
+            .and_then(|projects| Transcript::new(projects).ok());
+        let mut command = command.to_vec();
+        if let Some(transcript) = &transcript {
+            command.extend(["--session-id".to_string(), transcript.id().to_string()]);
+        }
+        match Session::start(&command, directory, self.pane.height, self.pane.width) {
             Ok(session) => {
                 self.failed = None;
                 self.started += 1;
@@ -424,6 +452,7 @@ impl App {
                     session,
                     started_at,
                     record: None,
+                    transcript,
                     editors: Vec::new(),
                     editor: None,
                     on_editor: false,

@@ -3,6 +3,7 @@ use std::fs::Permissions;
 use std::io;
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
+use std::time::Duration;
 
 use tempfile::TempDir;
 
@@ -15,6 +16,7 @@ pub struct Program {
     name: String,
     command: Vec<String>,
     neovim: bool,
+    patience: Duration,
 }
 
 impl Program {
@@ -23,6 +25,7 @@ impl Program {
             name: name.to_string(),
             command,
             neovim: false,
+            patience: nvim::PATIENCE,
         }
     }
 
@@ -31,6 +34,11 @@ impl Program {
             neovim: true,
             ..Program::new(name, command)
         }
+    }
+
+    pub fn with_patience(mut self, patience: Duration) -> Program {
+        self.patience = patience;
+        self
     }
 
     pub fn name(&self) -> &str {
@@ -44,6 +52,7 @@ pub struct Editor {
     pub label: String,
     pub session: Session,
     socket: Option<(PathBuf, TempDir)>,
+    patience: Duration,
 }
 
 impl Editor {
@@ -74,15 +83,27 @@ impl Editor {
             label: label(directory),
             session,
             socket,
+            patience: program.patience,
         })
     }
 
     pub fn wants_ctrl_h(&self) -> bool {
         self.socket
             .as_ref()
-            .and_then(|(path, _)| nvim::eval(path, LEFTMOST_IN_NORMAL_MODE))
+            .and_then(|(path, _)| nvim::eval(path, LEFTMOST_IN_NORMAL_MODE, self.patience))
             == Some(0)
     }
+}
+
+pub fn root(directory: &Path) -> PathBuf {
+    if !directory.is_dir() {
+        return directory.to_path_buf();
+    }
+    directory
+        .ancestors()
+        .find(|folder| folder.join(".git").symlink_metadata().is_ok())
+        .unwrap_or(directory)
+        .to_path_buf()
 }
 
 fn label(directory: &Path) -> String {

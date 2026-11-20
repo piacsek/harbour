@@ -89,7 +89,7 @@ fn ctrl_h_shows_claude_code_when_nothing_listens_on_the_socket() {
 #[test]
 fn ctrl_h_shows_claude_code_soon_when_neovim_never_answers() {
     let scratch = tempfile::tempdir().unwrap();
-    let mut screen = open(scratch.path(), "exec sleep 600");
+    let mut screen = open_with(fake_neovim(scratch.path(), "exec sleep 600"));
     let _asked = answering(&socket(scratch.path()), None);
 
     let before = Instant::now();
@@ -106,8 +106,7 @@ fn the_socket_directory_is_removed_once_neovim_exits() {
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = open(scratch.path(), "exit 0");
     let socket = socket(scratch.path());
-    let _asked = answering(&socket, Some(0));
-    screen.key(KeyCode::Char('h'), KeyModifiers::CONTROL);
+    screen.press('q');
 
     screen.wait_for("acme agent ready");
 
@@ -115,7 +114,11 @@ fn the_socket_directory_is_removed_once_neovim_exits() {
 }
 
 fn open(scratch: &Path, then: &str) -> Screen {
-    let mut screen = Screen::editing(reading_agent(), fake_neovim(scratch, then));
+    open_with(fake_neovim(scratch, then).with_patience(Duration::from_secs(5)))
+}
+
+fn open_with(neovim: Program) -> Screen {
+    let mut screen = Screen::editing(reading_agent(), neovim);
     screen.press('n');
     screen.wait_for("acme agent ready");
     screen.key(KeyCode::Enter, KeyModifiers::NONE);

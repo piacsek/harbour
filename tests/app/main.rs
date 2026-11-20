@@ -1,3 +1,4 @@
+mod directory;
 mod editor;
 mod editor_exits;
 mod editor_input;
