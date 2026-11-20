@@ -98,6 +98,10 @@ impl Entry {
         self.editor().filter(|_| self.on_editor)
     }
 
+    fn ended(&self) -> bool {
+        self.session.is_none() || self.exited_at.is_some()
+    }
+
     fn shown_id(&self) -> usize {
         self.showing_editor().map_or(self.id, |editor| editor.id)
     }

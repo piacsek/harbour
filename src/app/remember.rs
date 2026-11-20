@@ -98,6 +98,7 @@ impl App {
     }
 
     pub(super) fn resume(&mut self) -> bool {
+        self.settle_exited();
         let Some(entry) = self.sessions.get_mut(self.selected) else {
             return false;
         };
@@ -143,12 +144,12 @@ impl App {
             None => None,
         };
         let mut command = self.command.clone();
+        let started_at = SystemTime::now();
         let transcript = self
             .transcripts
             .as_deref()
-            .map(|projects| Transcript::new(projects, &id));
+            .map(|projects| Transcript::new(projects, &id).since(started_at));
         command.extend(["--resume".to_string(), id]);
-        let started_at = SystemTime::now();
         let entry = &mut self.sessions[self.selected];
         match Session::start(
             &command,
@@ -182,13 +183,13 @@ impl App {
         if !self.recalled {
             self.recall();
         }
-        let held = if self.sessions.iter().any(|entry| entry.session.is_none()) {
+        let held = if self.sessions.iter().any(Entry::ended) {
             self.held_ids()
         } else {
             HashSet::new()
         };
         for entry in &mut self.sessions {
-            if entry.session.is_none() {
+            if entry.ended() {
                 entry.why = if !entry.directory.is_dir() {
                     DIRECTORY_GONE
                 } else if entry
@@ -223,6 +224,13 @@ impl App {
         let Some(wanted) = wanted(&self.sessions[index], index) else {
             return index;
         };
+        let entry = &self.sessions[index];
+        if entry.reservation.is_none()
+            && entry.remembered.as_deref() == Some(wanted.session_id.as_str())
+            && !memory.reserved().contains(&wanted.session_id)
+        {
+            self.sessions[index].reservation = memory.reserve(&wanted.session_id).ok().flatten();
+        }
         let entry = &self.sessions[index];
         if entry.kept.as_ref() == Some(&wanted) && memory.holds(&wanted.session_id) {
             return index;

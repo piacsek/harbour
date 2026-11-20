@@ -45,7 +45,8 @@ machine; no `claude` was started, and nothing below quotes a value.
   so a conversation is one file however many harbours saw it. No file names another: a file never
   causes another file to be removed.
 - `<configuration>` is one folder per Claude Code configuration: 16 hex digits of a stable hash
-  (FNV-1a, 64 bits) of the absolute path of its `projects/` folder (`$CLAUDE_CONFIG_DIR/projects`,
+  (FNV-1a, 64 bits) of the resolved path of its `projects/` folder (symlinks followed, a tail that
+  does not exist yet kept as spelled) (`$CLAUDE_CONFIG_DIR/projects`,
   else `~/.claude/projects`). A conversation belongs to the configuration it was made under, so a
   harbour recalls, resumes, reserves and prunes only its own configuration's files and never
   touches another's, even when the two share an id. Files written flat in `sessions/` by earlier
@@ -75,7 +76,8 @@ machine; no `claude` was started, and nothing below quotes a value.
   with a remembered id holds one. It is taken when the id is first remembered (before resuming,
   for a stopped card), and when the id changes the new one is taken before the old one is
   released. When the new id is held elsewhere or the lock fails, the file is still written, with
-  no reservation, and harbour does not try again until the id changes. The registry stays the
+  no reservation, and harbour tries again at each read (non-blocking) while the session runs
+  and the id stays. The registry stays the
   signal for a Claude Code running outside any harbour.
 - Taking one: harbour takes a non-blocking lock on a fresh
   `<id>.<unique>.lock` file (`0600`) in the same folder and holds it while the session runs; a
@@ -117,7 +119,7 @@ Invariants:
 | its id changes to one a stopped card holds | `<old>.json` removed, the stopped card's file rewritten by the running card | the stopped card removed, the selection kept on the card that stays | the new id taken, then the old one released | one stopped card | `reconciling::a_new_session_that_resumes_a_stopped_card_merges_the_two`, `switching::merging_away_the_selected_last_card_selects_the_one_that_stays` |
 | its id changes to one an exited card holds | as above | the exited card removed, the running one takes its place | the new id taken, then the old one released | one stopped card; the conversation it left comes back too once taken up again | `switching::a_session_that_resumes_an_exited_card_takes_its_place`, `switching::a_conversation_left_and_taken_up_again_comes_back_after_quitting` |
 | its id changes to one another running card holds | `<old>.json` removed; the other card's file untouched | both cards stay; the switching card remembers nothing until the other stops running, then adopts the id | the old one released; the other card holds the new one | one stopped card, the other card's | `switching::a_session_that_switches_to_a_conversation_another_card_runs_forgets_the_one_it_left` |
-| its id changes to one another harbour holds | `<new>.json` written, `<old>.json` removed | the same card, now the new id | the old one released; none taken (held there), not tried again until the id changes | one stopped card | `switching::a_session_that_switches_to_a_conversation_open_elsewhere_is_remembered_once` |
+| its id changes to one another harbour holds | `<new>.json` written, `<old>.json` removed | the same card, now the new id | the old one released; none taken while held there, tried again at each read and taken once the other harbour lets go | one stopped card | `switching::a_session_that_switches_to_a_conversation_open_elsewhere_is_remembered_once`, `switching::a_session_that_switched_to_a_conversation_held_elsewhere_takes_it_once_let_go` |
 | the session exits | a last read and write, then nothing more | an exited card | released after the last write | a stopped card | `reconciling::a_title_written_just_before_the_session_exits_is_remembered`, `switching::a_resumed_session_that_exits_releases_its_conversation` |
 | harbour quits | a last read and write of every running session | none | released with the process | every running and stopped card, stopped | `reconciling::a_title_written_just_before_quitting_is_remembered`, `cards::a_session_comes_back_stopped_after_quitting_and_resumes_with_enter` |
 | `x` then `y` on a running card | kept | an exited card | released | a stopped card | `switching::ending_a_running_session_keeps_its_conversation` |
@@ -155,6 +157,11 @@ Invariants:
 | a reservation left by a crash | its lock is gone with the process, so the next listing sweeps it and the id resumes | `reserving::a_dead_reservation_is_swept_and_not_listed`, `reserving::a_released_id_can_be_reserved_again` |
 | a resumed session exits (by itself or `x` then `y`) | an exited card, resumable with Enter; `x` then forgets it | `remembering::a_resumed_session_that_exits_resumes_again_with_enter`, `keeping::a_remembered_session_that_exits_resumes_with_enter`, `keeping::x_on_an_exited_remembered_session_forgets_it` |
 | resumed twice | the second Enter on a running card focuses the pane; no second process | `remembering::enter_on_a_resumed_card_focuses_it_and_starts_no_second_copy` |
+| a resumed session whose conversation left unfinished subagent files from its previous run | the card counts only the subagents started after the resume | `switching::a_resumed_card_counts_only_the_subagents_started_after_it` |
+| Enter on a card whose process exited since the last draw | the exit is settled first, so its own reservation never refuses it; it resumes | `switching::enter_right_after_a_session_exits_resumes_it` |
+| Enter on an exited card another harbour holds | the footer says it is open elsewhere and stays while the other harbour holds it | `switching::the_held_message_of_an_exited_card_stays_while_it_is_held_elsewhere` |
+| a session here switches to the id of a stopped card here | the two merge in the same read; the stopped card never says `open elsewhere` | `switching::a_stopped_card_a_session_here_switches_to_never_says_open_elsewhere` |
+| the configuration reached through a symlink, or before its `projects/` folder exists | the same remembered folder: the path is resolved before hashing | `places::a_configuration_reached_through_a_symlink_is_the_same_folder`, `places::a_configuration_is_the_same_folder_before_and_after_its_projects_folder_exists` |
 | `/clear` or `/resume` inside the session (its id changes) | the file of the new id is written, the old one removed | `keeping::a_new_session_id_replaces_the_remembered_one`, `memory::a_replacement_names_no_other_id`, `memory::keeping_a_replacement_forgets_the_old_file` |
 | a crash between writing the new id and removing the old | both come back as stopped cards; `x` forgets the old one; a file naming another in a `replaces` field (round 1's format) deletes nothing | `memory::a_file_naming_another_in_replaces_deletes_nothing`, `memory::a_file_replacing_a_missing_one_is_recalled` |
 | `/resume` inside a new session into a conversation that is a stopped card | the two cards merge into the running one; one file | `reconciling::a_new_session_that_resumes_a_stopped_card_merges_the_two` |
@@ -251,6 +258,22 @@ Invariants:
     swept like dead locks.
   - Not fixed (minor): only the last folder of the state path is checked for being a symlink; a
     symlink planted higher up in the user's own state directory is followed.
+- **Taken in review round 4, without the owner**:
+  - A running session without its reservation tries again at each read (non-blocking, and only
+    when no listing shows the id held), so it takes the id once the other harbour lets go.
+  - A resumed session counts only the subagents started after the resume, as a fresh one does.
+  - Exited cards follow whether the id is held, like stopped ones, so the footer's "open
+    elsewhere" stays while it is true; Enter settles exits first, so a card's own reservation
+    never refuses it.
+  - The configuration's path is resolved before hashing (symlinks followed; a tail that does not
+    exist yet kept as spelled), so a symlinked `CLAUDE_CONFIG_DIR` finds the same cards.
+  - Declined as unreachable: a stopped card saying `open elsewhere` because a session in the same
+    harbour switched to its id. The switch and the merge happen in the same read, so no frame
+    shows it; a test pins that.
+  - Not fixed (known limits): at most 100 remembered conversations are shown, the rest neither
+    shown nor removed while their transcripts exist; a remembered folder that cannot be made
+    private or written still shows its cards, and Enter refuses with `Could not reserve this
+    conversation`.
 
 ## Tasks
 
@@ -290,7 +313,7 @@ Metrics (from `plans/metrics.md`): review rounds 5, 6, 2, 4, 1 for phases 5 to 9
 release 1 h 50 min (phase 5), 4 h 43 min (phase 6, read from GitHub in this phase), 56 min
 (phase 7), 2 h 49 min (phase 8), and 35 min to merge for phase 9, which released nothing. Claude
 reviewer tokens per round stay between 97k and 164k (phase 6 round 4: 163360), with phase 8
-rising over its rounds (136k, 98k, 154k, 158k); builder notices per phase 10, 9, 3, 7, 2. The rounds track the size of the
+rising over its rounds (136k, 98k, 154k, 158k); builder notices per phase 10, 11, 3, 7, 2. The rounds track the size of the
 change, not a drift; Codex and orchestrator usage are still unknown in every row, so no trend in
 total tokens can be read.
 
@@ -344,6 +367,10 @@ total tokens can be read.
   known and moved when it changes; Enter on a gone conversation keeps a card whose editor still
   runs; a directory that is not UTF-8 stored as bytes; staged files left by a kill swept after a
   minute.
+- Review round 4's fixes, shipped as one commit: a running session without its reservation takes
+  it once the other harbour lets go; a resumed card counts only its own subagents; the "open
+  elsewhere" footer of an exited card stays while true; Enter right after an exit resumes; a
+  symlinked configuration finds its cards; the e2e tests of this phase assert every wait.
 
 ## Hurdles
 
@@ -371,3 +398,7 @@ total tokens can be read.
 - `review-loop` Round 3 found that Enter on a gone conversation removed the card and killed its running editor without asking; the card now stays while an editor runs → code
 - `review-loop` Round 3 found that a directory whose name is not UTF-8 was never remembered, and that staged files left by a kill stayed forever; directories are stored as bytes and old staged files swept → code
 - `test-seam` Two tests of round 3 were green on their first run: the e2e configuration test (a card whose transcript is missing is hidden anyway, so it had to age the file and give the other configuration a `projects/` folder before it went red), and a configuration whose folder is gone, proved by breaking the recall and seeing it red → none
+- `review-loop` Round 4 found that a resumed card counted subagents its previous run left unfinished, that a running session refused its reservation never tried again, and that an exited card's "open elsewhere" footer and an Enter right after an exit read the wrong state; each got a row and a test → code
+- `test-seam` The first fix for a symlinked configuration resolved only an existing `projects/` folder, so the folder changed once Claude Code created it and every card vanished; the e2e resume test caught it, and a unit test now pins a path resolved before and after it exists → code
+- `test-seam` The round 4 test for a stopped card switched to in the same harbour was green on its first run: the merge happens in the same read, so the finding was unreachable; breaking the merge turned it red (`filter(|_| false)` on the other card) → none
+- `test-seam` The e2e tests this phase added dropped the screen of six waits, so a launch that crashed could pass; each wait now asserts what it returned, as the rule in `tests/AGENTS.md` already asks → code

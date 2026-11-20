@@ -1,7 +1,7 @@
 use std::fs;
 use std::path::PathBuf;
 use std::thread::sleep;
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime};
 
 use crossterm::event::{KeyCode, KeyModifiers, MouseButton, MouseEventKind};
 use harbour::app::App;
@@ -303,6 +303,120 @@ fn enter_refuses_when_the_conversation_cannot_be_reserved() {
     assert!(!shown.contains("acme agent"), "{shown}");
 }
 
+#[test]
+fn a_resumed_card_counts_only_the_subagents_started_after_it() {
+    let scratch = Scratch::new();
+    scratch.remember(ID, TITLE, 0);
+    scratch.transcript(ID, &titled(TITLE));
+    subagent(
+        &scratch,
+        "agent-a1",
+        SystemTime::now() - Duration::from_secs(3600),
+    );
+    let mut screen = scratch.watching(stoppable(&scratch));
+    let stopped = screen.wait_for("stopped");
+    assert!(stopped.contains(TITLE), "{stopped}");
+    screen.key(KeyCode::Enter, KeyModifiers::NONE);
+    let resumed = screen.wait_for(&format!("acme agent resumed {ID}"));
+    assert!(resumed.contains(TITLE), "{resumed}");
+
+    let shown = settled(&mut screen, |shown| shown.contains("subagent"));
+
+    assert!(!shown.contains("subagent"), "{shown}");
+    subagent(&scratch, "agent-a2", SystemTime::now());
+    let counted = screen.wait_for("1 subagent");
+    assert!(counted.contains("1 subagent"), "{counted}");
+}
+
+#[test]
+fn a_session_that_switched_to_a_conversation_held_elsewhere_takes_it_once_let_go() {
+    let scratch = Scratch::new();
+    scratch.transcript(ID, &titled(TITLE));
+    scratch.transcript(OTHER_ID, &titled(SECOND));
+    let elsewhere = scratch.memory().reserve(OTHER_ID).unwrap().unwrap();
+    let mut screen = scratch.watching(stoppable(&scratch));
+    let pid = started(&mut screen, &scratch, ID, TITLE);
+    register(&scratch, &pid, OTHER_ID);
+    remembered_soon(&mut screen, &scratch.memory(), OTHER_ID, SECOND);
+    settled(&mut screen, |_| false);
+
+    drop(elsewhere);
+
+    settled(&mut screen, |_| {
+        scratch.memory().reserved().contains(OTHER_ID)
+    });
+    assert!(scratch.memory().reserved().contains(OTHER_ID));
+}
+
+#[test]
+fn the_held_message_of_an_exited_card_stays_while_it_is_held_elsewhere() {
+    let scratch = Scratch::new();
+    scratch.transcript(ID, &titled(TITLE));
+    let mut screen = scratch.watching(stoppable(&scratch));
+    let first = started(&mut screen, &scratch, ID, TITLE);
+    stop(&mut screen, &scratch, &first);
+    screen.mouse(MouseEventKind::Down(MouseButton::Left), 2, 2);
+    let _elsewhere = scratch.memory().reserve(ID).unwrap().unwrap();
+    screen.key(KeyCode::Enter, KeyModifiers::NONE);
+    let refused = screen.wait_for("is open elsewhere");
+    assert!(
+        refused.contains("This conversation is open elsewhere"),
+        "{refused}"
+    );
+
+    let later = settled(&mut screen, |shown| !shown.contains("is open elsewhere"));
+
+    assert!(
+        later.contains("This conversation is open elsewhere"),
+        "{later}"
+    );
+}
+
+#[test]
+fn enter_right_after_a_session_exits_resumes_it() {
+    let scratch = Scratch::new();
+    scratch.transcript(ID, &titled(TITLE));
+    let mut screen = scratch.watching(stoppable(&scratch));
+    let first = started(&mut screen, &scratch, ID, TITLE);
+    screen.mouse(MouseEventKind::Down(MouseButton::Left), 2, 2);
+    fs::write(stop_file(&scratch, &first), "").unwrap();
+    sleep(Duration::from_millis(400));
+    fs::remove_file(stop_file(&scratch, &first)).unwrap();
+
+    screen.key(KeyCode::Enter, KeyModifiers::NONE);
+
+    let shown = screen.wait_for(&format!("acme agent resumed {ID}"));
+    assert!(
+        shown.contains(&format!("acme agent resumed {ID}")),
+        "{shown}"
+    );
+    assert!(!shown.contains("is open elsewhere"), "{shown}");
+}
+
+#[test]
+fn a_stopped_card_a_session_here_switches_to_never_says_open_elsewhere() {
+    let scratch = Scratch::new();
+    scratch.remember(ID, TITLE, 0);
+    scratch.transcript(ID, &titled(TITLE));
+    scratch.transcript(OTHER_ID, &titled(SECOND));
+    let mut screen = scratch.watching(stoppable(&scratch));
+    let stopped = screen.wait_for("stopped");
+    assert!(stopped.contains(TITLE), "{stopped}");
+    let pid = started(&mut screen, &scratch, OTHER_ID, SECOND);
+
+    register(&scratch, &pid, ID);
+
+    let mut frames = Vec::new();
+    settled(&mut screen, |shown| {
+        frames.push(shown.to_string());
+        false
+    });
+    assert!(
+        !frames.iter().any(|shown| shown.contains("open elsewhere")),
+        "{frames:?}"
+    );
+}
+
 fn stoppable(scratch: &Scratch) -> Vec<String> {
     let dir = scratch.dir.path().display();
     script(&format!(
@@ -360,7 +474,7 @@ fn pids_soon(screen: &mut Screen, scratch: &Scratch, count: usize) -> Vec<String
     }
 }
 
-fn settled(screen: &mut Screen, done: impl Fn(&str) -> bool) -> String {
+fn settled(screen: &mut Screen, mut done: impl FnMut(&str) -> bool) -> String {
     let deadline = Instant::now() + Duration::from_millis(1500);
     loop {
         let shown = screen.draw();
@@ -369,4 +483,20 @@ fn settled(screen: &mut Screen, done: impl Fn(&str) -> bool) -> String {
         }
         sleep(Duration::from_millis(20));
     }
+}
+
+fn subagent(scratch: &Scratch, name: &str, modified: SystemTime) {
+    let folder = scratch
+        .dir
+        .path()
+        .join(format!("claude/projects/-home-acme/{ID}/subagents"));
+    fs::create_dir_all(&folder).unwrap();
+    let file = folder.join(format!("{name}.meta.json"));
+    fs::write(&file, r#"{"agentType":"Explore"}"#).unwrap();
+    fs::File::options()
+        .write(true)
+        .open(&file)
+        .unwrap()
+        .set_modified(modified)
+        .unwrap();
 }

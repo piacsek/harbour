@@ -76,3 +76,34 @@ fn a_configuration_named_the_same_way_twice_is_one_folder() {
 
     assert_eq!(again.recall(), vec![remembered(ID, 0)]);
 }
+
+#[test]
+fn a_configuration_reached_through_a_symlink_is_the_same_folder() {
+    let scratch = tempfile::tempdir().unwrap();
+    let root = folder(scratch.path());
+    let config = scratch.path().join("acme-claude/projects");
+    fs::create_dir_all(&config).unwrap();
+    let linked = scratch.path().join("acme-linked");
+    std::os::unix::fs::symlink(scratch.path().join("acme-claude"), &linked).unwrap();
+    Memory::of(&root, &config).keep(&remembered(ID, 0)).unwrap();
+
+    let through_the_link = Memory::of(&root, &linked.join("projects"));
+
+    assert_eq!(through_the_link.recall(), vec![remembered(ID, 0)]);
+}
+
+#[test]
+fn a_configuration_is_the_same_folder_before_and_after_its_projects_folder_exists() {
+    let scratch = tempfile::tempdir().unwrap();
+    let root = folder(scratch.path());
+    let linked = scratch.path().join("acme-linked");
+    fs::create_dir_all(scratch.path().join("acme-claude")).unwrap();
+    std::os::unix::fs::symlink(scratch.path().join("acme-claude"), &linked).unwrap();
+    let config = linked.join("projects");
+    Memory::of(&root, &config).keep(&remembered(ID, 0)).unwrap();
+    fs::create_dir_all(&config).unwrap();
+
+    let once_it_exists = Memory::of(&root, &config);
+
+    assert_eq!(once_it_exists.recall(), vec![remembered(ID, 0)]);
+}

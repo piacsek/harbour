@@ -89,7 +89,7 @@ impl Memory {
     }
 
     pub fn of(root: &Path, config: &Path) -> Memory {
-        let config = std::path::absolute(config).unwrap_or_else(|_| config.to_path_buf());
+        let config = resolved(config);
         Memory::new(&root.join(format!(
             "{:016x}",
             fingerprint(config.as_os_str().as_bytes())
@@ -342,6 +342,17 @@ fn remove_left_over(entry: &fs::DirEntry) {
     if left_over {
         let _ = fs::remove_file(entry.path());
     }
+}
+
+fn resolved(path: &Path) -> PathBuf {
+    let path = std::path::absolute(path).unwrap_or_else(|_| path.to_path_buf());
+    path.ancestors()
+        .find_map(|ancestor| {
+            let mut real = fs::canonicalize(ancestor).ok()?;
+            real.extend(path.strip_prefix(ancestor).ok()?);
+            Some(real)
+        })
+        .unwrap_or(path)
 }
 
 fn fingerprint(bytes: &[u8]) -> u64 {

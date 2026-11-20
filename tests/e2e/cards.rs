@@ -72,7 +72,8 @@ fn a_session_comes_back_stopped_after_quitting_and_resumes_with_enter() {
     ];
     let server = Server::start("resume", 160, 20);
     server.run(home.path(), &env, &[]);
-    server.wait_for_screen("press n to start one");
+    let empty = server.wait_for_screen("press n to start one");
+    assert!(empty.contains("press n to start one"), "{empty}");
     server.send_keys(&["n"]);
     let started = server.wait_for_screen_all(&["acme agent started", "Fix the flaky login test"]);
     assert!(started.contains("Fix the flaky login test"), "{started}");
@@ -117,13 +118,17 @@ fn a_conversation_comes_back_only_under_the_claude_code_configuration_it_was_mad
     ];
     let server = Server::start("configurations", 160, 20);
     server.run(home.path(), &at_work, &[]);
-    server.wait_for_screen("press n to start one");
+    let empty = server.wait_for_screen("press n to start one");
+    assert!(empty.contains("press n to start one"), "{empty}");
     server.send_keys(&["n"]);
-    server.wait_for_screen_all(&["acme agent started", "Fix the flaky login test"]);
+    let started = server.wait_for_screen_all(&["acme agent started", "Fix the flaky login test"]);
+    assert!(started.contains("Fix the flaky login test"), "{started}");
     server.send_keys(&["q"]);
-    server.wait_for_screen("Quit? y/n");
+    let asked = server.wait_for_screen("Quit? y/n");
+    assert!(asked.contains("Quit? y/n"), "{asked}");
     server.send_keys(&["y"]);
-    server.wait_for_screen("harbour exited 0");
+    let quit = server.wait_for_screen("harbour exited 0");
+    assert!(quit.contains("harbour exited 0"), "{quit}");
     let remembered = remembered_files(&home.path().join(".local/state/harbour/sessions"));
     assert_eq!(remembered.len(), 1);
     std::fs::File::options()
@@ -135,12 +140,14 @@ fn a_conversation_comes_back_only_under_the_claude_code_configuration_it_was_mad
 
     server.run(home.path(), &at_home, &[]);
     let elsewhere = server.wait_for_screen("press n to start one");
+    assert!(elsewhere.contains("press n to start one"), "{elsewhere}");
     assert!(
         !elsewhere.contains("Fix the flaky login test"),
         "{elsewhere}"
     );
     server.send_keys(&["q"]);
-    server.wait_for_screen("harbour exited 0");
+    let left = server.wait_for_screen("harbour exited 0");
+    assert!(left.contains("harbour exited 0"), "{left}");
 
     server.run(home.path(), &at_work, &[]);
     let back = server.wait_for_screen("Enter resumes it");
