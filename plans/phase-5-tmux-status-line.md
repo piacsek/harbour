@@ -67,6 +67,9 @@ the counts are added. It never waits, writes nothing and deletes nothing.
 | no `HOME` and no `XDG_STATE_HOME` | nothing | 0 |
 | `harbour --demo` running | nothing for it: the demo writes no summary | 0 |
 | the state directory cannot be created or written (harbour side) | harbour runs as before, publishing nothing | n/a |
+| the status folder is a symlink or not a directory (harbour side) | harbour runs as before, publishing nothing | n/a |
+| another process holds a harbour's `<pid>.lock` at its start (harbour side) | harbour runs at once, publishing nothing | n/a |
+| a write fails after an earlier one succeeded | nothing for that harbour until a write succeeds again | 0 |
 
 The line, for one blocked, one working, three idle and no unknown session:
 
@@ -85,13 +88,20 @@ followed by a newline; when nothing is counted, nothing at all is printed.
   count again. Two files per harbour, since an atomic rename would replace the locked file.
 - **Nothing deletes another harbour's files.** A stale pair stays until a harbour with that pid
   overwrites it; deleting it from `harbour status` could race a new harbour that reuses the pid
-  and unlink its lock. The pair is a few bytes.
+  and unlink its lock. The pair is a few bytes, and `harbour status` spends about 10 ms per 1000
+  stale files on a read (measured in review round 1).
 - **The demo publishes nothing**, so made-up acme sessions never reach the user's real status
   line.
 - **Publishing is best effort.** A state directory harbour cannot create or write leaves the
-  interface as it was; nothing is drawn about it.
-- **The directory is private**: created `0700`, files `0600`. An `XDG_STATE_HOME` that is empty
-  or relative counts as unset, as the XDG spec says.
+  interface as it was; nothing is drawn about it. A `<pid>.lock` that something else holds (a
+  home shared between hosts or containers) publishes nothing rather than waiting for it.
+- **A count that cannot be written is not counted.** When a write fails after an earlier one
+  succeeded, harbour removes its counts file and releases its lock, so `harbour status` skips it
+  instead of showing old counts; the next write that succeeds takes the lock back.
+- **The status folder is private**: harbour sets `harbour/status` itself to `0700`, whether it
+  created it or found it, and creates its files `0600`; it publishes nothing when that folder is
+  a symlink or not a directory. Folders above it keep the modes they have. An `XDG_STATE_HOME`
+  that is empty or relative counts as unset, as the XDG spec says.
 - **`harbour status` takes no option** and always exits 0, so a status line never shows an
   error; the tmux line to add goes into `--help`.
 
@@ -130,7 +140,8 @@ awaiting the owner's yes**, and no `AGENTS.md` changed.
 | 7 | A plan's task order broke because the dead-code rule pulls wiring forward | 3 | Decline: one occurrence; a plan names the caller of each new `pub` item in the same task | none |
 
 Metrics (from `plans/metrics.md`): review rounds 6, 3, 3 for phases 1 to 3; start to release
-4 h 13 min, 44 min, 1 h 3 min; Claude reviewer tokens per round about 115k to 140k, flat; builder
+4 h 13 min, 44 min, 1 h 3 min; Claude reviewer tokens per round 86k to 140k (phase 1 115k to 140k, phase 2 86k to 127k, rising
+over its rounds, phase 3 115k to 125k), with no rise from phase to phase; builder
 notices per phase 12, 4, 4. Three comparable rows are too few to call a trend in tokens; rounds
 dropped from 6 to 3 and held. Codex and orchestrator usage remain unknown in every row.
 
@@ -147,9 +158,12 @@ dropped from 6 to 3 and held. Codex and orchestrator usage remain unknown in eve
   calls. Task 5 kept the e2e tests and the taller help shot (9 rows for the 8-line usage). This
   is the second time (sweep finding 7), so the next sweep may turn that decline into a rule.
 - Every Decision above was taken without the owner, as the most conservative reading of issue #8.
+- Review round 1 (no must): the lock is now taken without waiting, a failed write stops the old
+  counts being counted, and the status folder is set to `0700` and refused when it is a symlink.
 
 ## Hurdles
 
 - `process` The dead-code rule pulled the App wiring from task 5 into task 4, as in phase 3 → none
 - `test-seam` Tests green on their first run (the quit e2e test, Summary removal, the reader's liveness) were proved by breaking the code by hand, as in phases 1 to 3 → none
 - `test-seam` The first e2e status test raced the registry read: it saw `·` (unknown) before `●` and asserted on any non-empty line; it now waits for the line it asserts, as `tests/AGENTS.md` says → none
+- `review-loop` Round 1 found three failure states the table had not listed (a lock held by another host, a write failing after a success, a status folder that already existed or was a symlink) → code

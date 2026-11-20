@@ -7,8 +7,9 @@ factual; verify against the code before treating anything here as live state.
 
 harbour: Harbour: where shipping begins. It is a terminal workspace for agent work.
 Phase 1 gave it its first interface: with no argument on a terminal it opens a sidebar of agent
-sessions beside a live pane; it also answers `--help`, `-h`, `help`, `--version`, `-V`, `version`
-and `changelog`. Phase 0 scaffolded the guidelines, guardrails, CI and the automatic release
+sessions beside a live pane; it also answers `--help`, `-h`, `help`, `--version`, `-V`, `version`,
+`changelog` and `status` (phase 5: the session counts of every running harbour, for the tmux
+status line). Phase 0 scaffolded the guidelines, guardrails, CI and the automatic release
 from the `rust_tui` recipe, which descends from conveyor, an earlier project by the recipe's
 author; the conveyor history below is that project's. `PLAN.md` is the index of phases and the
 backlog; each phase's plan, outcome and hurdles are in `plans/`.
@@ -51,7 +52,7 @@ src/session.rs                a session: a command in a PTY, its output parsed i
 src/demo.rs                   the made-up sessions of `--demo`: `acme/*` scripts, never real data; the registry they write in the temp dir, removed when dropped
 src/registry.rs               Claude Code's session file for a pid (`<CLAUDE_CONFIG_DIR or ~/.claude>/sessions/<pid>.json`): its status and what it waits for, read leniently, ignored when written well before the session started
 src/state.rs                  a session's state from its exit and its file: the dot, the waiting reason, the title counts and the help legend, each fitted to the sidebar's width
-src/summary.rs                the counts a running harbour publishes for `harbour status` (`<pid>.counts` beside a `<pid>.lock` it holds, under `$XDG_STATE_HOME/harbour/status/`, else `~/.local/state/harbour/status/`, private, removed on quit) and the reader that adds up those whose lock is still held
+src/summary.rs                the counts a running harbour publishes for `harbour status` (`<pid>.counts` beside a `<pid>.lock` it holds, under `$XDG_STATE_HOME/harbour/status/`, else `~/.local/state/harbour/status/`, private, removed on quit, never waiting for a lock and no longer counted once a write fails) and the reader that adds up those whose lock is still held
 src/help.rs                   what the help view shows: `KEYS`, which the README key table mirrors, and `NOTES` (C-Backspace arriving as C-h, the tmux pattern)
 src/keys.rs                   the bytes a terminal sends for a key (legacy encoding), which a session receives
 src/mouse.rs                  `route`, a pure function: a gesture belongs to where its button went down and to the session shown then, and ends when another session is shown, and the selected session gets only what its mouse mode asked for (`?9` presses, `?1000` presses, releases and the wheel, `?1002` drags too, `?1003` moves too), with Shift, Alt and Ctrl, in its encoding (SGR, UTF-8 or the legacy bytes), clamped to the pane; an empty pane forwards nothing and ends the gesture
@@ -128,6 +129,10 @@ next to the code; read the one for a directory before changing anything in it.
   that no argument on a terminal opens the interface; `tests/cli.rs` pins it. The Homebrew
   formula's `test` block (`--version`, and `usage: harbour` on an unknown argument) and the `flake`
   and `stable-build` jobs (`--version`) rely on both.
+- **`status`** prints one line of tmux status-line text (the blocked, working, idle and unknown
+  counts of every running harbour) or nothing at all, and always exits 0, whatever it finds on
+  disk: tmux runs it from `status-right` every `status-interval` and shows whatever it prints.
+  `tests/status.rs` pins it.
 - **`changelog`** prints the bundled `CHANGELOG.md` to stdout and exits 0: the heading alone in a
   build from `main`, every release in a release build. `tests/changelog.rs` holds the rules a
   release entry must meet, and `the_changelog_has_a_real_entry_for_the_crate_version` checks that a
@@ -156,9 +161,10 @@ impact.
   `flake-ok`**: a Nix, nixpkgs or `cache.nixos.org` outage then holds them until the ruleset is
   disabled; requiring it is the owner's step by hand (`.github/AGENTS.md`, the flake build, has
   the command that shows whether it is required).
-- **The session registry is read on the draw thread**: a Claude config directory on slow storage
-  (a network home) delays keys by the time those reads take, at most every 500 ms
-  (`plans/phase-3-status-dots.md`).
+- **The session registry is read, and the counts for `harbour status` written, on the draw
+  thread**: a Claude config directory or a state directory on slow storage (a network home)
+  delays keys by the time those reads take, at most every 500 ms, and by the time a write takes,
+  only when a count changed (`plans/phase-3-status-dots.md`, `plans/phase-5-tmux-status-line.md`).
 - **The release attestation records the `main` commit that started the run, not the release
   commit the tag points at**: its subjects are the right tarballs, but the source commit it
   names is the merge (`.github/AGENTS.md`, "What the attestation proves").

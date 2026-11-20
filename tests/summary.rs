@@ -1,7 +1,10 @@
-use std::fs;
-use std::os::unix::fs::PermissionsExt;
+use std::fs::{self, File};
+use std::os::unix::fs::{PermissionsExt, symlink};
 use std::path::Path;
 use std::process::Command;
+use std::sync::mpsc;
+use std::thread;
+use std::time::Duration;
 
 use harbour::state::Counts;
 use harbour::summary::Summary;
@@ -141,6 +144,75 @@ fn a_folder_that_cannot_be_created_is_an_error() {
     assert!(summary.is_err());
 }
 
+#[test]
+fn a_lock_held_by_another_process_is_an_error_not_a_wait() {
+    let scratch = tempfile::tempdir().unwrap();
+    let dir = scratch.path().join("harbour/status");
+    fs::create_dir_all(&dir).unwrap();
+    let other = File::create(dir.join("101.lock")).unwrap();
+    other.lock().unwrap();
+    let (sender, receiver) = mpsc::channel();
+
+    thread::spawn(move || sender.send(Summary::create(&dir, 101).is_err()).unwrap());
+
+    assert_eq!(receiver.recv_timeout(Duration::from_secs(2)), Ok(true));
+}
+
+#[test]
+fn a_failed_write_stops_the_old_counts_being_counted() {
+    let scratch = tempfile::tempdir().unwrap();
+    let dir = scratch.path().join("harbour/status");
+    let mut summary = Summary::create(&dir, 101).unwrap();
+    summary.publish(counts(0, 1, 0, 0));
+    set_mode(&dir, 0o500);
+
+    summary.publish(counts(1, 0, 0, 0));
+
+    let line = status(scratch.path());
+    set_mode(&dir, 0o700);
+    assert_eq!(line, "");
+}
+
+#[test]
+fn once_writing_works_again_the_counts_are_counted_again() {
+    let scratch = tempfile::tempdir().unwrap();
+    let dir = scratch.path().join("harbour/status");
+    let mut summary = Summary::create(&dir, 101).unwrap();
+    summary.publish(counts(0, 1, 0, 0));
+    set_mode(&dir, 0o500);
+    summary.publish(counts(1, 0, 0, 0));
+    set_mode(&dir, 0o700);
+
+    summary.publish(counts(1, 0, 0, 0));
+
+    assert_eq!(status(scratch.path()), "#[fg=red]◉ 1#[default]\n");
+}
+
+#[test]
+fn an_existing_folder_is_made_private() {
+    let scratch = tempfile::tempdir().unwrap();
+    let dir = scratch.path().join("harbour/status");
+    fs::create_dir_all(&dir).unwrap();
+    set_mode(&dir, 0o755);
+
+    let _summary = Summary::create(&dir, 101).unwrap();
+
+    assert_eq!(mode(&dir), 0o700);
+}
+
+#[test]
+fn a_symlink_in_place_of_the_folder_is_an_error() {
+    let scratch = tempfile::tempdir().unwrap();
+    let elsewhere = scratch.path().join("acme");
+    fs::create_dir(&elsewhere).unwrap();
+    fs::create_dir(scratch.path().join("harbour")).unwrap();
+    symlink(&elsewhere, scratch.path().join("harbour/status")).unwrap();
+
+    let summary = Summary::create(&scratch.path().join("harbour/status"), 101);
+
+    assert!(summary.is_err());
+}
+
 fn counts(blocked: usize, working: usize, idle: usize, unknown: usize) -> Counts {
     Counts {
         blocked,
@@ -152,6 +224,10 @@ fn counts(blocked: usize, working: usize, idle: usize, unknown: usize) -> Counts
 
 fn read(dir: &Path, name: &str) -> String {
     fs::read_to_string(dir.join(name)).unwrap()
+}
+
+fn set_mode(path: &Path, mode: u32) {
+    fs::set_permissions(path, fs::Permissions::from_mode(mode)).unwrap();
 }
 
 fn mode(path: &Path) -> u32 {

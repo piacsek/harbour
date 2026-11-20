@@ -1,6 +1,6 @@
-use std::fs::{self, DirBuilder, File, OpenOptions, TryLockError};
+use std::fs::{self, DirBuilder, File, OpenOptions, Permissions, TryLockError};
 use std::io::{self, Read, Write};
-use std::os::unix::fs::{DirBuilderExt, OpenOptionsExt};
+use std::os::unix::fs::{DirBuilderExt, OpenOptionsExt, PermissionsExt};
 use std::path::{Path, PathBuf};
 
 use crate::state::Counts;
@@ -73,19 +73,23 @@ fn regular(path: &Path) -> bool {
 pub struct Summary {
     dir: PathBuf,
     pid: u32,
-    _lock: File,
+    lock: File,
     last: Option<Counts>,
 }
 
 impl Summary {
     pub fn create(dir: &Path, pid: u32) -> io::Result<Summary> {
         DirBuilder::new().recursive(true).mode(0o700).create(dir)?;
+        if !fs::symlink_metadata(dir)?.is_dir() {
+            return Err(io::ErrorKind::NotADirectory.into());
+        }
+        fs::set_permissions(dir, Permissions::from_mode(0o700))?;
         let lock = private(&dir.join(format!("{pid}.lock")))?;
-        lock.lock()?;
+        lock.try_lock()?;
         let summary = Summary {
             dir: dir.to_path_buf(),
             pid,
-            _lock: lock,
+            lock,
             last: None,
         };
         let _ = fs::remove_file(summary.path("counts"));
@@ -98,6 +102,10 @@ impl Summary {
         }
         if self.write(counts).is_ok() {
             self.last = Some(counts);
+        } else {
+            self.last = None;
+            let _ = fs::remove_file(self.path("counts"));
+            let _ = self.lock.unlock();
         }
     }
 
@@ -109,6 +117,7 @@ impl Summary {
             "{} {} {} {}",
             counts.blocked, counts.working, counts.idle, counts.unknown
         )?;
+        self.lock.try_lock()?;
         fs::rename(staged, self.path("counts"))
     }
 
