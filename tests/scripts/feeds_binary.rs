@@ -37,7 +37,7 @@ fn a_claude_skill_does_not_feed_the_binary() {
 }
 
 #[test]
-fn the_root_claude_md_does_not_feed_the_binary() {
+fn a_root_claude_md_does_not_feed_the_binary() {
     let output = feeds_binary("CLAUDE.md\nsrc/CLAUDE.md\n");
 
     assert_eq!(output.status.code(), Some(0), "{}", stderr(&output));
