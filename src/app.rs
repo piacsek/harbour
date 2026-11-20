@@ -394,7 +394,7 @@ impl App {
                     .as_ref()
                     .is_none_or(|transcript| transcript.session_id() != id)
             {
-                entry.transcript = Some(Transcript::new(projects, id));
+                entry.transcript = Some(Transcript::new(projects, id).since(entry.started_at));
             }
             if let Some(transcript) = &mut entry.transcript {
                 transcript.read();

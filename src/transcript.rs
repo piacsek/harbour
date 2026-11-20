@@ -1,12 +1,16 @@
+use std::collections::HashSet;
+use std::ffi::OsString;
 use std::fs::{self, File};
 use std::io::{Read, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime};
 
 use serde_json::{Map, Value};
 
 const TAIL: u64 = 1024 * 1024;
 const SEARCH_EVERY: Duration = Duration::from_secs(5);
+const META: u64 = 64 * 1024;
+const CLOCK_SLACK: Duration = Duration::from_secs(2);
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Facts {
@@ -16,6 +20,7 @@ pub struct Facts {
     pub branch: Option<String>,
     pub directory: Option<PathBuf>,
     pub pull_request: Option<u64>,
+    pub subagents: usize,
 }
 
 pub struct Transcript {
@@ -27,6 +32,8 @@ pub struct Transcript {
     partial: Vec<u8>,
     skipping: bool,
     facts: Facts,
+    since: SystemTime,
+    done: HashSet<OsString>,
 }
 
 impl Transcript {
@@ -40,7 +47,14 @@ impl Transcript {
             partial: Vec::new(),
             skipping: false,
             facts: Facts::default(),
+            since: SystemTime::UNIX_EPOCH,
+            done: HashSet::new(),
         }
+    }
+
+    pub fn since(mut self, started: SystemTime) -> Transcript {
+        self.since = started;
+        self
     }
 
     pub fn session_id(&self) -> &str {
@@ -55,6 +69,7 @@ impl Transcript {
         let Some(path) = self.found() else {
             return;
         };
+        self.facts.subagents = self.running(&path.with_extension("").join("subagents"));
         let Ok(mut file) = File::open(&path) else {
             return;
         };
@@ -104,6 +119,27 @@ impl Transcript {
             .map(|folder| folder.path().join(&name))
             .find(|path| path.is_file());
         self.path.clone()
+    }
+
+    fn running(&mut self, folder: &Path) -> usize {
+        let Ok(entries) = fs::read_dir(folder) else {
+            return 0;
+        };
+        let mut count = 0;
+        for entry in entries.flatten() {
+            let name = entry.file_name();
+            if self.done.contains(&name) || !name.to_string_lossy().ends_with(".meta.json") {
+                continue;
+            }
+            match meta(&entry.path(), self.since) {
+                Meta::Running => count += 1,
+                Meta::Done => {
+                    self.done.insert(name);
+                }
+                Meta::Unread => {}
+            }
+        }
+        count
     }
 
     fn take_lines(&mut self, bytes: &[u8]) {
@@ -190,4 +226,31 @@ fn described(call: &Value) -> Option<String> {
         })
         .or(Some(name))
         .map(str::to_string)
+}
+
+enum Meta {
+    Running,
+    Done,
+    Unread,
+}
+
+fn meta(path: &Path, since: SystemTime) -> Meta {
+    let Ok(file) = File::open(path) else {
+        return Meta::Unread;
+    };
+    let modified = file.metadata().and_then(|meta| meta.modified());
+    if modified.is_ok_and(|modified| modified + CLOCK_SLACK < since) {
+        return Meta::Done;
+    }
+    let mut bytes = Vec::new();
+    if file.take(META).read_to_end(&mut bytes).is_err() {
+        return Meta::Unread;
+    }
+    match serde_json::from_slice(&bytes) {
+        Ok(Value::Object(fields)) if fields.get("finished") == Some(&Value::Bool(true)) => {
+            Meta::Done
+        }
+        Ok(Value::Object(_)) => Meta::Running,
+        _ => Meta::Unread,
+    }
 }

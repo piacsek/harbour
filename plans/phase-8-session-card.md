@@ -59,7 +59,7 @@ What each line of a card shows. The age on line 1 is right-aligned: `<1m`, then 
 | blocked (`waiting`) | red `◉`, title, age | `waitingFor` in red | as working |
 | blocked, no `waitingFor` | red `◉`, title, age | empty | as working |
 | idle | dim `○`, title, age | the last prompt, dimmed | as working |
-| exited | dim `○`, title, time since harbour saw the exit | `exited`, `exited 3` or `exited (<signal>)` | as when it last ran |
+| exited | dim `○`, title, time since harbour saw the exit | `exited`, `exited 3` or `exited (<signal>)` | as when it last ran, without subagents |
 | unknown (no registry file, not Claude Code) | grey `·`, title, no age | empty | repository · branch, read from git |
 
 What each source does to the card:

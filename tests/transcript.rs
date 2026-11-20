@@ -1,6 +1,7 @@
 use std::fs::{self, OpenOptions};
 use std::io::Write;
 use std::path::{Path, PathBuf};
+use std::time::{Duration, SystemTime};
 
 use harbour::transcript::Transcript;
 
@@ -246,6 +247,73 @@ fn another_sessions_transcript_is_never_read() {
     assert_eq!(transcript.facts().title, None);
 }
 
+#[test]
+fn the_subagents_still_running_are_counted() {
+    let projects = tempfile::tempdir().unwrap();
+    let file = transcript_file(projects.path(), "-home-acme-api");
+    append(&file, r#"{"type":"ai-title","aiTitle":"Many hands"}"#);
+    subagent(&file, "agent-a1", r#"{"agentType":"general-purpose"}"#);
+    subagent(
+        &file,
+        "agent-a2",
+        r#"{"agentType":"Explore","finished":false}"#,
+    );
+    subagent(
+        &file,
+        "agent-a3",
+        r#"{"agentType":"Explore","finished":true}"#,
+    );
+    let mut transcript = Transcript::new(projects.path(), ID);
+
+    transcript.read();
+
+    assert_eq!(transcript.facts().subagents, 2);
+}
+
+#[test]
+fn a_subagent_that_finishes_is_no_longer_counted() {
+    let projects = tempfile::tempdir().unwrap();
+    let file = transcript_file(projects.path(), "-home-acme-api");
+    append(&file, r#"{"type":"ai-title","aiTitle":"Many hands"}"#);
+    subagent(&file, "agent-a1", r#"{"agentType":"general-purpose"}"#);
+    let mut transcript = Transcript::new(projects.path(), ID);
+    transcript.read();
+    let before = transcript.facts().subagents;
+
+    subagent(
+        &file,
+        "agent-a1",
+        r#"{"agentType":"general-purpose","finished":true}"#,
+    );
+    transcript.read();
+
+    assert_eq!(before, 1);
+    assert_eq!(transcript.facts().subagents, 0);
+}
+
+#[test]
+fn a_subagent_file_older_than_the_session_or_not_an_object_is_not_counted() {
+    let projects = tempfile::tempdir().unwrap();
+    let file = transcript_file(projects.path(), "-home-acme-api");
+    append(&file, r#"{"type":"ai-title","aiTitle":"Many hands"}"#);
+    subagent(&file, "agent-a1", r#"{"agentType":"general-purpose"}"#);
+    subagent(&file, "agent-a2", "[1, 2]");
+    subagent(&file, "agent-a3", "not json");
+    let old = subagent(&file, "agent-a4", r#"{"agentType":"Explore"}"#);
+    fs::File::options()
+        .write(true)
+        .open(&old)
+        .unwrap()
+        .set_modified(SystemTime::now() - Duration::from_secs(3600))
+        .unwrap();
+    let mut transcript =
+        Transcript::new(projects.path(), ID).since(SystemTime::now() - Duration::from_secs(60));
+
+    transcript.read();
+
+    assert_eq!(transcript.facts().subagents, 1);
+}
+
 fn transcript_file(projects: &Path, folder: &str) -> PathBuf {
     let folder = projects.join(folder);
     fs::create_dir_all(&folder).unwrap();
@@ -270,4 +338,12 @@ fn tool(name: &str, input: &str) -> String {
     format!(
         r#"{{"type":"assistant","message":{{"content":[{{"type":"tool_use","name":"{name}","input":{input}}}]}}}}"#
     )
+}
+
+fn subagent(transcript: &Path, name: &str, meta: &str) -> PathBuf {
+    let folder = transcript.with_extension("").join("subagents");
+    fs::create_dir_all(&folder).unwrap();
+    let file = folder.join(format!("{name}.meta.json"));
+    fs::write(&file, meta).unwrap();
+    file
 }

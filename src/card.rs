@@ -61,11 +61,19 @@ impl Card {
             .and_then(|facts| facts.pull_request)
             .map(|number| format!(" · #{number}"))
             .unwrap_or_default();
+        let subagents = match facts
+            .filter(|_| state != State::Exited)
+            .map_or(0, |facts| facts.subagents)
+        {
+            0 => String::new(),
+            1 => " · 1 subagent".to_string(),
+            many => format!(" · {many} subagents"),
+        };
         Card {
             state,
             title: fact(|facts| facts.title.as_ref()).unwrap_or_else(|| clean(title)),
             doing,
-            place: clean(&format!("{shown}{pull_request}")),
+            place: clean(&format!("{shown}{pull_request}{subagents}")),
             age: elapsed.map(age),
         }
     }

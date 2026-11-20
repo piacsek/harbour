@@ -146,6 +146,45 @@ fn an_exited_session_keeps_its_title() {
     assert!(again.contains("Short lived"), "{again}");
 }
 
+#[test]
+fn the_third_line_counts_the_subagents_still_running() {
+    let claude = Claude::new();
+    let repository = claude.repository("acme-api", "main");
+    claude.transcript(
+        ID,
+        &format!(
+            r#"{{"type":"user","cwd":"{}","message":{{}}}}"#,
+            repository.display()
+        ),
+    );
+    claude.subagent(ID, "agent-a1", r#"{"agentType":"Explore"}"#);
+    let mut screen = claude.screen("busy", ID);
+    screen.press('n');
+    screen.wait_for("acme-api · main · 1 subagent");
+
+    claude.subagent(ID, "agent-a2", r#"{"agentType":"Plan"}"#);
+
+    let shown = screen.wait_for("acme-api · main · 2 subagents");
+    assert!(shown.contains("acme-api · main · 2 subagents"), "{shown}");
+}
+
+#[test]
+fn an_exited_session_counts_no_subagent() {
+    let claude = Claude::new();
+    claude.transcript(ID, r#"{"type":"ai-title","aiTitle":"Short lived"}"#);
+    claude.subagent(ID, "agent-a1", r#"{"agentType":"Explore"}"#);
+    let mut screen = claude.screen_running(&format!(
+        "printf '%s' '{{\"status\":\"busy\",\"sessionId\":\"{ID}\"}}' > '{}'/$$.json; sleep 1; exit 3",
+        claude.sessions().display()
+    ));
+    screen.press('n');
+    screen.wait_for("1 subagent");
+
+    let shown = screen.wait_for("exited 3");
+
+    assert!(!shown.contains("subagent"), "{shown}");
+}
+
 struct Claude {
     config: tempfile::TempDir,
     pid_file: PathBuf,
@@ -176,6 +215,15 @@ impl Claude {
             .unwrap()
             .write_all(format!("{line}\n").as_bytes())
             .unwrap();
+    }
+
+    fn subagent(&self, id: &str, name: &str, meta: &str) {
+        let folder = self
+            .config
+            .path()
+            .join(format!("projects/-home-acme/{id}/subagents"));
+        fs::create_dir_all(&folder).unwrap();
+        fs::write(folder.join(format!("{name}.meta.json")), meta).unwrap();
     }
 
     fn repository(&self, name: &str, branch: &str) -> PathBuf {
