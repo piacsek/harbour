@@ -231,6 +231,10 @@ impact.
 - **A damaged state directory still shows its cards**: when the remembered folder cannot be made
   private or written, the cards show and Enter refuses with `Could not reserve this
   conversation` (`plans/phase-10-resumable-sessions.md`).
+- **A project folder harbour cannot read counts as holding no conversations**: at start, a
+  remembered file older than 30 days whose transcript sits in an unreadable folder under the
+  Claude Code configuration is removed, though the conversation still exists and Claude Code
+  itself still resumes it (`plans/phase-10-resumable-sessions.md`).
 - **The release attestation records the `main` commit that started the run, not the release
   commit the tag points at**: its subjects are the right tarballs, but the source commit it
   names is the merge (`.github/AGENTS.md`, "What the attestation proves").

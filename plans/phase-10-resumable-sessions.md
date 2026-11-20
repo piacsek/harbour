@@ -115,7 +115,7 @@ Invariants:
 | Event | Files after | Cards after | Reservation | Next start shows | Test |
 | --- | --- | --- | --- | --- | --- |
 | a running session's transcript is first found | `<id>.json` written | the running card | taken for `<id>` before the file is written | a stopped card | `keeping::a_running_session_is_remembered_once_its_transcript_exists`, `switching::a_fresh_session_is_open_elsewhere_in_a_second_harbour_without_its_registry_file` |
-| its id changes to a new id | `<new>.json` written, then `<old>.json` removed | the same card, now the new id | the new id taken, then the old one released | one stopped card, the new id | `switching::a_session_whose_id_changes_holds_only_its_new_conversation`, `keeping::a_new_session_id_replaces_the_remembered_one`, `memory::keeping_a_replacement_forgets_the_old_file`, `memory::a_replacement_names_no_other_id` |
+| its id changes to a new id | `<new>.json` written, then `<old>.json` removed (except after `/clear` with harbour quit before a message: see below) | the same card, now the new id | the new id taken, then the old one released | one stopped card, the new id | `switching::a_session_whose_id_changes_holds_only_its_new_conversation`, `keeping::a_new_session_id_replaces_the_remembered_one`, `memory::keeping_a_replacement_forgets_the_old_file`, `memory::a_replacement_names_no_other_id` |
 | its id changes to one a stopped card holds | `<old>.json` removed, the stopped card's file rewritten by the running card | the stopped card removed, the selection kept on the card that stays | the new id taken, then the old one released | one stopped card | `reconciling::a_new_session_that_resumes_a_stopped_card_merges_the_two`, `switching::merging_away_the_selected_last_card_selects_the_one_that_stays` |
 | its id changes to one an exited card holds | as above | the exited card removed, the running one takes its place | the new id taken, then the old one released | one stopped card; the conversation it left comes back too once taken up again | `switching::a_session_that_resumes_an_exited_card_takes_its_place`, `switching::a_conversation_left_and_taken_up_again_comes_back_after_quitting` |
 | its id changes to one another running card holds | `<old>.json` removed; the other card's file untouched | both cards stay; the switching card remembers nothing until the other stops running, then adopts the id | the old one released; the other card holds the new one | one stopped card, the other card's | `switching::a_session_that_switches_to_a_conversation_another_card_runs_forgets_the_one_it_left` |
@@ -136,6 +136,11 @@ Invariants:
 | a harbour starts under a configuration whose folder is gone | untouched, stale ones too | no stopped card | none | the cards, once the configuration is back | `refusing::a_stale_card_is_kept_while_its_claude_code_configuration_is_gone` |
 | Enter or Ctrl-l on an exited card whose transcript is gone while its editor runs | removed | the card and its editor stay; the footer says the conversation is gone | released already (at exit) | nothing | `switching::enter_on_a_gone_conversation_keeps_the_card_while_its_editor_runs` |
 | the file deleted from outside | a running card writes it again at its next read; an exited or stopped card does not | unchanged | unchanged | the card when it was running, else nothing | `reconciling::a_remembered_file_deleted_from_outside_is_written_again`, `switching::an_exited_card_forgotten_elsewhere_stays_forgotten` |
+| `/clear`, then harbour quits before another message is sent | `<old>.json` kept: the new id has no transcript yet, so nothing replaces the old one (the exception to "leaving means forgetting"; not fixed, minor) | none | released with the process | a stopped card for the conversation left | none, documented |
+| `x` on earlier stopped cards, then a new session starts | the files keep their positions: a stopped card's file is never rewritten, a running card's is its place now | with A, B, C recalled, forgetting A and B and starting D shows C then D | unchanged | D then C: the order can change across a restart (not fixed, minor) | none, documented |
+| a project folder under the configuration cannot be read at start | a file older than 30 days whose transcript sits there is removed, as if the conversation were gone | its card not shown | none | nothing, though the conversation still exists and Claude Code itself resumes it (not fixed, known limit) | none, documented |
+| Claude Code exits by itself while `End? y/n` is open, then `y` | removed: `y` takes the exited-card path, not the running-card one above | removed | released | nothing (not fixed, minor) | none, documented |
+| a session here switches to a conversation another harbour runs, then back, while a stopped `open elsewhere` card here holds that id | kept (the other harbour holds it) | the stopped card merged into the switching one and does not return for this run | none here for that id | the card (not fixed, minor) | none, documented |
 
 ## States
 
@@ -232,7 +237,8 @@ Invariants:
     written later for the same id. A kill between writing the new id and removing the old one
     leaves both; the old one comes back as one more stopped card, which breaks no invariant.
   - Leaving a conversation (`/clear` or `/resume` to another id), in any harbour, counts as
-    forgetting it. A stopped card here whose file another harbour removed stays for this run and
+    forgetting it, once the new id has a transcript: after `/clear`, quitting before another
+    message keeps the conversation left, and it comes back at the next start. A stopped card here whose file another harbour removed stays for this run and
     is gone at the next start.
   - A session that switches to an id another running card holds leaves its old id: the old file
     is removed, the card remembers nothing and drops its reservation, and the other card keeps
@@ -371,6 +377,51 @@ total tokens can be read.
   it once the other harbour lets go; a resumed card counts only its own subagents; the "open
   elsewhere" footer of an exited card stays while true; Enter right after an exit resumes; a
   symlinked configuration finds its cards; the e2e tests of this phase assert every wait.
+- Review round 5 found no must and no should: the reviewer who drove harbour live found none for
+  the second round running. Its five items below should are recorded as rows of the table and in
+  the PR body, and one as a known limit in the root `AGENTS.md`.
+
+### Review
+
+Five rounds, each run by fresh, unprimed reviewers (a Claude reviewer and a Codex reviewer); the
+last was clean.
+
+| Round | What it found |
+| --- | --- |
+| 1 | a title lost at exit and quit; two cards after a crash between two writes; a `/resume` into a remembered conversation leaving two owners of one file; two harbours both resuming before a registry file existed; an id shaped like an option; stale footer and pane wording, a deleted file never rewritten, an unbounded start-up search |
+| 2 | the `replaces` marker deleting a file written later; a lock swept between its creation and its lock; an exited card writing back a file forgotten elsewhere; the selection lost after a merge; a resume opening on the editor; a switch to an id another running card holds leaving two owners |
+| 3 | one configuration pruning another's files; a fresh session without a reservation resumable by a second harbour; Enter on a gone conversation killing a running editor; a directory that is not UTF-8 never remembered; staged files kept forever |
+| 4 | a resumed card counting its previous run's subagents; a reservation never retried; an exited card's `open elsewhere` footer and an Enter right after an exit reading the wrong state; a symlinked configuration; e2e waits that dropped their result |
+| 5 | nothing at must or should; five items below should, recorded as table rows |
+
+What removed a class of finding instead of patching it:
+
+- the table "What happens to the remembered files and the cards", with its invariants and a test
+  named in every row, written after round 2's second strike on the same mechanism;
+- dropping the `replaces` marker: no file names another, so nothing harbour writes deletes a file
+  written later;
+- the reservation as the one truth for "running in a harbour": every running session with a
+  remembered id holds it, so the registry is no longer needed to tell;
+- one folder per Claude Code configuration, so no harbour prunes or shows another
+  configuration's conversations.
+
+### Decisions taken without the owner
+
+For the owner to judge, in one place (the details are under Decisions):
+
+- leaving a conversation with `/clear` or `/resume` forgets it (except after `/clear` with harbour
+  quit before another message);
+- a file whose transcript is gone is pruned after 30 days; at most 100 cards come back;
+- Enter and `Ctrl-l` both resume a stopped card;
+- stopped cards count nowhere: not in the sidebar title, not in `harbour status`;
+- a card whose transcript is gone is hidden and its file kept; `x` on a card open elsewhere only
+  hides it;
+- resuming runs in the directory the session started in, with the session command and
+  `--resume <id>`;
+- the quit line shows only when harbour remembers sessions;
+- one folder per Claude Code configuration, its path resolved before hashing; old flat files are
+  ignored, not migrated;
+- the sweep's seven proposals above wait for the owner's yes.
 
 ## Hurdles
 
@@ -402,3 +453,4 @@ total tokens can be read.
 - `test-seam` The first fix for a symlinked configuration resolved only an existing `projects/` folder, so the folder changed once Claude Code created it and every card vanished; the e2e resume test caught it, and a unit test now pins a path resolved before and after it exists → code
 - `test-seam` The round 4 test for a stopped card switched to in the same harbour was green on its first run: the merge happens in the same read, so the finding was unreachable; breaking the merge turned it red (`filter(|_| false)` on the other card) → none
 - `test-seam` The e2e tests this phase added dropped the screen of six waits, so a launch that crashed could pass; each wait now asserts what it returned, as the rule in `tests/AGENTS.md` already asks → code
+- `review-loop` Round 5 found no must or should; its five items below should (`/clear` then quit, card order after forgetting, an unreadable project folder, an exit while `End? y/n` is open, a switch away and back) became rows of the table, one a known limit → known limit
