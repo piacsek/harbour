@@ -19,7 +19,8 @@ file under `plans/`; its time and tokens are a row of [`plans/metrics.md`](plans
 | 9 | [no script dies of SIGPIPE when its reader stops early](plans/phase-9-pipe-race.md) | |
 | 10 | [sessions that come back after harbour closes, resumed on demand](plans/phase-10-resumable-sessions.md) | [v0.9.0](https://github.com/piacsek/harbour/releases/tag/v0.9.0) |
 | 11 | [tmux shortcuts that use the current directory follow the selected session](plans/phase-11-follow-selected-session.md) | [v0.8.0](https://github.com/piacsek/harbour/releases/tag/v0.8.0) |
-| 12 | [open a file in a session's editor from outside harbour](plans/phase-12-edit-from-outside.md) | |
+| 12 | [open a file in a session's editor from outside harbour](plans/phase-12-edit-from-outside.md) | [v0.10.0](https://github.com/piacsek/harbour/releases/tag/v0.10.0) |
+| 13 | [one review coordinator runs each pull request's review loop](plans/phase-13-review-coordinator.md) | |
 
 ## Backlog
 

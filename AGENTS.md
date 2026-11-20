@@ -304,13 +304,14 @@ nearest the code the guideline is about.
      `plans/metrics.md` (see "Time and tokens").
   2. `/my-tdd autonomous`: one task per red-green-refactor cycle, each shipped with
      `scripts/ship.sh` (gates, dev install, commit, push, draft PR on the first push).
-  3. `/pr-review` the PR (see "Review before ready": what counts as must or should, when to
-     redesign, where the reviewer runs the gates, who fixes). Fix every must and should
-     finding, TDD like any change, ship once per round, and review again. Minor findings are
-     fixed when cheap, else listed in the PR body. The loop ends only on a round with no
-     must/should findings, and that round is **unprimed**: the reviewers get the PR, the repo
-     and this file, never the list of earlier findings or what was decided about them. Never
-     post the review on the PR.
+  3. Hand the PR to a review coordinator, which runs the `/pr-review` loop and reports once
+     (see "Review before ready": who it is, what it is given, what it escalates, what counts as
+     must or should, when to redesign, where the reviewer runs the gates, who fixes). Every
+     must and should finding is fixed, TDD like any change, one ship per round, and reviewed
+     again. Minor findings are fixed when cheap, else listed in the PR body. The loop ends only
+     on a round with no must/should findings, and that round is **unprimed**: the reviewers get
+     the PR, the repo and this file, never the list of earlier findings or what was decided
+     about them. Never post the review on the PR.
   4. The plan file's `## Outcome` and `## Hurdles` are filled, its `plans/metrics.md` row
      holds what is known by now (see "Time and tokens"), and, when the branch feeds the binary,
      its fragment `changes/<branch>.md` is on it (no version bump, no `CHANGELOG.md` edit). Re-read
@@ -356,13 +357,24 @@ nearest the code the guideline is about.
     --date=iso <branch>`, its last line), draft PR opened, the end of the clean review
     round, the wall time from start to that end, and the number of review rounds. Absolute
     times with a timezone (`2026-11-17 04:56Z`), never "about an hour".
-  - Tokens: one figure per agent (builder, each reviewer, the orchestrator), each marked
-    measured or estimated with its source; what nobody can read is `unknown`, never a guess. A
-    sub-agent's completion notice carries `subagent_tokens`, which is not a running total across
-    resumes (in an earlier project a resumed builder's second notice was lower than its first; whether
-    cached input counts like fresh input is not known), so the orchestrator copies the figure of
-    every notice an agent sent; the Codex reviewer and the orchestrator's own session report none from
-    the inside.
+  - Tokens: one figure per agent (builder, each reviewer, the coordinator, the orchestrator),
+    each marked measured or estimated with its source; what nobody can read is `unknown`, never
+    a guess. A sub-agent's completion notice carries `subagent_tokens`, which is not a running
+    total across resumes (in an earlier project a resumed builder's second notice was lower than
+    its first; whether cached input counts like fresh input is not known), so every figure of
+    every notice is copied. The reviewers' figures, and the builder's fix-round notices the
+    coordinator received, come from its final report; the orchestrator adds every builder
+    notice it received itself (forwarded ones included, each counted once) and the
+    coordinator's own, which goes in the Notes cell. The Codex reviewer reports none.
+  - The orchestrator's context: its token use is `unknown`, but its transcript
+    (`~/.claude/projects/<project>/<session>.jsonl`) records the context of each of its turns.
+    The Orchestrator cell holds it at the phase's start and at the end of the clean round, each
+    the last turn at or before the end of that second; a compaction between the two goes in the
+    Notes cell:
+
+    ```bash
+    jq -r 'select(.type=="assistant" and .isSidechain==false and .message.usage and .message.model!="<synthetic>") | [.timestamp, (.message.usage | .input_tokens + .cache_read_input_tokens + .cache_creation_input_tokens)] | @tsv' ~/.claude/projects/<project>/<session>.jsonl
+    ```
   - After the merge: a branch cannot record its own ready, merge or release, so its row leaves
     those cells empty, the report of step 6 gives them, and the first ship of the next phase
     writes them into every row still missing them. Both read them from GitHub (`gh api
@@ -407,12 +419,31 @@ nearest the code the guideline is about.
 - **Review before ready.** Marking a PR ready for review means running the
   [`/pr-review`](https://github.com/piacsek/dotfiles/blob/main/.claude/skills/pr-review/SKILL.md)
   skill on the PR first, and acting on what it finds. It runs a Claude and a Codex reviewer
-  over the diff and merges their findings; run it from the main session, because the skill
-  launches Codex there. Give both reviewers the intent of the change, point them at this
-  file and tell them to read its "Known limits" before reporting, have the Claude reviewer run
-  `scripts/gates.sh` itself rather than trust the claim that the gates pass, and forbid edits,
-  commits, and any write to GitHub. When the skill asks whether to post the review on the PR,
-  answer no. `gh pr ready` comes after the findings are addressed, not before.
+  over the diff and merges their findings. Give both reviewers the intent of the change, point
+  them at this file and tell them to read its "Known limits" before reporting, have the Claude
+  reviewer run `scripts/gates.sh` itself rather than trust the claim that the gates pass, and
+  forbid edits, commits, and any write to GitHub. When the skill asks whether to post the
+  review on the PR, answer no. `gh pr ready` comes after the findings are addressed, not
+  before.
+  - **One review coordinator per pull request.** The orchestrator does not run the rounds
+    itself: it spawns one sub-agent (latest Opus) per PR that runs the whole loop and reports
+    once. It is given the PR, the repository and the branch's worktree, the intent of the
+    change, the builder's agent id, and this file, whose severity definition below it hands to
+    both reviewers. Each round it starts a fresh Claude reviewer with the Agent tool and Codex
+    from its own Bash with the skill's command: the skill's "from the main loop" does not bind
+    a coordinator, since a sub-agent can do both (`plans/phase-13-review-coordinator.md`). It
+    merges and rates the findings, sends the fixes to the builder with `SendMessage` to its
+    agent id, and takes the round as shipped once `gh pr view <N> --json headRefOid` moves past
+    the sha it reviewed, not from the builder's reply, which may reach the orchestrator
+    instead; the orchestrator forwards any builder notice it gets during the review to the
+    coordinator without acting on it. It decides when the unprimed round is clean. When the
+    builder cannot be reached, it ends its run with the fix list, which the orchestrator
+    relays in one message before resuming it. It makes the two-strikes call itself, but ends
+    its run at once with the question, for the orchestrator to put to the owner and resume it
+    with the answer, when a finding needs a product decision or a redesign changes behaviour.
+    Its one final report carries the number of rounds, the end of the clean round, the
+    findings fixed (one line each), the minors left, any redesign call, and every
+    `subagent_tokens` figure it received, per agent and round, plus the number of Codex runs.
   - **Severity by reachability.** A finding is must or should only when the user hits it while
     using harbour, the release pipeline hits it in normal operation, or a pull request could
     execute code or reach a token or secret. A bypass that needs a deliberately forged file,
