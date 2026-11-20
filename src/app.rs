@@ -138,10 +138,11 @@ impl App {
     }
 
     pub fn demo(registry: PathBuf) -> App {
-        let mut app = App::new(demo::working(&registry))
+        let mut app = App::new(demo::fresh())
             .with_registry(registry.clone())
+            .with_transcripts(registry.join("projects"))
             .with_picker(demo::picker());
-        app.start();
+        app.start_with(&demo::working(&registry));
         app.start_with(&demo::blocked(&registry));
         app.start_with(&demo::idle(&registry));
         app.start_with(&demo::failed());
