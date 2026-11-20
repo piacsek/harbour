@@ -1,5 +1,5 @@
 use std::fs;
-use std::io::{Read, Write};
+use std::io::{ErrorKind, Read, Write};
 use std::net::Shutdown;
 use std::os::unix::ffi::OsStrExt;
 use std::os::unix::fs::{MetadataExt, PermissionsExt};
@@ -306,7 +306,7 @@ fn a_connection_over_the_limit_in_flight_is_closed_at_once() {
     let mut extra = sent(&socket, "ask", later(), &bytes(&file));
     let started = Instant::now();
 
-    assert_eq!(reply(&mut extra), "");
+    assert_eq!(unanswered(&mut extra), "");
     assert!(
         started.elapsed() < Duration::from_secs(1),
         "{:?}",
@@ -341,6 +341,17 @@ fn reply(stream: &mut UnixStream) -> String {
     let mut text = String::new();
     stream.read_to_string(&mut text).unwrap();
     text
+}
+
+fn unanswered(stream: &mut UnixStream) -> String {
+    let mut text = String::new();
+    match stream.read_to_string(&mut text) {
+        Err(error) if error.kind() == ErrorKind::ConnectionReset => text,
+        read => {
+            read.unwrap();
+            text
+        }
+    }
 }
 
 fn later() -> u128 {
