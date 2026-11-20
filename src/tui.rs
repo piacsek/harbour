@@ -86,5 +86,5 @@ fn claude_sessions() -> Option<std::path::PathBuf> {
 }
 
 fn published() -> Option<Summary> {
-    Summary::create(&summary::directory_from_env()?, std::process::id()).ok()
+    summary::directory_from_env().map(|dir| Summary::new(&dir))
 }

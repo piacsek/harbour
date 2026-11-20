@@ -52,7 +52,7 @@ src/session.rs                a session: a command in a PTY, its output parsed i
 src/demo.rs                   the made-up sessions of `--demo`: `acme/*` scripts, never real data; the registry they write in the temp dir, removed when dropped
 src/registry.rs               Claude Code's session file for a pid (`<CLAUDE_CONFIG_DIR or ~/.claude>/sessions/<pid>.json`): its status and what it waits for, read leniently, ignored when written well before the session started
 src/state.rs                  a session's state from its exit and its file: the dot, the waiting reason, the title counts and the help legend, each fitted to the sidebar's width
-src/summary.rs                the counts a running harbour publishes for `harbour status` (`<pid>.counts` beside a `<pid>.lock` it holds, under `$XDG_STATE_HOME/harbour/status/`, else `~/.local/state/harbour/status/`, private, removed on quit, never waiting for a lock and no longer counted once a write fails) and the reader that adds up those whose lock is still held
+src/summary.rs                the counts a running harbour publishes for `harbour status` (one publication under a name of its own, pid, time and counter: `<name>.counts` beside a `<name>.lock` it holds, under `$XDG_STATE_HOME/harbour/status/`, else `~/.local/state/harbour/status/`, private, removed on quit, never waiting for a lock; a failed write or a missing file drops the whole publication, and a fresh one is made at most every `RETRY`, 5 s) and the reader that adds up those whose lock is still held
 src/help.rs                   what the help view shows: `KEYS`, which the README key table mirrors, and `NOTES` (C-Backspace arriving as C-h, the tmux pattern)
 src/keys.rs                   the bytes a terminal sends for a key (legacy encoding), which a session receives
 src/mouse.rs                  `route`, a pure function: a gesture belongs to where its button went down and to the session shown then, and ends when another session is shown, and the selected session gets only what its mouse mode asked for (`?9` presses, `?1000` presses, releases and the wheel, `?1002` drags too, `?1003` moves too), with Shift, Alt and Ctrl, in its encoding (SGR, UTF-8 or the legacy bytes), clamped to the pane; an empty pane forwards nothing and ends the gesture
@@ -163,8 +163,9 @@ impact.
   the command that shows whether it is required).
 - **The session registry is read, and the counts for `harbour status` written, on the draw
   thread**: a Claude config directory or a state directory on slow storage (a network home)
-  delays keys by the time those reads take, at most every 500 ms, and by the time a write takes,
-  only when a count changed (`plans/phase-3-status-dots.md`, `plans/phase-5-tmux-status-line.md`).
+  delays keys by the time those reads take, at most every 500 ms, by the time a write takes,
+  only when a count changed, and by two file checks or one fresh publication at most every 5 s
+  (`plans/phase-3-status-dots.md`, `plans/phase-5-tmux-status-line.md`).
 - **The release attestation records the `main` commit that started the run, not the release
   commit the tag points at**: its subjects are the right tarballs, but the source commit it
   names is the merge (`.github/AGENTS.md`, "What the attestation proves").

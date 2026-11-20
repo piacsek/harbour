@@ -1,9 +1,7 @@
 use std::fs::{self, File};
 use std::os::unix::fs::{PermissionsExt, symlink};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::Command;
-use std::sync::mpsc;
-use std::thread;
 use std::time::Duration;
 
 use harbour::state::Counts;
@@ -13,17 +11,20 @@ use harbour::summary::Summary;
 fn publishing_writes_the_counts_blocked_working_idle_unknown() {
     let scratch = tempfile::tempdir().unwrap();
     let dir = scratch.path().join("harbour/status");
-    let mut summary = Summary::create(&dir, 101).unwrap();
+    let mut summary = Summary::new(&dir);
 
     summary.publish(counts(1, 2, 3, 4));
 
-    assert_eq!(read(&dir, "101.counts"), "1 2 3 4\n");
+    assert_eq!(
+        fs::read_to_string(only(&dir, "counts")).unwrap(),
+        "1 2 3 4\n"
+    );
 }
 
 #[test]
 fn harbour_status_reads_what_a_live_summary_published() {
     let scratch = tempfile::tempdir().unwrap();
-    let mut summary = Summary::create(&scratch.path().join("harbour/status"), 101).unwrap();
+    let mut summary = Summary::new(&scratch.path().join("harbour/status"));
 
     summary.publish(counts(1, 1, 3, 0));
 
@@ -36,33 +37,47 @@ fn harbour_status_reads_what_a_live_summary_published() {
 #[test]
 fn a_new_count_replaces_the_last_one() {
     let scratch = tempfile::tempdir().unwrap();
-    let dir = scratch.path().join("harbour/status");
-    let mut summary = Summary::create(&dir, 101).unwrap();
+    let mut summary = Summary::new(&scratch.path().join("harbour/status"));
     summary.publish(counts(1, 0, 0, 0));
 
     summary.publish(counts(0, 1, 0, 0));
 
-    assert_eq!(read(&dir, "101.counts"), "0 1 0 0\n");
+    assert_eq!(status(scratch.path()), "#[fg=yellow]● 1#[default]\n");
 }
 
 #[test]
 fn the_same_counts_are_not_written_again() {
     let scratch = tempfile::tempdir().unwrap();
     let dir = scratch.path().join("harbour/status");
-    let mut summary = Summary::create(&dir, 101).unwrap();
+    let mut summary = Summary::new(&dir);
     summary.publish(counts(1, 0, 0, 0));
-    fs::remove_file(dir.join("101.counts")).unwrap();
+    fs::remove_file(only(&dir, "counts")).unwrap();
 
     summary.publish(counts(1, 0, 0, 0));
 
-    assert!(!dir.join("101.counts").exists());
+    assert_eq!(named(&dir, "counts"), Vec::<PathBuf>::new());
 }
 
 #[test]
 fn the_folder_is_private_to_the_user() {
     let scratch = tempfile::tempdir().unwrap();
     let dir = scratch.path().join("harbour/status");
-    let _summary = Summary::create(&dir, 101).unwrap();
+    let mut summary = Summary::new(&dir);
+
+    summary.publish(counts(1, 0, 0, 0));
+
+    assert_eq!(mode(&dir), 0o700);
+}
+
+#[test]
+fn an_existing_folder_is_made_private() {
+    let scratch = tempfile::tempdir().unwrap();
+    let dir = scratch.path().join("harbour/status");
+    fs::create_dir_all(&dir).unwrap();
+    set_mode(&dir, 0o755);
+    let mut summary = Summary::new(&dir);
+
+    summary.publish(counts(1, 0, 0, 0));
 
     assert_eq!(mode(&dir), 0o700);
 }
@@ -71,49 +86,40 @@ fn the_folder_is_private_to_the_user() {
 fn the_counts_are_private_to_the_user() {
     let scratch = tempfile::tempdir().unwrap();
     let dir = scratch.path().join("harbour/status");
-    let mut summary = Summary::create(&dir, 101).unwrap();
+    let mut summary = Summary::new(&dir);
 
     summary.publish(counts(1, 0, 0, 0));
 
-    assert_eq!(mode(&dir.join("101.counts")), 0o600);
+    assert_eq!(mode(&only(&dir, "counts")), 0o600);
 }
 
 #[test]
 fn the_lock_is_private_to_the_user() {
     let scratch = tempfile::tempdir().unwrap();
     let dir = scratch.path().join("harbour/status");
-    let _summary = Summary::create(&dir, 101).unwrap();
+    let mut summary = Summary::new(&dir);
 
-    assert_eq!(mode(&dir.join("101.lock")), 0o600);
+    summary.publish(counts(1, 0, 0, 0));
+
+    assert_eq!(mode(&only(&dir, "lock")), 0o600);
 }
 
 #[test]
-fn dropping_the_summary_removes_its_counts() {
+fn dropping_the_summary_removes_its_files() {
     let scratch = tempfile::tempdir().unwrap();
     let dir = scratch.path().join("harbour/status");
-    let mut summary = Summary::create(&dir, 101).unwrap();
+    let mut summary = Summary::new(&dir);
     summary.publish(counts(1, 0, 0, 0));
 
     drop(summary);
 
-    assert!(!dir.join("101.counts").exists());
-}
-
-#[test]
-fn dropping_the_summary_removes_its_lock() {
-    let scratch = tempfile::tempdir().unwrap();
-    let dir = scratch.path().join("harbour/status");
-    let summary = Summary::create(&dir, 101).unwrap();
-
-    drop(summary);
-
-    assert!(!dir.join("101.lock").exists());
+    assert_eq!(fs::read_dir(&dir).unwrap().count(), 0);
 }
 
 #[test]
 fn once_dropped_harbour_status_prints_nothing_for_it() {
     let scratch = tempfile::tempdir().unwrap();
-    let mut summary = Summary::create(&scratch.path().join("harbour/status"), 101).unwrap();
+    let mut summary = Summary::new(&scratch.path().join("harbour/status"));
     summary.publish(counts(1, 0, 0, 0));
 
     drop(summary);
@@ -122,47 +128,65 @@ fn once_dropped_harbour_status_prints_nothing_for_it() {
 }
 
 #[test]
-fn counts_left_by_an_earlier_process_with_the_same_pid_are_cleared() {
+fn two_summaries_in_one_folder_never_touch_each_others_files() {
+    let scratch = tempfile::tempdir().unwrap();
+    let dir = scratch.path().join("harbour/status");
+    let mut first = Summary::new(&dir);
+    let mut second = Summary::new(&dir);
+    first.publish(counts(1, 0, 0, 0));
+    second.publish(counts(0, 1, 0, 0));
+
+    drop(first);
+
+    assert_eq!(status(scratch.path()), "#[fg=yellow]● 1#[default]\n");
+}
+
+#[test]
+fn a_stale_pair_with_this_pid_does_not_stop_publishing() {
     let scratch = tempfile::tempdir().unwrap();
     let dir = scratch.path().join("harbour/status");
     fs::create_dir_all(&dir).unwrap();
-    fs::write(dir.join("101.counts"), "5 5 5 5\n").unwrap();
-    fs::write(dir.join("101.lock"), "").unwrap();
+    let pid = std::process::id();
+    fs::write(dir.join(format!("{pid}.counts")), "5 5 5 5\n").unwrap();
+    let reader = File::create(dir.join(format!("{pid}.lock"))).unwrap();
+    reader.lock_shared().unwrap();
+    let mut summary = Summary::new(&dir);
 
-    let _summary = Summary::create(&dir, 101).unwrap();
+    summary.publish(counts(0, 1, 0, 0));
+
+    assert_eq!(status(scratch.path()), "#[fg=yellow]● 1#[default]\n");
+}
+
+#[test]
+fn a_folder_that_cannot_be_created_publishes_nothing() {
+    let scratch = tempfile::tempdir().unwrap();
+    fs::write(scratch.path().join("harbour"), "acme").unwrap();
+    let mut summary = Summary::new(&scratch.path().join("harbour/status"));
+
+    summary.publish(counts(1, 0, 0, 0));
 
     assert_eq!(status(scratch.path()), "");
 }
 
 #[test]
-fn a_folder_that_cannot_be_created_is_an_error() {
+fn a_symlink_in_place_of_the_folder_publishes_nothing() {
     let scratch = tempfile::tempdir().unwrap();
-    fs::write(scratch.path().join("harbour"), "acme").unwrap();
+    let elsewhere = scratch.path().join("acme");
+    fs::create_dir(&elsewhere).unwrap();
+    fs::create_dir(scratch.path().join("harbour")).unwrap();
+    symlink(&elsewhere, scratch.path().join("harbour/status")).unwrap();
+    let mut summary = Summary::new(&scratch.path().join("harbour/status"));
 
-    let summary = Summary::create(&scratch.path().join("harbour/status"), 101);
+    summary.publish(counts(1, 0, 0, 0));
 
-    assert!(summary.is_err());
-}
-
-#[test]
-fn a_lock_held_by_another_process_is_an_error_not_a_wait() {
-    let scratch = tempfile::tempdir().unwrap();
-    let dir = scratch.path().join("harbour/status");
-    fs::create_dir_all(&dir).unwrap();
-    let other = File::create(dir.join("101.lock")).unwrap();
-    other.lock().unwrap();
-    let (sender, receiver) = mpsc::channel();
-
-    thread::spawn(move || sender.send(Summary::create(&dir, 101).is_err()).unwrap());
-
-    assert_eq!(receiver.recv_timeout(Duration::from_secs(2)), Ok(true));
+    assert_eq!(fs::read_dir(&elsewhere).unwrap().count(), 0);
 }
 
 #[test]
 fn a_failed_write_stops_the_old_counts_being_counted() {
     let scratch = tempfile::tempdir().unwrap();
     let dir = scratch.path().join("harbour/status");
-    let mut summary = Summary::create(&dir, 101).unwrap();
+    let mut summary = Summary::new(&dir);
     summary.publish(counts(0, 1, 0, 0));
     set_mode(&dir, 0o500);
 
@@ -177,7 +201,7 @@ fn a_failed_write_stops_the_old_counts_being_counted() {
 fn once_writing_works_again_the_counts_are_counted_again() {
     let scratch = tempfile::tempdir().unwrap();
     let dir = scratch.path().join("harbour/status");
-    let mut summary = Summary::create(&dir, 101).unwrap();
+    let mut summary = Summary::new(&dir).retrying_every(Duration::ZERO);
     summary.publish(counts(0, 1, 0, 0));
     set_mode(&dir, 0o500);
     summary.publish(counts(1, 0, 0, 0));
@@ -189,28 +213,60 @@ fn once_writing_works_again_the_counts_are_counted_again() {
 }
 
 #[test]
-fn an_existing_folder_is_made_private() {
+fn a_failed_folder_is_not_tried_again_before_the_interval() {
     let scratch = tempfile::tempdir().unwrap();
-    let dir = scratch.path().join("harbour/status");
-    fs::create_dir_all(&dir).unwrap();
-    set_mode(&dir, 0o755);
+    fs::write(scratch.path().join("harbour"), "acme").unwrap();
+    let mut summary = Summary::new(&scratch.path().join("harbour/status"));
+    summary.publish(counts(1, 0, 0, 0));
+    fs::remove_file(scratch.path().join("harbour")).unwrap();
 
-    let _summary = Summary::create(&dir, 101).unwrap();
+    summary.publish(counts(1, 0, 0, 0));
+    summary.publish(counts(0, 1, 0, 0));
 
-    assert_eq!(mode(&dir), 0o700);
+    assert_eq!(status(scratch.path()), "");
 }
 
 #[test]
-fn a_symlink_in_place_of_the_folder_is_an_error() {
+fn a_failed_folder_is_tried_again_once_the_interval_passed() {
     let scratch = tempfile::tempdir().unwrap();
-    let elsewhere = scratch.path().join("acme");
-    fs::create_dir(&elsewhere).unwrap();
-    fs::create_dir(scratch.path().join("harbour")).unwrap();
-    symlink(&elsewhere, scratch.path().join("harbour/status")).unwrap();
+    fs::write(scratch.path().join("harbour"), "acme").unwrap();
+    let mut summary =
+        Summary::new(&scratch.path().join("harbour/status")).retrying_every(Duration::ZERO);
+    summary.publish(counts(1, 0, 0, 0));
+    fs::remove_file(scratch.path().join("harbour")).unwrap();
 
-    let summary = Summary::create(&scratch.path().join("harbour/status"), 101);
+    summary.publish(counts(1, 0, 0, 0));
 
-    assert!(summary.is_err());
+    assert_eq!(status(scratch.path()), "#[fg=red]◉ 1#[default]\n");
+}
+
+#[test]
+fn a_folder_removed_and_made_again_is_counted_again() {
+    let scratch = tempfile::tempdir().unwrap();
+    let dir = scratch.path().join("harbour/status");
+    let mut summary = Summary::new(&dir).retrying_every(Duration::ZERO);
+    summary.publish(counts(1, 0, 0, 0));
+    fs::remove_dir_all(&dir).unwrap();
+    fs::create_dir_all(&dir).unwrap();
+
+    summary.publish(counts(1, 0, 0, 0));
+    summary.publish(counts(1, 0, 0, 0));
+
+    assert_eq!(status(scratch.path()), "#[fg=red]◉ 1#[default]\n");
+}
+
+#[test]
+fn a_folder_made_again_leaves_no_counts_without_a_lock() {
+    let scratch = tempfile::tempdir().unwrap();
+    let dir = scratch.path().join("harbour/status");
+    let mut summary = Summary::new(&dir);
+    summary.publish(counts(1, 0, 0, 0));
+    fs::remove_dir_all(&dir).unwrap();
+    fs::create_dir_all(&dir).unwrap();
+
+    summary.publish(counts(0, 1, 0, 0));
+
+    assert_eq!(fs::read_dir(&dir).unwrap().count(), 0);
 }
 
 fn counts(blocked: usize, working: usize, idle: usize, unknown: usize) -> Counts {
@@ -222,8 +278,18 @@ fn counts(blocked: usize, working: usize, idle: usize, unknown: usize) -> Counts
     }
 }
 
-fn read(dir: &Path, name: &str) -> String {
-    fs::read_to_string(dir.join(name)).unwrap()
+fn named(dir: &Path, extension: &str) -> Vec<PathBuf> {
+    fs::read_dir(dir)
+        .unwrap()
+        .map(|entry| entry.unwrap().path())
+        .filter(|path| path.extension().is_some_and(|ext| ext == extension))
+        .collect()
+}
+
+fn only(dir: &Path, extension: &str) -> PathBuf {
+    let found = named(dir, extension);
+    assert_eq!(found.len(), 1, "{found:?}");
+    found[0].clone()
 }
 
 fn set_mode(path: &Path, mode: u32) {

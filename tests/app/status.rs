@@ -330,14 +330,14 @@ fn a_running_harbour_publishes_the_counts_of_the_title() {
     let mut screen = showing(
         App::new(registered(registry.path(), "busy"))
             .with_registry(registry.path().to_path_buf())
-            .with_summary(Summary::create(state.path(), 101).unwrap()),
+            .with_summary(Summary::new(state.path())),
     );
     screen.press('n');
 
     screen.wait_for(&format!("● {} 1", directory()));
 
     assert_eq!(
-        std::fs::read_to_string(state.path().join("101.counts")).unwrap(),
+        std::fs::read_to_string(counts_file(state.path())).unwrap(),
         "0 1 0 0\n"
     );
 }
@@ -345,14 +345,13 @@ fn a_running_harbour_publishes_the_counts_of_the_title() {
 #[test]
 fn a_harbour_that_quits_removes_its_counts() {
     let state = tempfile::tempdir().unwrap();
-    let screen = showing(
-        App::new(script("exec sleep 600"))
-            .with_summary(Summary::create(state.path(), 101).unwrap()),
-    );
+    let screen =
+        showing(App::new(script("exec sleep 600")).with_summary(Summary::new(state.path())));
+    counts_file(state.path());
 
     drop(screen);
 
-    assert!(!state.path().join("101.counts").exists());
+    assert_eq!(std::fs::read_dir(state.path()).unwrap().count(), 0);
 }
 
 fn watching(registry: &Path, command: Vec<String>) -> Screen {
@@ -422,6 +421,21 @@ fn only_file(registry: &Path) -> PathBuf {
         .unwrap()
         .unwrap()
         .path()
+}
+
+fn counts_file(state: &Path) -> PathBuf {
+    let deadline = std::time::Instant::now() + Duration::from_secs(5);
+    loop {
+        let found = std::fs::read_dir(state)
+            .unwrap()
+            .map(|entry| entry.unwrap().path())
+            .find(|path| path.extension().is_some_and(|ext| ext == "counts"));
+        if let Some(path) = found {
+            return path;
+        }
+        assert!(std::time::Instant::now() < deadline, "no counts published");
+        std::thread::sleep(Duration::from_millis(20));
+    }
 }
 
 fn unblock_after(delay: Duration, fifo: PathBuf) {

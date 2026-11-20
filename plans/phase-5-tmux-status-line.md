@@ -38,12 +38,19 @@ Phase 5 is a sweep phase, so its `## Outcome` opens with the sweep of phases 0 t
 
 ## How a running harbour tells `harbour status`
 
-Each harbour on a terminal (not `--demo`) owns two files named after its process id in
-`$XDG_STATE_HOME/harbour/status/`, else `~/.local/state/harbour/status/`:
+Each harbour on a terminal (not `--demo`) owns one publication in
+`$XDG_STATE_HOME/harbour/status/`, else `~/.local/state/harbour/status/`, under a name no other
+publication has: its process id, the time it was made in nanoseconds and a counter
+(`<name>` below):
 
-- `<pid>.lock`, empty, which it holds an exclusive `flock` on for as long as it runs;
-- `<pid>.counts`, one line `<blocked> <working> <idle> <unknown>`, written to `<pid>.tmp` and
+- `<name>.lock`, empty, created new, which it holds an exclusive `flock` on for as long as the
+  publication lives;
+- `<name>.counts`, one line `<blocked> <working> <idle> <unknown>`, written to `<name>.tmp` and
   renamed over, so a reader never sees half of it, and only when a count changed.
+
+When a write fails, or a check (at most every 5 s) finds either file gone, the publication is
+dropped (its files removed, its lock released) and a fresh one, with a new name, is made at
+most every 5 s.
 
 `harbour status` lists the `*.counts` files, takes a non-blocking shared lock on the matching
 `.lock` for each: if the lock is free, its harbour is gone and the file is skipped; if it is held,
@@ -68,8 +75,10 @@ the counts are added. It never waits, writes nothing and deletes nothing.
 | `harbour --demo` running | nothing for it: the demo writes no summary | 0 |
 | the state directory cannot be created or written (harbour side) | harbour runs as before, publishing nothing | n/a |
 | the status folder is a symlink or not a directory (harbour side) | harbour runs as before, publishing nothing | n/a |
-| another process holds a harbour's `<pid>.lock` at its start (harbour side) | harbour runs at once, publishing nothing | n/a |
-| a write fails after an earlier one succeeded | nothing for that harbour until a write succeeds again | 0 |
+| a stale pair with this harbour's pid, a reader holding its lock (harbour side) | harbour's own counts: its name differs from the stale pair's | 0 |
+| two harbours with one pid on two hosts sharing the folder | the sum of both: neither touches the other's files | 0 |
+| a write fails after an earlier one succeeded | nothing for that harbour until a fresh publication works, tried at most every 5 s | 0 |
+| the status folder removed and made again while harbour runs | nothing for it until its check (at most every 5 s) finds the files gone and a fresh publication is made | 0 |
 
 The line, for one blocked, one working, three idle and no unknown session:
 
@@ -85,19 +94,23 @@ followed by a newline; when nothing is counted, nothing at all is printed.
   in the title, so the status line and the sidebar never disagree. One function counts for both.
 - **Liveness is a lock, not a pid check.** `kill(pid, 0)` would trust a crashed harbour's file
   again as soon as its pid is reused; a `flock` dies with its holder, so a stale file can never
-  count again. Two files per harbour, since an atomic rename would replace the locked file.
-- **Nothing deletes another harbour's files.** A stale pair stays until a harbour with that pid
-  overwrites it; deleting it from `harbour status` could race a new harbour that reuses the pid
-  and unlink its lock. The pair is a few bytes, and `harbour status` spends about 10 ms per 1000
-  stale files on a read (measured in review round 1).
+  count again. Two files per publication, since an atomic rename would replace the locked file.
+- **Each publication has a name of its own** (pid, creation time, counter), so a stale pair, a
+  reader holding its lock, or a harbour with the same pid on another host sharing the folder
+  never stops or touches it.
+- **Nothing deletes another harbour's files.** A stale pair stays; deleting it from
+  `harbour status` could race the harbour that owns it. The pair is a few bytes, and
+  `harbour status` spends about 58 ms per 1000 stale pairs on a read (release build, macOS 26.5
+  on arm64, median of 50 runs: 8.5 ms with an empty folder, 66 ms with 1000 stale pairs).
 - **The demo publishes nothing**, so made-up acme sessions never reach the user's real status
   line.
 - **Publishing is best effort.** A state directory harbour cannot create or write leaves the
-  interface as it was; nothing is drawn about it. A `<pid>.lock` that something else holds (a
-  home shared between hosts or containers) publishes nothing rather than waiting for it.
-- **A count that cannot be written is not counted.** When a write fails after an earlier one
-  succeeded, harbour removes its counts file and releases its lock, so `harbour status` skips it
-  instead of showing old counts; the next write that succeeds takes the lock back.
+  interface as it was; nothing is drawn about it. Taking the lock never waits.
+- **Any failure drops the whole publication.** A failed write, or a check that finds the lock or
+  the counts gone, removes the publication's files and releases its lock, so `harbour status`
+  skips it instead of showing old counts; nothing re-locks an old handle. A fresh publication is
+  made at most every 5 s (`RETRY` in `src/summary.rs`), and the same interval spaces the checks
+  while the counts stay the same, so a broken folder costs at most one attempt per 5 s.
 - **The status folder is private**: harbour sets `harbour/status` itself to `0700`, whether it
   created it or found it, and creates its files `0600`; it publishes nothing when that folder is
   a symlink or not a directory. Folders above it keep the modes they have. An `XDG_STATE_HOME`
@@ -160,6 +173,12 @@ dropped from 6 to 3 and held. Codex and orchestrator usage remain unknown in eve
 - Every Decision above was taken without the owner, as the most conservative reading of issue #8.
 - Review round 1 (no must): the lock is now taken without waiting, a failed write stops the old
   counts being counted, and the status folder is set to `0700` and refused when it is a symlink.
+- Review round 2 (no must) found four holes in round 1's recovery, which re-locked the old lock
+  handle: a folder made again got counts with no lock beside them, a failure retried on every
+  draw, two hosts sharing a pid could delete each other's files, and a reader holding a stale
+  `<pid>.lock` stopped a new harbour with that pid publishing. Each publication now has a name of
+  its own, any failure drops it whole, and a fresh one is made at most every 5 s; a test covers
+  each of the four.
 
 ## Hurdles
 
@@ -167,3 +186,4 @@ dropped from 6 to 3 and held. Codex and orchestrator usage remain unknown in eve
 - `test-seam` Tests green on their first run (the quit e2e test, Summary removal, the reader's liveness) were proved by breaking the code by hand, as in phases 1 to 3 → none
 - `test-seam` The first e2e status test raced the registry read: it saw `·` (unknown) before `●` and asserted on any non-empty line; it now waits for the line it asserts, as `tests/AGENTS.md` says → none
 - `review-loop` Round 1 found three failure states the table had not listed (a lock held by another host, a write failing after a success, a status folder that already existed or was a symlink) → code
+- `design` Round 2 found four more holes in the same recovery mechanism (re-locking an old handle under a pid name); per "Two strikes, then redesign" it was replaced by one publication per instance with a unique name, dropped on any failure and made again at most every 5 s → code
