@@ -3,8 +3,8 @@
 ## Context
 
 Issue #28. In the autonomous flow the main session (the orchestrator) ran every review round
-itself: phases 2 to 12 took 41 rounds over 11 pull requests, and every reviewer and builder
-report landed in its context. The owner chose option 1 of the issue: one sub-agent, the review
+itself: one autonomous run shipped phases 2 to 12 in 41 rounds over 11 pull requests (phase 1,
+before it, took 6 more), and every reviewer and builder report landed in its context. The owner chose option 1 of the issue: one sub-agent, the review
 coordinator, runs the whole review loop of a pull request and reports to the orchestrator once
 at the end. Option 2 (stop at the first round with no must finding) was not chosen: every must
 and should finding is still fixed, and the last round is still unprimed. This phase changes only
@@ -45,19 +45,24 @@ Probed from a sub-agent (the builder of this phase), which is where a coordinato
 ## Design
 
 - The orchestrator spawns one coordinator (latest Opus) per pull request once the builder has
-  opened the draft PR, and hands it the PR, the repository and its worktree path, the intent of
-  the change, the builder's agent id, and a pointer to `AGENTS.md`.
+  shipped the phase's last task (step 3 of "Work autonomously"), and hands it the PR, the
+  repository and its worktree path, the intent of the change, the builder's agent id, and a
+  pointer to `AGENTS.md`.
 - The coordinator runs the `/pr-review` mechanics itself: a fresh Claude reviewer through the
-  Agent tool, and Codex through Bash as the skill does, every round. It merges the findings,
-  rates them by the severity definition, sends each round's fixes to the builder with
-  `SendMessage` (the builder keeps its context and ships once per round), and decides when the
-  unprimed round is clean. It never posts the review.
+  Agent tool, and Codex from its own Bash with the skill's command, every round: the skill's
+  "from the main loop" does not bind a sub-agent. It merges the findings, rates them by the
+  severity definition, sends each round's fixes to the builder with `SendMessage` (the builder
+  keeps its context and ships once per round), takes the round as shipped when the PR head
+  moves past the sha it reviewed (`gh pr view <N> --json headRefOid`), not from the builder's
+  reply, and decides when the unprimed round is clean. It never posts the review.
 - Two strikes, then redesign moves to the coordinator. A finding that needs a product decision,
   or a redesign that changes behaviour, ends its run at once with that question; the
   orchestrator asks the owner and resumes it with the answer.
 - If the builder cannot be reached, the coordinator ends its run with the fix list, and the
   orchestrator relays it in one message and resumes the coordinator: the fallback for the
-  unverified sibling resume.
+  unverified sibling resume. If the builder's reply or completion notice reaches the orchestrator
+  instead, the orchestrator forwards it to the coordinator without acting on it, and adds those
+  figures to the metrics row itself.
 - Its single final report carries the rounds, the end of the clean round, the findings fixed,
   the minors left, any redesign call, and every `subagent_tokens` figure it received. The
   orchestrator adds the coordinator's own figure and its own context, read from its transcript.

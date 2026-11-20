@@ -362,13 +362,15 @@ nearest the code the guideline is about.
     a guess. A sub-agent's completion notice carries `subagent_tokens`, which is not a running
     total across resumes (in an earlier project a resumed builder's second notice was lower than
     its first; whether cached input counts like fresh input is not known), so every figure of
-    every notice is copied. The reviewers' figures, and the builder's for its fix rounds, come
-    from the coordinator's final report; the orchestrator adds the builder's other notices and
-    the coordinator's own, which goes in the Notes cell. The Codex reviewer reports none.
+    every notice is copied. The reviewers' figures, and the builder's fix-round notices the
+    coordinator received, come from its final report; the orchestrator adds every builder
+    notice it received itself (forwarded ones included, each counted once) and the
+    coordinator's own, which goes in the Notes cell. The Codex reviewer reports none.
   - The orchestrator's context: its token use is `unknown`, but its transcript
     (`~/.claude/projects/<project>/<session>.jsonl`) records the context of each of its turns.
     The Orchestrator cell holds it at the phase's start and at the end of the clean round, each
-    the last turn at or before that time; a compaction between the two goes in the Notes cell:
+    the last turn at or before the end of that second; a compaction between the two goes in the
+    Notes cell:
 
     ```bash
     jq -r 'select(.type=="assistant" and .isSidechain==false and .message.usage) | [.timestamp, (.message.usage | .input_tokens + .cache_read_input_tokens + .cache_creation_input_tokens)] | @tsv' ~/.claude/projects/<project>/<session>.jsonl
@@ -428,10 +430,14 @@ nearest the code the guideline is about.
     once. It is given the PR, the repository and the branch's worktree, the intent of the
     change, the builder's agent id, and this file, whose severity definition below it hands to
     both reviewers. Each round it starts a fresh Claude reviewer with the Agent tool and Codex
-    through Bash as the skill says (a sub-agent can do both, `plans/phase-13-review-coordinator.md`),
+    from its own Bash with the skill's command: the skill's "from the main loop" does not bind
+    a coordinator, since a sub-agent can do both (`plans/phase-13-review-coordinator.md`). It
     merges and rates the findings, sends the fixes to the builder with `SendMessage` to its
-    agent id, waits for that round's ship, and decides when the unprimed round is clean. When
-    the builder cannot be reached, it ends its run with the fix list, which the orchestrator
+    agent id, and takes the round as shipped once `gh pr view <N> --json headRefOid` moves past
+    the sha it reviewed, not from the builder's reply, which may reach the orchestrator
+    instead; the orchestrator forwards any builder notice it gets during the review to the
+    coordinator without acting on it. It decides when the unprimed round is clean. When the
+    builder cannot be reached, it ends its run with the fix list, which the orchestrator
     relays in one message before resuming it. It makes the two-strikes call itself, but ends
     its run at once with the question, for the orchestrator to put to the owner and resume it
     with the answer, when a finding needs a product decision or a redesign changes behaviour.
