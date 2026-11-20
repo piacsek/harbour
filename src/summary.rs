@@ -156,6 +156,7 @@ impl Publication {
             lock,
         };
         publication.lock.try_lock()?;
+        sweep(dir);
         Ok(publication)
     }
 
@@ -193,6 +194,43 @@ impl Drop for Publication {
         let _ = fs::remove_file(self.path("tmp"));
         let _ = fs::remove_file(self.path("lock"));
     }
+}
+
+fn sweep(dir: &Path) {
+    let Ok(entries) = fs::read_dir(dir) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        let Some(name) = path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .and_then(|name| name.strip_suffix(".lock"))
+            .filter(|name| published_name(name))
+        else {
+            continue;
+        };
+        if !entry.file_type().is_ok_and(|kind| kind.is_file()) {
+            continue;
+        }
+        let Ok(lock) = File::open(&path) else {
+            continue;
+        };
+        if lock.try_lock().is_err() {
+            continue;
+        }
+        let _ = fs::remove_file(dir.join(format!("{name}.counts")));
+        let _ = fs::remove_file(dir.join(format!("{name}.tmp")));
+        let _ = fs::remove_file(&path);
+    }
+}
+
+fn published_name(name: &str) -> bool {
+    let parts: Vec<&str> = name.split('-').collect();
+    parts.len() == 3
+        && parts
+            .iter()
+            .all(|part| !part.is_empty() && part.bytes().all(|byte| byte.is_ascii_digit()))
 }
 
 fn unique_name() -> String {

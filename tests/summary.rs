@@ -269,6 +269,137 @@ fn a_folder_made_again_leaves_no_counts_without_a_lock() {
     assert_eq!(fs::read_dir(&dir).unwrap().count(), 0);
 }
 
+#[test]
+fn a_dead_publication_is_removed_when_a_summary_publishes() {
+    let scratch = tempfile::tempdir().unwrap();
+    let dir = scratch.path().join("harbour/status");
+    fs::create_dir_all(&dir).unwrap();
+    fs::write(dir.join("101-1700000000000000000-0.lock"), "").unwrap();
+    fs::write(dir.join("101-1700000000000000000-0.counts"), "1 0 0 0\n").unwrap();
+    fs::write(dir.join("101-1700000000000000000-0.tmp"), "1 0 0 0\n").unwrap();
+    let mut summary = Summary::new(&dir);
+
+    summary.publish(counts(0, 1, 0, 0));
+
+    assert!(!dir.join("101-1700000000000000000-0.lock").exists());
+    assert!(!dir.join("101-1700000000000000000-0.counts").exists());
+    assert!(!dir.join("101-1700000000000000000-0.tmp").exists());
+}
+
+#[test]
+fn a_live_publication_is_never_removed() {
+    let scratch = tempfile::tempdir().unwrap();
+    let dir = scratch.path().join("harbour/status");
+    fs::create_dir_all(&dir).unwrap();
+    let lock = File::create(dir.join("101-1700000000000000000-0.lock")).unwrap();
+    lock.lock().unwrap();
+    fs::write(dir.join("101-1700000000000000000-0.counts"), "1 0 0 0\n").unwrap();
+    let mut summary = Summary::new(&dir);
+
+    summary.publish(counts(0, 1, 0, 0));
+
+    assert!(dir.join("101-1700000000000000000-0.lock").exists());
+    assert!(dir.join("101-1700000000000000000-0.counts").exists());
+}
+
+#[test]
+fn a_publication_read_with_a_shared_lock_is_never_removed() {
+    let scratch = tempfile::tempdir().unwrap();
+    let dir = scratch.path().join("harbour/status");
+    fs::create_dir_all(&dir).unwrap();
+    let reader = File::create(dir.join("101-1700000000000000000-0.lock")).unwrap();
+    reader.lock_shared().unwrap();
+    fs::write(dir.join("101-1700000000000000000-0.counts"), "1 0 0 0\n").unwrap();
+    let mut summary = Summary::new(&dir);
+
+    summary.publish(counts(0, 1, 0, 0));
+
+    assert!(dir.join("101-1700000000000000000-0.counts").exists());
+}
+
+#[test]
+fn files_not_named_like_a_publication_are_never_removed() {
+    let scratch = tempfile::tempdir().unwrap();
+    let dir = scratch.path().join("harbour/status");
+    fs::create_dir_all(&dir).unwrap();
+    fs::write(dir.join("101.lock"), "").unwrap();
+    fs::write(dir.join("101.counts"), "1 0 0 0\n").unwrap();
+    fs::write(dir.join("acme-1-2.lock"), "").unwrap();
+    fs::write(dir.join("101-1-2.lock.bak"), "").unwrap();
+    fs::write(dir.join("notes"), "acme").unwrap();
+    let mut summary = Summary::new(&dir);
+
+    summary.publish(counts(0, 1, 0, 0));
+
+    assert!(dir.join("101.lock").exists());
+    assert!(dir.join("101.counts").exists());
+    assert!(dir.join("acme-1-2.lock").exists());
+    assert!(dir.join("101-1-2.lock.bak").exists());
+    assert!(dir.join("notes").exists());
+}
+
+#[test]
+fn a_symlink_named_like_a_lock_is_never_followed() {
+    let scratch = tempfile::tempdir().unwrap();
+    let dir = scratch.path().join("harbour/status");
+    fs::create_dir_all(&dir).unwrap();
+    let elsewhere = scratch.path().join("acme.txt");
+    fs::write(&elsewhere, "acme").unwrap();
+    symlink(&elsewhere, dir.join("101-1700000000000000000-0.lock")).unwrap();
+    fs::write(dir.join("101-1700000000000000000-0.counts"), "1 0 0 0\n").unwrap();
+    let mut summary = Summary::new(&dir);
+
+    summary.publish(counts(0, 1, 0, 0));
+
+    assert_eq!(fs::read_to_string(&elsewhere).unwrap(), "acme");
+    assert!(dir.join("101-1700000000000000000-0.counts").exists());
+}
+
+#[test]
+fn a_symlink_named_like_counts_beside_a_dead_lock_leaves_its_target_alone() {
+    let scratch = tempfile::tempdir().unwrap();
+    let dir = scratch.path().join("harbour/status");
+    fs::create_dir_all(&dir).unwrap();
+    let elsewhere = scratch.path().join("acme.txt");
+    fs::write(&elsewhere, "acme").unwrap();
+    fs::write(dir.join("101-1700000000000000000-0.lock"), "").unwrap();
+    symlink(&elsewhere, dir.join("101-1700000000000000000-0.counts")).unwrap();
+    let mut summary = Summary::new(&dir);
+
+    summary.publish(counts(0, 1, 0, 0));
+
+    assert_eq!(fs::read_to_string(&elsewhere).unwrap(), "acme");
+}
+
+#[test]
+fn a_publication_whose_files_another_harbour_swept_is_made_again() {
+    let scratch = tempfile::tempdir().unwrap();
+    let dir = scratch.path().join("harbour/status");
+    let mut summary = Summary::new(&dir).retrying_every(Duration::ZERO);
+    summary.publish(counts(1, 0, 0, 0));
+    fs::remove_file(only(&dir, "lock")).unwrap();
+    fs::remove_file(only(&dir, "counts")).unwrap();
+
+    summary.publish(counts(1, 0, 0, 0));
+    summary.publish(counts(1, 0, 0, 0));
+
+    assert_eq!(status(scratch.path()), "#[fg=red]◉ 1#[default]\n");
+}
+
+#[test]
+fn harbour_status_removes_nothing() {
+    let scratch = tempfile::tempdir().unwrap();
+    let dir = scratch.path().join("harbour/status");
+    fs::create_dir_all(&dir).unwrap();
+    fs::write(dir.join("101-1700000000000000000-0.lock"), "").unwrap();
+    fs::write(dir.join("101-1700000000000000000-0.counts"), "1 0 0 0\n").unwrap();
+
+    status(scratch.path());
+
+    assert!(dir.join("101-1700000000000000000-0.lock").exists());
+    assert!(dir.join("101-1700000000000000000-0.counts").exists());
+}
+
 fn counts(blocked: usize, working: usize, idle: usize, unknown: usize) -> Counts {
     Counts {
         blocked,
