@@ -40,7 +40,7 @@ harbour status      # blocked, working and idle counts for the tmux status line
 | `j/k` | select the next / previous session |
 | `n` | pick a directory and start a session there |
 | `C-l/Enter` | focus the pane; from Claude Code, C-l opens its editor |
-| `C-h` | focus the sidebar; from the editor, Claude Code (Neovim: leftmost window, normal mode) |
+| `C-h` | focus the sidebar; from the editor, Claude Code |
 | `x` | end the session and its editors, or remove it once it has exited |
 | `?` | show or hide the help |
 | `q` | quit, after a yes while a session or editor runs |
@@ -48,7 +48,8 @@ harbour status      # blocked, working and idle counts for the tmux status line
 `n` picks the directory with fzf, from the current directory and the ones zoxide ranks;
 `HARBOUR_DIR_PICKER` names another picker. Without fzf, sessions start in the current
 directory. `C-l` from Claude Code opens Neovim at the root of the repository Claude Code is in,
-one editor per directory; `HARBOUR_EDITOR` names another editor. Sessions and their editors end
+one editor per directory; `HARBOUR_EDITOR` names another editor. In Neovim, `C-h` goes back
+to Claude Code only from the leftmost window in normal mode. Sessions and their editors end
 when harbour quits. Inside tmux with
 vim-tmux-navigator, add `harbour` to the pattern of processes it passes `C-h` and `C-l` to.
 

@@ -4,8 +4,9 @@ use std::time::{Duration, Instant};
 
 use crossterm::event::{KeyCode, KeyModifiers};
 use harbour::editor::Program;
+use ratatui::style::Modifier;
 
-use crate::{Screen, directory, reading_agent, script};
+use crate::{Screen, directory, reading_agent, region, script};
 
 #[test]
 fn yes_to_ending_a_session_ends_its_editor_too() {
@@ -21,6 +22,22 @@ fn yes_to_ending_a_session_ends_its_editor_too() {
 }
 
 #[test]
+fn the_editor_of_an_exited_session_is_not_dimmed() {
+    let scratch = tempfile::tempdir().unwrap();
+    let mut screen = with_exited_agent(scratch.path());
+    screen.key(KeyCode::Enter, KeyModifiers::NONE);
+
+    screen.key(KeyCode::Char('l'), KeyModifiers::CONTROL);
+
+    let shown = screen.wait_for("acme editor ready");
+    let (x, y) = position_of(&shown, "acme editor ready");
+    assert!(
+        !screen.cell(x, y).modifier.contains(Modifier::DIM),
+        "{shown}"
+    );
+}
+
+#[test]
 fn x_on_an_exited_session_whose_editor_runs_asks_first() {
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = with_exited_agent(scratch.path());
@@ -28,7 +45,7 @@ fn x_on_an_exited_session_whose_editor_runs_asks_first() {
     screen.press('x');
 
     let shown = screen.draw();
-    assert!(shown.contains(" End? y/n "), "{shown}");
+    assert!(shown.contains("End? y/n"), "{shown}");
     assert!(
         shown.contains(&format!("{} 1 exited", directory())),
         "{shown}"
@@ -49,6 +66,49 @@ fn yes_on_an_exited_session_ends_its_editor_and_removes_the_row() {
 }
 
 #[test]
+fn x_says_an_editor_harbour_cannot_ask_may_have_unsaved_changes() {
+    let scratch = tempfile::tempdir().unwrap();
+    let mut screen = in_the_sidebar(scratch.path());
+
+    screen.press('x');
+
+    let shown = screen.draw();
+    assert!(shown.contains("May have unsaved"), "{shown}");
+}
+
+#[test]
+fn the_whole_question_shows_in_the_narrowest_sidebar_beside_the_pane() {
+    let scratch = tempfile::tempdir().unwrap();
+    let mut screen = in_the_sidebar(scratch.path());
+    screen.resize(60, 20);
+
+    screen.press('x');
+
+    let shown = screen.draw();
+    let sidebar = words_in(&shown, 20);
+    assert!(
+        sidebar.contains("May have unsaved changes. End? y/n"),
+        "{shown}"
+    );
+}
+
+#[test]
+fn the_whole_question_shows_in_the_sidebar_of_an_80_column_terminal() {
+    let scratch = tempfile::tempdir().unwrap();
+    let mut screen = in_the_sidebar(scratch.path());
+    screen.resize(80, 24);
+
+    screen.press('q');
+
+    let shown = screen.draw();
+    let sidebar = words_in(&shown, 26);
+    assert!(
+        sidebar.contains("May have unsaved changes. Quit? y/n"),
+        "{shown}"
+    );
+}
+
+#[test]
 fn q_with_only_an_editor_running_asks_before_quitting() {
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = with_exited_agent(scratch.path());
@@ -56,7 +116,7 @@ fn q_with_only_an_editor_running_asks_before_quitting() {
     screen.press('q');
 
     let shown = screen.draw();
-    assert!(shown.contains(" Quit? y/n "), "{shown}");
+    assert!(shown.contains("Quit? y/n"), "{shown}");
     assert!(screen.app.running());
 }
 
@@ -65,8 +125,10 @@ fn quitting_ends_editors_and_sessions_within_one_grace_period() {
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = editing(scratch.path(), reading_agent(), "trap '' HUP; ");
     screen.key(KeyCode::Char('h'), KeyModifiers::CONTROL);
+    screen.key(KeyCode::Char('h'), KeyModifiers::CONTROL);
     screen.press('q');
     screen.press('y');
+    assert!(!screen.app.running());
     let started = Instant::now();
 
     drop(screen);
@@ -82,6 +144,13 @@ fn editing(scratch: &Path, agent: Vec<String>, before: &str) -> Screen {
     screen.key(KeyCode::Enter, KeyModifiers::NONE);
     screen.key(KeyCode::Char('l'), KeyModifiers::CONTROL);
     screen.wait_for("acme editor ready");
+    screen
+}
+
+fn in_the_sidebar(scratch: &Path) -> Screen {
+    let mut screen = editing(scratch, reading_agent(), "");
+    screen.key(KeyCode::Char('h'), KeyModifiers::CONTROL);
+    screen.key(KeyCode::Char('h'), KeyModifiers::CONTROL);
     screen
 }
 
@@ -128,4 +197,22 @@ fn gone(pid: &str) -> bool {
         }
         std::thread::sleep(Duration::from_millis(20));
     }
+}
+
+fn words_in(shown: &str, width: usize) -> String {
+    region(shown, 0, width)
+        .split(|c: char| c.is_whitespace() || "│┃┌┐└┘┏┓┗┛─━".contains(c))
+        .filter(|word| !word.is_empty())
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+fn position_of(shown: &str, text: &str) -> (u16, u16) {
+    let (row, line) = shown
+        .lines()
+        .enumerate()
+        .find(|(_, line)| line.contains(text))
+        .unwrap();
+    let column = line[..line.find(text).unwrap()].chars().count();
+    (u16::try_from(column).unwrap(), u16::try_from(row).unwrap())
 }

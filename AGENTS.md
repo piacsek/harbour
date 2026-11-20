@@ -50,13 +50,13 @@ src/tui.rs                    the terminal: enters and restores it, reads its ev
 src/picker.rs                 the directory picker of `n`: a program run as a session in a popup, its standard output sent to a file in a temporary directory only its owner can open (0700), the first line it prints, as bytes, canonicalized (read from harbour's directory when relative), every path kept as bytes on the way into its arguments, exit statuses 126 and 127 (and 2 for fzf) named as "could not start"; fzf given `--no-expect --no-print-query --no-read0 --no-print0` after the user's `FZF_DEFAULT_OPTS`, so it prints one directory a line; for fzf the popup's own shell writes the list (harbour's directory first, then the list command's lines without it) into a FIFO fzf reads, so a slow list never holds up harbour, and a missing fzf means "start at once"
 src/app/mod.rs                the app: its state and what each key, paste and mouse event does
 src/app/draw.rs               what the app draws
-src/editor.rs                 an editor beside a session's Claude Code pane: the program it runs and the directory it belongs to, `root` (the nearest directory up holding `.git`, never walked up from a directory that is gone); Neovim listens on a socket in a private (0700) temporary directory removed with the editor, and says through it whether it has unsaved changes; a session's editors end with it
-src/nvim.rs                   `eval`: one msgpack-RPC `nvim_eval` over that socket, `None` for no answer within 100 ms
-src/transcript.rs             a session's Claude Code transcript: its random session id, the file `<config>/projects/*/<id>.jsonl` (found once, then kept), the last `cwd` in its last 4 MiB
+src/editor.rs                 an editor beside a session's Claude Code pane: the program it runs and the directory it belongs to, `root` (the nearest directory up holding `.git`, never walked up from a directory that is gone); Neovim listens on a socket in a private (0700) temporary directory removed with the editor, under `/tmp` when the temporary directory would make the socket path too long for macOS (103 bytes), and says through it whether it has unsaved changes (`changes`: saved, unsaved, or unknown when it cannot be asked); a session's editors end with it
+src/nvim.rs                   `blocking` and `eval`: one msgpack-RPC `nvim_get_mode` or `nvim_eval` over that socket, `None` for no answer before the deadline
+src/transcript.rs             a session's Claude Code transcript: its random session id, the file `<config>/projects/*/<id>.jsonl` of its own id or of the id the registry names (looked up at each C-l, a plain name only), the last `cwd` in its last 4 MiB
 src/tabs.rs                   `strip`, a pure function: the pane border's `claude | <editor>: <directory>`, fitted by display width (the directory loses its start first, then the editor's name, then `claude`)
 src/session.rs                a session: a command in a PTY, refused as `Not a directory: <path>` when its directory is not one, its output parsed into a screen that renders as a widget, its terminal queries answered, its exit status, its screen never under 2 rows or 2 columns (vt100 panics below that); every call into vt100 contained, so a panic gives that session a fresh screen with the modes its program had turned on and a repaint instead of taking harbour down, and the panic hook stays silent for it; writes go through a writer thread so a child that does not read never blocks the interface; ending it (or dropping it) hangs up its whole process group, then kills it, only while the child is unreaped; quitting hangs up every session first and waits once
 src/demo.rs                   the made-up sessions of `--demo` and its picker (fzf over made-up directories, without harbour's directory), and its `nvim` (a script printing a made-up file, no socket): `acme/*` scripts, never real data; the registry they write in the temp dir, removed when dropped
-src/registry.rs               Claude Code's session file for a pid (`<CLAUDE_CONFIG_DIR or ~/.claude>/sessions/<pid>.json`): its status and what it waits for, read leniently, ignored when written well before the session started
+src/registry.rs               Claude Code's session file for a pid (`<CLAUDE_CONFIG_DIR or ~/.claude>/sessions/<pid>.json`): its status and what it waits for, and its `sessionId` and `cwd` for C-l, read leniently, ignored when written well before the session started
 src/state.rs                  a session's state from its exit and its file: the dot, the waiting reason, the title counts and the help legend, each fitted to the sidebar's width
 src/summary.rs                the counts a running harbour publishes for `harbour status` (one publication under a name of its own, pid, time and counter: `<name>.counts` beside a `<name>.lock` it holds, under `$XDG_STATE_HOME/harbour/status/`, else `~/.local/state/harbour/status/`, nowhere when neither is absolute, private, removed on quit, never waiting for a lock; a failed write or a missing file drops the whole publication, and a fresh one is made at most every `RETRY`, 5 s; making one removes every dead publication, a regular `<digits>-<digits>-<digits>.lock` other than its own that it can open for writing and no one holds, with its `.counts` and `.tmp`) and the reader that adds up the regular `.counts` files of that naming whose lock is still held, never following a symlink
 src/help.rs                   what the help view shows: `KEYS`, which the README key table mirrors, and `NOTES` (C-Backspace arriving as C-h, the tmux pattern, `HARBOUR_DIR_PICKER`)
@@ -158,13 +158,12 @@ impact.
 - **`check` builds and tests on Linux only**: the tests never run on macOS, and a macOS-only
   break of the release build itself fails in the release run; the flake's macOS leg catches a
   plain macOS build break (`.github/AGENTS.md`).
-- **C-h over Neovim, `x`, `q` and C-l from Claude Code do their I/O on the key thread**: C-h
-  waits up to 100 ms for Neovim to say whether its leftmost window is in normal mode (a Neovim
-  that never answers costs that much per C-h, and the pane shows Claude Code, `src/nvim.rs`);
-  `x` and `q` ask each Neovim they would end whether it has unsaved changes, up to 100 ms each
-  (one that never answers counts as nothing unsaved); C-l lists
-  the transcript projects until it finds the session's file and reads at most its last 4 MiB
-  (`src/transcript.rs`).
+- **C-h over Neovim, `x`, `q` and C-l from Claude Code do their I/O on the key thread**: C-h,
+  `x` and `q` ask each Neovim `nvim_get_mode`, then `nvim_eval`, within one 100 ms deadline (a
+  Neovim that never answers costs that much per key; C-h then shows Claude Code, a blocking
+  Neovim gets the key, and `x` and `q` say it may have unsaved changes, `src/nvim.rs`); C-l
+  reads the session's registry file, then lists the transcript projects for a transcript and
+  reads at most its last 4 MiB (`src/transcript.rs`).
 - **A session that exited by itself leaves behind what ignores hangup**: once its command is
   reaped its pid can be reused, so harbour never signals its group again, and a background
   process that ignores hangup keeps running after its row is removed or harbour quits, as in any

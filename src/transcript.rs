@@ -9,7 +9,6 @@ const READ_AT_MOST: u64 = 4 * 1024 * 1024;
 pub struct Transcript {
     projects: PathBuf,
     id: String,
-    path: Option<PathBuf>,
 }
 
 #[derive(Deserialize)]
@@ -22,7 +21,6 @@ impl Transcript {
         Ok(Transcript {
             projects: projects.to_path_buf(),
             id: session_id()?,
-            path: None,
         })
     }
 
@@ -30,15 +28,23 @@ impl Transcript {
         &self.id
     }
 
-    pub fn directory(&mut self) -> Option<PathBuf> {
-        if self.path.is_none() {
-            self.path = self.find();
-        }
-        last_directory(self.path.as_ref()?)
+    pub fn directory(&self) -> Option<PathBuf> {
+        self.directory_of(&self.id)
     }
 
-    fn find(&self) -> Option<PathBuf> {
-        let name = format!("{}.jsonl", self.id);
+    pub fn directory_of(&self, id: &str) -> Option<PathBuf> {
+        last_directory(&self.find(id)?)
+    }
+
+    fn find(&self, id: &str) -> Option<PathBuf> {
+        let plain = !id.is_empty()
+            && id
+                .chars()
+                .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_');
+        if !plain {
+            return None;
+        }
+        let name = format!("{id}.jsonl");
         fs::read_dir(&self.projects)
             .ok()?
             .flatten()

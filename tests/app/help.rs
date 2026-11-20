@@ -30,7 +30,7 @@ fn question_mark_shows_the_editor_keys() {
         "{shown}"
     );
     assert!(
-        shown.contains("from the editor, Claude Code (Neovim: leftmost window, normal mode)"),
+        shown.contains("In Neovim, C-h goes back only from the leftmost window, in normal mode."),
         "{shown}"
     );
     assert!(shown.contains("the session and its editors"), "{shown}");
@@ -68,6 +68,37 @@ fn question_mark_explains_the_dots() {
     );
     let (x, y) = glyph_at(&shown, "◉ blocked");
     assert_eq!(screen.cell(x, y).fg, Color::Red);
+}
+
+#[test]
+fn the_whole_help_shows_on_an_80_by_24_terminal() {
+    let mut screen = Screen::new(reading_agent());
+    screen.resize(80, 24);
+
+    screen.press('?');
+
+    let shown = screen.draw();
+    assert!(
+        shown.contains("select the next / previous session"),
+        "{shown}"
+    );
+    assert!(shown.contains("status unknown"), "{shown}");
+    assert!(shown.contains("in normal mode."), "{shown}");
+    assert!(shown.contains("use Alt-Enter for a newline."), "{shown}");
+}
+
+#[test]
+fn the_whole_help_shows_on_a_20_row_terminal() {
+    let mut screen = Screen::new(reading_agent());
+
+    screen.press('?');
+
+    let shown = screen.draw();
+    assert!(
+        shown.contains("select the next / previous session"),
+        "{shown}"
+    );
+    assert!(shown.contains("use Alt-Enter for a newline."), "{shown}");
 }
 
 #[test]

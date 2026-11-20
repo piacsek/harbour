@@ -6,8 +6,10 @@ use ratatui::text::{Line, Span};
 use ratatui::widgets::{
     Block, BorderType, Clear, HighlightSpacing, List, ListState, Paragraph, Wrap,
 };
+use unicode_width::UnicodeWidthStr;
 
 use super::{App, HINT, NARROW, Question};
+use crate::editor::Changes;
 use crate::help;
 use crate::state;
 use crate::tabs;
@@ -35,10 +37,7 @@ impl App {
             summary.publish(counts);
         }
         let title = state::title(counts, usize::from(sidebar.width.saturating_sub(2)));
-        let mut sidebar_block = bordered(!self.pane_focused).title(title);
-        if let Some(question) = self.asking {
-            sidebar_block = sidebar_block.title_bottom(asked(question));
-        }
+        let sidebar_block = bordered(!self.pane_focused).title(title);
         let below_rows = sidebar_block.inner(sidebar);
         let mut pane_block = bordered(self.pane_focused);
         if let Some(tabs) = self.tabs(pane.width) {
@@ -72,7 +71,7 @@ impl App {
         let exited = self
             .sessions
             .get_mut(self.selected)
-            .is_some_and(|entry| entry.session.exit().is_some());
+            .is_some_and(|entry| !entry.on_editor && entry.session.exit().is_some());
         match self.sessions.get(self.selected) {
             None => {
                 let message = self.failed.as_deref().unwrap_or(HINT);
@@ -109,8 +108,12 @@ impl App {
                 }
             }
         }
+        let mut free = below_rows;
+        if let Some(question) = self.asking {
+            free = draw_bottom(frame, question_lines(question, below_rows.width), free);
+        }
         if let Some(failed) = &self.failed {
-            draw_failure(frame, failed, below_rows);
+            draw_bottom(frame, failure_lines(failed, free.width), free);
         }
         if self.helping {
             self.draw_help(frame);
@@ -161,7 +164,6 @@ impl App {
         let lines: Vec<Line> = keys
             .chain([Line::default()])
             .chain(state::legend())
-            .chain([Line::default()])
             .chain(notes)
             .collect();
         frame.render_widget(Clear, frame.area());
@@ -186,19 +188,43 @@ impl App {
     }
 }
 
-fn draw_failure(frame: &mut Frame, failed: &str, area: Rect) {
-    let width = usize::from(area.width.max(1));
+fn failure_lines(failed: &str, width: u16) -> Vec<Line<'static>> {
     let chars: Vec<char> = failed.chars().collect();
-    let lines: Vec<Line> = chars
-        .chunks(width)
+    chars
+        .chunks(usize::from(width.max(1)))
         .map(|chunk| Line::from(chunk.iter().collect::<String>()))
-        .collect();
+        .collect()
+}
+
+fn question_lines(question: Question, width: u16) -> Vec<Line<'static>> {
+    let width = usize::from(width);
+    let mut lines: Vec<String> = Vec::new();
+    for word in asked(question).split(' ') {
+        match lines.last_mut() {
+            Some(line) if line.width() + 1 + word.width() <= width => {
+                line.push(' ');
+                line.push_str(word);
+            }
+            _ => lines.push(word.to_string()),
+        }
+    }
+    lines
+        .into_iter()
+        .map(|line| Line::from(line).bold())
+        .collect()
+}
+
+fn draw_bottom(frame: &mut Frame, lines: Vec<Line<'static>>, area: Rect) -> Rect {
     let height = u16::try_from(lines.len())
         .unwrap_or(u16::MAX)
         .min(area.height);
     let bottom = Rect::new(area.x, area.bottom() - height, area.width, height);
     frame.render_widget(Clear, bottom);
     frame.render_widget(Paragraph::new(lines), bottom);
+    Rect {
+        height: area.height - height,
+        ..area
+    }
 }
 
 pub(super) fn exit_note(status: &ExitStatus) -> String {
@@ -224,10 +250,14 @@ pub(super) fn popup(area: Rect) -> Rect {
 }
 
 fn asked(question: Question) -> String {
-    let (unsaved, what) = match question {
-        Question::End { unsaved } => (unsaved, "End"),
-        Question::Quit { unsaved } => (unsaved, "Quit"),
+    let (changes, what) = match question {
+        Question::End(changes) => (changes, "End"),
+        Question::Quit(changes) => (changes, "Quit"),
     };
-    let lead = if unsaved { "Unsaved changes. " } else { "" };
-    format!(" {lead}{what}? y/n ")
+    let lead = match changes {
+        Changes::Saved => "",
+        Changes::Unknown => "May have unsaved changes. ",
+        Changes::Unsaved => "Unsaved changes. ",
+    };
+    format!("{lead}{what}? y/n")
 }

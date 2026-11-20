@@ -3,7 +3,7 @@ use std::fs::Permissions;
 use std::io;
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use tempfile::TempDir;
 
@@ -13,6 +13,10 @@ use crate::session::Session;
 const LEFTMOST_IN_NORMAL_MODE: &str = "mode() ==# 'n' && winnr('h') == winnr()";
 const UNSAVED: &str = "len(filter(getbufinfo({'bufmodified': 1}), \
                        {_, b -> getbufvar(b.bufnr, '&buftype') ==# ''}))";
+
+const SOCKET_PREFIX: &str = "harbour-nvim";
+const SOCKET_RANDOM: usize = 6;
+const LONGEST_SOCKET_PATH: usize = 103;
 
 pub struct Program {
     name: String,
@@ -82,9 +86,10 @@ impl Editor {
         let mut command = program.command.clone();
         let socket = if program.neovim {
             let private = tempfile::Builder::new()
-                .prefix("harbour-nvim")
+                .prefix(SOCKET_PREFIX)
+                .rand_bytes(SOCKET_RANDOM)
                 .permissions(Permissions::from_mode(0o700))
-                .tempdir()?;
+                .tempdir_in(socket_base(&std::env::temp_dir()))?;
             let path = private.path().join("socket");
             command.push("--listen".into());
             command.push(path.clone().into());
@@ -104,17 +109,58 @@ impl Editor {
     }
 
     pub fn wants_ctrl_h(&self) -> bool {
-        self.ask(LEFTMOST_IN_NORMAL_MODE) == Some(0)
+        match self.listening() {
+            Listening::Blocking => true,
+            Listening::Ready(socket, deadline) => {
+                nvim::eval(socket, LEFTMOST_IN_NORMAL_MODE, deadline) == Some(0)
+            }
+            Listening::No => false,
+        }
     }
 
-    pub fn unsaved(&self) -> bool {
-        self.ask(UNSAVED).is_some_and(|count| count > 0)
+    pub fn changes(&self) -> Changes {
+        let Listening::Ready(socket, deadline) = self.listening() else {
+            return Changes::Unknown;
+        };
+        match nvim::eval(socket, UNSAVED, deadline) {
+            Some(0) => Changes::Saved,
+            Some(_) => Changes::Unsaved,
+            None => Changes::Unknown,
+        }
     }
 
-    fn ask(&self, expression: &str) -> Option<i64> {
-        self.socket
-            .as_ref()
-            .and_then(|(path, _)| nvim::eval(path, expression, self.patience))
+    fn listening(&self) -> Listening<'_> {
+        let Some((socket, _)) = &self.socket else {
+            return Listening::No;
+        };
+        let deadline = Instant::now() + self.patience;
+        match nvim::blocking(socket, deadline) {
+            Some(true) => Listening::Blocking,
+            Some(false) => Listening::Ready(socket, deadline),
+            None => Listening::No,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum Changes {
+    Saved,
+    Unknown,
+    Unsaved,
+}
+
+enum Listening<'a> {
+    No,
+    Blocking,
+    Ready(&'a Path, Instant),
+}
+
+pub fn socket_base(temporary: &Path) -> PathBuf {
+    let socket = SOCKET_PREFIX.len() + SOCKET_RANDOM + "/socket".len() + 1;
+    if temporary.as_os_str().len() + socket <= LONGEST_SOCKET_PATH {
+        temporary.to_path_buf()
+    } else {
+        PathBuf::from("/tmp")
     }
 }
 

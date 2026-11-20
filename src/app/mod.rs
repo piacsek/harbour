@@ -10,7 +10,7 @@ mod draw;
 use draw::exit_note;
 
 use crate::demo;
-use crate::editor::{self, Editor, Program};
+use crate::editor::{self, Changes, Editor, Program};
 use crate::keys;
 use crate::mouse::{self, Gesture, Target};
 use crate::picker::{Pick, Picked, Picker};
@@ -51,8 +51,8 @@ pub struct App {
 
 #[derive(Clone, Copy, PartialEq)]
 enum Question {
-    End { unsaved: bool },
-    Quit { unsaved: bool },
+    End(Changes),
+    Quit(Changes),
 }
 
 struct Entry {
@@ -313,12 +313,7 @@ impl App {
         let Some(entry) = self.sessions.get_mut(self.selected) else {
             return;
         };
-        let at = entry
-            .transcript
-            .as_mut()
-            .and_then(Transcript::directory)
-            .unwrap_or_else(|| entry.directory.clone());
-        let directory = editor::root(&at);
+        let directory = editor::root(&where_claude_code_is(entry, self.registry.as_deref()));
         if let Some(index) = entry
             .editors
             .iter()
@@ -376,8 +371,8 @@ impl App {
             return;
         };
         if entry.running() {
-            let unsaved = entry.editors.iter().any(Editor::unsaved);
-            self.asking = Some(Question::End { unsaved });
+            let changes = changes(&entry.editors);
+            self.asking = Some(Question::End(changes));
         } else {
             self.remove_selected();
         }
@@ -385,12 +380,8 @@ impl App {
 
     fn quit(&mut self) {
         if self.sessions.iter_mut().any(Entry::running) {
-            let unsaved = self
-                .sessions
-                .iter()
-                .flat_map(|entry| &entry.editors)
-                .any(Editor::unsaved);
-            self.asking = Some(Question::Quit { unsaved });
+            let changes = changes(self.sessions.iter().flat_map(|entry| &entry.editors));
+            self.asking = Some(Question::Quit(changes));
         } else {
             self.quitting = true;
         }
@@ -398,7 +389,7 @@ impl App {
 
     fn answer_yes(&mut self, question: Question) {
         match question {
-            Question::End { .. } => {
+            Question::End(_) => {
                 let Some(entry) = self.sessions.get_mut(self.selected) else {
                     return;
                 };
@@ -411,7 +402,7 @@ impl App {
                     self.remove_selected();
                 }
             }
-            Question::Quit { .. } => self.quitting = true,
+            Question::Quit(_) => self.quitting = true,
         }
     }
 
@@ -522,6 +513,30 @@ impl Drop for App {
     fn drop(&mut self) {
         session::end_all(self.sessions.iter_mut().flat_map(Entry::sessions));
     }
+}
+
+fn where_claude_code_is(entry: &mut Entry, registry: Option<&Path>) -> PathBuf {
+    let running = entry.session.exit().is_none();
+    let place = registry
+        .filter(|_| running)
+        .zip(entry.session.pid())
+        .and_then(|(dir, pid)| registry::place(dir, pid, entry.started_at));
+    let transcript = entry.transcript.as_ref();
+    let (session_id, cwd) = place.map_or((None, None), |place| (place.session_id, place.cwd));
+    session_id
+        .zip(transcript)
+        .and_then(|(id, transcript)| transcript.directory_of(&id))
+        .or(cwd)
+        .or_else(|| transcript.and_then(Transcript::directory))
+        .unwrap_or_else(|| entry.directory.clone())
+}
+
+fn changes<'a>(editors: impl IntoIterator<Item = &'a Editor>) -> Changes {
+    editors
+        .into_iter()
+        .map(Editor::changes)
+        .max()
+        .unwrap_or(Changes::Saved)
 }
 
 fn is_ctrl(key: KeyEvent, c: char) -> bool {

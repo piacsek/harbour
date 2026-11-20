@@ -7,14 +7,27 @@ use rmpv::Value;
 
 pub const PATIENCE: Duration = Duration::from_millis(100);
 
-pub fn eval(socket: &Path, expression: &str, patience: Duration) -> Option<i64> {
-    let deadline = Instant::now() + patience;
+pub fn blocking(socket: &Path, deadline: Instant) -> Option<bool> {
+    let mode = request(socket, "nvim_get_mode", Vec::new(), deadline)?;
+    mode.as_map()?
+        .iter()
+        .find(|(key, _)| key.as_str() == Some("blocking"))?
+        .1
+        .as_bool()
+}
+
+pub fn eval(socket: &Path, expression: &str, deadline: Instant) -> Option<i64> {
+    request(socket, "nvim_eval", vec![Value::from(expression)], deadline)?.as_i64()
+}
+
+fn request(socket: &Path, method: &str, arguments: Vec<Value>, deadline: Instant) -> Option<Value> {
+    let patience = deadline.checked_duration_since(Instant::now())?;
     let mut stream = UnixStream::connect(socket).ok()?;
     let request = Value::Array(vec![
         Value::from(0),
         Value::from(1),
-        Value::from("nvim_eval"),
-        Value::Array(vec![Value::from(expression)]),
+        Value::from(method),
+        Value::Array(arguments),
     ]);
     let mut bytes = Vec::new();
     rmpv::encode::write_value(&mut bytes, &request).ok()?;
@@ -23,7 +36,7 @@ pub fn eval(socket: &Path, expression: &str, patience: Duration) -> Option<i64> 
     let reply = read_reply(&mut stream, deadline)?;
     match reply.as_array()?.as_slice() {
         [kind, id, Value::Nil, result] if kind.as_i64() == Some(1) && id.as_i64() == Some(1) => {
-            result.as_i64()
+            Some(result.clone())
         }
         _ => None,
     }

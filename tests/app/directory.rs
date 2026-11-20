@@ -202,6 +202,53 @@ fn a_directory_that_is_gone_is_named_and_nothing_walks_up_to_its_repository() {
     assert!(!shown.contains("acme editor at"), "{shown}");
 }
 
+#[test]
+fn after_claude_code_changes_its_session_the_editor_follows_the_transcript_the_registry_names() {
+    let scratch = tempfile::tempdir().unwrap();
+    let one = repository(scratch.path(), "acme-one");
+    let two = repository(scratch.path(), "acme-two");
+    let mut screen = following(scratch.path(), &[&cwd(&one)]);
+    screen.key(KeyCode::Char('l'), KeyModifiers::CONTROL);
+    screen.wait_for("acme editor at acme-one");
+    screen.key(KeyCode::Char('h'), KeyModifiers::CONTROL);
+    write_registry(scratch.path(), "acme-cleared", &one);
+    write_named_transcript(scratch.path(), "acme-cleared", &[&cwd(&two)]);
+
+    screen.key(KeyCode::Char('l'), KeyModifiers::CONTROL);
+
+    let shown = screen.wait_for("acme editor at acme-two");
+    assert!(shown.contains("acme editor at acme-two"), "{shown}");
+}
+
+#[test]
+fn the_registry_names_the_directory_while_its_session_has_no_transcript() {
+    let scratch = tempfile::tempdir().unwrap();
+    let one = repository(scratch.path(), "acme-one");
+    let two = repository(scratch.path(), "acme-two");
+    let mut screen = following(scratch.path(), &[&cwd(&one)]);
+    write_registry(scratch.path(), "acme-fresh", &folder(&two, "src"));
+
+    screen.key(KeyCode::Char('l'), KeyModifiers::CONTROL);
+
+    let shown = screen.wait_for("acme editor at");
+    assert!(shown.contains("acme editor at acme-two"), "{shown}");
+}
+
+#[test]
+fn a_session_id_that_is_not_a_plain_name_is_not_looked_up() {
+    let scratch = tempfile::tempdir().unwrap();
+    let one = repository(scratch.path(), "acme-one");
+    let two = repository(scratch.path(), "acme-two");
+    let mut screen = following(scratch.path(), &[]);
+    write_registry(scratch.path(), "../acme-elsewhere", &one);
+    write_named_transcript(scratch.path(), "../acme-elsewhere", &[&cwd(&two)]);
+
+    screen.key(KeyCode::Char('l'), KeyModifiers::CONTROL);
+
+    let shown = screen.wait_for("acme editor at");
+    assert!(shown.contains("acme editor at acme-one"), "{shown}");
+}
+
 fn started_in(directory: &Path, agent: Vec<String>) -> Screen {
     let mut screen = Screen {
         app: App::new(agent)
@@ -241,7 +288,8 @@ fn following(scratch: &Path, lines: &[&str]) -> Screen {
         app: App::new(recording_agent(scratch))
             .with_editor(locating_editor())
             .with_picker(choosing(&start))
-            .with_transcripts(scratch.join("projects")),
+            .with_transcripts(scratch.join("projects"))
+            .with_registry(folder(scratch, "sessions")),
         terminal: Terminal::new(TestBackend::new(200, 20)).unwrap(),
     };
     screen.draw();
@@ -254,14 +302,19 @@ fn following(scratch: &Path, lines: &[&str]) -> Screen {
 
 fn recording_agent(scratch: &Path) -> Vec<String> {
     script(&format!(
-        "printf '%s %s' \"$0\" \"$1\" > '{}/args'; echo 'acme agent ready'; exec sleep 600",
-        scratch.display()
+        "printf '%s %s' \"$0\" \"$1\" > '{scratch}/args'; echo $$ > '{scratch}/pid'; \
+         echo 'acme agent ready'; exec sleep 600",
+        scratch = scratch.display()
     ))
 }
 
 fn write_transcript(scratch: &Path, lines: &[&str]) {
     let args = fs::read_to_string(scratch.join("args")).unwrap();
     let id = args.split_once(' ').unwrap().1;
+    write_named_transcript(scratch, id, lines);
+}
+
+fn write_named_transcript(scratch: &Path, id: &str, lines: &[&str]) {
     let project = folder(scratch, "projects/-acme-start");
     let mut text = lines.join("\n");
     text.push('\n');
@@ -276,4 +329,18 @@ fn repository(scratch: &Path, name: &str) -> PathBuf {
     let repository = folder(scratch, name);
     fs::create_dir_all(repository.join(".git")).unwrap();
     repository
+}
+
+fn write_registry(scratch: &Path, id: &str, directory: &Path) {
+    let pid = fs::read_to_string(scratch.join("pid")).unwrap();
+    let record = format!(
+        "{{\"pid\":{},\"sessionId\":\"{id}\",\"cwd\":\"{}\",\"status\":\"idle\"}}",
+        pid.trim(),
+        directory.display()
+    );
+    fs::write(
+        scratch.join(format!("sessions/{}.json", pid.trim())),
+        record,
+    )
+    .unwrap();
 }
