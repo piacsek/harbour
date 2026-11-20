@@ -20,6 +20,7 @@ pub struct Pick {
 }
 
 pub enum Picked {
+    Cancelled,
     Chosen(PathBuf),
 }
 
@@ -54,9 +55,13 @@ impl Pick {
     }
 
     pub fn picked(&mut self) -> Option<Picked> {
-        self.session.exit()?;
+        if !self.session.exit()?.success() {
+            return Some(Picked::Cancelled);
+        }
         let printed = fs::read_to_string(&self.output).unwrap_or_default();
-        let line = printed.lines().next().unwrap_or_default();
-        Some(Picked::Chosen(self.from.join(line)))
+        match printed.lines().next() {
+            None | Some("") => Some(Picked::Cancelled),
+            Some(line) => Some(Picked::Chosen(self.from.join(line))),
+        }
     }
 }

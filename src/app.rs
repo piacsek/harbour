@@ -241,6 +241,7 @@ impl App {
         };
         self.picking = None;
         match picked {
+            Picked::Cancelled => {}
             Picked::Chosen(directory) => self.start_in(&self.command.clone(), &directory),
         }
     }
