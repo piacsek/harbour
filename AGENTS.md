@@ -47,7 +47,7 @@ src/main.rs      the binary: `--version`/`-V`/`version`, `--help`/`-h`/`help`, `
 src/lib.rs                    the library the binary and the tests share
 src/tui.rs                    the terminal: enters and restores it, reads its events, draws the app; the program a session runs (`claude`, or what `HARBOUR_SESSION_COMMAND` names)
 src/app.rs                    the app: what is on screen and what each key does
-src/session.rs                a session: a command in a PTY, its output parsed into a screen that renders as a widget, its terminal queries answered, its exit status, its screen never under 2 rows (vt100 panics on a wrap in 1); ending it (or dropping it) hangs it up, then kills it
+src/session.rs                a session: a command in a PTY, its output parsed into a screen that renders as a widget, its terminal queries answered, its exit status, its screen never under 2 rows or 2 columns (vt100 panics below that); writes go through a writer thread so a child that does not read never blocks the interface; ending it (or dropping it) hangs up its whole process group, then kills it, only while the child is unreaped
 src/demo.rs                   the made-up sessions of `--demo`: `acme/*` scripts, never real data
 src/help.rs                   what the help view shows: `KEYS`, which the README key table mirrors, and the tmux pattern
 src/keys.rs                   the bytes a terminal sends for a key (legacy encoding) or a mouse event (SGR), which a session receives

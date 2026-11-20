@@ -65,6 +65,62 @@ fn a_command_that_cannot_start_adds_no_row_and_names_the_command() {
 }
 
 #[test]
+fn a_command_that_cannot_start_is_named_while_other_sessions_run() {
+    let scratch = tempfile::tempdir().unwrap();
+    let agent = scratch.path().join("acme-agent");
+    std::os::unix::fs::symlink("/bin/sh", &agent).unwrap();
+    let mut screen = Screen::new(vec![agent.to_string_lossy().into_owned()]);
+    screen.press('n');
+    screen.wait_for(&format!("{} 1", directory()));
+    std::fs::remove_file(&agent).unwrap();
+
+    screen.press('n');
+
+    let shown = screen.draw();
+    assert!(shown.contains("Could not start"), "{shown}");
+}
+
+#[test]
+fn a_command_that_cannot_start_is_named_on_a_narrow_terminal() {
+    let mut screen = Screen::new(vec!["acme-agent-missing".to_string()]);
+    screen.resize(50, 20);
+
+    screen.press('n');
+
+    let shown = screen.draw();
+    assert!(shown.contains("Could not start"), "{shown}");
+}
+
+#[test]
+fn a_start_that_works_clears_the_failure() {
+    let scratch = tempfile::tempdir().unwrap();
+    let agent = scratch.path().join("acme-agent");
+    let mut screen = Screen::new(vec![agent.to_string_lossy().into_owned()]);
+    screen.press('n');
+    std::os::unix::fs::symlink("/bin/sh", &agent).unwrap();
+
+    screen.press('n');
+
+    let shown = screen.wait_for(&format!("{} 1", directory()));
+    assert!(!shown.contains("Could not start"), "{shown}");
+}
+
+#[test]
+fn a_command_that_cannot_start_names_the_cause() {
+    let scratch = tempfile::tempdir().unwrap();
+    let agent = scratch.path().join("acme-agent");
+    std::fs::write(&agent, "not a program").unwrap();
+    let mut screen = Screen::new(vec![agent.to_string_lossy().into_owned()]);
+    screen.resize(400, 20);
+
+    screen.press('n');
+
+    let shown = screen.draw();
+    assert!(shown.contains("not executable"), "{shown}");
+    assert!(!shown.contains("PATH"), "{shown}");
+}
+
+#[test]
 fn a_session_that_exits_while_its_pane_has_focus_still_lets_ctrl_h_back() {
     let mut screen = Screen::new(script("read -r line; exit 0"));
     screen.press('n');

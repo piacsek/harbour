@@ -1,4 +1,6 @@
-use crate::{Screen, directory, reading_agent, script};
+use crossterm::event::{KeyCode, KeyModifiers, MouseButton, MouseEventKind};
+
+use crate::{Screen, directory, raw_agent, reading_agent, script};
 
 #[test]
 fn x_on_a_running_session_asks_before_ending_it() {
@@ -98,4 +100,21 @@ fn y_to_the_quit_question_quits() {
     screen.press('y');
 
     assert!(!screen.app.running());
+}
+
+#[test]
+fn a_click_in_the_pane_cancels_the_question_and_does_not_focus_the_pane() {
+    let mut screen = Screen::new(raw_agent("", 1));
+    screen.press('n');
+    screen.wait_for("acme agent ready");
+    screen.press('x');
+
+    screen.mouse(MouseEventKind::Down(MouseButton::Left), 45, 3);
+    screen.press('z');
+    screen.key(KeyCode::Enter, KeyModifiers::NONE);
+    screen.press('w');
+
+    let shown = screen.wait_for("acme agent read:");
+    assert!(shown.contains("acme agent read:w"), "{shown}");
+    assert!(!shown.contains("y/n"), "{shown}");
 }

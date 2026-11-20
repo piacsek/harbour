@@ -82,7 +82,7 @@ hand in Ghostty inside tmux 3.7c, with Claude Code 2.1.328. The spike is not in 
 | State | Sidebar row | Pane | `Ctrl-l` | `Ctrl-h` | `x` |
 | --- | --- | --- | --- | --- | --- |
 | No session yet | empty, a hint to press `n` | the same hint | nothing | nothing | nothing |
-| The command cannot start (not on `PATH`) | no row added | the error, naming the command | as before | as before | as before |
+| The command cannot start (not on `PATH`, not executable) | no row added | the error, naming the command and the cause, at the bottom of the sidebar until a start works; also in the pane when no session is left | as before | as before | as before |
 | Running | filled dot, name | the live terminal | focuses the pane | focuses the sidebar | ends it after a yes |
 | Exited with 0 | hollow dot, name, "exited" | its last screen, dimmed | focuses the pane | focuses the sidebar | removes the row |
 | Exited with another code or a signal | hollow dot, name, "exited" and the code or signal | its last screen, dimmed | focuses the pane | focuses the sidebar | removes the row |

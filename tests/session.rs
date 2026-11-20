@@ -1,5 +1,6 @@
 use std::process::Command;
-use std::thread::sleep;
+use std::sync::mpsc;
+use std::thread::{self, sleep};
 use std::time::{Duration, Instant};
 
 use harbour::session::Session;
@@ -151,6 +152,35 @@ fn a_session_resized_to_one_row_survives_a_wrapped_line() {
 }
 
 #[test]
+fn a_session_started_one_column_wide_survives_a_wide_character() {
+    let command = [
+        "/bin/sh".to_string(),
+        "-c".into(),
+        "printf '\\344\\270\\226'; echo; sleep 1; echo ready; sleep 5".into(),
+    ];
+    let mut session = Session::start(&command, 10, 1).unwrap();
+    sleep(Duration::from_millis(300));
+
+    session.resize(ROWS, COLS);
+
+    let screen = wait_for(&session, "ready");
+    assert!(screen.contains("ready"), "{screen}");
+}
+
+#[test]
+fn a_session_resized_to_one_column_survives_a_wide_character() {
+    let mut session =
+        start("sleep 0.3; printf '\\344\\270\\226'; echo; sleep 1; echo ready; sleep 5");
+    session.resize(ROWS, 1);
+    sleep(Duration::from_millis(600));
+
+    session.resize(ROWS, COLS);
+
+    let screen = wait_for(&session, "ready");
+    assert!(screen.contains("ready"), "{screen}");
+}
+
+#[test]
 fn dropping_a_session_ends_a_command_that_ignores_hangup() {
     let session = start("trap '' HUP; echo \"pid:$$\"; while :; do sleep 1; done");
     let pid = pid_shown(&session);
@@ -168,6 +198,40 @@ fn dropping_a_session_ends_what_its_command_started() {
     drop(session);
 
     assert!(!still_alive_after_a_while(&pid), "{pid} is still running");
+}
+
+#[test]
+fn ending_a_session_ends_what_its_command_started_even_when_it_ignores_hangup() {
+    let mut session = start("(trap '' HUP; exec sleep 7771) & echo \"pid:$!\"; wait");
+    let pid = pid_shown(&session);
+
+    session.end();
+
+    assert!(!still_alive_after_a_while(&pid), "{pid} is still running");
+}
+
+#[test]
+fn dropping_a_session_ends_what_its_command_started_even_when_it_ignores_hangup() {
+    let session = start("(trap '' HUP; exec sleep 7772) & echo \"pid:$!\"; wait");
+    let pid = pid_shown(&session);
+
+    drop(session);
+
+    assert!(!still_alive_after_a_while(&pid), "{pid} is still running");
+}
+
+#[test]
+fn a_large_paste_into_a_command_that_does_not_read_returns_at_once() {
+    let session = start("stty raw -echo; echo raw; exec sleep 600");
+    wait_for(&session, "raw");
+    let (done, finished) = mpsc::channel();
+
+    thread::spawn(move || {
+        session.paste(&"acme ".repeat(20_000));
+        let _ = done.send(session.application_cursor());
+    });
+
+    assert!(finished.recv_timeout(Duration::from_secs(2)).is_ok());
 }
 
 fn replied(query: &str, length: usize) -> String {

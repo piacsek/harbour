@@ -82,22 +82,15 @@ impl App {
     }
 
     pub fn key(&mut self, key: KeyEvent) {
+        if self.dismiss(key.code == KeyCode::Char('y')) {
+            return;
+        }
         if self.pane_focused && is_ctrl(key, 'h') {
             self.pane_focused = false;
             return;
         }
         if let Some(session) = self.focused() {
             session.send(&keys::encode(key, session.application_cursor()));
-            return;
-        }
-        if self.helping {
-            self.helping = false;
-            return;
-        }
-        if let Some(question) = self.asking.take() {
-            if key.code == KeyCode::Char('y') {
-                self.answer_yes(question);
-            }
             return;
         }
         match key.code {
@@ -116,12 +109,21 @@ impl App {
     }
 
     pub fn paste(&mut self, text: &str) {
+        if self.dismiss(false) {
+            return;
+        }
         if let Some(session) = self.focused() {
             session.paste(text);
         }
     }
 
     pub fn mouse(&mut self, event: MouseEvent) {
+        if self.helping || self.asking.is_some() {
+            if matches!(event.kind, MouseEventKind::Down(_)) {
+                self.dismiss(false);
+            }
+            return;
+        }
         let at = Position::new(event.column, event.row);
         let pane = self.shown_pane;
         if matches!(event.kind, MouseEventKind::Down(_)) {
@@ -138,6 +140,20 @@ impl App {
                 .session
                 .mouse(event.kind, event.column - pane.x, event.row - pane.y);
         }
+    }
+
+    fn dismiss(&mut self, yes: bool) -> bool {
+        if self.helping {
+            self.helping = false;
+            return true;
+        }
+        let Some(question) = self.asking.take() else {
+            return false;
+        };
+        if yes {
+            self.answer_yes(question);
+        }
+        true
     }
 
     fn focused(&self) -> Option<&Session> {
@@ -189,6 +205,7 @@ impl App {
     fn start_with(&mut self, command: &[String]) {
         match Session::start(command, self.pane.height, self.pane.width) {
             Ok(session) => {
+                self.failed = None;
                 self.started += 1;
                 self.sessions.push(Entry {
                     name: format!("{} {}", self.directory, self.started),
@@ -196,9 +213,9 @@ impl App {
                 });
                 self.selected = self.sessions.len() - 1;
             }
-            Err(_) => {
+            Err(error) => {
                 self.failed = Some(format!(
-                    "Could not start {}: is it installed and on PATH?",
+                    "Could not start {}: {error}",
                     command.first().map_or("", String::as_str)
                 ))
             }
@@ -216,6 +233,7 @@ impl App {
             Some(Question::Quit) => sidebar_block = sidebar_block.title_bottom(" Quit? y/n "),
             None => {}
         }
+        let below_rows = sidebar_block.inner(sidebar);
         let pane_block = Block::bordered().border_type(border(self.pane_focused));
         self.pane = pane_block.inner(if pane.is_empty() { frame.area() } else { pane });
         self.shown_pane = if pane.is_empty() {
@@ -261,6 +279,9 @@ impl App {
                 }
             }
         }
+        if let Some(failed) = &self.failed {
+            draw_failure(frame, failed, below_rows);
+        }
         if self.helping {
             self.draw_help(frame);
         }
@@ -292,6 +313,21 @@ impl App {
             (area, Rect::default())
         }
     }
+}
+
+fn draw_failure(frame: &mut Frame, failed: &str, area: Rect) {
+    let width = usize::from(area.width.max(1));
+    let chars: Vec<char> = failed.chars().collect();
+    let lines: Vec<Line> = chars
+        .chunks(width)
+        .map(|chunk| Line::from(chunk.iter().collect::<String>()))
+        .collect();
+    let height = u16::try_from(lines.len())
+        .unwrap_or(u16::MAX)
+        .min(area.height);
+    let bottom = Rect::new(area.x, area.bottom() - height, area.width, height);
+    frame.render_widget(Clear, bottom);
+    frame.render_widget(Paragraph::new(lines), bottom);
 }
 
 fn exit_note(status: &ExitStatus) -> String {

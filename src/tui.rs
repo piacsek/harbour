@@ -21,11 +21,20 @@ pub fn demo() -> io::Result<()> {
 
 fn show(app: App) -> io::Result<()> {
     let mut terminal = ratatui::init();
+    let restore_terminal = std::panic::take_hook();
+    std::panic::set_hook(Box::new(move |info| {
+        let _ = leave_terminal(&mut io::stdout());
+        restore_terminal(info);
+    }));
     let result = execute!(io::stdout(), EnableBracketedPaste, EnableMouseCapture)
         .and_then(|()| drive(&mut terminal, app));
-    let _ = execute!(io::stdout(), DisableMouseCapture, DisableBracketedPaste);
+    let _ = leave_terminal(&mut io::stdout());
     ratatui::restore();
     result
+}
+
+pub fn leave_terminal(out: &mut impl io::Write) -> io::Result<()> {
+    execute!(out, DisableMouseCapture, DisableBracketedPaste)
 }
 
 fn drive(terminal: &mut ratatui::DefaultTerminal, mut app: App) -> io::Result<()> {
