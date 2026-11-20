@@ -84,7 +84,7 @@ machine; no `claude` was started, and nothing below quotes a value.
 | many remembered sessions | the sidebar scrolls as today; `j`/`k` reach every card | app |
 | narrowest sidebar (60 columns, 18 inside) and narrow layout (under 60) | line 2's `directory gone`, `open elsewhere` and `stopped` are cut by `src/text.rs`; a CJK title fits | app |
 | a title or directory holding control characters, bidi marks or a CJK name | cleaned and cut by `src/text.rs` like any card | app |
-| `q` with a running session | `Quit? y/n` as today, and a line above it saying sessions come back stopped | app |
+| `q` with a running session | `Quit? y/n` as today, and, when harbour remembers sessions, a dim line above it: `Conversations come back stopped.` (a session that wrote no transcript has no conversation, so the line holds for it too) | app |
 | `q` with only stopped cards | quits at once, as with only exited sessions today | app |
 | counts in the sidebar title and `harbour status` | a card that never ran in this harbour counts nowhere, so a session open in another harbour is not counted twice; an exited one counts as today | app |
 | the directory picker, the mouse | unchanged; a click in the pane of a card with no process does not focus the pane | app |

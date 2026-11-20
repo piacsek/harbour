@@ -12,6 +12,7 @@ mod refusing;
 mod remembering;
 mod selection;
 mod status;
+mod stopping;
 mod transcripts;
 
 use std::path::{Path, PathBuf};

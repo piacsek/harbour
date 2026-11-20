@@ -251,7 +251,7 @@ impl App {
             if self.sidebar.contains(at) {
                 self.pane_focused = false;
             } else if self.shown_pane.contains(at) {
-                self.pane_focused = !self.sessions.is_empty();
+                self.pane_focused = self.has_process();
             }
         }
         let shown = self
@@ -484,6 +484,7 @@ impl App {
             self.sessions
                 .iter()
                 .zip(&notes)
+                .filter(|(entry, _)| entry.session.is_some())
                 .map(|(entry, note)| (note.is_some(), entry.record.as_ref())),
         );
         if let Some(summary) = &mut self.summary {
@@ -551,6 +552,7 @@ impl App {
                 frame.render_widget(sidebar_block, sidebar);
                 self.cards
                     .draw(&cards, self.selected, below_rows, frame.buffer_mut());
+                self.note_quit(below_rows, frame.buffer_mut());
                 if !pane.is_empty() {
                     match &shown.session {
                         Some(session) => {

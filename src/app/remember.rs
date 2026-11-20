@@ -1,11 +1,17 @@
 use std::collections::HashSet;
 use std::time::SystemTime;
 
-use super::{App, Entry, refusal};
+use ratatui::buffer::Buffer;
+use ratatui::layout::Rect;
+use ratatui::style::{Modifier, Style};
+use ratatui::widgets::{Clear, Paragraph, Widget};
+
+use super::{App, Entry, Question, refusal};
 use crate::memory::{Memory, Remembered};
 use crate::registry;
 use crate::repo;
 use crate::session::Session;
+use crate::text::fit;
 use crate::transcript::Transcript;
 
 pub(super) const STOPPED: &str = "stopped";
@@ -14,6 +20,7 @@ const DIRECTORY_GONE: &str = "directory gone";
 const ELSEWHERE: &str = "open elsewhere";
 const GONE: &str = "This conversation is gone: Claude Code no longer has it.";
 const HELD: &str = "This conversation is open elsewhere: close it there first.";
+const COME_BACK: &str = "Conversations come back stopped.";
 
 impl App {
     pub fn with_memory(mut self, memory: Memory) -> App {
@@ -164,6 +171,28 @@ impl App {
         {
             memory.forget(id);
         }
+    }
+
+    pub(super) fn has_process(&self) -> bool {
+        self.sessions
+            .get(self.selected)
+            .is_some_and(|entry| entry.session.is_some())
+    }
+
+    pub(super) fn note_quit(&self, area: Rect, buffer: &mut Buffer) {
+        if self.memory.is_none() || !matches!(self.asking, Some(Question::Quit)) || area.is_empty()
+        {
+            return;
+        }
+        let row = Rect {
+            y: area.bottom() - 1,
+            height: 1,
+            ..area
+        };
+        Clear.render(row, buffer);
+        Paragraph::new(fit(COME_BACK, usize::from(row.width)))
+            .style(Style::default().add_modifier(Modifier::DIM))
+            .render(row, buffer);
     }
 
     fn transcript_exists(&self, id: &str) -> bool {
