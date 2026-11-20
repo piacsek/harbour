@@ -54,7 +54,8 @@ session's last seen directory), so a tmux split and `Ctrl-l` agree:
 | A relative `HARBOUR_EDITOR` | resolved against the editor's directory, as before; unchanged |
 | A relative `HARBOUR_DIR_PICKER` | checked and run from where harbour was opened, as before (`Pick::open` gets `home`) |
 | A relative `CLAUDE_CONFIG_DIR` (or the registry and transcripts under it) | made absolute at start, before harbour moves |
-| A relative `TMPDIR` (the picker's scratch directory, Neovim's socket, the demo's registry) | read once at start and made absolute; the picker and the editor are handed it |
+| A relative `TMPDIR` (the picker's scratch directory, Neovim's socket) | read once at start and made absolute; the picker and the editor are handed it |
+| The demo's registry under a relative `TMPDIR` | already absolute: `tempfile` joins a relative parent to the working directory when it creates it, before harbour moves |
 | A relative `XDG_STATE_HOME` | already ignored: the summary file needs an absolute one |
 | A relative `HOME` | not supported: POSIX `HOME` is absolute; nothing new reads it relative |
 | Child processes inheriting the directory | every spawn sets its directory (`Session::start` sets `cwd` and `PWD`) |
@@ -71,6 +72,13 @@ session's last seen directory), so a tmux split and `Ctrl-l` agree:
 - An exited session keeps the directory it was last seen in, the same rule as its editor.
 - Harbour holds the selected session's directory open like any shell does, so it can keep a
   volume busy while selected.
+- A relative `CLAUDE_CONFIG_DIR` is read from where harbour was opened, as before this phase;
+  sessions still inherit it unchanged, so a Claude Code started elsewhere reads it from its own
+  directory, as it always did.
+- tmux reports the directory of the pane's foreground process group leader. Started from an
+  interactive shell, or as the pane's own command, that is harbour. Started by a script without
+  job control (`sh -c 'harbour; read'`), it is the script, and the pane's directory does not
+  follow: nothing in harbour can change that, so it is left as is.
 
 ## Tasks
 
@@ -87,4 +95,19 @@ session's last seen directory), so a tmux split and `Ctrl-l` agree:
 
 ## Outcome
 
+- Harbour moves its own working directory to where the selected session works (`src/follow.rs`,
+  called at each frame from `draw`), so a tmux split, window or popup opened at
+  `#{pane_current_path}` opens there. In-process tests hand the app a recording move
+  (`tests/app/moving.rs`, one test per row of the table); only the terminal interface hands it
+  the real `chdir`, proven in `tests/e2e/moving.rs` by reading `#{pane_current_path}`.
+- A relative `CLAUDE_CONFIG_DIR` (registry and transcripts) and a relative `TMPDIR` (the
+  picker's scratch directory and Neovim's socket) are made absolute at start; each has an
+  end-to-end test that failed before the fix.
+- The README now says "the directory harbour was opened in" where it said "the current
+  directory", which now moves.
+- Nothing visible changed on screen; the screenshots are unchanged.
+
 ## Hurdles
+
+- `test-seam` The e2e launcher runs harbour under a non-interactive `sh -c`, so tmux reported the shell's directory and the first end-to-end tests stayed red with the move wired in; harbour now runs as the pane's own process in those tests (`Server::exec`) → rule in `tests/AGENTS.md`
+- `design` The plan listed the demo's registry under a relative `TMPDIR` as broken by the move; its test would not go red, because `tempfile` already makes a relative parent absolute when it creates the directory, so that change was dropped → none
