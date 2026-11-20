@@ -160,3 +160,4 @@ One red-green-refactor cycle each, shipped with `scripts/ship.sh`.
 - `tooling` The demo stamped `statusUpdatedAt` with `date`, which the e2e tests' restricted `PATH` lacks; the time is now computed in Rust → code
 - `test-seam` `n` in the demo started another titled session and broke the picker e2e test's numbering → code
 - `tooling` The screenshots raced the first registry read (every card unknown) and fzf's first draw (an empty picker); the script now polls for the text each shot needs → code
+- `ci` A narrow-sidebar test cut the session's name, taken from the checkout's folder: the worktree's long name was cut locally, CI's `harbour` fitted, so `check` failed from task 4 on unnoticed until step 4; the test now names its own directory through the picker → code

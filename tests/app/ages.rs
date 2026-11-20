@@ -3,6 +3,7 @@ use std::thread::sleep;
 use std::time::Duration;
 
 use harbour::app::App;
+use harbour::picker::Picker;
 
 use crate::status::{showing, watching, written};
 use crate::{directory, script};
@@ -65,8 +66,16 @@ fn an_exited_session_shows_the_time_since_harbour_saw_it_exit() {
 #[test]
 fn the_narrowest_sidebar_keeps_the_age_and_cuts_the_title() {
     let registry = tempfile::tempdir().unwrap();
+    let scratch = tempfile::tempdir().unwrap();
+    let long = scratch.path().join("acme-a-repository-with-a-long-name");
+    std::fs::create_dir(&long).unwrap();
     let mut screen = showing(
-        App::new(since(registry.path(), "busy", 180)).with_registry(registry.path().into()),
+        App::new(since(registry.path(), "busy", 180))
+            .with_picker(Picker::Command(script(&format!(
+                "printf '%s\\n' '{}'",
+                long.display()
+            ))))
+            .with_registry(registry.path().into()),
     );
     screen.resize(60, 20);
     screen.press('n');
@@ -74,6 +83,7 @@ fn the_narrowest_sidebar_keeps_the_age_and_cuts_the_title() {
     let shown = screen.wait_for(" 3m");
 
     let line = first_line(&shown);
+    assert!(line.starts_with("● acme-a-"), "{shown}");
     assert!(line.contains('…'), "{shown}");
     assert!(line.ends_with(" 3m"), "{shown}");
 }
