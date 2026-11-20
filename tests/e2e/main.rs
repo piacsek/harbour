@@ -3,10 +3,11 @@ use std::process::Command;
 use std::thread::sleep;
 use std::time::{Duration, Instant};
 
-use harbour::tui::SESSION_COMMAND;
+use harbour::tui::{DIR_PICKER, SESSION_COMMAND};
 
 const AGENT: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/agent.sh");
 const RAW_AGENT: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/raw-agent.sh");
+const PICKER: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/picker.sh");
 
 #[test]
 #[ignore]
@@ -60,6 +61,29 @@ fn n_starts_a_session_named_after_the_directory_and_shows_it() {
     let screen = server.wait_for_screen_all(&["acme agent in acme-api", "acme-api 1"]);
     assert!(screen.contains("acme agent in acme-api"), "{screen}");
     assert!(screen.contains("acme-api 1"), "{screen}");
+}
+
+#[test]
+#[ignore]
+fn n_runs_the_dir_picker_and_starts_the_session_in_the_directory_it_prints() {
+    let home = tempfile::tempdir().unwrap();
+    let web = home.path().join("acme-web");
+    std::fs::create_dir(&web).unwrap();
+    let server = Server::start("picker", 160, 20);
+    server.run(
+        home.path(),
+        &[(SESSION_COMMAND, AGENT), (DIR_PICKER, PICKER)],
+        &[],
+    );
+    server.wait_for_screen("press n to start one");
+    server.send_keys(&["n"]);
+    server.wait_for_screen("acme picker: type a directory");
+
+    server.send_keys(&["../acme-web", "Enter"]);
+
+    let screen = server.wait_for_screen_all(&["acme agent in acme-web", "acme-web 1"]);
+    assert!(screen.contains("acme agent in acme-web"), "{screen}");
+    assert!(screen.contains("acme-web 1"), "{screen}");
 }
 
 #[test]
@@ -301,6 +325,7 @@ impl Server {
             "-u".to_string(),
             "XDG_STATE_HOME".to_string(),
             quoted(&format!("HOME={}", home.display())),
+            "PATH=/usr/bin:/bin".to_string(),
         ];
         words.extend(
             env.iter()

@@ -28,6 +28,16 @@ fn question_mark_says_that_ctrl_backspace_focuses_the_sidebar() {
 }
 
 #[test]
+fn question_mark_names_the_setting_for_another_dir_picker() {
+    let mut screen = Screen::new(reading_agent());
+
+    screen.press('?');
+
+    let shown = screen.draw();
+    assert!(shown.contains("HARBOUR_DIR_PICKER"), "{shown}");
+}
+
+#[test]
 fn the_next_key_hides_the_help_and_does_nothing_else() {
     let mut screen = Screen::wide(reading_agent());
     screen.press('?');

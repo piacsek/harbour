@@ -9,14 +9,16 @@ use crossterm::event::{
 use crossterm::execute;
 
 use crate::app::App;
+use crate::picker::Picker;
 use crate::session;
 
 type PanicHook = dyn Fn(&PanicHookInfo<'_>) + Send + Sync + 'static;
 
 pub const SESSION_COMMAND: &str = "HARBOUR_SESSION_COMMAND";
+pub const DIR_PICKER: &str = "HARBOUR_DIR_PICKER";
 
 pub fn run() -> io::Result<()> {
-    show(App::new(session_command()))
+    show(App::with_picker(session_command(), dir_picker()))
 }
 
 pub fn demo() -> io::Result<()> {
@@ -60,6 +62,16 @@ fn drive(terminal: &mut ratatui::DefaultTerminal, mut app: App) -> io::Result<()
         }
     }
     Ok(())
+}
+
+fn dir_picker() -> Picker {
+    match std::env::var(DIR_PICKER) {
+        Ok(program) => Picker::Command(vec![program]),
+        Err(_) => Picker::Fuzzy {
+            fzf: vec!["fzf".to_string()],
+            list: ["zoxide", "query", "--list"].map(String::from).to_vec(),
+        },
+    }
 }
 
 fn session_command() -> Vec<String> {

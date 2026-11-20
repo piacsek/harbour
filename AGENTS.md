@@ -45,11 +45,12 @@ rules from the `AGENTS.md` of its directory.
 ```
 src/main.rs      the binary: `--version`/`-V`/`version`, `--help`/`-h`/`help`, `changelog`, the interface with no argument on a terminal, the same with made-up sessions for `--demo` on a terminal, the usage on anything else
 src/lib.rs                    the library the binary and the tests share
-src/tui.rs                    the terminal: enters and restores it, reads its events, draws the app; the program a session runs (`claude`, or what `HARBOUR_SESSION_COMMAND` names)
+src/tui.rs                    the terminal: enters and restores it, reads its events, draws the app; the program a session runs (`claude`, or what `HARBOUR_SESSION_COMMAND` names); the directory picker (fzf over zoxide's list, or what `HARBOUR_DIR_PICKER` names)
+src/picker.rs                 the directory picker of `n`: a program run as a session in a popup, its standard output sent to a file in a private temporary directory, the first line it prints checked as a directory (read from harbour's directory when relative); fzf gets harbour's directory first and the list command's lines without it, and a missing fzf means "start at once"
 src/app.rs                    the app: what is on screen and what each key does
 src/session.rs                a session: a command in a PTY, its output parsed into a screen that renders as a widget, its terminal queries answered, its exit status, its screen never under 2 rows or 2 columns (vt100 panics below that); every call into vt100 contained, so a panic gives that session a fresh screen with the modes its program had turned on and a repaint instead of taking harbour down, and the panic hook stays silent for it; writes go through a writer thread so a child that does not read never blocks the interface; ending it (or dropping it) hangs up its whole process group, then kills it, only while the child is unreaped; quitting hangs up every session first and waits once
 src/demo.rs                   the made-up sessions of `--demo`: `acme/*` scripts, never real data
-src/help.rs                   what the help view shows: `KEYS`, which the README key table mirrors, and `NOTES` (C-Backspace arriving as C-h, the tmux pattern)
+src/help.rs                   what the help view shows: `KEYS`, which the README key table mirrors, and `NOTES` (C-Backspace arriving as C-h, the tmux pattern, `HARBOUR_DIR_PICKER`)
 src/keys.rs                   the bytes a terminal sends for a key (legacy encoding), which a session receives
 src/mouse.rs                  `route`, a pure function: a gesture belongs to where its button went down and to the session shown then, and ends when another session is shown, and the selected session gets only what its mouse mode asked for (`?9` presses, `?1000` presses, releases and the wheel, `?1002` drags too, `?1003` moves too), with Shift, Alt and Ctrl, in its encoding (SGR, UTF-8 or the legacy bytes), clamped to the pane; an empty pane forwards nothing and ends the gesture
 src/changelog.rs              the bundled CHANGELOG.md and the rules a release entry must meet
@@ -79,7 +80,7 @@ scripts/homebrew-formula.sh   prints the tap formula for a released version
 scripts/formula-version.sh    the `tap` job's decision; never a version below the formula's
 scripts/stable-version.sh     the `stable-build` and `stable` jobs' decision, asked by both: the release the `stable` branch moves to, never below the version it holds
 scripts/sweep-report.sh       `[<first phase>]`: the sweep's data from `plans/`, as Markdown; counts and groups, judges nothing
-scripts/screenshots.sh        renders docs/details.png from `harbour --demo` and docs/help.png from `harbour --help`, plus one `shoot` per extra view (keys, pane, question, narrow; truecolor.py converts ANSI)
+scripts/screenshots.sh        renders docs/details.png from `harbour --demo` and docs/help.png from `harbour --help`, plus one `shoot` per extra view (keys, pane, question, narrow, picker; truecolor.py converts ANSI)
 scripts/sweep-issue.sh        the `issue` job of `sweep.yml`: opens "Sweep due before phase N" with the report once the next phase is a multiple of 5, never twice
 docs/                         the screenshots `scripts/screenshots.sh` writes (see "Documentation rule")
 changes/                      one fragment per pull request that feeds the binary (`kind:` and the changelog bullets); add-only, see Releasing
@@ -87,7 +88,7 @@ plans/                        one versioned plan file per phase, ending with its
 plans/metrics.md              time and tokens, one row per phase
 tests/           outside-in: `tests/cli.rs` runs the real binary;
                  `tests/scripts/` runs the scripts in a scratch directory and repository, with `tests/fixtures/` standing in for `cargo`, `gh`, `curl` and the scripts they call;
-                 `tests/e2e/` runs the real binary in a scratch tmux server (`#[ignore]`, see `tests/AGENTS.md`), with `HARBOUR_SESSION_COMMAND` pointing sessions at `tests/fixtures/agent.sh` (prints what it reads, a line at a time) or `tests/fixtures/raw-agent.sh` (asks for bracketed paste and the mouse, prints every byte it reads) instead of `claude`;
+                 `tests/e2e/` runs the real binary in a scratch tmux server (`#[ignore]`, see `tests/AGENTS.md`), with `HARBOUR_SESSION_COMMAND` pointing sessions at `tests/fixtures/agent.sh` (prints what it reads, a line at a time) or `tests/fixtures/raw-agent.sh` (asks for bracketed paste and the mouse, prints every byte it reads) instead of `claude`, `HARBOUR_DIR_PICKER` at `tests/fixtures/picker.sh` (prints the line it reads), and `PATH=/usr/bin:/bin` so the real fzf never opens;
                  `tests/session.rs` and `tests/app/` run sessions in process, as `/bin/sh -c` scripts;
                  `tests/keys.rs` is the table of the bytes each key sends, `tests/mouse.rs` the table of what a session receives for each mouse event, mode, gesture and modifier;
                  `tests/tui.rs` covers leaving the terminal (mouse capture and bracketed paste off) and the panic hook;

@@ -20,6 +20,13 @@ these suites come from; the ones about sessions were hit in harbour.
   in-process tests hand `App::new` or `Session::start` a `/bin/sh -c` script, so no test writes
   an executable.
 
+- **No test opens the real fzf or reads the real zoxide database.** `n` runs fzf over
+  `zoxide query --list` unless `HARBOUR_DIR_PICKER` names another picker, and both are on the
+  build machine's `PATH`. The end-to-end tests run the binary with `PATH=/usr/bin:/bin`, where
+  neither is, so `n` starts at once, and set `HARBOUR_DIR_PICKER` to `tests/fixtures/picker.sh`
+  to test the picker; in-process tests hand `App::with_picker` a `Picker` of `/bin/sh -c`
+  scripts. A picker script draws on stderr: its stdout is the directory it picks.
+
 - **dash is `/bin/sh` on Linux.** A session script's `read` returns non-zero when a trapped
   signal (the window change of a resize) interrupts it, so a loop written `while read` ends on
   Linux and not on macOS; write `while :; do read -r line || continue; ...; done`. A trap runs
