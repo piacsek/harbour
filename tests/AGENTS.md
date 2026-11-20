@@ -50,6 +50,16 @@ these suites come from; the ones about sessions were hit in harbour.
   that measured `" → "` as 5 (its UTF-8 bytes) passed on one machine and failed on another. Measure a non-ASCII separator with `length()` and find it
   with `index()`, and before pushing a script that handles one, run its tests once with `gawk`
   first on `PATH` as `awk` and `LC_ALL=C.UTF-8`.
+- **A reader in a pipeline reads to the end.** Under `set -o pipefail`, a writer still writing
+  when its reader leaves dies of `SIGPIPE` (status 141) and fails the script: `version-check.sh`
+  piped the lock into an `awk` that called `exit` once it had the version, and CI lost that race
+  now and then on a correct lock. Below a pipe buffer it is timing, so a green run proves
+  nothing; past it, it fails every time. In a script or a workflow, never pipe into `head`,
+  `grep -q`, `grep -m`, `sed q`, `read`, a loop that `break`s, or an `awk` that calls `exit`
+  outside `BEGIN` and `END`: remember the first answer (`!found && ... { print; found = 1 }`),
+  `next` past the rest, set the status in `END`, take the first line with `sed -n 1p`, or feed
+  the reader a here-string or a file. `tests/scripts/pipe_readers.rs` fails on the `head`,
+  `read`, `grep` and `awk` cases, naming the file and line; the rest is this rule.
 - **A scratch repository's `scripts/` are symlinks to the real scripts.** `link_script` links
   them, so a test that writes to one of those paths (`committed(&work, "scripts/<name>.sh", …)`)
   writes through the link and overwrites the tracked script in the worktree, and every later
