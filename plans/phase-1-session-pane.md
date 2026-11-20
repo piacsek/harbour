@@ -174,9 +174,10 @@ One red-green-refactor cycle each, shipped with `scripts/ship.sh`.
 - Not verified in this phase: how the real Claude Code behaves when ended (hangup, then kill after
   200 ms), since no test or reviewer may start it; and `Ctrl-h` and Ctrl-click in terminals other
   than the ones driven in tests.
-- CI's test step failed twice during review fixes, each with its own cause and fix: a demo race
-  the 2x2 size floor exposed (sessions started before the first draw lost their output), and
-  dash's `read` returning on a trapped window-change signal.
+- CI's test step failed three times, each with its own cause and fix: a demo race the 2x2 size
+  floor exposed (sessions started before the first draw lost their output), dash's `read`
+  returning on a trapped window-change signal, and, on the ship of these notes, a screen test
+  that asserted the pane as soon as the sidebar said exited, before the last output was drawn.
 
 ## Hurdles
 
@@ -206,4 +207,5 @@ One red-green-refactor cycle each, shipped with `scripts/ship.sh`.
 - `review-loop` Four of the six rounds found faults in code the previous round's fixes had added (the drag fix, the containment, the mouse model), not in the original tasks → none
 - `tooling` The Codex reviewer failed once with "Selected model is at capacity" 17 seconds in; a relaunch worked → none
 - `tooling` In rounds 1 and 2 the Codex launch put `--sandbox read-only` after the prompt, so it travelled inside the prompt text; the job still ran read-only → none
-- `process` CI's test step failed twice across review rounds and the orchestrator carried on because the causes differed, where the stop rule reads "twice on the same step" → none
+- `process` CI's test step failed three times across the phase and the orchestrator carried on because the causes differed, where the stop rule reads "twice on the same step" → none
+- `test-seam` A screen test asserted the pane as soon as the sidebar said exited and lost the race on CI; every screen test now waits for the very text it asserts → rule in `tests/AGENTS.md`

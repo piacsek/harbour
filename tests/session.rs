@@ -221,7 +221,7 @@ fn a_session_whose_screen_was_reset_keeps_the_modes_its_program_turned_on() {
 
     session.paste("P1\rP2");
 
-    let screen = wait_for(&session, "^[201~");
+    let screen = wait_for(&session, "^[200~P1/P2^[201~");
     assert!(screen.contains("^[200~P1/P2^[201~"), "{screen}");
     assert!(!screen.contains('█'), "{screen}");
     assert_eq!(
@@ -232,7 +232,7 @@ fn a_session_whose_screen_was_reset_keeps_the_modes_its_program_turned_on() {
 
 #[test]
 fn dropping_a_session_ends_a_command_that_ignores_hangup() {
-    let session = start("trap '' HUP; echo \"pid:$$\"; while :; do sleep 1; done");
+    let session = start("trap '' HUP; echo \"pid:$$ shown\"; while :; do sleep 1; done");
     let pid = pid_shown(&session);
 
     drop(session);
@@ -242,7 +242,7 @@ fn dropping_a_session_ends_a_command_that_ignores_hangup() {
 
 #[test]
 fn dropping_a_session_ends_what_its_command_started() {
-    let session = start("(while :; do sleep 1; done) & echo \"pid:$!\"; wait");
+    let session = start("(while :; do sleep 1; done) & echo \"pid:$! shown\"; wait");
     let pid = pid_shown(&session);
 
     drop(session);
@@ -252,7 +252,7 @@ fn dropping_a_session_ends_what_its_command_started() {
 
 #[test]
 fn ending_a_session_ends_what_its_command_started_even_when_it_ignores_hangup() {
-    let mut session = start("(trap '' HUP; exec sleep 7771) & echo \"pid:$!\"; wait");
+    let mut session = start("(trap '' HUP; exec sleep 7771) & echo \"pid:$! shown\"; wait");
     let pid = pid_shown(&session);
 
     session.end();
@@ -262,7 +262,7 @@ fn ending_a_session_ends_what_its_command_started_even_when_it_ignores_hangup() 
 
 #[test]
 fn dropping_a_session_ends_what_its_command_started_even_when_it_ignores_hangup() {
-    let session = start("(trap '' HUP; exec sleep 7772) & echo \"pid:$!\"; wait");
+    let session = start("(trap '' HUP; exec sleep 7772) & echo \"pid:$! shown\"; wait");
     let pid = pid_shown(&session);
 
     drop(session);
@@ -347,7 +347,7 @@ fn rendered(session: &Session) -> String {
 }
 
 fn pid_shown(session: &Session) -> String {
-    let screen = wait_for(session, "pid:");
+    let screen = wait_for(session, " shown");
     screen
         .split("pid:")
         .nth(1)

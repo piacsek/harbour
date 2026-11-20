@@ -154,7 +154,7 @@ fn a_click_in_the_pane_cancels_the_question_and_does_not_focus_the_pane() {
     screen.key(KeyCode::Enter, KeyModifiers::NONE);
     screen.press('w');
 
-    let shown = screen.wait_for("acme agent read:");
+    let shown = screen.wait_for("acme agent read:w");
     assert!(shown.contains("acme agent read:w"), "{shown}");
     assert!(!shown.contains("y/n"), "{shown}");
 }

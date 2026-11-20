@@ -28,7 +28,7 @@ fn no_argument_on_a_terminal_opens_the_screen_with_the_hint() {
 
     server.run(home.path(), &[], &[]);
 
-    let screen = server.wait_for_screen("press n to start one");
+    let screen = server.wait_for_screen("No session yet");
     assert!(screen.contains("No session yet"), "{screen}");
 }
 
@@ -57,7 +57,7 @@ fn n_starts_a_session_named_after_the_directory_and_shows_it() {
 
     server.send_keys(&["n"]);
 
-    let screen = server.wait_for_screen("acme agent in acme-api");
+    let screen = server.wait_for_screen_all(&["acme agent in acme-api", "acme-api 1"]);
     assert!(screen.contains("acme agent in acme-api"), "{screen}");
     assert!(screen.contains("acme-api 1"), "{screen}");
 }
@@ -72,7 +72,7 @@ fn a_session_does_not_inherit_the_tmux_of_harbour() {
 
     server.send_keys(&["n"]);
 
-    let screen = server.wait_for_screen("acme agent in");
+    let screen = server.wait_for_screen("tmux:[]");
     assert!(screen.contains("tmux:[]"), "{screen}");
 }
 
@@ -107,7 +107,7 @@ fn a_terminal_made_narrow_shows_the_sidebar_alone() {
 
     server.resize(50, 20);
 
-    let screen = server.wait_for_screen_without("acme agent in");
+    let screen = server.wait_for_screen_showing_without("acme-api 1", "acme agent in");
     assert!(screen.contains("acme-api 1"), "{screen}");
     assert!(!screen.contains("acme agent in"), "{screen}");
 }
@@ -190,7 +190,8 @@ fn the_demo_shows_made_up_sessions_one_of_them_exited() {
 
     server.run(home.path(), &[], &["--demo"]);
 
-    let screen = server.wait_for_screen("acme-api 2 exited");
+    let screen =
+        server.wait_for_screen_all(&["● acme-api 1", "○ acme-api 2 exited 1", "● acme-api 3"]);
     assert!(screen.contains("● acme-api 1"), "{screen}");
     assert!(screen.contains("○ acme-api 2 exited 1"), "{screen}");
     assert!(screen.contains("● acme-api 3"), "{screen}");
@@ -338,19 +339,21 @@ impl Server {
     }
 
     fn wait_for_screen(&self, needle: &str) -> String {
-        let deadline = Instant::now() + Duration::from_secs(10);
-        let mut screen = self.screen();
-        while !screen.contains(needle) && Instant::now() < deadline {
-            sleep(Duration::from_millis(50));
-            screen = self.screen();
-        }
-        screen
+        self.wait_for_screen_all(&[needle])
     }
 
-    fn wait_for_screen_without(&self, needle: &str) -> String {
+    fn wait_for_screen_all(&self, needles: &[&str]) -> String {
+        self.wait_until(|screen| needles.iter().all(|needle| screen.contains(needle)))
+    }
+
+    fn wait_for_screen_showing_without(&self, shown: &str, gone: &str) -> String {
+        self.wait_until(|screen| screen.contains(shown) && !screen.contains(gone))
+    }
+
+    fn wait_until(&self, done: impl Fn(&str) -> bool) -> String {
         let deadline = Instant::now() + Duration::from_secs(10);
         let mut screen = self.screen();
-        while screen.contains(needle) && Instant::now() < deadline {
+        while !done(&screen) && Instant::now() < deadline {
             sleep(Duration::from_millis(50));
             screen = self.screen();
         }

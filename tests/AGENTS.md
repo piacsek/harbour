@@ -26,6 +26,14 @@ these suites come from; the ones about sessions were hit in harbour.
   only once the foreground command (`read`, `dd`) returns, so a test that needs the trap to run
   sends the script a byte first.
 
+- **A screen assertion waits for the text it asserts, never for a neighbouring signal.** A
+  session's exit can be seen before its last output is parsed, and one write can reach the
+  screen in two reads. `an_exited_session_keeps_its_last_screen_dimmed` waited for the sidebar
+  to say exited, then asserted `acme agent done` in the pane, and lost that race on CI. Wait
+  for every text the test asserts (`wait_for_all` in `tests/app/`, `wait_for_screen_all` in
+  `tests/e2e/`), the whole line rather than its prefix, and end a value the test parses (a pid)
+  with a marker to wait for.
+
 - **`awk` is not the same program everywhere.** macOS ships BSD awk, the ubuntu runner's `awk`
   is `mawk`, and either may be `gawk` where someone installed it; BSD awk (version 20200816)
   and `mawk` count bytes, `gawk` in a UTF-8 locale counts characters, so in conveyor a script

@@ -30,7 +30,7 @@ fn a_resize_reaches_a_session_that_is_not_shown() {
     screen.resize(90, 16);
     screen.press('k');
 
-    let shown = screen.wait_for("size:14 58");
+    let shown = screen.wait_for_all(&["acme agent 1", "size:14 58"]);
     assert!(shown.contains("acme agent 1"), "{shown}");
     assert!(shown.contains("size:14 58"), "{shown}");
 }

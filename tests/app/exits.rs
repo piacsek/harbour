@@ -40,9 +40,7 @@ fn a_session_killed_by_a_signal_shows_the_signal() {
 fn an_exited_session_keeps_its_last_screen_dimmed() {
     let mut screen = Screen::new(script("echo 'acme agent done'; exit 0"));
     screen.press('n');
-    screen.wait_for("exited");
-
-    let shown = screen.draw();
+    let shown = screen.wait_for_all(&["exited", "acme agent done"]);
 
     assert!(shown.contains("acme agent done"), "{shown}");
     let cell = &screen.terminal.backend().buffer()[(41, 1)];

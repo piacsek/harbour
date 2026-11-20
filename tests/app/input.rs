@@ -27,7 +27,7 @@ fn a_paste_is_bracketed_when_the_session_asked_for_it() {
 
     screen.app.paste("hi");
 
-    let shown = screen.wait_for("acme agent read:");
+    let shown = screen.wait_for("acme agent read:[200~hi[201~");
     assert!(shown.contains("acme agent read:[200~hi[201~"), "{shown}");
 }
 
@@ -53,7 +53,7 @@ fn a_click_in_the_pane_reaches_a_session_that_asked_for_the_mouse() {
 
     screen.mouse(MouseEventKind::Down(MouseButton::Left), 45, 3);
 
-    let shown = screen.wait_for("acme agent read:");
+    let shown = screen.wait_for("acme agent read:[<0;5;3M");
     assert!(shown.contains("acme agent read:[<0;5;3M"), "{shown}");
 }
 
@@ -81,7 +81,7 @@ fn a_click_in_the_pane_gives_it_the_focus_and_is_not_sent_unasked() {
     screen.mouse(MouseEventKind::Down(MouseButton::Left), 45, 3);
     screen.press('z');
 
-    let shown = screen.wait_for("acme agent read:");
+    let shown = screen.wait_for("acme agent read:z");
     assert!(shown.contains("acme agent read:z"), "{shown}");
 }
 
@@ -109,7 +109,7 @@ fn a_drag_that_leaves_the_pane_still_reaches_the_session_up_to_its_release() {
     screen.mouse(MouseEventKind::Drag(MouseButton::Left), 10, 3);
     screen.mouse(MouseEventKind::Up(MouseButton::Left), 10, 3);
 
-    let shown = screen.wait_for("acme agent read:");
+    let shown = screen.wait_for("acme agent read:[<0;5;3M[<32;1;3M[<0;1;3m");
     assert!(
         shown.contains("acme agent read:[<0;5;3M[<32;1;3M[<0;1;3m"),
         "{shown}"
@@ -129,7 +129,7 @@ fn a_drag_held_while_the_pane_shrinks_to_nothing_is_dropped() {
     screen.resize(120, 20);
     screen.mouse(MouseEventKind::Down(MouseButton::Left), 45, 3);
 
-    let shown = screen.wait_for("acme agent read:");
+    let shown = screen.wait_for("acme agent read:[<0;5;3M[<0;5;3M");
     assert!(
         shown.contains("acme agent read:[<0;5;3M[<0;5;3M"),
         "{shown}"
@@ -150,7 +150,7 @@ fn a_drag_held_while_a_narrow_terminal_hides_the_pane_is_dropped() {
     screen.resize(120, 20);
     screen.mouse(MouseEventKind::Down(MouseButton::Left), 45, 3);
 
-    let shown = screen.wait_for("acme agent read:");
+    let shown = screen.wait_for("acme agent read:[<0;5;3M[<0;5;3M");
     assert!(
         shown.contains("acme agent read:[<0;5;3M[<0;5;3M"),
         "{shown}"
@@ -168,7 +168,7 @@ fn a_drag_that_started_on_the_sidebar_never_reaches_the_session() {
     screen.mouse(MouseEventKind::Up(MouseButton::Left), 52, 5);
     screen.mouse(MouseEventKind::Down(MouseButton::Left), 45, 3);
 
-    let shown = screen.wait_for("acme agent read:");
+    let shown = screen.wait_for("acme agent read:[<0;5;3M");
     assert!(shown.contains("acme agent read:[<0;5;3M"), "{shown}");
 }
 
@@ -182,7 +182,7 @@ fn a_session_that_asked_for_presses_and_releases_gets_no_drag() {
     screen.mouse(MouseEventKind::Drag(MouseButton::Left), 46, 3);
     screen.mouse(MouseEventKind::Up(MouseButton::Left), 46, 3);
 
-    let shown = screen.wait_for("acme agent read:");
+    let shown = screen.wait_for("acme agent read:[<0;5;3M[<0;6;3m");
     assert!(
         shown.contains("acme agent read:[<0;5;3M[<0;6;3m"),
         "{shown}"
@@ -202,7 +202,7 @@ fn a_ctrl_click_reaches_the_session_with_its_modifier() {
         3,
     );
 
-    let shown = screen.wait_for("acme agent read:");
+    let shown = screen.wait_for("acme agent read:[<16;5;3M");
     assert!(shown.contains("acme agent read:[<16;5;3M"), "{shown}");
 }
 
@@ -221,6 +221,6 @@ fn a_release_after_selecting_another_session_does_not_reach_it() {
     screen.mouse(MouseEventKind::Up(MouseButton::Left), 45, 3);
     screen.mouse(MouseEventKind::Down(MouseButton::Left), 45, 3);
 
-    let shown = screen.wait_for("acme agent read:");
+    let shown = screen.wait_for("acme agent read:[<0;5;3M");
     assert!(shown.contains("acme agent read:[<0;5;3M"), "{shown}");
 }

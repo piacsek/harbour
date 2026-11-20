@@ -81,10 +81,14 @@ impl Screen {
     }
 
     fn wait_for(&mut self, text: &str) -> String {
+        self.wait_for_all(&[text])
+    }
+
+    fn wait_for_all(&mut self, texts: &[&str]) -> String {
         let deadline = Instant::now() + Duration::from_secs(5);
         loop {
             let shown = self.draw();
-            if shown.contains(text) || Instant::now() > deadline {
+            if texts.iter().all(|text| shown.contains(text)) || Instant::now() > deadline {
                 return shown;
             }
             sleep(Duration::from_millis(20));
