@@ -162,4 +162,37 @@ stay between 97k and 158k, with phase 8 rising over its rounds (136k, 98k, 154k,
 notices per phase 10, 2, 5, 2. The rounds track the size of the change, not a drift; Codex and
 orchestrator usage are still unknown in every row, so no trend in total tokens can be read.
 
+### Built
+
+- Tasks 2 and 3 shipped as one commit (`a4c5caa`): `src/memory.rs` alone left `pub` items no
+  code called, which the dead code gate refuses, so the memory and the stopped cards that read
+  it landed together. Tasks 4 to 8 shipped one commit each (`d60f95e`, `074aeac`, `6105c12`,
+  `f77aa95`, `4276a8d`).
+- harbour remembers each running Claude Code session in `<state>/harbour/sessions/<id>.json`
+  (its id, start directory, title and place in the sidebar) and follows the id when Claude Code
+  changes it. On the next start the sessions come back as stopped cards in their remembered
+  order: a dim `stopped` line, no process, counted nowhere. Enter or `Ctrl-l` resumes one with
+  `--resume <id>` in its start directory; `x` forgets it.
+- A stopped card says why it cannot resume, in every layout, the narrowest sidebar included:
+  `directory gone`, `open elsewhere` (its id is in a live registry file), or, at Enter, a footer
+  line when the conversation is gone (the card is hidden, the file kept). A failed start shows
+  the refusal like any other session.
+- The quit question (asked while a session runs) adds `Conversations come back stopped.` on
+  its last row.
+- The help names resuming and forgetting (`KEYS`, the README table) and its legend says `○` is
+  also stopped; it still fits 80x24. The demo shows a stopped `acme-docs` card, and every
+  screenshot was rerun (two runs byte-identical).
+- Further decisions taken without the owner, beside those under Decisions: the quit line shows
+  only when harbour remembers sessions (never in tests that wire no memory); a directory gone
+  refuses with the same `Not a directory` reason a fresh start gives.
+- Two known limits joined the root `AGENTS.md`: the remembered files are read and written on
+  the draw thread, and a stale registry file whose pid was reused keeps a card `open elsewhere`
+  until that process ends.
+
 ## Hurdles
+
+- `process` Tasks 2 and 3 of the plan could not ship apart: the memory module alone was dead code to `tests/dead_code.rs` → none
+- `test-seam` Several tests were green on their first run (the tui wiring, the quit line, the CJK cut, the pane focus); each was proved by breaking the code by hand, seeing it red and restoring it → none
+- `tooling` A ship log in the shared scratchpad was overwritten by another agent's run, so the builder could not read its own result; a unique log name fixed it → none
+- `tooling` A shell command that read stdin by mistake hung a background wait until it was stopped by hand → none
+- `test-seam` An e2e assertion on the title counts raced the demo's first frame, which shows the cards before their sessions report; waiting for the counts fixed it → code
