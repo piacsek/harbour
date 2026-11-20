@@ -11,5 +11,6 @@ pub mod repo;
 pub mod session;
 pub mod state;
 pub mod summary;
+pub mod text;
 pub mod transcript;
 pub mod tui;

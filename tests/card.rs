@@ -1,43 +1,12 @@
 use std::time::Duration;
 
-use harbour::card::{age, clean, fit};
-use unicode_width::UnicodeWidthStr;
-
-#[test]
-fn text_that_fits_is_kept_whole() {
-    assert_eq!(fit("acme-api", 8), "acme-api");
-}
-
-#[test]
-fn text_too_wide_is_cut_with_an_ellipsis() {
-    assert_eq!(fit("permission prompt", 14), "permission pr…");
-}
-
-#[test]
-fn wide_characters_are_counted_by_the_columns_they_take() {
-    assert_eq!(fit("東京大阪名古屋横浜", 7), "東京大…");
-}
-
-#[test]
-fn a_wide_character_that_would_not_fit_is_left_out_whole() {
-    assert_eq!(fit("acme-東京-api", 7), "acme-…");
-    assert_eq!(fit("acme-東京-api", 7).width(), 6);
-}
-
-#[test]
-fn an_emoji_is_never_split() {
-    assert_eq!(fit("ship 🚀🚀🚀", 8), "ship 🚀…");
-}
-
-#[test]
-fn no_room_leaves_nothing() {
-    assert_eq!(fit("acme", 0), "");
-}
-
-#[test]
-fn one_column_holds_only_the_ellipsis() {
-    assert_eq!(fit("acme", 1), "…");
-}
+use harbour::card::{Card, Sidebar, age};
+use harbour::registry::{Record, Status};
+use harbour::repo::Place;
+use harbour::text::columns;
+use harbour::transcript::Facts;
+use ratatui::buffer::Buffer;
+use ratatui::layout::Rect;
 
 #[test]
 fn under_a_minute_reads_less_than_a_minute() {
@@ -56,21 +25,53 @@ fn minutes_hours_and_days_are_whole_and_rounded_down() {
 }
 
 #[test]
-fn line_breaks_and_tabs_fold_into_one_space() {
-    assert_eq!(clean("fix the\n\n  retry\ttest\r\n"), "fix the retry test");
+fn a_card_of_emoji_at_the_narrowest_sidebar_keeps_every_line_inside_it() {
+    let facts = Facts {
+        title: Some("⚠\u{fe0f} ship ⚠\u{fe0f} the 👩\u{200d}💻 api ✅\u{fe0f}".to_string()),
+        activity: Some("✔\u{fe0f} run 🇧🇷 the cafe\u{301} 東京 tests".to_string()),
+        branch: Some("fix-⚠\u{fe0f}-東京-🇧🇷-retry".to_string()),
+        ..Facts::default()
+    };
+
+    let rows = drawn(&facts, 20);
+
+    assert_eq!(rows[0], "  ● ⚠\u{fe0f} ship ⚠\u{fe0f} t… 3m");
+    assert_eq!(rows[1], "    ✔\u{fe0f} run 🇧🇷 the c…");
+    assert_eq!(rows[2], "    acme-api · fix-…");
 }
 
-#[test]
-fn an_escape_sequence_never_reaches_the_terminal_raw() {
-    assert_eq!(clean("acme\u{1b}[31mred\u{7}"), "acme [31mred");
+fn drawn(facts: &Facts, width: u16) -> Vec<String> {
+    let record = Record {
+        status: Status::Busy,
+        waiting_for: None,
+        status_since: None,
+        session_id: None,
+    };
+    let place = Place {
+        repository: "acme-api".to_string(),
+        branch: None,
+    };
+    let card = Card::new(
+        "acme-api 1",
+        None,
+        Some(&record),
+        &place,
+        Some(Duration::from_secs(180)),
+        Some(facts),
+    );
+    let area = Rect::new(0, 0, width, 3);
+    let mut buffer = Buffer::empty(area);
+    Sidebar::default().draw(&[card], 1, area, &mut buffer);
+    (0..3).map(|y| row(&buffer, y, width)).collect()
 }
 
-#[test]
-fn control_characters_of_every_range_are_dropped() {
-    assert_eq!(clean("a\u{0}b\u{9b}c\u{7f}d"), "a b c d");
-}
-
-#[test]
-fn bidirectional_overrides_are_dropped() {
-    assert_eq!(clean("acme\u{202e}ipa"), "acme ipa");
+fn row(buffer: &Buffer, y: u16, width: u16) -> String {
+    let mut shown = String::new();
+    let mut x = 0;
+    while x < width {
+        let symbol = buffer[(x, y)].symbol();
+        shown.push_str(symbol);
+        x += u16::try_from(columns(symbol).max(1)).unwrap();
+    }
+    shown.trim_end().to_string()
 }

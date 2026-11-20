@@ -2,14 +2,13 @@ use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use std::time::Duration;
 
-use ratatui::style::{Color, Modifier, Style};
-use ratatui::text::{Line, Span};
-use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
-
 use crate::registry::Record;
 use crate::repo::Place;
 use crate::state::State;
+use crate::text::{clean, columns, fit};
 use crate::transcript::Facts;
+use ratatui::style::{Color, Modifier, Style};
+use ratatui::text::{Line, Span};
 
 const HEIGHT: usize = 3;
 const STEP: usize = HEIGHT + 1;
@@ -96,9 +95,9 @@ impl Card {
         let glyph = Span::styled(self.state.glyph(), self.state.style());
         let room = width.saturating_sub(INDENT.len());
         match &self.age {
-            Some(age) if room > age.width() + 1 => {
-                let title = fit(&self.title, room - age.width() - 1);
-                let gap = room - title.width() - age.width();
+            Some(age) if room > columns(age) + 1 => {
+                let title = fit(&self.title, room.saturating_sub(columns(age) + 1));
+                let gap = room.saturating_sub(columns(&title) + columns(age));
                 Line::from(vec![
                     glyph,
                     Span::from(format!(" {title}{}{age}", " ".repeat(gap))),
@@ -159,27 +158,6 @@ impl Sidebar {
     }
 }
 
-pub fn fit(text: &str, width: usize) -> String {
-    if text.width() <= width {
-        return text.to_string();
-    }
-    if width == 0 {
-        return String::new();
-    }
-    let budget = width - 1;
-    let mut kept = String::new();
-    let mut used = 0;
-    for character in text.chars() {
-        let columns = character.width().unwrap_or(0);
-        if used + columns > budget {
-            break;
-        }
-        used += columns;
-        kept.push(character);
-    }
-    format!("{kept}…")
-}
-
 pub fn age(elapsed: Duration) -> String {
     let minutes = elapsed.as_secs() / 60;
     match minutes {
@@ -188,18 +166,4 @@ pub fn age(elapsed: Duration) -> String {
         60..1440 => format!("{}h", minutes / 60),
         _ => format!("{}d", minutes / 1440),
     }
-}
-
-pub fn clean(text: &str) -> String {
-    text.chars()
-        .map(|c| if hidden(c) { ' ' } else { c })
-        .collect::<String>()
-        .split_whitespace()
-        .collect::<Vec<_>>()
-        .join(" ")
-}
-
-fn hidden(c: char) -> bool {
-    c.is_control()
-        || matches!(c, '\u{200e}' | '\u{200f}' | '\u{202a}'..='\u{202e}' | '\u{2066}'..='\u{2069}')
 }

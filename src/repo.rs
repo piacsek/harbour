@@ -45,9 +45,8 @@ fn repository_at(folder: &Path) -> Option<Place> {
         && folder.join("objects").is_dir()
         && folder.join("refs").is_dir()
     {
-        let name = name_of(folder);
         return Some(Place {
-            repository: name.strip_suffix(".git").unwrap_or(&name).to_string(),
+            repository: bare_name(folder),
             branch: branch(folder),
         });
     }
@@ -63,7 +62,10 @@ fn linked(folder: &Path, dot_git: &Path) -> Option<Place> {
     let repository = match small(&git_dir.join("commondir")) {
         Some(common) => {
             let common = normalized(&git_dir.join(common.trim()));
-            name_of(common.parent().unwrap_or(&common))
+            match common.file_name() {
+                Some(name) if name == ".git" => name_of(common.parent().unwrap_or(&common)),
+                _ => bare_name(&common),
+            }
         }
         None => name_of(folder),
     };
@@ -71,6 +73,11 @@ fn linked(folder: &Path, dot_git: &Path) -> Option<Place> {
         repository,
         branch: branch(&git_dir),
     })
+}
+
+fn bare_name(folder: &Path) -> String {
+    let name = name_of(folder);
+    name.strip_suffix(".git").unwrap_or(&name).to_string()
 }
 
 fn branch(git_dir: &Path) -> Option<String> {

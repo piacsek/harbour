@@ -69,21 +69,24 @@ What each source does to the card:
 | no title yet (no transcript, or no `ai-title` line) | line 1 shows the directory name and number, as today |
 | a title, then a transcript line that is not JSON, half written, or an `ai-title` whose `aiTitle` is not a string | the last good title stays; the same for every field |
 | a field of an unexpected type (`prNumber` a string, `input` not an object) | that field is left off, or keeps its last value; the card never shows an error |
-| a transcript line longer than 1 MiB | skipped; the fields keep their last values |
+| a transcript line longer than 1 MiB, however its chunks arrive | skipped before it is parsed; the fields keep their last values |
 | a huge transcript | harbour reads only its last 1 MiB once, then only what is appended, at most 1 MiB per read (when more was appended, only the last 1 MiB of it) |
 | a transcript being written (the last line has no newline yet) | the partial line waits for its newline, up to 1 MiB, then is dropped |
 | a transcript truncated or replaced (shorter than what was read) | read again from its last 1 MiB |
 | no transcript found | line 1 the name, line 2 by state from the registry, line 3 from git; the search is repeated at most every 5 s |
+| the transcript found can no longer be opened (moved or deleted) | the fields keep their last values and the search starts again |
+| `/resume` into a transcript larger than 1 MiB | only its last 1 MiB is read, so a title, pull request or branch written before it never shows: a known limit, listed in the PR |
 | the session's id changes in its registry file | the card forgets the old transcript's fields and follows the new one |
 | a registry file left by another process with the same pid, or older than the session | ignored, as today, so no transcript of another session is followed |
-| a very long title, activity, prompt, repository or branch | cut with `…` to the sidebar, never wrapped |
-| CJK or emoji in any field | measured in display columns, cut on a character boundary, a wide character never split |
-| control characters or escape sequences in any field | each is shown as a space, runs of whitespace (line breaks too) fold into one space; nothing reaches the terminal raw |
+| a very long title, activity, prompt, repository or branch | cut with `…` to the sidebar, never wrapped; a transcript field is kept to its first 4 KiB, so a draw never cleans more |
+| CJK or emoji in any field (a variation selector, a joined sequence, a flag, a combining mark) | measured by grapheme in the columns a terminal gives it, cut between graphemes, a line never wider than its room |
+| control characters, escape sequences, bidi marks, U+061C or U+200B in any field | each is shown as a space, runs of whitespace (line breaks too) fold into one space; nothing reaches the terminal raw |
+| a zero-width joiner | kept inside a sequence it joins (`👩‍💻`); a stray one (at an end, before a space or a mark) is dropped |
 | a directory that is not a repository | line 3 shows its folder name |
 | a repository | line 3 shows the folder holding `.git` |
 | a worktree | line 3 shows the main repository's folder and the worktree's branch: `acme-api · fix-login` |
 | a submodule | line 3 shows the submodule's folder |
-| a bare repository | line 3 shows its folder without `.git` |
+| a bare repository, or a worktree of one | line 3 shows the bare repository's folder without `.git` |
 | a detached HEAD | the branch reads `HEAD`, as Claude Code records it |
 | the branch from the transcript and from git differ | the transcript's `gitBranch` wins (the issue's source); git's `HEAD` fills in until a line has one |
 | the directory deleted | line 3 shows the nearest repository above it, else the folder name it had |
@@ -121,6 +124,15 @@ has no bar. The title counts, `harbour status`, the dot and its colours are unch
 - **The transcripts are found under the same config directory as the registry**
   (`CLAUDE_CONFIG_DIR`, else `~/.claude`); in-process tests hand both to `App` in scratch
   directories.
+- **One module measures and cuts all text**: `src/text.rs` measures a string by grapheme in the
+  columns ratatui draws it in (the larger of the string's width and the sum of its graphemes'),
+  cuts and wraps between graphemes, and every subtraction on widths saturates. The cards and the
+  "Could not start" message use it; no other place cuts text.
+- **What cleaning drops**: control characters, bidi marks and isolates, U+061C and U+200B become a
+  word gap; a joiner is kept only when a visible character follows it in its grapheme. Cleaning
+  stops at 512 characters, and the transcript keeps each shown field to its first 4 KiB.
+- **The demo never shows the checkout it runs in**: every demo session starts in a made-up
+  checkout (`acme-api`, `acme-web`, `acme-infra`) inside the demo's temporary registry.
 - **No new key and no click selection**: the help view, the README key table and the mouse stay
   as they are; the help legend says the card, not the row, says what a blocked session waits for.
 
@@ -161,3 +173,4 @@ One red-green-refactor cycle each, shipped with `scripts/ship.sh`.
 - `test-seam` `n` in the demo started another titled session and broke the picker e2e test's numbering → code
 - `tooling` The screenshots raced the first registry read (every card unknown) and fzf's first draw (an empty picker); the script now polls for the text each shot needs → code
 - `ci` A narrow-sidebar test cut the session's name, taken from the checkout's folder: the worktree's long name was cut locally, CI's `harbour` fitted, so `check` failed from task 4 on unnoticed until step 4; the test now names its own directory through the picker → code
+- `review-loop` Round 1 found that an emoji with a variation selector made the title wider than `fit` measured it, so the gap after it underflowed and harbour crashed; text is now measured and cut by grapheme in one module, with a property test over random emoji strings → code

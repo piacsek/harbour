@@ -127,6 +127,20 @@ fn a_long_command_that_cannot_start_is_named_in_full_in_the_pane() {
 }
 
 #[test]
+fn a_command_of_wide_characters_that_cannot_start_is_named_in_full_in_the_sidebar() {
+    let command = format!("/acme/{}-tail", "東京大阪".repeat(15));
+    let mut screen = Screen::new(vec![command.clone()]);
+
+    screen.press('n');
+
+    let sidebar: String = region(&screen.draw(), 1, 38)
+        .chars()
+        .filter(|c| !c.is_whitespace())
+        .collect();
+    assert!(sidebar.contains(&command), "{sidebar}");
+}
+
+#[test]
 fn a_command_that_cannot_start_names_the_cause() {
     let scratch = tempfile::tempdir().unwrap();
     let agent = scratch.path().join("acme-agent");

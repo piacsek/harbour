@@ -110,6 +110,26 @@ fn a_bare_repository_drops_the_git_suffix() {
 }
 
 #[test]
+fn a_worktree_of_a_bare_repository_shows_the_bare_repository_without_its_suffix() {
+    let scratch = tempfile::tempdir().unwrap();
+    let bare = folder(scratch.path(), "repos/acme-api.git");
+    folder(&bare, "objects");
+    folder(&bare, "refs");
+    fs::write(bare.join("HEAD"), "ref: refs/heads/main\n").unwrap();
+    let admin = folder(&bare, "worktrees/topic");
+    fs::write(admin.join("commondir"), "../..\n").unwrap();
+    fs::write(admin.join("HEAD"), "ref: refs/heads/topic\n").unwrap();
+    let worktree = folder(scratch.path(), "work/topic");
+    fs::write(
+        worktree.join(".git"),
+        format!("gitdir: {}\n", admin.display()),
+    )
+    .unwrap();
+
+    assert_eq!(place(&worktree).to_string(), "acme-api · topic");
+}
+
+#[test]
 fn a_deleted_folder_shows_the_repository_above_it() {
     let scratch = tempfile::tempdir().unwrap();
     let repository = repository(scratch.path(), "acme-api", "ref: refs/heads/main\n");

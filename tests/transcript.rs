@@ -215,6 +215,64 @@ fn a_line_longer_than_a_mebibyte_is_skipped() {
 }
 
 #[test]
+fn a_line_that_passes_a_mebibyte_in_the_chunk_that_ends_it_is_skipped() {
+    let projects = tempfile::tempdir().unwrap();
+    let file = transcript_file(projects.path(), "-home-acme-api");
+    append(&file, r#"{"type":"ai-title","aiTitle":"Kept"}"#);
+    let mut transcript = Transcript::new(projects.path(), ID);
+    transcript.read();
+
+    write_raw(&file, r#"{"type":"ai-title","aiTitle":""#);
+    write_raw(&file, &"y".repeat(600 * 1024));
+    transcript.read();
+    write_raw(&file, &"y".repeat(600 * 1024));
+    write_raw(&file, "\"}\n");
+    append(&file, r#"{"type":"last-prompt","lastPrompt":"after it"}"#);
+    transcript.read();
+
+    assert_eq!(transcript.facts().title.as_deref(), Some("Kept"));
+    assert_eq!(transcript.facts().prompt.as_deref(), Some("after it"));
+}
+
+#[test]
+fn a_long_title_is_kept_only_as_far_as_a_card_could_show() {
+    let projects = tempfile::tempdir().unwrap();
+    let file = transcript_file(projects.path(), "-home-acme-api");
+    append(
+        &file,
+        &format!(
+            r#"{{"type":"ai-title","aiTitle":"{}"}}"#,
+            "t".repeat(100_000)
+        ),
+    );
+    let mut transcript = Transcript::new(projects.path(), ID);
+
+    transcript.read();
+
+    assert_eq!(
+        transcript.facts().title.as_deref().map(str::len),
+        Some(4096)
+    );
+}
+
+#[test]
+fn a_transcript_that_moves_is_found_again() {
+    let projects = tempfile::tempdir().unwrap();
+    let file = transcript_file(projects.path(), "-home-acme-api");
+    append(&file, r#"{"type":"ai-title","aiTitle":"Before the move"}"#);
+    let mut transcript = Transcript::new(projects.path(), ID);
+    transcript.read();
+
+    fs::remove_file(&file).unwrap();
+    transcript.read();
+    let moved = transcript_file(projects.path(), "-home-acme-web");
+    append(&moved, r#"{"type":"ai-title","aiTitle":"After the move"}"#);
+    transcript.read();
+
+    assert_eq!(transcript.facts().title.as_deref(), Some("After the move"));
+}
+
+#[test]
 fn a_transcript_that_shrinks_is_read_again_from_its_tail() {
     let projects = tempfile::tempdir().unwrap();
     let file = transcript_file(projects.path(), "-home-acme-api");

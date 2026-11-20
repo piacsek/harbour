@@ -1,5 +1,6 @@
+use std::fs;
 use std::io;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime};
 
 use tempfile::TempDir;
@@ -96,6 +97,14 @@ pub fn idle(registry: &Path) -> Vec<String> {
         },
         IDLE,
     )
+}
+
+pub fn checkout(registry: &Path, name: &str, branch: &str) -> PathBuf {
+    let directory = registry.join(name);
+    let git = directory.join(".git");
+    let _ = fs::create_dir_all(&git)
+        .and_then(|()| fs::write(git.join("HEAD"), format!("ref: refs/heads/{branch}\n")));
+    directory
 }
 
 pub fn failed() -> Vec<String> {

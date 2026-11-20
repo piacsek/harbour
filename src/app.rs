@@ -21,6 +21,7 @@ use crate::repo::{self, Place};
 use crate::session::{self, Session};
 use crate::state;
 use crate::summary::Summary;
+use crate::text;
 use crate::transcript::Transcript;
 
 const NARROW: u16 = 60;
@@ -142,11 +143,18 @@ impl App {
             .with_registry(registry.clone())
             .with_transcripts(registry.join("projects"))
             .with_picker(demo::picker());
+        app.home = demo::checkout(&registry, "acme-api", "main");
         app.start_with(&demo::working(&registry));
         app.start_with(&demo::blocked(&registry));
         app.start_with(&demo::idle(&registry));
-        app.start_with(&demo::failed());
-        app.start_with(&demo::unknown());
+        app.start_in(
+            &demo::failed(),
+            &demo::checkout(&registry, "acme-web", "main"),
+        );
+        app.start_in(
+            &demo::unknown(),
+            &demo::checkout(&registry, "acme-infra", "tidy-dns"),
+        );
         app.selected = 0;
         app
     }
@@ -559,11 +567,9 @@ impl Drop for App {
 }
 
 fn draw_failure(frame: &mut Frame, failed: &str, area: Rect) {
-    let width = usize::from(area.width.max(1));
-    let chars: Vec<char> = failed.chars().collect();
-    let lines: Vec<Line> = chars
-        .chunks(width)
-        .map(|chunk| Line::from(chunk.iter().collect::<String>()))
+    let lines: Vec<Line> = text::wrap(failed, usize::from(area.width))
+        .into_iter()
+        .map(Line::from)
         .collect();
     let height = u16::try_from(lines.len())
         .unwrap_or(u16::MAX)

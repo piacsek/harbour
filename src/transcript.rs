@@ -11,6 +11,7 @@ const TAIL: u64 = 1024 * 1024;
 const SEARCH_EVERY: Duration = Duration::from_secs(5);
 const META: u64 = 64 * 1024;
 const CLOCK_SLACK: Duration = Duration::from_secs(2);
+const SHOWN: usize = 4096;
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Facts {
@@ -71,6 +72,7 @@ impl Transcript {
         };
         self.facts.subagents = self.running(&path.with_extension("").join("subagents"));
         let Ok(mut file) = File::open(&path) else {
+            self.lost();
             return;
         };
         let Ok(length) = file.metadata().map(|meta| meta.len()) else {
@@ -99,6 +101,14 @@ impl Transcript {
         }
         self.offset = start + bytes.len() as u64;
         self.take_lines(&bytes);
+    }
+
+    fn lost(&mut self) {
+        self.path = None;
+        self.searched_at = None;
+        self.offset = 0;
+        self.partial.clear();
+        self.skipping = false;
     }
 
     fn found(&mut self) -> Option<PathBuf> {
@@ -154,6 +164,9 @@ impl Transcript {
             }
             self.partial.extend_from_slice(line);
             let whole = std::mem::take(&mut self.partial);
+            if whole.len() as u64 > TAIL {
+                continue;
+            }
             if let Ok(Value::Object(fields)) = serde_json::from_slice(&whole) {
                 self.learn(&fields);
             }
@@ -169,11 +182,11 @@ impl Transcript {
     }
 
     fn learn(&mut self, fields: &Map<String, Value>) {
-        let text = |key: &str| fields.get(key).and_then(Value::as_str).map(str::to_string);
+        let text = |key: &str| fields.get(key).and_then(Value::as_str).map(shown);
         if let Some(branch) = text("gitBranch") {
             self.facts.branch = Some(branch);
         }
-        if let Some(directory) = text("cwd") {
+        if let Some(directory) = fields.get("cwd").and_then(Value::as_str) {
             self.facts.directory = Some(PathBuf::from(directory));
         }
         match fields.get("type").and_then(Value::as_str) {
@@ -193,13 +206,21 @@ impl Transcript {
                 }
             }
             Some("assistant") => {
-                if let Some(activity) = last_tool_call(fields) {
+                if let Some(activity) = last_tool_call(fields).as_deref().map(shown) {
                     self.facts.activity = Some(activity);
                 }
             }
             _ => {}
         }
     }
+}
+
+fn shown(text: &str) -> String {
+    let mut end = text.len().min(SHOWN);
+    while !text.is_char_boundary(end) {
+        end -= 1;
+    }
+    text[..end].to_string()
 }
 
 fn last_tool_call(fields: &Map<String, Value>) -> Option<String> {

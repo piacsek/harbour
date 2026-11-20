@@ -58,13 +58,32 @@ wait_for() {
   sleep 0.6
 }
 
+press() {
+  local before tries sent=0
+  before="$(t capture-pane -e -p -t "$shot_window")"
+  until [ "$sent" -ge 3 ]; do
+    t send-keys -t "$shot_window" "$1"
+    sent=$((sent + 1))
+    tries=0
+    until [ "$(t capture-pane -e -p -t "$shot_window")" != "$before" ] || [ "$tries" -ge 20 ]; do
+      sleep 0.25
+      tries=$((tries + 1))
+    done
+    [ "$tries" -lt 20 ] && break
+  done
+  sleep 0.6
+}
+
 shoot() {
   local name="$1" width="$2" height="$3" args="$4" keys="$5" shown="${6:-}"
   t resize-window -t "$shot_window" -x "$width" -y "$height"
+  t respawn-pane -k -t "$shot_window" "exec cat"
+  t send-keys -R -t "$shot_window"
+  t clear-history -t "$shot_window"
   t respawn-pane -k -t "$shot_window" "cd $(printf %q "$home/acme-api") && env -u XDG_CONFIG_HOME -u XDG_STATE_HOME -u FZF_DEFAULT_OPTS -u FZF_DEFAULT_OPTS_FILE -u HARBOUR_DIR_PICKER -u HARBOUR_SESSION_COMMAND HOME=$(printf %q "$home") $(printf %q "$bin") $args; exec cat"
   sleep 1.5
   [ "$args" = --demo ] && wait_for "permission prompt"
-  [ -n "$keys" ] && t send-keys -t "$shot_window" "$keys" && sleep 0.5
+  [ -n "$keys" ] && press "$keys"
   [ -n "$shown" ] && wait_for "$shown"
   t capture-pane -e -p -t "$shot_window" | python3 "$home/truecolor.py" >"$home/$name.ansi"
   render "$name" --padding 20,64,20,20 --window --language text
