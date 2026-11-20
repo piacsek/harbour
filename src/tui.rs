@@ -113,6 +113,7 @@ fn claude_sessions() -> Option<std::path::PathBuf> {
         std::env::var_os("CLAUDE_CONFIG_DIR").map(Into::into),
         std::env::var_os("HOME").map(Into::into),
     )
+    .and_then(|dir| std::path::absolute(dir).ok())
 }
 
 fn claude_projects() -> Option<std::path::PathBuf> {
@@ -120,6 +121,7 @@ fn claude_projects() -> Option<std::path::PathBuf> {
         std::env::var_os("CLAUDE_CONFIG_DIR").map(Into::into),
         std::env::var_os("HOME").map(Into::into),
     )
+    .and_then(|dir| std::path::absolute(dir).ok())
 }
 
 fn published() -> Option<Summary> {

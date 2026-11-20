@@ -81,6 +81,7 @@ impl Editor {
     pub fn start(
         program: &Program,
         directory: &Path,
+        temporary: &Path,
         id: usize,
         rows: u16,
         cols: u16,
@@ -91,7 +92,7 @@ impl Editor {
                 .prefix(SOCKET_PREFIX)
                 .rand_bytes(SOCKET_RANDOM)
                 .permissions(Permissions::from_mode(0o700))
-                .tempdir_in(socket_base(&std::env::temp_dir()))
+                .tempdir_in(socket_base(temporary))
                 .ok()
         });
         let socket = private.flatten().map(|private| {

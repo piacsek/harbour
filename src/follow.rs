@@ -6,6 +6,11 @@ use crate::editor;
 
 const CHECK_EVERY: Duration = Duration::from_millis(500);
 
+pub fn temporary() -> PathBuf {
+    let temporary = std::env::temp_dir();
+    std::path::absolute(&temporary).unwrap_or(temporary)
+}
+
 pub type Mover = Box<dyn FnMut(&Path) -> io::Result<()>>;
 
 pub struct Follow {

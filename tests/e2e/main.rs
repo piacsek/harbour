@@ -500,8 +500,8 @@ impl Server {
         self.respawn(&command);
     }
 
-    fn exec(&self, home: &Path, env: &[(&str, &str)]) {
-        self.respawn(&harbour_line(home, "exec", env, &[]));
+    fn exec(&self, home: &Path, before: &str, env: &[(&str, &str)], args: &[&str]) {
+        self.respawn(&harbour_line(home, &format!("{before} exec"), env, args));
     }
 
     fn respawn(&self, command: &str) {
