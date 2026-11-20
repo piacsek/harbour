@@ -1,4 +1,5 @@
 pub mod app;
+pub mod card;
 pub mod changelog;
 pub mod demo;
 pub mod help;

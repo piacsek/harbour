@@ -1,3 +1,4 @@
+mod cards;
 mod ending;
 mod exits;
 mod focus;
@@ -192,4 +193,17 @@ fn pane_corner(shown: &str) -> u16 {
         .position(|c| c == '┌' || c == '┏')
         .unwrap();
     u16::try_from(column + 1).unwrap()
+}
+
+fn below(shown: &str, text: &str) -> String {
+    let mut lines = shown.lines();
+    lines.find(|line| line.contains(text));
+    let next = lines.next().unwrap_or_default();
+    next.chars()
+        .skip(1)
+        .take_while(|c| !matches!(c, '│' | '┃'))
+        .collect::<String>()
+        .trim_start_matches(['▌', ' '])
+        .trim_end()
+        .to_string()
 }

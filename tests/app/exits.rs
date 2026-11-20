@@ -1,17 +1,16 @@
 use crossterm::event::{KeyCode, KeyModifiers};
 use ratatui::style::{Color, Modifier};
 
-use crate::{Screen, directory, pane_corner, region, script};
+use crate::{Screen, below, directory, pane_corner, region, script};
 
 #[test]
 fn a_session_that_exited_with_zero_shows_a_hollow_dot_and_exited() {
     let mut screen = Screen::wide(script("echo 'acme agent done'; exit 0"));
     screen.press('n');
 
-    let row = format!("○ {} 1 exited", directory());
-    let shown = screen.wait_for(&row);
+    let shown = screen.wait_for("exited");
 
-    assert!(shown.contains(&row), "{shown}");
+    assert_eq!(below(&shown, &format!("○ {} 1", directory())), "exited");
 }
 
 #[test]
@@ -19,10 +18,9 @@ fn a_session_that_exited_with_a_code_shows_the_code() {
     let mut screen = Screen::wide(script("exit 3"));
     screen.press('n');
 
-    let row = format!("○ {} 1 exited 3", directory());
-    let shown = screen.wait_for(&row);
+    let shown = screen.wait_for("exited 3");
 
-    assert!(shown.contains(&row), "{shown}");
+    assert_eq!(below(&shown, &format!("○ {} 1", directory())), "exited 3");
 }
 
 #[test]
@@ -158,8 +156,5 @@ fn a_session_that_exits_while_its_pane_has_focus_still_lets_ctrl_h_back() {
     let row = format!("{} 2", directory());
     let shown = screen.wait_for(&row);
     assert!(shown.contains(&row), "{shown}");
-    assert!(
-        shown.contains(&format!("○ {} 1 exited", directory())),
-        "{shown}"
-    );
+    assert_eq!(below(&shown, &format!("○ {} 1", directory())), "exited");
 }

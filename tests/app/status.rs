@@ -11,7 +11,7 @@ use ratatui::backend::TestBackend;
 use ratatui::buffer::Cell;
 use ratatui::style::{Color, Modifier};
 
-use crate::{Screen, directory, script};
+use crate::{Screen, below, directory, script};
 
 #[test]
 fn a_busy_session_shows_a_yellow_filled_dot() {
@@ -152,12 +152,16 @@ fn a_session_waiting_on_you_shows_a_red_target_and_what_it_waits_for() {
     );
     screen.press('n');
 
-    let row = format!("◉ {} 1 permission prompt", directory());
-    let shown = screen.wait_for(&row);
+    let shown = screen.wait_for("permission prompt");
 
-    assert!(shown.contains(&row), "{shown}");
+    let name = format!("◉ {} 1", directory());
+    assert!(shown.contains(&name), "{shown}");
+    assert_eq!(below(&shown, &name), "permission prompt");
     assert_eq!(screen.cell(3, 1).fg, Color::Red);
-    assert_eq!(screen.cell(last_column(&shown, "prompt"), 1).fg, Color::Red);
+    assert_eq!(
+        screen.cell(last_column(&shown, "prompt", 2), 2).fg,
+        Color::Red
+    );
     assert_eq!(screen.cell(5, 1).fg, Color::Reset);
 }
 
@@ -173,7 +177,7 @@ fn a_session_waiting_without_a_reason_shows_the_red_target_alone() {
     let row = format!("◉ {} 1", directory());
     let shown = screen.wait_for(&row);
 
-    assert!(shown.contains(&format!("{row} ")), "{shown}");
+    assert_eq!(below(&shown, &row), "");
     assert_eq!(screen.cell(3, 1).fg, Color::Red);
 }
 
@@ -189,10 +193,10 @@ fn an_exited_session_shows_a_dim_hollow_dot_whatever_its_file_says() {
     );
     screen.press('n');
 
-    let row = format!("○ {} 1 exited 3", directory());
-    let shown = screen.wait_for(&row);
+    let shown = screen.wait_for("exited 3");
 
-    assert!(shown.contains(&row), "{shown}");
+    let name = format!("○ {} 1", directory());
+    assert_eq!(below(&shown, &name), "exited 3");
     assert!(screen.cell(3, 1).modifier.contains(Modifier::DIM));
     assert_eq!(screen.cell(3, 1).fg, Color::Reset);
 }
@@ -209,7 +213,7 @@ fn the_file_of_an_exited_session_is_never_read() {
         )),
     );
     screen.press('n');
-    screen.wait_for(&format!("○ {} 1 exited 3", directory()));
+    screen.wait_for("exited 3");
     let pid = std::fs::read_to_string(scratch.path().join("pid")).unwrap();
     let fifo = registry.path().join(format!("{}.json", pid.trim()));
     let made = Command::new("mkfifo").arg(&fifo).status().unwrap();
@@ -278,7 +282,7 @@ fn a_wide_sidebar_names_the_sessions_in_the_title() {
 }
 
 #[test]
-fn the_narrowest_sidebar_shortens_the_name_so_the_waiting_reason_shows() {
+fn the_narrowest_sidebar_cuts_the_waiting_reason_with_an_ellipsis() {
     let registry = tempfile::tempdir().unwrap();
     let mut screen = watching(
         registry.path(),
@@ -290,14 +294,16 @@ fn the_narrowest_sidebar_shortens_the_name_so_the_waiting_reason_shows() {
     screen.resize(60, 20);
     screen.press('n');
 
-    let row = wait_for_sidebar_row(&mut screen, " perm");
+    let row = wait_for_sidebar_row(&mut screen, "perm");
 
-    assert!(row.contains("◉ "), "{row}");
-    assert!(row.contains(" perm"), "{row}");
+    assert_eq!(
+        row.trim_start_matches(['│', '┃', '▌', ' ']),
+        "permission pr…"
+    );
 }
 
 #[test]
-fn a_waiting_reason_that_fits_beside_the_name_is_not_shortened() {
+fn a_short_waiting_reason_shows_whole() {
     let registry = tempfile::tempdir().unwrap();
     let mut screen = watching(
         registry.path(),
@@ -308,10 +314,9 @@ fn a_waiting_reason_that_fits_beside_the_name_is_not_shortened() {
     );
     screen.press('n');
 
-    let row = format!("◉ {} 1 input", directory());
-    let shown = screen.wait_for(&row);
+    let shown = screen.wait_for("input");
 
-    assert!(shown.contains(&row), "{shown}");
+    assert_eq!(below(&shown, &format!("◉ {} 1", directory())), "input");
 }
 
 #[test]
@@ -417,8 +422,8 @@ fn chosen(registry: &Path, scratch: &Path) -> Vec<String> {
     ))
 }
 
-fn last_column(shown: &str, text: &str) -> u16 {
-    let line = shown.lines().nth(1).unwrap();
+fn last_column(shown: &str, text: &str, row: usize) -> u16 {
+    let line = shown.lines().nth(row).unwrap();
     let start = line[..line.find(text).unwrap()].chars().count();
     u16::try_from(start + text.chars().count() - 1).unwrap()
 }
@@ -477,7 +482,7 @@ fn wait_for_sidebar_row(screen: &mut Screen, text: &str) -> String {
     let deadline = Instant::now() + Duration::from_secs(5);
     loop {
         let shown = screen.draw();
-        let row: String = shown.lines().nth(1).unwrap().chars().take(20).collect();
+        let row: String = shown.lines().nth(2).unwrap().chars().take(19).collect();
         if row.contains(text) || Instant::now() > deadline {
             return row;
         }

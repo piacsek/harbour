@@ -6,12 +6,11 @@ use crossterm::event::{KeyCode, KeyEvent, KeyModifiers, MouseEvent, MouseEventKi
 use portable_pty::ExitStatus;
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Layout, Position, Rect};
-use ratatui::style::{Color, Modifier, Stylize};
-use ratatui::text::{Line, Span};
-use ratatui::widgets::{
-    Block, BorderType, Clear, HighlightSpacing, List, ListState, Paragraph, Wrap,
-};
+use ratatui::style::{Color, Modifier};
+use ratatui::text::Line;
+use ratatui::widgets::{Block, BorderType, Clear, Paragraph, Wrap};
 
+use crate::card::{Card, Sidebar};
 use crate::demo;
 use crate::help;
 use crate::keys;
@@ -39,6 +38,7 @@ pub struct App {
     pane: Rect,
     shown_pane: Rect,
     sidebar: Rect,
+    cards: Sidebar,
     pane_focused: bool,
     gesture: Gesture,
     failed: Option<String>,
@@ -83,6 +83,7 @@ impl App {
             pane: Rect::new(0, 0, 80, 24),
             shown_pane: Rect::default(),
             sidebar: Rect::default(),
+            cards: Sidebar::default(),
             pane_focused: false,
             gesture: Gesture::Idle,
             failed: None,
@@ -397,18 +398,11 @@ impl App {
         for entry in &mut self.sessions {
             entry.session.resize(self.pane.height, self.pane.width);
         }
-        let rows: Vec<Line> = self
+        let cards: Vec<Card> = self
             .sessions
             .iter()
             .zip(notes)
-            .map(|(entry, note)| {
-                state::row(
-                    &entry.name,
-                    note,
-                    entry.record.as_ref(),
-                    usize::from(below_rows.width.saturating_sub(2)),
-                )
-            })
+            .map(|(entry, note)| Card::new(&entry.name, note, entry.record.as_ref()))
             .collect();
         let exited = self
             .sessions
@@ -431,16 +425,9 @@ impl App {
                 );
             }
             Some(shown) => {
-                let list = List::new(rows)
-                    .block(sidebar_block)
-                    .highlight_symbol(Line::from(vec![
-                        Span::from("▌").fg(Color::Cyan),
-                        Span::from(" "),
-                    ]))
-                    .highlight_spacing(HighlightSpacing::Always)
-                    .highlight_style(Modifier::BOLD);
-                let mut state = ListState::default().with_selected(Some(self.selected));
-                frame.render_stateful_widget(list, sidebar, &mut state);
+                frame.render_widget(sidebar_block, sidebar);
+                self.cards
+                    .draw(&cards, self.selected, below_rows, frame.buffer_mut());
                 if !pane.is_empty() {
                     frame.render_widget(pane_block, pane);
                     frame.render_widget(&shown.session, self.pane);
