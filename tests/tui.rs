@@ -59,9 +59,13 @@ fn wait_for(session: &Session, text: &str) -> String {
     let deadline = Instant::now() + Duration::from_secs(5);
     loop {
         let screen = rendered(session);
-        if screen.contains(text) || Instant::now() > deadline {
+        if screen.contains(text) {
             return screen;
         }
+        assert!(
+            Instant::now() < deadline,
+            "waited 5 s for {text:?}, last screen:\n{screen}"
+        );
         sleep(Duration::from_millis(20));
     }
 }

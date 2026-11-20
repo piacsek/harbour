@@ -1,9 +1,6 @@
-use std::thread::sleep;
-use std::time::{Duration, Instant};
-
 use crate::keeping::{registered, remembered_soon, titled};
 use crate::remembering::{ID, Scratch, TITLE};
-use crate::{Screen, script};
+use crate::script;
 
 #[test]
 fn a_title_written_just_before_the_session_exits_is_remembered() {
@@ -73,20 +70,11 @@ fn a_new_session_that_resumes_a_stopped_card_merges_the_two() {
 
     screen.press('n');
 
-    let shown = settled(&mut screen, |shown| !shown.contains("stopped"));
+    let shown = screen.wait_until("the stopped card merged", |shown| {
+        !shown.contains("stopped")
+    });
     assert!(!shown.contains("stopped"), "{shown}");
     assert_eq!(shown.matches(TITLE).count(), 1, "{shown}");
     assert!(shown.contains("acme agent registered"), "{shown}");
     assert_eq!(scratch.memory().recall().len(), 1);
-}
-
-fn settled(screen: &mut Screen, done: impl Fn(&str) -> bool) -> String {
-    let deadline = Instant::now() + Duration::from_secs(3);
-    loop {
-        let shown = screen.draw();
-        if done(&shown) || Instant::now() > deadline {
-            return shown;
-        }
-        sleep(Duration::from_millis(20));
-    }
 }

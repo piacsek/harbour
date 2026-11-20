@@ -186,7 +186,8 @@ fn narrow_with(editor: Program) -> Screen {
     let mut screen = Screen::editing(reading_agent(), editor);
     screen.resize(50, 16);
     screen.press('n');
-    screen.wait_for("acme agent ready");
+    screen.wait_for("acme-home 1");
     screen.key(KeyCode::Enter, KeyModifiers::NONE);
+    screen.wait_for("acme agent ready");
     screen
 }

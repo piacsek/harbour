@@ -25,7 +25,9 @@ fn merging_away_the_selected_last_card_selects_the_one_that_stays() {
 
     register(&scratch, &first, OTHER_ID);
 
-    let shown = settled(&mut screen, |_| !scratch.memory().holds(ID));
+    let shown = screen.wait_until("the left conversation forgotten", |_| {
+        !scratch.memory().holds(ID)
+    });
     assert!(!shown.contains("No session yet"), "{shown}");
     assert!(shown.contains("acme agent registered"), "{shown}");
 }
@@ -41,7 +43,9 @@ fn a_session_that_switches_to_a_conversation_another_card_runs_forgets_the_one_i
 
     register(&scratch, &first, OTHER_ID);
 
-    settled(&mut screen, |_| !scratch.memory().holds(ID));
+    screen.wait_until("the left conversation forgotten", |_| {
+        !scratch.memory().holds(ID)
+    });
     let kept = scratch.memory().recall();
     assert_eq!(kept.len(), 1);
     assert_eq!(kept[0].session_id, OTHER_ID);
@@ -59,7 +63,7 @@ fn a_session_that_resumes_an_exited_card_takes_its_place() {
 
     register(&scratch, &first, OTHER_ID);
 
-    let shown = settled(&mut screen, |shown| !shown.contains("exited"));
+    let shown = screen.wait_until("the exited card merged", |shown| !shown.contains("exited"));
     assert!(!shown.contains("exited"), "{shown}");
     assert_eq!(shown.matches(SECOND).count(), 1, "{shown}");
     let kept = scratch.memory().recall();
@@ -77,7 +81,9 @@ fn a_conversation_left_and_taken_up_again_comes_back_after_quitting() {
     let second = started(&mut screen, &scratch, OTHER_ID, SECOND);
     stop(&mut screen, &scratch, &second);
     register(&scratch, &first, OTHER_ID);
-    settled(&mut screen, |_| !scratch.memory().holds(ID));
+    screen.wait_until("the left conversation forgotten", |_| {
+        !scratch.memory().holds(ID)
+    });
 
     started(&mut screen, &scratch, ID, TITLE);
     screen.press('q');
@@ -106,7 +112,9 @@ fn a_session_that_switches_to_a_conversation_open_elsewhere_is_remembered_once()
 
     register(&scratch, &first, OTHER_ID);
 
-    settled(&mut screen, |_| !scratch.memory().holds(ID));
+    screen.wait_until("the left conversation forgotten", |_| {
+        !scratch.memory().holds(ID)
+    });
     let kept = scratch.memory().recall();
     assert_eq!(kept.len(), 1);
     assert_eq!(kept[0].session_id, OTHER_ID);
@@ -342,7 +350,7 @@ fn a_session_that_switched_to_a_conversation_held_elsewhere_takes_it_once_let_go
 
     drop(elsewhere);
 
-    settled(&mut screen, |_| {
+    screen.wait_until("the let-go conversation reserved here", |_| {
         scratch.memory().reserved().contains(OTHER_ID)
     });
     assert!(scratch.memory().reserved().contains(OTHER_ID));
@@ -474,11 +482,11 @@ fn pids_soon(screen: &mut Screen, scratch: &Scratch, count: usize) -> Vec<String
     }
 }
 
-fn settled(screen: &mut Screen, mut done: impl FnMut(&str) -> bool) -> String {
+fn settled(screen: &mut Screen, mut happened: impl FnMut(&str) -> bool) -> String {
     let deadline = Instant::now() + Duration::from_millis(1500);
     loop {
         let shown = screen.draw();
-        if done(&shown) || Instant::now() > deadline {
+        if happened(&shown) || Instant::now() > deadline {
             return shown;
         }
         sleep(Duration::from_millis(20));

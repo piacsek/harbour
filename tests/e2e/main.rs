@@ -11,6 +11,7 @@ mod editor;
 mod moving;
 mod neovim;
 mod picker;
+mod waits;
 
 const AGENT: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/agent.sh");
 const ARGS_AGENT: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/args-agent.sh");
@@ -316,7 +317,7 @@ fn harbour_status_counts_the_sessions_of_a_running_harbour() {
 
     server.send_keys(&["n"]);
 
-    let line = wait_for_status(home.path(), |line| line == WORKING);
+    let line = wait_for_status(home.path(), WORKING);
     assert_eq!(line, WORKING);
 }
 
@@ -328,12 +329,12 @@ fn harbour_status_prints_nothing_once_harbour_quits() {
     server.run(home.path(), &[(SESSION_COMMAND, REGISTERED_AGENT)], &[]);
     server.wait_for_screen("press n to start one");
     server.send_keys(&["n"]);
-    wait_for_status(home.path(), |line| line == WORKING);
+    wait_for_status(home.path(), WORKING);
 
     server.send_keys(&["q", "y"]);
     server.wait_for_screen("harbour exited 0");
 
-    assert_eq!(wait_for_status(home.path(), str::is_empty), "");
+    assert_eq!(wait_for_status(home.path(), ""), "");
 }
 
 #[test]
@@ -537,11 +538,15 @@ impl Server {
     }
 
     fn wait_for_screen_all(&self, needles: &[&str]) -> String {
-        self.wait_until(|screen| needles.iter().all(|needle| screen.contains(needle)))
+        self.wait_until(&format!("{needles:?}"), |screen| {
+            needles.iter().all(|needle| screen.contains(needle))
+        })
     }
 
     fn wait_for_screen_showing_without(&self, shown: &str, gone: &str) -> String {
-        self.wait_until(|screen| screen.contains(shown) && !screen.contains(gone))
+        self.wait_until(&format!("{shown:?} without {gone:?}"), |screen| {
+            screen.contains(shown) && !screen.contains(gone)
+        })
     }
 
     fn wait_for_path(&self, expected: &Path) -> std::path::PathBuf {
@@ -552,21 +557,32 @@ impl Server {
                 .output()
                 .unwrap();
             let path = std::path::PathBuf::from(String::from_utf8_lossy(&output.stdout).trim_end());
-            if path == expected || Instant::now() > deadline {
+            if path == expected {
                 return path;
             }
+            assert!(
+                Instant::now() < deadline,
+                "waited 10 s for the pane's path {}, last path: {}",
+                expected.display(),
+                path.display()
+            );
             sleep(Duration::from_millis(50));
         }
     }
 
-    fn wait_until(&self, done: impl Fn(&str) -> bool) -> String {
+    fn wait_until(&self, what: &str, done: impl Fn(&str) -> bool) -> String {
         let deadline = Instant::now() + Duration::from_secs(10);
-        let mut screen = self.screen();
-        while !done(&screen) && Instant::now() < deadline {
+        loop {
+            let screen = self.screen();
+            if done(&screen) {
+                return screen;
+            }
+            assert!(
+                Instant::now() < deadline,
+                "waited 10 s for {what}, last screen:\n{screen}"
+            );
             sleep(Duration::from_millis(50));
-            screen = self.screen();
         }
-        screen
     }
 }
 
@@ -614,7 +630,7 @@ fn quoted(word: &str) -> String {
     format!("'{}'", word.replace('\'', r"'\''"))
 }
 
-fn wait_for_status(home: &Path, done: impl Fn(&str) -> bool) -> String {
+fn wait_for_status(home: &Path, expected: &str) -> String {
     let deadline = Instant::now() + Duration::from_secs(10);
     loop {
         let output = Command::new(env!("CARGO_BIN_EXE_harbour"))
@@ -624,9 +640,13 @@ fn wait_for_status(home: &Path, done: impl Fn(&str) -> bool) -> String {
             .output()
             .unwrap();
         let line = String::from_utf8_lossy(&output.stdout).into_owned();
-        if done(&line) || Instant::now() > deadline {
+        if line == expected {
             return line;
         }
+        assert!(
+            Instant::now() < deadline,
+            "waited 10 s for {expected:?} from harbour status, last line: {line:?}"
+        );
         sleep(Duration::from_millis(50));
     }
 }

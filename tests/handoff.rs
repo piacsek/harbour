@@ -13,6 +13,20 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use harbour::handoff::{Listener, Reply, Verb};
 
 #[test]
+fn a_wait_for_a_socket_never_bound_fails_naming_its_folder() {
+    let scratch = tempfile::tempdir().unwrap();
+    let dir = scratch.path().join("edit");
+    fs::create_dir(&dir).unwrap();
+
+    let failure = failure(|| {
+        bound_again(&dir);
+    });
+
+    assert!(failure.contains("a socket in"), "{failure}");
+    assert!(failure.contains(&dir.display().to_string()), "{failure}");
+}
+
+#[test]
 fn the_listener_makes_a_private_folder_and_socket() {
     let scratch = tempfile::tempdir().unwrap();
     let dir = scratch.path().join("edit");
@@ -429,9 +443,14 @@ fn bound_again(dir: &Path) -> Vec<PathBuf> {
     let deadline = Instant::now() + Duration::from_secs(2);
     loop {
         let found = socket_files(dir);
-        if !found.is_empty() || Instant::now() > deadline {
+        if !found.is_empty() {
             return found;
         }
+        assert!(
+            Instant::now() < deadline,
+            "waited 2 s for a socket in {}",
+            dir.display()
+        );
         sleep(Duration::from_millis(5));
     }
 }
@@ -454,4 +473,13 @@ fn socket_files(dir: &Path) -> Vec<PathBuf> {
         .collect();
     found.sort();
     found
+}
+
+fn failure(wait: impl FnOnce()) -> String {
+    let unwound = std::panic::catch_unwind(std::panic::AssertUnwindSafe(wait))
+        .expect_err("the wait returned without failing");
+    unwound
+        .downcast_ref::<String>()
+        .cloned()
+        .unwrap_or_default()
 }
