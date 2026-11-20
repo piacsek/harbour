@@ -117,7 +117,7 @@ pub fn legend() -> Vec<Line<'static>> {
         (State::Working, "working: thinking, or running a command"),
         (
             State::Blocked,
-            "blocked, waiting on you: the row says what for",
+            "blocked, waiting on you: the card says what for",
         ),
         (State::Idle, "idle, or exited"),
         (

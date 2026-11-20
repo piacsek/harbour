@@ -30,7 +30,7 @@ fn question_mark_explains_the_dots() {
         "{shown}"
     );
     assert!(
-        shown.contains("◉ blocked, waiting on you: the row says what for"),
+        shown.contains("◉ blocked, waiting on you: the card says what for"),
         "{shown}"
     );
     assert!(shown.contains("○ idle, or exited"), "{shown}");
