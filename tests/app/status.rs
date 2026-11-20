@@ -11,7 +11,56 @@ use harbour::summary::Summary;
 use ratatui::buffer::Cell;
 use ratatui::style::{Color, Modifier};
 
-use crate::{Screen, below, directory, script};
+use crate::{Screen, below, directory, failure, script};
+
+#[test]
+fn a_wait_for_a_dot_that_never_shows_fails_showing_the_last_dot() {
+    let registry = tempfile::tempdir().unwrap();
+    let mut screen = watching(registry.path(), registered(registry.path(), "busy"));
+    screen.press('n');
+    screen.wait_for(&format!("● {} 1", directory()));
+
+    let failure = failure(|| {
+        wait_for_dot(&mut screen, "an acme dot", |cell| cell.symbol() == "acme");
+    });
+
+    assert!(failure.contains("for an acme dot"), "{failure}");
+    assert!(failure.contains("Yellow"), "{failure}");
+}
+
+#[test]
+fn a_wait_for_a_sidebar_row_that_never_shows_fails_naming_it_and_the_row() {
+    let registry = tempfile::tempdir().unwrap();
+    let mut screen = watching(
+        registry.path(),
+        written(
+            registry.path(),
+            r#"{"status":"waiting","waitingFor":"permission prompt"}"#,
+        ),
+    );
+    screen.resize(60, 20);
+    screen.press('n');
+    wait_for_sidebar_row(&mut screen, "perm");
+
+    let failure = failure(|| {
+        wait_for_sidebar_row(&mut screen, "acme never shown");
+    });
+
+    assert!(failure.contains("acme never shown"), "{failure}");
+    assert!(failure.contains("perm"), "{failure}");
+}
+
+#[test]
+fn a_wait_for_more_registry_files_than_come_fails_naming_the_count() {
+    let registry = tempfile::tempdir().unwrap();
+
+    let failure = failure(|| {
+        wait_for_files(registry.path(), 3);
+    });
+
+    assert!(failure.contains("3 registry files"), "{failure}");
+    assert!(failure.contains("found 0"), "{failure}");
+}
 
 #[test]
 fn a_busy_session_shows_a_yellow_filled_dot() {
@@ -43,7 +92,9 @@ fn an_idle_session_shows_a_dim_hollow_dot() {
     let mut screen = watching(registry.path(), registered(registry.path(), "idle"));
     screen.press('n');
 
-    let dot = wait_for_dot(&mut screen, |cell| cell.modifier.contains(Modifier::DIM));
+    let dot = wait_for_dot(&mut screen, "a dim dot", |cell| {
+        cell.modifier.contains(Modifier::DIM)
+    });
 
     assert_eq!(dot.symbol(), "○");
     assert!(dot.modifier.contains(Modifier::DIM));
@@ -107,7 +158,9 @@ fn the_dot_follows_a_change_of_status() {
 
     std::fs::write(only_file(registry.path()), r#"{"status":"idle"}"#).unwrap();
 
-    let dot = wait_for_dot(&mut screen, |cell| cell.modifier.contains(Modifier::DIM));
+    let dot = wait_for_dot(&mut screen, "a dim dot", |cell| {
+        cell.modifier.contains(Modifier::DIM)
+    });
     assert_eq!(dot.symbol(), "○");
     assert!(dot.modifier.contains(Modifier::DIM));
 }
@@ -135,7 +188,7 @@ fn a_file_that_is_removed_turns_the_dot_unknown() {
 
     std::fs::remove_file(only_file(registry.path())).unwrap();
 
-    let dot = wait_for_dot(&mut screen, |cell| cell.symbol() == "·");
+    let dot = wait_for_dot(&mut screen, "an unknown dot", |cell| cell.symbol() == "·");
     assert_eq!(dot.symbol(), "·");
     assert_eq!(dot.fg, Color::DarkGray);
 }
@@ -448,14 +501,18 @@ fn last_column(shown: &str, text: &str, row: usize) -> u16 {
     u16::try_from(start + text.chars().count() - 1).unwrap()
 }
 
-fn wait_for_dot(screen: &mut Screen, done: impl Fn(&Cell) -> bool) -> Cell {
+fn wait_for_dot(screen: &mut Screen, what: &str, done: impl Fn(&Cell) -> bool) -> Cell {
     let deadline = Instant::now() + Duration::from_secs(5);
     loop {
         screen.draw();
         let dot = screen.cell(3, 1);
-        if done(&dot) || Instant::now() > deadline {
+        if done(&dot) {
             return dot;
         }
+        assert!(
+            Instant::now() < deadline,
+            "waited 5 s for {what} on the first card, last dot: {dot:?}"
+        );
         sleep(Duration::from_millis(20));
     }
 }
@@ -503,16 +560,28 @@ fn wait_for_sidebar_row(screen: &mut Screen, text: &str) -> String {
     loop {
         let shown = screen.draw();
         let row: String = shown.lines().nth(2).unwrap().chars().take(19).collect();
-        if row.contains(text) || Instant::now() > deadline {
+        if row.contains(text) {
             return row;
         }
+        assert!(
+            Instant::now() < deadline,
+            "waited 5 s for {text:?} in the sidebar row, last row: {row:?}"
+        );
         sleep(Duration::from_millis(20));
     }
 }
 
 fn wait_for_files(registry: &Path, count: usize) {
     let deadline = Instant::now() + Duration::from_secs(5);
-    while std::fs::read_dir(registry).unwrap().count() < count && Instant::now() < deadline {
+    loop {
+        let found = std::fs::read_dir(registry).unwrap().count();
+        if found >= count {
+            return;
+        }
+        assert!(
+            Instant::now() < deadline,
+            "waited 5 s for {count} registry files, found {found}"
+        );
         sleep(Duration::from_millis(20));
     }
 }

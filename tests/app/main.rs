@@ -29,6 +29,7 @@ mod status;
 mod stopping;
 mod switching;
 mod transcripts;
+mod waits;
 
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
@@ -140,12 +141,22 @@ impl Screen {
     }
 
     fn wait_for_all(&mut self, texts: &[&str]) -> String {
+        self.wait_until(&format!("{texts:?}"), |shown| {
+            texts.iter().all(|text| shown.contains(text))
+        })
+    }
+
+    fn wait_until(&mut self, what: &str, mut done: impl FnMut(&str) -> bool) -> String {
         let deadline = Instant::now() + Duration::from_secs(5);
         loop {
             let shown = self.draw();
-            if texts.iter().all(|text| shown.contains(text)) || Instant::now() > deadline {
+            if done(&shown) {
                 return shown;
             }
+            assert!(
+                Instant::now() < deadline,
+                "waited 5 s for {what}, last screen:\n{shown}"
+            );
             sleep(Duration::from_millis(20));
         }
     }
@@ -241,4 +252,13 @@ fn below(shown: &str, text: &str) -> String {
         .trim_start_matches(['▌', ' '])
         .trim_end()
         .to_string()
+}
+
+fn failure(wait: impl FnOnce()) -> String {
+    let unwound = std::panic::catch_unwind(std::panic::AssertUnwindSafe(wait))
+        .expect_err("the wait returned without failing");
+    unwound
+        .downcast_ref::<String>()
+        .cloned()
+        .unwrap_or_default()
 }

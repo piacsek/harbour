@@ -9,7 +9,21 @@ use crossterm::event::{KeyCode, KeyModifiers, MouseButton, MouseEventKind};
 
 use harbour::picker::Picker;
 
-use crate::{Screen, directory, home, reading_agent, script};
+use crate::{Screen, directory, failure, home, reading_agent, script};
+
+#[test]
+fn a_wait_for_a_popup_that_stays_open_fails_showing_it() {
+    let mut screen = Screen::picking(placed_agent(), Picker::Command(typed_picker()));
+    screen.press('n');
+    screen.wait_for("acme picker");
+
+    let failure = failure(|| {
+        popup_closed(&mut screen);
+    });
+
+    assert!(failure.contains("the picker to close"), "{failure}");
+    assert!(failure.contains("acme picker"), "{failure}");
+}
 
 #[test]
 fn a_directory_the_picker_prints_starts_a_session_there_named_after_it() {
@@ -460,9 +474,13 @@ fn popup_closed(screen: &mut Screen) -> String {
     let deadline = Instant::now() + Duration::from_secs(5);
     loop {
         let shown = screen.draw();
-        if !shown.contains(" directory ") || Instant::now() > deadline {
+        if !shown.contains(" directory ") {
             return shown;
         }
+        assert!(
+            Instant::now() < deadline,
+            "waited 5 s for the picker to close, last screen:\n{shown}"
+        );
         sleep(Duration::from_millis(20));
     }
 }

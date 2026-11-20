@@ -6,7 +6,23 @@ use crossterm::event::{KeyCode, KeyModifiers};
 use harbour::memory::{Memory, Remembered};
 
 use crate::remembering::{ID, OTHER_ID, Scratch, TITLE};
-use crate::{Screen, home, script};
+use crate::{Screen, failure, home, script};
+
+#[test]
+fn a_wait_for_a_title_never_remembered_fails_naming_it_and_what_was_kept() {
+    let scratch = Scratch::new();
+    scratch.transcript(ID, &titled(TITLE));
+    let mut screen = scratch.watching(registered(&scratch.sessions(), ID));
+    screen.press('n');
+    remembered_soon(&mut screen, &scratch.memory(), ID, TITLE);
+
+    let failure = failure(|| {
+        remembered_soon(&mut screen, &scratch.memory(), ID, "acme never titled");
+    });
+
+    assert!(failure.contains("acme never titled"), "{failure}");
+    assert!(failure.contains(TITLE), "{failure}");
+}
 
 #[test]
 fn a_running_session_is_remembered_once_its_transcript_exists() {
@@ -32,7 +48,7 @@ fn a_running_session_without_a_transcript_is_not_remembered() {
     let shown = screen.wait_for("acme agent registered");
     assert!(shown.contains("acme agent registered"), "{shown}");
 
-    let kept = remembered_soon(&mut screen, &scratch.memory(), ID, TITLE);
+    let kept = remembered_after_a_while(&mut screen, &scratch.memory());
 
     assert_eq!(kept, Vec::new());
 }
@@ -169,7 +185,23 @@ pub(crate) fn remembered_soon(
         let done = kept
             .iter()
             .any(|remembered| remembered.session_id == id && remembered.title == title);
-        if done || Instant::now() > deadline {
+        if done {
+            return kept;
+        }
+        assert!(
+            Instant::now() < deadline,
+            "waited 3 s for {id} remembered as {title:?}, kept: {kept:?}"
+        );
+        sleep(Duration::from_millis(20));
+    }
+}
+
+fn remembered_after_a_while(screen: &mut Screen, memory: &Memory) -> Vec<Remembered> {
+    let deadline = Instant::now() + Duration::from_secs(3);
+    loop {
+        screen.draw();
+        let kept = memory.recall();
+        if !kept.is_empty() || Instant::now() > deadline {
             return kept;
         }
         sleep(Duration::from_millis(20));

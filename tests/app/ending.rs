@@ -164,10 +164,10 @@ fn a_click_in_the_pane_cancels_the_question_and_does_not_focus_the_pane() {
 fn quitting_ends_every_running_session_within_one_grace_period() {
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = Screen::new(numbered_agent(scratch.path()));
-    for _ in 0..5 {
+    for started in 1..=5 {
         screen.press('n');
+        screen.wait_for(&format!("acme agent {started}"));
     }
-    screen.wait_for("acme agent 5");
     screen.press('q');
     screen.press('y');
     let started = Instant::now();

@@ -11,7 +11,34 @@ use harbour::follow::Mover;
 use harbour::picker::Picker;
 
 use crate::directory::{cwd, end_agent, folder, recording_agent, repository, write_transcript};
-use crate::{Screen, home, reading_agent, script};
+use crate::{Screen, failure, home, reading_agent, script};
+
+#[test]
+fn a_wait_for_a_move_that_never_comes_fails_naming_it_and_the_last_move() {
+    let scratch = tempfile::tempdir().unwrap();
+    let (mut screen, moves) = opened(scratch.path(), reading_agent(), None);
+
+    let failure = failure(|| {
+        wait_until_at(&mut screen, &moves, Path::new("/acme/never"));
+    });
+
+    assert!(failure.contains("to move to /acme/never"), "{failure}");
+    assert!(failure.contains(&home().display().to_string()), "{failure}");
+}
+
+#[test]
+fn a_wait_for_more_moves_than_come_fails_naming_it_and_the_count() {
+    let scratch = tempfile::tempdir().unwrap();
+    let (mut screen, moves) = opened(scratch.path(), reading_agent(), None);
+
+    let failure = failure(|| {
+        wait_until_moved(&mut screen, &moves, 100);
+    });
+
+    let count = moves.lock().unwrap().len();
+    assert!(failure.contains("more than 100 moves"), "{failure}");
+    assert!(failure.contains(&format!("saw {count}")), "{failure}");
+}
 
 #[test]
 fn with_no_session_harbour_works_where_it_was_opened() {
@@ -272,9 +299,14 @@ fn wait_until_at(screen: &mut Screen, moves: &Moves, expected: &Path) -> Option<
     loop {
         screen.draw();
         let at = moves.lock().unwrap().last().cloned();
-        if at.as_deref() == Some(expected) || Instant::now() > deadline {
+        if at.as_deref() == Some(expected) {
             return at;
         }
+        assert!(
+            Instant::now() < deadline,
+            "waited 12 s for harbour to move to {}, last move: {at:?}",
+            expected.display()
+        );
         sleep(Duration::from_millis(20));
     }
 }
@@ -284,9 +316,13 @@ fn wait_until_moved(screen: &mut Screen, moves: &Moves, entered: usize) -> usize
     loop {
         screen.draw();
         let count = moves.lock().unwrap().len();
-        if count > entered || Instant::now() > deadline {
+        if count > entered {
             return count;
         }
+        assert!(
+            Instant::now() < deadline,
+            "waited 12 s for more than {entered} moves, saw {count}"
+        );
         sleep(Duration::from_millis(20));
     }
 }

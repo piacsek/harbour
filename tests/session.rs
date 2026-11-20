@@ -13,6 +13,19 @@ const ROWS: u16 = 10;
 const COLS: u16 = 200;
 
 #[test]
+fn a_wait_for_text_that_never_shows_fails_naming_it_and_showing_the_screen() {
+    let session = start("echo acme agent ready; sleep 30");
+    wait_for(&session, "acme agent ready");
+
+    let failure = failure(|| {
+        wait_for(&session, "acme never shown");
+    });
+
+    assert!(failure.contains("for \"acme never shown\""), "{failure}");
+    assert!(failure.contains("acme agent ready"), "{failure}");
+}
+
+#[test]
 fn the_pane_shows_what_the_command_prints() {
     let session = start("echo hello from acme; sleep 5");
     let screen = wait_for(&session, "hello from acme");
@@ -361,9 +374,13 @@ fn wait_for(session: &Session, text: &str) -> String {
     let deadline = Instant::now() + Duration::from_secs(5);
     loop {
         let screen = rendered(session);
-        if screen.contains(text) || Instant::now() > deadline {
+        if screen.contains(text) {
             return screen;
         }
+        assert!(
+            Instant::now() < deadline,
+            "waited 5 s for {text:?}, last screen:\n{screen}"
+        );
         sleep(Duration::from_millis(20));
     }
 }
@@ -406,4 +423,13 @@ fn still_alive_after_a_while(pid: &str) -> bool {
         sleep(Duration::from_millis(50));
     }
     alive(pid)
+}
+
+fn failure(wait: impl FnOnce()) -> String {
+    let unwound = std::panic::catch_unwind(std::panic::AssertUnwindSafe(wait))
+        .expect_err("the wait returned without failing");
+    unwound
+        .downcast_ref::<String>()
+        .cloned()
+        .unwrap_or_default()
 }
