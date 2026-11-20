@@ -6,7 +6,7 @@ use std::process::{Command, Output};
 use crate::helpers::{calls, git, link_script, recorder, repository, stderr, which};
 
 #[test]
-fn gates_run_every_test_in_one_pass_when_tmux_is_installed() {
+fn gates_with_tmux_run_the_e2e_tests_after_the_rest_on_two_threads() {
     let dir = tempfile::tempdir().unwrap();
     let bin = gates_sandbox(dir.path());
     symlink(which("true"), bin.join("tmux")).unwrap();
@@ -14,14 +14,18 @@ fn gates_run_every_test_in_one_pass_when_tmux_is_installed() {
     let output = gates(dir.path());
 
     assert!(output.status.success(), "{}", stderr(&output));
-    assert_eq!(calls(dir.path()).len(), 4);
+    assert_eq!(calls(dir.path()).len(), 5);
     assert_eq!(calls(dir.path())[0], "scrub-check.sh ");
     assert_eq!(calls(dir.path())[1], "cargo fmt --check");
     assert_eq!(
         calls(dir.path())[2],
         "cargo clippy --all-targets -- -D warnings"
     );
-    assert_eq!(calls(dir.path())[3], "cargo test -- --include-ignored");
+    assert_eq!(calls(dir.path())[3], "cargo test");
+    assert_eq!(
+        calls(dir.path())[4],
+        "cargo test --test e2e -- --include-ignored --test-threads=2"
+    );
 }
 
 #[test]
@@ -78,7 +82,7 @@ fn gates_on_a_branch_the_script_tests_do_not_read_run_every_other_test_target() 
     let output = repository_gates(dir.path(), None);
 
     assert!(output.status.success(), "{}", stderr(&output));
-    assert_eq!(calls(dir.path()).len(), 5);
+    assert_eq!(calls(dir.path()).len(), 6);
     assert_eq!(calls(dir.path())[0], "scrub-check.sh ");
     assert_eq!(calls(dir.path())[1], "cargo fmt --check");
     assert_eq!(
@@ -87,11 +91,12 @@ fn gates_on_a_branch_the_script_tests_do_not_read_run_every_other_test_target() 
     );
     assert_eq!(
         calls(dir.path())[3],
-        "cargo test --lib --bins --test cli --test plans --test e2e --test prs -- --include-ignored"
+        "cargo test --lib --bins --test cli --test plans --test prs"
     );
+    assert_eq!(calls(dir.path())[4], "cargo test --doc");
     assert_eq!(
-        calls(dir.path())[4],
-        "cargo test --doc -- --include-ignored"
+        calls(dir.path())[5],
+        "cargo test --test e2e -- --include-ignored --test-threads=2"
     );
 }
 
@@ -129,7 +134,7 @@ fn gates_that_skip_the_script_tests_say_why_and_that_ci_runs_them() {
 }
 
 #[test]
-fn gates_on_a_branch_that_touches_a_script_run_every_test_in_one_pass() {
+fn gates_on_a_branch_that_touches_a_script_run_every_test_target() {
     let dir = tempfile::tempdir().unwrap();
     let bin = gates_repository(dir.path());
     symlink(which("true"), bin.join("tmux")).unwrap();
@@ -138,14 +143,18 @@ fn gates_on_a_branch_that_touches_a_script_run_every_test_in_one_pass() {
     let output = repository_gates(dir.path(), None);
 
     assert!(output.status.success(), "{}", stderr(&output));
-    assert_eq!(calls(dir.path()).len(), 4);
+    assert_eq!(calls(dir.path()).len(), 5);
     assert_eq!(calls(dir.path())[0], "scrub-check.sh ");
     assert_eq!(calls(dir.path())[1], "cargo fmt --check");
     assert_eq!(
         calls(dir.path())[2],
         "cargo clippy --all-targets -- -D warnings"
     );
-    assert_eq!(calls(dir.path())[3], "cargo test -- --include-ignored");
+    assert_eq!(calls(dir.path())[3], "cargo test");
+    assert_eq!(
+        calls(dir.path())[4],
+        "cargo test --test e2e -- --include-ignored --test-threads=2"
+    );
     assert!(
         !stderr(&output).contains("skipping the script tests"),
         "{}",
@@ -162,14 +171,18 @@ fn gates_in_ci_never_skip_the_script_tests() {
     let output = repository_gates(dir.path(), Some("true"));
 
     assert!(output.status.success(), "{}", stderr(&output));
-    assert_eq!(calls(dir.path()).len(), 4);
+    assert_eq!(calls(dir.path()).len(), 5);
     assert_eq!(calls(dir.path())[0], "scrub-check.sh ");
     assert_eq!(calls(dir.path())[1], "cargo fmt --check");
     assert_eq!(
         calls(dir.path())[2],
         "cargo clippy --all-targets -- -D warnings"
     );
-    assert_eq!(calls(dir.path())[3], "cargo test -- --include-ignored");
+    assert_eq!(calls(dir.path())[3], "cargo test");
+    assert_eq!(
+        calls(dir.path())[4],
+        "cargo test --test e2e -- --include-ignored --test-threads=2"
+    );
 }
 
 fn gates_sandbox(root: &Path) -> PathBuf {
