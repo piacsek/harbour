@@ -166,6 +166,34 @@ fn an_exited_session_shows_a_dim_hollow_dot_whatever_its_file_says() {
     assert_eq!(screen.cell(3, 1).fg, Color::Reset);
 }
 
+#[test]
+fn the_sidebar_title_counts_the_sessions_by_dot() {
+    let registry = tempfile::tempdir().unwrap();
+    let scratch = tempfile::tempdir().unwrap();
+    let mut screen = watching(registry.path(), chosen(registry.path(), scratch.path()));
+
+    for status in ["busy", "waiting", "idle", "none"] {
+        std::fs::write(scratch.path().join("status"), status).unwrap();
+        screen.press('n');
+        screen.wait_for(&format!("acme agent {status}"));
+    }
+
+    let shown = screen.wait_for(" sessions ● 1 ◉ 1 ○ 2 ");
+    assert!(shown.contains(" sessions ● 1 ◉ 1 ○ 2 "), "{shown}");
+    assert_eq!(screen.cell(11, 0).fg, Color::Yellow);
+    assert_eq!(screen.cell(15, 0).fg, Color::Red);
+}
+
+#[test]
+fn with_no_session_the_title_counts_zero_of_each() {
+    let registry = tempfile::tempdir().unwrap();
+    let mut screen = watching(registry.path(), registered(registry.path(), "busy"));
+
+    let shown = screen.draw();
+
+    assert!(shown.contains(" sessions ● 0 ◉ 0 ○ 0 "), "{shown}");
+}
+
 fn watching(registry: &Path, command: Vec<String>) -> Screen {
     let mut screen = Screen {
         app: App::new(command).with_registry(registry.to_path_buf()),
@@ -183,6 +211,16 @@ fn registered(registry: &Path, status: &str) -> Vec<String> {
 fn written(registry: &Path, json: &str) -> Vec<String> {
     script(&format!(
         "printf '%s' '{json}' > '{}'/$$.json; echo 'acme agent registered'; exec sleep 600",
+        registry.display()
+    ))
+}
+
+fn chosen(registry: &Path, scratch: &Path) -> Vec<String> {
+    script(&format!(
+        "s=$(cat '{}/status'); \
+         [ \"$s\" = none ] || printf '{{\"status\":\"%s\"}}' \"$s\" > '{}'/$$.json; \
+         echo \"acme agent $s\"; exec sleep 600",
+        scratch.display(),
         registry.display()
     ))
 }

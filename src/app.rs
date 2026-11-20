@@ -268,7 +268,18 @@ impl App {
         self.read_registry();
         let (sidebar, pane) = self.areas(frame.area());
         self.sidebar = sidebar;
-        let mut sidebar_block = bordered(!self.pane_focused).title(" sessions ");
+        let notes: Vec<Option<String>> = self
+            .sessions
+            .iter_mut()
+            .map(|entry| entry.session.exit().map(exit_note))
+            .collect();
+        let title = state::title(
+            self.sessions
+                .iter()
+                .zip(&notes)
+                .map(|(entry, note)| (note.is_some(), entry.record.as_ref())),
+        );
+        let mut sidebar_block = bordered(!self.pane_focused).title(title);
         match self.asking {
             Some(Question::End) => sidebar_block = sidebar_block.title_bottom(" End? y/n "),
             Some(Question::Quit) => sidebar_block = sidebar_block.title_bottom(" Quit? y/n "),
@@ -287,11 +298,9 @@ impl App {
         }
         let rows: Vec<Line> = self
             .sessions
-            .iter_mut()
-            .map(|entry| {
-                let note = entry.session.exit().map(exit_note);
-                state::row(&entry.name, note, entry.record.as_ref())
-            })
+            .iter()
+            .zip(notes)
+            .map(|(entry, note)| state::row(&entry.name, note, entry.record.as_ref()))
             .collect();
         let exited = self
             .sessions

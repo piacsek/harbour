@@ -62,3 +62,23 @@ pub fn row(name: &str, exit_note: Option<String>, record: Option<&Record>) -> Li
     }
     Line::from(spans)
 }
+
+pub fn title<'a>(sessions: impl Iterator<Item = (bool, Option<&'a Record>)>) -> Line<'static> {
+    let mut counts = [0; 3];
+    for (exited, record) in sessions {
+        counts[match State::of(exited, record) {
+            State::Working => 0,
+            State::Blocked => 1,
+            State::Idle | State::Exited | State::Unknown => 2,
+        }] += 1;
+    }
+    Line::from(vec![
+        Span::from(" sessions "),
+        Span::styled("●", State::Working.style()),
+        Span::from(format!(" {} ", counts[0])),
+        Span::styled("◉", State::Blocked.style()),
+        Span::from(format!(" {} ", counts[1])),
+        Span::from("○"),
+        Span::from(format!(" {} ", counts[2])),
+    ])
+}
