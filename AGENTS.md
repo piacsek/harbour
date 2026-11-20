@@ -117,8 +117,10 @@ next to the code; read the one for a directory before changing anything in it.
 
 - **`--help`/`-h`/`help` and `--version`/`-V`/`version`** print to stdout and exit 0; anything
   else prints the usage to stderr and exits 1, and so does no argument when stdin or stdout is not
-  a terminal (with both on a terminal it opens the interface). The Homebrew formula's
-  `test` block and the `flake` and `stable-build` jobs rely on both.
+  a terminal (with both on a terminal it opens the interface). The usage names `--demo` and says
+  that no argument on a terminal opens the interface; `tests/cli.rs` pins it. The Homebrew
+  formula's `test` block (`--version`, and `usage: harbour` on an unknown argument) and the `flake`
+  and `stable-build` jobs (`--version`) rely on both.
 - **`changelog`** prints the bundled `CHANGELOG.md` to stdout and exits 0: the heading alone in a
   build from `main`, every release in a release build. `tests/changelog.rs` holds the rules a
   release entry must meet, and `the_changelog_has_a_real_entry_for_the_crate_version` checks that a

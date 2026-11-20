@@ -1,7 +1,7 @@
 use crossterm::event::{KeyCode, KeyModifiers};
 use ratatui::style::Modifier;
 
-use crate::{Screen, directory, script};
+use crate::{Screen, directory, region, script};
 
 #[test]
 fn a_session_that_exited_with_zero_shows_a_hollow_dot_and_exited() {
@@ -103,6 +103,17 @@ fn a_start_that_works_clears_the_failure() {
 
     let shown = screen.wait_for(&format!("{} 1", directory()));
     assert!(!shown.contains("Could not start"), "{shown}");
+}
+
+#[test]
+fn a_long_command_that_cannot_start_is_named_in_full_in_the_pane() {
+    let command = format!("/acme/{}acme-agent-tail", "deep/".repeat(20));
+    let mut screen = Screen::new(vec![command]);
+
+    screen.press('n');
+
+    let pane = region(&screen.draw(), 41, 78).replace('\n', "");
+    assert!(pane.contains("acme-agent-tail"), "{pane}");
 }
 
 #[test]

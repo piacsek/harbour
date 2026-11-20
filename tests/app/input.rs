@@ -115,3 +115,44 @@ fn a_drag_that_leaves_the_pane_still_reaches_the_session_up_to_its_release() {
         "{shown}"
     );
 }
+
+#[test]
+fn a_drag_held_while_the_pane_shrinks_to_nothing_is_dropped() {
+    let mut screen = Screen::new(raw_agent("\\033[?1002h\\033[?1006h", 18));
+    screen.press('n');
+    screen.wait_for("acme agent ready");
+    screen.mouse(MouseEventKind::Down(MouseButton::Left), 45, 3);
+    screen.resize(120, 2);
+
+    screen.mouse(MouseEventKind::Drag(MouseButton::Left), 45, 1);
+    screen.mouse(MouseEventKind::Up(MouseButton::Left), 45, 1);
+    screen.resize(120, 20);
+    screen.mouse(MouseEventKind::Down(MouseButton::Left), 45, 3);
+
+    let shown = screen.wait_for("acme agent read:");
+    assert!(
+        shown.contains("acme agent read:[<0;5;3M[<0;5;3M"),
+        "{shown}"
+    );
+}
+
+#[test]
+fn a_drag_held_while_a_narrow_terminal_hides_the_pane_is_dropped() {
+    let mut screen = Screen::new(raw_agent("\\033[?1002h\\033[?1006h", 18));
+    screen.press('n');
+    screen.wait_for("acme agent ready");
+    screen.mouse(MouseEventKind::Down(MouseButton::Left), 45, 3);
+    screen.key(KeyCode::Char('h'), KeyModifiers::CONTROL);
+    screen.resize(50, 16);
+
+    screen.mouse(MouseEventKind::Drag(MouseButton::Left), 10, 3);
+    screen.mouse(MouseEventKind::Up(MouseButton::Left), 10, 3);
+    screen.resize(120, 20);
+    screen.mouse(MouseEventKind::Down(MouseButton::Left), 45, 3);
+
+    let shown = screen.wait_for("acme agent read:");
+    assert!(
+        shown.contains("acme agent read:[<0;5;3M[<0;5;3M"),
+        "{shown}"
+    );
+}

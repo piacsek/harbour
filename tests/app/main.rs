@@ -136,3 +136,18 @@ fn numbered_agent(scratch: &Path) -> Vec<String> {
     );
     vec!["/bin/sh".into(), "-c".into(), script]
 }
+
+fn region(shown: &str, from: usize, width: usize) -> String {
+    shown
+        .lines()
+        .map(|line| {
+            line.chars()
+                .skip(from)
+                .take(width)
+                .collect::<String>()
+                .trim_end()
+                .to_string()
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+}

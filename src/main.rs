@@ -3,8 +3,12 @@ use std::process::ExitCode;
 
 use harbour::changelog::CHANGELOG;
 
-const USAGE: &str =
-    "harbour: Harbour: where shipping begins\n\nusage: harbour [--help | --version | changelog]";
+const USAGE: &str = "harbour: Harbour: where shipping begins
+
+usage: harbour [--demo | --help | --version | changelog]
+
+With no argument on a terminal, harbour opens a sidebar of Claude Code sessions
+beside a live pane. --demo opens the same with made-up sessions: no claude needed.";
 
 fn main() -> ExitCode {
     let args: Vec<_> = std::env::args_os().skip(1).collect();

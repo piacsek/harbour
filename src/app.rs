@@ -135,6 +135,10 @@ impl App {
                 self.pane_focused = !self.sessions.is_empty();
             }
         }
+        if pane.is_empty() {
+            self.dragging = false;
+            return;
+        }
         let inside = pane.contains(at);
         let held =
             self.dragging && matches!(event.kind, MouseEventKind::Drag(_) | MouseEventKind::Up(_));
@@ -271,8 +275,18 @@ impl App {
         match self.sessions.get(self.selected) {
             None => {
                 let message = self.failed.as_deref().unwrap_or(HINT);
-                frame.render_widget(Paragraph::new(HINT).block(sidebar_block), sidebar);
-                frame.render_widget(Paragraph::new(message).block(pane_block), pane);
+                frame.render_widget(
+                    Paragraph::new(HINT)
+                        .wrap(Wrap { trim: false })
+                        .block(sidebar_block),
+                    sidebar,
+                );
+                frame.render_widget(
+                    Paragraph::new(message)
+                        .wrap(Wrap { trim: false })
+                        .block(pane_block),
+                    pane,
+                );
             }
             Some(shown) => {
                 let list = List::new(rows)

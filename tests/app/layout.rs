@@ -6,7 +6,17 @@ use harbour::app::App;
 use ratatui::Terminal;
 use ratatui::backend::TestBackend;
 
-use crate::{Screen, directory, numbered_agent, script, sized_agent};
+use crate::{Screen, directory, numbered_agent, region, script, sized_agent};
+
+#[test]
+fn the_hint_is_shown_whole_in_a_narrow_sidebar() {
+    let mut screen = Screen::new(vec!["acme-agent".to_string()]);
+
+    screen.resize(80, 20);
+
+    let sidebar = region(&screen.draw(), 1, 24);
+    assert!(sidebar.contains("to start one."), "{sidebar}");
+}
 
 #[test]
 fn a_resize_reaches_a_session_that_is_not_shown() {

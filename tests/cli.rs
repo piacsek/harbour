@@ -135,8 +135,13 @@ fn changelog_writes_nothing_on_stderr() {
     assert!(launch(&["changelog"]).stderr.is_empty());
 }
 
-const USAGE: &str =
-    "harbour: Harbour: where shipping begins\n\nusage: harbour [--help | --version | changelog]\n";
+const USAGE: &str = "harbour: Harbour: where shipping begins
+
+usage: harbour [--demo | --help | --version | changelog]
+
+With no argument on a terminal, harbour opens a sidebar of Claude Code sessions
+beside a live pane. --demo opens the same with made-up sessions: no claude needed.
+";
 
 fn version_line() -> String {
     format!("harbour {}\n", env!("CARGO_PKG_VERSION"))
