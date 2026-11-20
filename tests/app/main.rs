@@ -1,5 +1,6 @@
 mod directory;
 mod editor;
+mod editor_ending;
 mod editor_exits;
 mod editor_input;
 mod ending;

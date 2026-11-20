@@ -11,6 +11,8 @@ use crate::nvim;
 use crate::session::Session;
 
 const LEFTMOST_IN_NORMAL_MODE: &str = "mode() ==# 'n' && winnr('h') == winnr()";
+const UNSAVED: &str = "len(filter(getbufinfo({'bufmodified': 1}), \
+                       {_, b -> getbufvar(b.bufnr, '&buftype') ==# ''}))";
 
 pub struct Program {
     name: String,
@@ -88,10 +90,17 @@ impl Editor {
     }
 
     pub fn wants_ctrl_h(&self) -> bool {
+        self.ask(LEFTMOST_IN_NORMAL_MODE) == Some(0)
+    }
+
+    pub fn unsaved(&self) -> bool {
+        self.ask(UNSAVED).is_some_and(|count| count > 0)
+    }
+
+    fn ask(&self, expression: &str) -> Option<i64> {
         self.socket
             .as_ref()
-            .and_then(|(path, _)| nvim::eval(path, LEFTMOST_IN_NORMAL_MODE, self.patience))
-            == Some(0)
+            .and_then(|(path, _)| nvim::eval(path, expression, self.patience))
     }
 }
 

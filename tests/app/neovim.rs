@@ -6,13 +6,15 @@ use std::sync::mpsc::{self, Receiver};
 use std::thread;
 use std::time::{Duration, Instant};
 
-use crossterm::event::{KeyCode, KeyModifiers};
+use crossterm::event::{KeyCode, KeyModifiers, MouseButton, MouseEventKind};
 use harbour::editor::Program;
 use rmpv::Value;
 
 use crate::{Screen, reading_agent, script};
 
 const LEFTMOST_IN_NORMAL_MODE: &str = "mode() ==# 'n' && winnr('h') == winnr()";
+const UNSAVED: &str = "len(filter(getbufinfo({'bufmodified': 1}), \
+                       {_, b -> getbufvar(b.bufnr, '&buftype') ==# ''}))";
 
 #[test]
 fn neovim_is_told_to_listen_on_a_socket() {
@@ -111,6 +113,74 @@ fn the_socket_directory_is_removed_once_neovim_exits() {
     screen.wait_for("acme agent ready");
 
     assert!(!socket.parent().unwrap().exists());
+}
+
+#[test]
+fn x_asks_neovim_whether_it_has_unsaved_changes() {
+    let scratch = tempfile::tempdir().unwrap();
+    let mut screen = in_the_sidebar(scratch.path());
+    let asked = answering(&socket(scratch.path()), Some(1));
+
+    screen.press('x');
+
+    let request = asked.recv_timeout(Duration::from_secs(5)).unwrap();
+    assert_eq!(request, format!("nvim_eval {UNSAVED}"));
+}
+
+#[test]
+fn x_names_unsaved_changes_in_neovim() {
+    let scratch = tempfile::tempdir().unwrap();
+    let mut screen = in_the_sidebar(scratch.path());
+    let _asked = answering(&socket(scratch.path()), Some(2));
+
+    screen.press('x');
+
+    let shown = screen.draw();
+    assert!(shown.contains(" Unsaved changes. End? y/n "), "{shown}");
+}
+
+#[test]
+fn x_asks_the_plain_question_when_neovim_has_nothing_unsaved() {
+    let scratch = tempfile::tempdir().unwrap();
+    let mut screen = in_the_sidebar(scratch.path());
+    let _asked = answering(&socket(scratch.path()), Some(0));
+
+    screen.press('x');
+
+    let shown = screen.draw();
+    assert!(shown.contains(" End? y/n "), "{shown}");
+    assert!(!shown.contains("Unsaved"), "{shown}");
+}
+
+#[test]
+fn x_asks_the_plain_question_when_nothing_listens_on_the_socket() {
+    let scratch = tempfile::tempdir().unwrap();
+    let mut screen = in_the_sidebar(scratch.path());
+
+    screen.press('x');
+
+    let shown = screen.draw();
+    assert!(shown.contains(" End? y/n "), "{shown}");
+    assert!(!shown.contains("Unsaved"), "{shown}");
+}
+
+#[test]
+fn q_names_unsaved_changes_in_neovim() {
+    let scratch = tempfile::tempdir().unwrap();
+    let mut screen = in_the_sidebar(scratch.path());
+    let _asked = answering(&socket(scratch.path()), Some(1));
+
+    screen.press('q');
+
+    let shown = screen.draw();
+    assert!(shown.contains(" Unsaved changes. Quit? y/n "), "{shown}");
+}
+
+fn in_the_sidebar(scratch: &Path) -> Screen {
+    let mut screen = open(scratch, "exec sleep 600");
+    screen.mouse(MouseEventKind::Down(MouseButton::Left), 1, 1);
+    screen.mouse(MouseEventKind::Up(MouseButton::Left), 1, 1);
+    screen
 }
 
 fn open(scratch: &Path, then: &str) -> Screen {

@@ -51,8 +51,8 @@ pub struct App {
 
 #[derive(Clone, Copy, PartialEq)]
 enum Question {
-    End,
-    Quit,
+    End { unsaved: bool },
+    Quit { unsaved: bool },
 }
 
 struct Entry {
@@ -79,6 +79,15 @@ impl Entry {
 
     fn shown_id(&self) -> usize {
         self.showing_editor().map_or(self.id, |editor| editor.id)
+    }
+
+    fn running(&mut self) -> bool {
+        self.sessions().any(|session| session.exit().is_none())
+    }
+
+    fn sessions(&mut self) -> impl Iterator<Item = &mut Session> {
+        std::iter::once(&mut self.session)
+            .chain(self.editors.iter_mut().map(|editor| &mut editor.session))
     }
 
     fn shown(&self) -> &Session {
@@ -365,35 +374,49 @@ impl App {
         let Some(entry) = self.sessions.get_mut(self.selected) else {
             return;
         };
-        if entry.session.exit().is_some() {
-            self.sessions.remove(self.selected);
-            self.selected = self.selected.min(self.sessions.len().saturating_sub(1));
+        if entry.running() {
+            let unsaved = entry.editors.iter().any(Editor::unsaved);
+            self.asking = Some(Question::End { unsaved });
         } else {
-            self.asking = Some(Question::End);
+            self.remove_selected();
         }
     }
 
     fn quit(&mut self) {
-        if self
-            .sessions
-            .iter_mut()
-            .all(|entry| entry.session.exit().is_some())
-        {
-            self.quitting = true;
+        if self.sessions.iter_mut().any(Entry::running) {
+            let unsaved = self
+                .sessions
+                .iter()
+                .flat_map(|entry| &entry.editors)
+                .any(Editor::unsaved);
+            self.asking = Some(Question::Quit { unsaved });
         } else {
-            self.asking = Some(Question::Quit);
+            self.quitting = true;
         }
     }
 
     fn answer_yes(&mut self, question: Question) {
         match question {
-            Question::End => {
-                if let Some(entry) = self.sessions.get_mut(self.selected) {
-                    entry.session.end();
+            Question::End { .. } => {
+                let Some(entry) = self.sessions.get_mut(self.selected) else {
+                    return;
+                };
+                let exited = entry.session.exit().is_some();
+                session::end_all(entry.sessions());
+                entry.editors.clear();
+                entry.editor = None;
+                entry.on_editor = false;
+                if exited {
+                    self.remove_selected();
                 }
             }
-            Question::Quit => self.quitting = true,
+            Question::Quit { .. } => self.quitting = true,
         }
+    }
+
+    fn remove_selected(&mut self) {
+        self.sessions.remove(self.selected);
+        self.selected = self.selected.min(self.sessions.len().saturating_sub(1));
     }
 
     fn pick_or_start(&mut self) {
@@ -496,7 +519,7 @@ impl App {
 
 impl Drop for App {
     fn drop(&mut self) {
-        session::end_all(self.sessions.iter_mut().map(|entry| &mut entry.session));
+        session::end_all(self.sessions.iter_mut().flat_map(Entry::sessions));
     }
 }
 

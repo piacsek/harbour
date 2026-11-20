@@ -36,10 +36,8 @@ impl App {
         }
         let title = state::title(counts, usize::from(sidebar.width.saturating_sub(2)));
         let mut sidebar_block = bordered(!self.pane_focused).title(title);
-        match self.asking {
-            Some(Question::End) => sidebar_block = sidebar_block.title_bottom(" End? y/n "),
-            Some(Question::Quit) => sidebar_block = sidebar_block.title_bottom(" Quit? y/n "),
-            None => {}
+        if let Some(question) = self.asking {
+            sidebar_block = sidebar_block.title_bottom(asked(question));
         }
         let below_rows = sidebar_block.inner(sidebar);
         let mut pane_block = bordered(self.pane_focused);
@@ -223,4 +221,13 @@ fn bordered(focused: bool) -> Block<'static> {
 
 pub(super) fn popup(area: Rect) -> Rect {
     area.centered(Constraint::Percentage(80), Constraint::Percentage(80))
+}
+
+fn asked(question: Question) -> String {
+    let (unsaved, what) = match question {
+        Question::End { unsaved } => (unsaved, "End"),
+        Question::Quit { unsaved } => (unsaved, "Quit"),
+    };
+    let lead = if unsaved { "Unsaved changes. " } else { "" };
+    format!(" {lead}{what}? y/n ")
 }
