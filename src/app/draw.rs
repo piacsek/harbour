@@ -4,10 +4,9 @@ use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::{Color, Modifier, Stylize};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, BorderType, Clear, Paragraph, Wrap};
-use std::time::Instant;
 
-use super::{App, HINT, NARROW, Question, user_home};
-use crate::card::Card;
+use super::{App, Entry, HINT, NARROW, Question, remember, user_home};
+use crate::card::{Card, Ended};
 use crate::editor::Changes;
 use crate::help;
 use crate::state;
@@ -30,25 +29,27 @@ impl App {
         self.finish_pick();
         self.finish_editors();
         self.read_files();
+        self.settle_exited();
         self.follow_selected();
         self.screen = frame.area();
         let (sidebar, pane) = self.areas(frame.area());
         self.sidebar = sidebar;
-        let notes: Vec<Option<String>> = self
+        let notes: Vec<Option<Ended>> = self
             .sessions
             .iter_mut()
-            .map(|entry| {
-                let note = entry.session.exit().map(exit_note);
-                if note.is_some() {
-                    entry.exited_at.get_or_insert_with(Instant::now);
-                }
-                note
+            .map(|entry| match &mut entry.session {
+                None => Some(Ended::Stopped(entry.why)),
+                Some(_) if entry.exited_at.is_none() => None,
+                Some(session) => session
+                    .exit()
+                    .map(|status| Ended::Exited(exit_note(status))),
             })
             .collect();
         let counts = state::counts(
             self.sessions
                 .iter()
                 .zip(&notes)
+                .filter(|(entry, _)| entry.session.is_some())
                 .map(|(entry, note)| (note.is_some(), entry.record.as_ref())),
         );
         if let Some(summary) = &mut self.summary {
@@ -67,11 +68,8 @@ impl App {
         } else {
             self.pane
         };
-        for entry in &mut self.sessions {
-            entry.session.resize(self.pane.height, self.pane.width);
-            for editor in &mut entry.editors {
-                editor.session.resize(self.pane.height, self.pane.width);
-            }
+        for session in self.sessions.iter_mut().flat_map(Entry::sessions) {
+            session.resize(self.pane.height, self.pane.width);
         }
         let cards: Vec<Card> = self
             .sessions
@@ -88,10 +86,9 @@ impl App {
                 )
             })
             .collect();
-        let exited = self
-            .sessions
-            .get_mut(self.selected)
-            .is_some_and(|entry| !entry.on_editor && entry.session.exit().is_some());
+        let exited = self.sessions.get_mut(self.selected).is_some_and(|entry| {
+            !entry.on_editor && entry.session.is_some() && entry.exited_at.is_some()
+        });
         match self.sessions.get(self.selected) {
             None => {
                 let message = self.failed.as_deref().unwrap_or(HINT);
@@ -113,8 +110,18 @@ impl App {
                 self.cards
                     .draw(&cards, self.selected, below_rows, frame.buffer_mut());
                 if !pane.is_empty() {
-                    frame.render_widget(pane_block, pane);
-                    frame.render_widget(shown.shown(), self.pane);
+                    match shown.shown() {
+                        Some(session) => {
+                            frame.render_widget(pane_block, pane);
+                            frame.render_widget(session, self.pane);
+                        }
+                        None => frame.render_widget(
+                            Paragraph::new(remember::pane(shown.why))
+                                .wrap(Wrap { trim: false })
+                                .block(pane_block),
+                            pane,
+                        ),
+                    }
                     if exited {
                         frame.buffer_mut().set_style(self.pane, Modifier::DIM);
                     }
@@ -123,7 +130,11 @@ impl App {
         }
         let mut free = below_rows;
         if let Some(question) = self.asking {
-            free = draw_bottom(frame, question_lines(question, below_rows.width), free);
+            let mut lines = question_lines(question, below_rows.width);
+            if matches!(question, Question::Quit(_)) {
+                lines.splice(0..0, self.quit_note(below_rows.width));
+            }
+            free = draw_bottom(frame, lines, free);
         }
         if let Some(failed) = &self.failed {
             let area = if sidebar.is_empty() && !self.sessions.is_empty() {

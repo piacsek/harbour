@@ -62,6 +62,29 @@ impl Transcript {
         &self.session_id
     }
 
+    pub fn existing(projects: &Path) -> Option<HashSet<String>> {
+        let folders = fs::read_dir(projects).ok()?;
+        let ids = folders
+            .flatten()
+            .filter_map(|folder| fs::read_dir(folder.path()).ok())
+            .flat_map(|files| files.flatten())
+            .filter_map(|file| {
+                let name = file.file_name();
+                let id = name.to_str()?.strip_suffix(".jsonl")?;
+                (plain(id) && file.path().is_file()).then(|| id.to_string())
+            })
+            .collect();
+        Some(ids)
+    }
+
+    pub fn exists(projects: &Path, session_id: &str) -> bool {
+        Transcript::new(projects, session_id).found().is_some()
+    }
+
+    pub fn is_found(&self) -> bool {
+        self.path.is_some()
+    }
+
     pub fn facts(&self) -> &Facts {
         &self.facts
     }

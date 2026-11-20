@@ -17,6 +17,7 @@ file under `plans/`; its time and tokens are a row of [`plans/metrics.md`](plans
 | 7 | [a faster macOS flake build: a Nix store cache, and no clippy or rustfmt in the flake's toolchain](plans/phase-7-flake-build-speed.md); the cache was dropped after measuring it | [v0.5.1](https://github.com/piacsek/harbour/releases/tag/v0.5.1) |
 | 8 | [each session's title, activity, repository and branch in the sidebar](plans/phase-8-session-card.md) | [v0.6.0](https://github.com/piacsek/harbour/releases/tag/v0.6.0) |
 | 9 | [no script dies of SIGPIPE when its reader stops early](plans/phase-9-pipe-race.md) | |
+| 10 | [sessions that come back after harbour closes, resumed on demand](plans/phase-10-resumable-sessions.md) | |
 | 11 | [tmux shortcuts that use the current directory follow the selected session](plans/phase-11-follow-selected-session.md) | |
 
 ## Backlog

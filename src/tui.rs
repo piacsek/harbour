@@ -11,6 +11,7 @@ use crossterm::execute;
 use crate::app::App;
 use crate::demo::Registry;
 use crate::editor::Program;
+use crate::memory::Memory;
 use crate::picker::Picker;
 use crate::registry;
 use crate::session;
@@ -37,6 +38,9 @@ pub fn run() -> io::Result<()> {
     }
     if let Some(summary) = published() {
         app = app.with_summary(summary);
+    }
+    if let Some(memory) = remembered() {
+        app = app.with_memory(memory);
     }
     show(app)
 }
@@ -122,6 +126,14 @@ fn claude_projects() -> Option<std::path::PathBuf> {
         std::env::var_os("HOME").map(Into::into),
     )
     .and_then(|dir| std::path::absolute(dir).ok())
+}
+
+fn remembered() -> Option<Memory> {
+    let state = summary::directory_from_env()?;
+    Some(Memory::of(
+        &state.with_file_name("sessions"),
+        &claude_projects()?,
+    ))
 }
 
 fn published() -> Option<Summary> {

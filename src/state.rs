@@ -119,7 +119,7 @@ pub fn legend() -> Vec<Line<'static>> {
             State::Blocked,
             "blocked, waiting on you: the card says what for",
         ),
-        (State::Idle, "idle, or exited"),
+        (State::Idle, "idle, exited, or stopped"),
         (
             State::Unknown,
             "status unknown: not Claude Code, or not written yet",

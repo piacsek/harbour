@@ -6,6 +6,8 @@ use crossterm::event::{KeyCode, KeyEvent, KeyModifiers, MouseEvent, MouseEventKi
 use ratatui::layout::{Position, Rect};
 
 mod draw;
+mod read;
+mod remember;
 
 use draw::exit_note;
 
@@ -14,9 +16,10 @@ use crate::demo;
 use crate::editor::{self, Changes, Editor, Program};
 use crate::follow::{self, Follow, Mover};
 use crate::keys;
+use crate::memory::{Memory, Remembered, Reservation};
 use crate::mouse::{self, Gesture, Target};
 use crate::picker::{Pick, Picked, Picker};
-use crate::registry::{self, Record};
+use crate::registry::Record;
 use crate::repo::{self, Place};
 use crate::session::{self, Session};
 use crate::summary::Summary;
@@ -53,6 +56,8 @@ pub struct App {
     naming: bool,
     read_at: Option<Instant>,
     summary: Option<Summary>,
+    memory: Option<Memory>,
+    recalled: bool,
     follow: Option<Follow>,
     temporary: PathBuf,
 }
@@ -66,7 +71,7 @@ enum Question {
 struct Entry {
     id: usize,
     name: String,
-    session: Session,
+    session: Option<Session>,
     started_at: SystemTime,
     record: Option<Record>,
     place: Place,
@@ -77,6 +82,11 @@ struct Entry {
     on_editor: bool,
     seen: PathBuf,
     followed: bool,
+    directory: PathBuf,
+    remembered: Option<String>,
+    kept: Option<Remembered>,
+    why: &'static str,
+    reservation: Option<Reservation>,
 }
 
 impl Entry {
@@ -88,6 +98,10 @@ impl Entry {
         self.editor().filter(|_| self.on_editor)
     }
 
+    fn ended(&self) -> bool {
+        self.session.is_none() || self.exited_at.is_some()
+    }
+
     fn shown_id(&self) -> usize {
         self.showing_editor().map_or(self.id, |editor| editor.id)
     }
@@ -97,14 +111,15 @@ impl Entry {
     }
 
     fn sessions(&mut self) -> impl Iterator<Item = &mut Session> {
-        std::iter::once(&mut self.session)
+        self.session
+            .iter_mut()
             .chain(self.editors.iter_mut().map(|editor| &mut editor.session))
     }
 
-    fn shown(&self) -> &Session {
+    fn shown(&self) -> Option<&Session> {
         match self.showing_editor() {
-            Some(editor) => &editor.session,
-            None => &self.session,
+            Some(editor) => Some(&editor.session),
+            None => self.session.as_ref(),
         }
     }
 
@@ -153,6 +168,8 @@ impl App {
             naming: false,
             read_at: None,
             summary: None,
+            memory: None,
+            recalled: false,
             follow: None,
             temporary: follow::temporary(),
         }
@@ -204,7 +221,8 @@ impl App {
             .with_registry(registry.clone())
             .with_transcripts(registry.join("projects"))
             .with_picker(demo::picker())
-            .with_editor(demo::editor());
+            .with_editor(demo::editor())
+            .with_memory(demo::stopped(&registry));
         app.start_with(&demo::working(&registry));
         app.start_with(&demo::blocked(&registry));
         app.start_with(&demo::idle(&registry));
@@ -239,10 +257,12 @@ impl App {
         if self.pane_focused && is_ctrl(key, 'h') {
             match self.sessions.get_mut(self.selected) {
                 Some(entry) if entry.on_editor => {
-                    if entry.showing_editor().is_some_and(Editor::wants_ctrl_h) {
-                        entry.shown().send(&keys::encode(key, false));
-                    } else {
-                        entry.on_editor = false;
+                    match entry
+                        .showing_editor()
+                        .filter(|editor| editor.wants_ctrl_h())
+                    {
+                        Some(editor) => editor.session.send(&keys::encode(key, false)),
+                        None => entry.on_editor = false,
                     }
                 }
                 _ => self.pane_focused = false,
@@ -264,17 +284,17 @@ impl App {
             return;
         }
         match key.code {
-            _ if is_ctrl(key, 'l') => self.pane_focused = !self.sessions.is_empty(),
-            KeyCode::Enter => self.pane_focused = !self.sessions.is_empty(),
+            _ if is_ctrl(key, 'l') => self.focus_or_resume(),
+            KeyCode::Enter => self.focus_or_resume(),
             KeyCode::Char('q') => self.quit(),
             KeyCode::Char('n') => self.pick_or_start(),
             KeyCode::Char('x') => self.end_or_remove(),
             KeyCode::Char('e') => self.next_editor(),
             KeyCode::Char('?') => self.helping = true,
             KeyCode::Char('j') => {
-                self.selected = (self.selected + 1).min(self.sessions.len().saturating_sub(1))
+                self.select((self.selected + 1).min(self.sessions.len().saturating_sub(1)))
             }
-            KeyCode::Char('k') => self.selected = self.selected.saturating_sub(1),
+            KeyCode::Char('k') => self.select(self.selected.saturating_sub(1)),
             _ => {}
         }
     }
@@ -320,22 +340,25 @@ impl App {
             if self.sidebar.contains(at) {
                 self.pane_focused = false;
             } else if self.shown_pane.contains(at) {
-                self.pane_focused = !self.sessions.is_empty();
+                self.pane_focused = self.has_process();
             }
         }
-        let entry = self.sessions.get(self.selected);
-        let target = entry.map(|entry| {
-            let (mode, encoding) = entry.shown().mouse_protocol();
+        let shown = self
+            .sessions
+            .get(self.selected)
+            .and_then(|entry| Some((entry.shown_id(), entry.shown()?)));
+        let target = shown.map(|(id, session)| {
+            let (mode, encoding) = session.mouse_protocol();
             Target {
-                session: entry.shown_id(),
+                session: id,
                 mode,
                 encoding,
             }
         });
         let (gesture, bytes) = mouse::route(self.gesture, event, self.shown_pane, target);
         self.gesture = gesture;
-        if let (Some(entry), Some(bytes)) = (entry, bytes) {
-            entry.shown().send(&bytes);
+        if let (Some((_, session)), Some(bytes)) = (shown, bytes) {
+            session.send(&bytes);
         }
     }
 
@@ -357,7 +380,13 @@ impl App {
         self.sessions
             .get(self.selected)
             .filter(|_| self.pane_focused)
-            .map(Entry::shown)
+            .and_then(Entry::shown)
+    }
+
+    fn focus_or_resume(&mut self) {
+        if !self.resume() {
+            self.pane_focused = !self.sessions.is_empty();
+        }
     }
 
     fn open_editor(&mut self) {
@@ -367,11 +396,11 @@ impl App {
         let Some(entry) = self.sessions.get_mut(self.selected) else {
             return;
         };
-        read_entry(
+        read::read_entry(
             entry,
             self.registry.as_deref(),
             self.transcripts.as_deref(),
-            true,
+            read::Reading::Now,
         );
         let directory = editor::root(&entry.seen, user_home().as_deref());
         if let Some(index) = entry
@@ -459,6 +488,7 @@ impl App {
             let changes = changes(self.sessions.iter().flat_map(|entry| &entry.editors));
             self.asking = Some(Question::Quit(changes));
         } else {
+            self.settle_all();
             self.quitting = true;
         }
     }
@@ -469,7 +499,10 @@ impl App {
                 let Some(entry) = self.sessions.get_mut(self.selected) else {
                     return;
                 };
-                let exited = entry.session.exit().is_some();
+                let exited = entry
+                    .session
+                    .as_mut()
+                    .is_none_or(|session| session.exit().is_some());
                 session::end_all(entry.sessions());
                 entry.editors.clear();
                 entry.editor = None;
@@ -478,12 +511,17 @@ impl App {
                     self.remove_selected();
                 }
             }
-            Question::Quit(_) => self.quitting = true,
+            Question::Quit(_) => {
+                self.settle_all();
+                self.quitting = true;
+            }
         }
     }
 
     fn remove_selected(&mut self) {
-        self.sessions.remove(self.selected);
+        let mut removed = self.sessions.remove(self.selected);
+        removed.reservation = None;
+        self.forget(&removed);
         self.selected = self.selected.min(self.sessions.len().saturating_sub(1));
     }
 
@@ -561,7 +599,7 @@ impl App {
                 self.sessions.push(Entry {
                     id: self.started,
                     name: format!("{} {}", folder_name(directory), self.named),
-                    session,
+                    session: Some(session),
                     started_at,
                     record: None,
                     place: repo::place(directory, user_home().as_deref()),
@@ -572,27 +610,17 @@ impl App {
                     on_editor: false,
                     seen: directory.to_path_buf(),
                     followed: false,
+                    directory: directory.to_path_buf(),
+                    remembered: None,
+                    kept: None,
+                    why: remember::STOPPED,
+                    reservation: None,
                 });
                 self.selected = self.sessions.len() - 1;
             }
             Err(error) => {
                 self.failed = Some(refusal(command.first().map_or("", String::as_str), &error))
             }
-        }
-    }
-
-    fn read_files(&mut self) {
-        if self.read_at.is_some_and(|at| at.elapsed() < READ_EVERY) {
-            return;
-        }
-        self.read_at = Some(Instant::now());
-        for entry in &mut self.sessions {
-            read_entry(
-                entry,
-                self.registry.as_deref(),
-                self.transcripts.as_deref(),
-                false,
-            );
         }
     }
 }
@@ -603,60 +631,8 @@ impl Drop for App {
     }
 }
 
-fn read_entry(
-    entry: &mut Entry,
-    registry: Option<&Path>,
-    transcripts: Option<&Path>,
-    searching: bool,
-) {
-    let last = entry.record.take();
-    if entry.session.exit().is_some() {
-        return;
-    }
-    entry.record = registry.and_then(|dir| {
-        let pid = entry.session.pid()?;
-        registry::read(dir, pid, entry.started_at, last)
-    });
-    follow(entry, searching);
-    let id = entry
-        .record
-        .as_ref()
-        .and_then(|record| record.session_id.clone());
-    if let (Some(id), Some(projects)) = (id, transcripts)
-        && entry
-            .transcript
-            .as_ref()
-            .is_none_or(|transcript| transcript.session_id() != id)
-    {
-        entry.transcript = Some(Transcript::new(projects, &id).since(entry.started_at));
-        follow(entry, searching);
-    }
-    let cwd = entry.record.as_ref().and_then(|record| record.cwd.clone());
-    if let Some(cwd) = cwd
-        && !entry.followed
-    {
-        entry.seen = cwd;
-    }
-    entry.place = repo::place(&entry.seen, user_home().as_deref());
-}
-
 fn user_home() -> Option<PathBuf> {
     std::env::var_os("HOME").map(PathBuf::from)
-}
-
-fn follow(entry: &mut Entry, searching: bool) {
-    let Some(transcript) = &mut entry.transcript else {
-        return;
-    };
-    if searching {
-        transcript.read_now();
-    } else {
-        transcript.read();
-    }
-    if let Some(directory) = transcript.facts().directory.clone() {
-        entry.seen = directory;
-        entry.followed = true;
-    }
 }
 
 fn changes<'a>(editors: impl IntoIterator<Item = &'a Editor>) -> Changes {

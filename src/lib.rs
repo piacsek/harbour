@@ -6,6 +6,7 @@ pub mod editor;
 pub mod follow;
 pub mod help;
 pub mod keys;
+pub mod memory;
 pub mod mouse;
 pub mod nvim;
 pub mod picker;
