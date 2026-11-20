@@ -128,6 +128,7 @@ tests/AGENTS.md  the testing traps hit so far
 .github/ISSUE_TEMPLATE/       the bug report and feature request forms, and `config.yml` sending questions to Discussions
 .github/CONTRIBUTING.md       where a newcomer starts: points here, to `scripts/gates.sh`, `scripts/ship.sh` and the fragment rule, restates none of them
 .claude/skills/sweep/          the `sweep` skill: runs `scripts/sweep-report.sh`, finds repeats and trends, proposes what each becomes, writes `### Sweep` on the user's yes
+.claude/skills/orchestrate-issue-execution-autonomously/ the `orchestrate-issue-execution-autonomously` skill: prints the open issues as a tree in execution order, asks every question up front, then builds, reviews and merges each with a sub-agent in its own worktree while the owner is away
 .claude/skills/adversarial-review/ the `adversarial-review` skill: attack the repository, report what is bad, file the fixes as labelled issues on request; `drive-demo.sh` drives `harbour --demo` in a scratch tmux server at a given size
 ```
 
