@@ -6,7 +6,7 @@ use crossterm::event::{KeyCode, KeyModifiers};
 
 use harbour::picker::Picker;
 
-use crate::{Screen, script};
+use crate::{Screen, directory, script};
 
 #[test]
 fn a_directory_the_picker_prints_starts_a_session_there_named_after_it() {
@@ -106,6 +106,66 @@ fn a_picker_that_cannot_start_is_named_and_starts_nothing() {
     assert!(!shown.contains(" directory "), "{shown}");
 }
 
+#[test]
+fn enter_in_fzf_starts_the_session_where_harbour_was_opened() {
+    let mut screen = Screen::picking(
+        placed_agent(),
+        fuzzy(first_line_fzf(), listing("/acme/web")),
+    );
+    widen(&mut screen);
+    screen.press('n');
+    screen.wait_for("acme picker");
+
+    screen.type_text("\r");
+
+    let row = format!("{} 1", directory());
+    let shown = screen.wait_for_all(&[&row, &format!("acme agent in {}", directory())]);
+    assert!(shown.contains(&row), "{shown}");
+    assert!(!shown.contains(" directory "), "{shown}");
+}
+
+#[test]
+fn fzf_lists_the_directory_of_harbour_first_then_zoxide_without_it() {
+    let scratch = tempfile::tempdir().unwrap();
+    let here = here();
+    let ranked = format!("/acme/api\n{here}\n/acme/web\n");
+    let fzf = recording_fzf(scratch.path());
+    let mut screen = Screen::picking(placed_agent(), fuzzy(fzf, listing(&ranked)));
+
+    screen.press('n');
+
+    closed(&mut screen);
+    let listed = std::fs::read_to_string(scratch.path().join("listed")).unwrap();
+    assert_eq!(listed, format!("{here}\n/acme/api\n/acme/web\n"));
+}
+
+#[test]
+fn without_zoxide_fzf_lists_only_the_directory_of_harbour() {
+    let scratch = tempfile::tempdir().unwrap();
+    let fzf = recording_fzf(scratch.path());
+    let mut screen = Screen::picking(placed_agent(), fuzzy(fzf, vec!["acme-nozoxide".into()]));
+
+    screen.press('n');
+
+    closed(&mut screen);
+    let listed = std::fs::read_to_string(scratch.path().join("listed")).unwrap();
+    assert_eq!(listed, format!("{}\n", here()));
+}
+
+#[test]
+fn without_fzf_n_starts_the_session_where_harbour_was_opened_at_once() {
+    let picker = fuzzy(vec!["acme-nofzf".into()], listing("/acme/web"));
+    let mut screen = Screen::picking(placed_agent(), picker);
+    widen(&mut screen);
+
+    screen.press('n');
+
+    let row = format!("{} 1", directory());
+    let shown = screen.wait_for_all(&[&row, &format!("acme agent in {}", directory())]);
+    assert!(shown.contains(&row), "{shown}");
+    assert!(!shown.contains(" directory "), "{shown}");
+}
+
 fn placed_agent() -> Vec<String> {
     script("echo \"acme agent in ${PWD##*/}\"; exec sleep 600")
 }
@@ -116,6 +176,32 @@ fn typed_picker() -> Vec<String> {
 
 fn escapable_picker() -> Vec<String> {
     script("stty raw -echo; echo 'acme picker' >&2; dd bs=1 count=1 >/dev/null 2>&1; exit 130")
+}
+
+fn fuzzy(fzf: Vec<String>, list: Vec<String>) -> Picker {
+    Picker::Fuzzy { fzf, list }
+}
+
+fn listing(lines: &str) -> Vec<String> {
+    script(&format!("printf '{lines}'"))
+}
+
+fn first_line_fzf() -> Vec<String> {
+    script("echo 'acme picker' >&2; read -r key </dev/tty; head -n 1")
+}
+
+fn recording_fzf(scratch: &Path) -> Vec<String> {
+    let listed = scratch.join("listed");
+    script(&format!("cat > '{}'; exit 1", listed.display()))
+}
+
+fn here() -> String {
+    std::env::current_dir().unwrap().display().to_string()
+}
+
+fn widen(screen: &mut Screen) {
+    let width = 3 * (directory().chars().count() + 32);
+    screen.resize(u16::try_from(width.max(120)).unwrap(), 20);
 }
 
 fn closed(screen: &mut Screen) -> String {

@@ -3,21 +3,26 @@ use std::fs;
 use std::io;
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
+use std::process::{Command, Stdio};
 
 use tempfile::TempDir;
 
 use crate::session::Session;
 
 const PRINTING_TO: &str = r#"out=$1; shift; exec "$@" >"$out""#;
+const READING_AND_PRINTING_TO: &str = r#"list=$1; out=$2; shift 2; exec "$@" <"$list" >"$out""#;
 
 pub enum Picker {
     Command(Vec<String>),
+    Fuzzy { fzf: Vec<String>, list: Vec<String> },
 }
 
 impl Picker {
     pub fn program(&self) -> &str {
-        let Picker::Command(command) = self;
-        &command[0]
+        match self {
+            Picker::Command(command) => &command[0],
+            Picker::Fuzzy { fzf, .. } => &fzf[0],
+        }
     }
 }
 
@@ -35,26 +40,30 @@ pub enum Picked {
 }
 
 impl Pick {
-    pub fn open(picker: &Picker, from: &Path, rows: u16, cols: u16) -> io::Result<Pick> {
-        let Picker::Command(command) = picker;
-        startable(picker.program(), from)?;
+    pub fn open(picker: &Picker, from: &Path, rows: u16, cols: u16) -> io::Result<Option<Pick>> {
         let scratch = tempfile::Builder::new().prefix("harbour-pick").tempdir()?;
         let output = scratch.path().join("picked");
-        let mut wrapped = vec![
-            "/bin/sh".to_string(),
-            "-c".to_string(),
-            PRINTING_TO.to_string(),
-            "harbour-picker".to_string(),
-            output.to_string_lossy().into_owned(),
-        ];
-        wrapped.extend(command.iter().cloned());
+        let wrapped = match picker {
+            Picker::Command(command) => {
+                startable(picker.program(), from)?;
+                wrapping(PRINTING_TO, &[], &output, command)
+            }
+            Picker::Fuzzy { fzf, list } => {
+                if startable(picker.program(), from).is_err() {
+                    return Ok(None);
+                }
+                let listed = scratch.path().join("listed");
+                fs::write(&listed, listing(list, from))?;
+                wrapping(READING_AND_PRINTING_TO, &[&listed], &output, fzf)
+            }
+        };
         let session = Session::start(&wrapped, from, rows, cols)?;
-        Ok(Pick {
+        Ok(Some(Pick {
             session,
             output,
             from: from.to_path_buf(),
             _scratch: scratch,
-        })
+        }))
     }
 
     pub fn session(&self) -> &Session {
@@ -78,6 +87,44 @@ impl Pick {
             Some(line) => Some(Picked::Refused(format!("Not a directory: {line}"))),
         }
     }
+}
+
+fn wrapping(script: &str, before: &[&Path], output: &Path, command: &[String]) -> Vec<String> {
+    let mut wrapped = vec![
+        "/bin/sh".to_string(),
+        "-c".to_string(),
+        script.to_string(),
+        "harbour-picker".to_string(),
+    ];
+    wrapped.extend(
+        before
+            .iter()
+            .map(|path| path.to_string_lossy().into_owned()),
+    );
+    wrapped.push(output.to_string_lossy().into_owned());
+    wrapped.extend(command.iter().cloned());
+    wrapped
+}
+
+fn listing(list: &[String], from: &Path) -> String {
+    let here = from.to_string_lossy();
+    let ranked = Command::new(&list[0])
+        .args(&list[1..])
+        .current_dir(from)
+        .stdin(Stdio::null())
+        .stderr(Stdio::null())
+        .output()
+        .map(|output| String::from_utf8_lossy(&output.stdout).into_owned())
+        .unwrap_or_default();
+    let mut listed = format!("{here}\n");
+    for line in ranked
+        .lines()
+        .filter(|line| !line.is_empty() && *line != here)
+    {
+        listed.push_str(line);
+        listed.push('\n');
+    }
+    listed
 }
 
 fn startable(program: &str, from: &Path) -> io::Result<()> {

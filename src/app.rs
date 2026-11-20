@@ -230,7 +230,8 @@ impl App {
         };
         let popup = popup(self.screen);
         match Pick::open(picker, &self.home, popup.height, popup.width) {
-            Ok(pick) => self.picking = Some(pick),
+            Ok(Some(pick)) => self.picking = Some(pick),
+            Ok(None) => self.start(),
             Err(error) => {
                 self.failed = Some(format!("Could not start {}: {error}", picker.program()))
             }
