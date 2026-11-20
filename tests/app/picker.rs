@@ -2,7 +2,7 @@ use std::path::{Path, PathBuf};
 use std::thread::sleep;
 use std::time::{Duration, Instant};
 
-use crossterm::event::{KeyCode, KeyModifiers};
+use crossterm::event::{KeyCode, KeyModifiers, MouseButton, MouseEventKind};
 
 use harbour::picker::Picker;
 
@@ -198,6 +198,33 @@ fn a_cancelled_picker_leaves_the_focus_on_the_sidebar() {
     assert!(top.starts_with('┏'), "{shown}");
 }
 
+#[test]
+fn a_paste_while_the_popup_is_open_reaches_the_picker() {
+    let scratch = tempfile::tempdir().unwrap();
+    let web = directory_in(scratch.path(), "acme-web");
+    let mut screen = Screen::picking(placed_agent(), Picker::Command(typed_picker()));
+    screen.press('n');
+    screen.wait_for("acme picker");
+
+    screen.app.paste(&web.display().to_string());
+    screen.type_text("\r");
+
+    let shown = screen.wait_for("acme-web 1");
+    assert!(shown.contains("acme-web 1"), "{shown}");
+}
+
+#[test]
+fn a_click_in_the_popup_reaches_a_picker_that_asked_for_the_mouse() {
+    let mut screen = Screen::picking(placed_agent(), Picker::Command(clickable_picker()));
+    screen.press('n');
+    screen.wait_for("acme picker");
+
+    screen.mouse(MouseEventKind::Down(MouseButton::Left), 20, 6);
+
+    let shown = screen.wait_for("acme picker got E[<0;");
+    assert!(shown.contains("acme picker got E[<0;"), "{shown}");
+}
+
 fn placed_agent() -> Vec<String> {
     script("echo \"acme agent in ${PWD##*/}\"; exec sleep 600")
 }
@@ -208,6 +235,14 @@ fn typed_picker() -> Vec<String> {
 
 fn escapable_picker() -> Vec<String> {
     script("stty raw -echo; echo 'acme picker' >&2; dd bs=1 count=1 >/dev/null 2>&1; exit 130")
+}
+
+fn clickable_picker() -> Vec<String> {
+    script(
+        "stty raw -echo; printf '\\033[?1000h\\033[?1006h' >&2; echo 'acme picker' >&2; \
+         got=$(dd bs=1 count=5 2>/dev/null | tr '\\033' E); \
+         printf 'acme picker got %s\\r\\n' \"$got\" >&2; exec sleep 600",
+    )
 }
 
 fn fuzzy(fzf: Vec<String>, list: Vec<String>) -> Picker {

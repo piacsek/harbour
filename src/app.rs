@@ -25,6 +25,7 @@ pub struct App {
     home: PathBuf,
     picker: Option<Picker>,
     picking: Option<Pick>,
+    picking_area: Rect,
     screen: Rect,
     sessions: Vec<Entry>,
     selected: usize,
@@ -60,6 +61,7 @@ impl App {
             home,
             picker: None,
             picking: None,
+            picking_area: Rect::default(),
             screen: Rect::new(0, 0, 80, 24),
             sessions: Vec::new(),
             selected: 0,
@@ -127,6 +129,10 @@ impl App {
     }
 
     pub fn paste(&mut self, text: &str) {
+        if let Some(pick) = &self.picking {
+            pick.session().paste(text);
+            return;
+        }
         if self.dismiss(false) {
             return;
         }
@@ -136,6 +142,21 @@ impl App {
     }
 
     pub fn mouse(&mut self, event: MouseEvent) {
+        if let Some(pick) = &self.picking {
+            let (mode, encoding) = pick.session().mouse_protocol();
+            let target = Target {
+                session: 0,
+                mode,
+                encoding,
+            };
+            let (gesture, bytes) =
+                mouse::route(self.gesture, event, self.picking_area, Some(target));
+            self.gesture = gesture;
+            if let Some(bytes) = bytes {
+                pick.session().send(&bytes);
+            }
+            return;
+        }
         if self.helping || self.asking.is_some() {
             self.gesture = Gesture::Idle;
             if matches!(event.kind, MouseEventKind::Down(_)) {
@@ -230,7 +251,10 @@ impl App {
         };
         let popup = popup(self.screen);
         match Pick::open(picker, &self.home, popup.height, popup.width) {
-            Ok(Some(pick)) => self.picking = Some(pick),
+            Ok(Some(pick)) => {
+                self.gesture = Gesture::Idle;
+                self.picking = Some(pick);
+            }
             Ok(None) => self.start(),
             Err(error) => {
                 self.failed = Some(format!("Could not start {}: {error}", picker.program()))
@@ -243,6 +267,7 @@ impl App {
             return;
         };
         self.picking = None;
+        self.gesture = Gesture::Idle;
         match picked {
             Picked::Cancelled => {}
             Picked::Refused(refusal) => self.failed = Some(refusal),
@@ -362,6 +387,7 @@ impl App {
             let area = popup(frame.area());
             let block = bordered(true).title(" directory ");
             let inner = block.inner(area);
+            self.picking_area = inner;
             pick.resize(inner.height, inner.width);
             frame.render_widget(Clear, area);
             frame.render_widget(block, area);
