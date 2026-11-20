@@ -72,6 +72,7 @@ src/keys.rs                   the bytes a terminal sends for a key (legacy encod
 src/mouse.rs                  `route`, a pure function: a gesture belongs to where its button went down and to the session shown then, and ends when another session is shown, and the selected session gets only what its mouse mode asked for (`?9` presses, `?1000` presses, releases and the wheel, `?1002` drags too, `?1003` moves too), with Shift, Alt and Ctrl, in its encoding (SGR, UTF-8 or the legacy bytes), clamped to the pane; an empty pane forwards nothing and ends the gesture
 src/changelog.rs              the bundled CHANGELOG.md and the rules a release entry must meet
 CHANGELOG.md                  only its `# Changelog` heading on `main`; each release commit writes its sections
+CLAUDE.md                     a symlink to `AGENTS.md`, for tools that read only that name
 rust-toolchain.toml           the one Rust version (rustfmt and clippy with it) that local gates and CI run; see Development
 flake.nix, flake.lock         the Nix flake: the binary built from `Cargo.toml`, `Cargo.lock`, `CHANGELOG.md` and `src/` with the Rust `rust-toolchain.toml` names, through the locked `rust-overlay`, without the components it lists (rustfmt, clippy); feeds the binary
 scripts/gates.sh              the quality gates; fails loudly, never pipe it through tail
@@ -158,9 +159,9 @@ next to the code; read the one for a directory before changing anything in it.
 
 ## Known limits
 
-Accepted limits any reviewer treats as decided (the orchestrator when it rates findings, the
-`/code-review` agent and the `adversarial-review` skill when they read this file), one line each,
-with where they are written down. Pointing reviewers here is not priming, since the list is in
+Accepted limits a reviewer treats as decided (the orchestrator when it rates findings, the
+`adversarial-review` skill when it reads this file), one line each, with where they are written
+down. Pointing reviewers here is not priming, since the list is in
 the repo. A limit joins it when a review finding is declined for good; a finding on one still
 counts as must when it shows new impact.
 
@@ -309,7 +310,9 @@ nearest the code the guideline is about.
      how it runs, what counts as must or should, when to redesign, who fixes). Every must and
      should finding is fixed, TDD like any change, one ship per round, and reviewed again.
      Minor findings are fixed when cheap, else listed in the PR body. The loop ends only on a
-     round with no must/should findings. The reviewer is **unprimed** by construction: the
+     round with no must/should findings, or, when a round's only must or should finding is a
+     failing required check, once that check passes on the fixed head, with no further review
+     round. The reviewer is **unprimed** by construction: the
      skill gets only the level and the PR number, never the list of earlier findings or what
      was decided about them. The orchestrator's memory of earlier rounds is no reason to drop
      a finding; only "Known limits" or another rule of this file is. Never post the review on
@@ -427,18 +430,28 @@ nearest the code the guideline is about.
   The skill is never given `--fix` or `--comment`, and the review is never posted on the PR.
   The skill's agent sees the `AGENTS.md` of the checkout the session runs in, usually `main`'s
   and not the PR head's, so the orchestrator checks each finding's premise against the PR head,
-  drops only what "Known limits" or another rule of this file states (never because an earlier
-  round declined it: a finding declined for good is first written into "Known limits"), and
-  rates what holds by the severity definition below. The skill's conventions pass reads
-  `CLAUDE.md` files and this repository has none yet, so each round the orchestrator also
-  checks the diff against the rules of every `AGENTS.md` (the fragment, the screenshot of a
-  visible change, TDD shown red, read from the builder's reports since the red run is not in
-  the diff, the public-repo rule, the README shape) and reports a break as a finding like any
-  other. No reviewer runs the gates: `scripts/ship.sh` runs them,
+  drops only what "Known limits" or another rule of this file states, unless it shows new
+  impact beyond the stated limit (never because an earlier round declined it: a finding declined
+  for good is first written into "Known limits"), and rates what holds by the severity
+  definition below. The skill labels its findings `important`, `nit` or `pre_existing`; the
+  orchestrator rates each by reachability whatever its label, and a `pre_existing` finding the
+  PR does not make reachable is not fixed in the PR but becomes an issue or a backlog line. The skill's conventions pass reads
+  `CLAUDE.md` files; the root `CLAUDE.md` links to this file, so it reads the root rules of the
+  checkout it runs in, but `tests/AGENTS.md` and `.github/AGENTS.md` have no such link, so each
+  round the orchestrator also checks the diff against the rules of every `AGENTS.md` (the
+  fragment, the screenshot of a visible change, TDD shown red, read from the builder's reports
+  since the red run is not in the diff, the public-repo rule, the README shape) and reports a
+  break as a finding like any other. No reviewer runs the gates: `scripts/ship.sh` runs them,
   the scrub check included, before every push, and the required `check` job tests the pull
   request. Before `gh pr ready` the orchestrator runs `scripts/scrub-check.sh` in the branch's
   worktree at the PR head, since CI does not run the scrub and a commit pushed without
-  `ship.sh` would otherwise never meet it. `gh pr ready` comes after the findings are addressed, not before.
+  `ship.sh` would otherwise never meet it; without an argument it reads the contents and paths
+  of the index and the working tree, not commit messages or the branch name, so before the
+  merge the orchestrator also reads the PR's commit messages (`gh pr view <N> --json commits`),
+  which the squash commit's body carries. The loop ends on a round with no must or should
+  finding, or, when a round's only must or should finding is a failing required check, once
+  that check passes on the fixed head, with no further review round. `gh pr ready` comes after
+  the findings are addressed, not before.
   - **Severity by reachability.** A finding is must or should only when the user hits it while
     using harbour, the release pipeline hits it in normal operation, or a pull request could
     execute code or reach a token or secret. A bypass that needs a deliberately forged file,
@@ -580,7 +593,7 @@ is the committed code of every branch that changed what the binary is built from
 (`scripts/dev-install-skippable.sh`): `harbour-dev` resolves to another worktree's build, and
 nothing between the merge base with `origin/main` and the working tree, untracked files
 included, is outside `tests/`, `docs/`, `plans/`, `scripts/`, `changes/`, `.github/`,
-`.claude/`, an `AGENTS.md` at any depth (`src/` included), a root `CLAUDE.md`, `PLAN.md`, `README.md`, `LICENSE`
+`.claude/`, an `AGENTS.md` at any depth (`src/` included), the root `CLAUDE.md`, `PLAN.md`, `README.md`, `LICENSE`
 and `.gitignore`. That list lives in `scripts/feeds-binary.sh`, the one definition of "feeds
 the binary", which `dev-install-skippable.sh` calls. Everything else counts as feeding the
 binary (`src/`, `Cargo.toml`, `Cargo.lock`, the bundled `CHANGELOG.md`, any path nobody
@@ -624,8 +637,8 @@ kind: fix
   (`scripts/feeds-binary.sh`, the same list `ship.sh` uses for the dev install). `flake.nix` and
   `flake.lock` feed the binary on purpose: they decide what a Nix user runs, and only a release
   moves `stable` to them. Such a pull request is always released, a refactor as an `internal`
-  patch. One that touches only tests, docs, plans, scripts, CI, guidelines (an `AGENTS.md`, a root
-  `CLAUDE.md`) or agent skills (`.claude/`) needs none and releases nothing.
+  patch. One that touches only tests, docs, plans, scripts, CI, guidelines (an `AGENTS.md`, the
+  root `CLAUDE.md`) or agent skills (`.claude/`) needs none and releases nothing.
 - **`changes/` is add-only.** A fragment is never edited, renamed or deleted once it is on
   `main`: "pending" means "not in the tree of the last tag", so a changed released fragment
   stops every release and a reused name can skip one silently. Put a correction in a new file.
