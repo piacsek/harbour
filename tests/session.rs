@@ -181,6 +181,36 @@ fn a_session_resized_to_one_column_survives_a_wide_character() {
 }
 
 #[test]
+fn a_session_survives_a_wide_character_cut_by_a_resize() {
+    let mut session = Session::start(&wide_at_the_edge(), ROWS, 160).unwrap();
+    wait_for(&session, "ready");
+    session.resize(ROWS, 159);
+
+    session.send(b"\r");
+    sleep(Duration::from_millis(300));
+    session.send(b"\r");
+
+    let screen = wait_for(&session, "redrew 159");
+    assert!(screen.contains("redrew 159"), "{screen}");
+}
+
+#[test]
+fn a_session_whose_screen_was_reset_is_asked_to_repaint() {
+    let mut session = Session::start(&wide_at_the_edge(), ROWS, 160).unwrap();
+    wait_for(&session, "ready");
+    session.resize(ROWS, 159);
+    wait_for(&session, "repainted");
+    session.send(b"\r");
+    sleep(Duration::from_millis(300));
+
+    session.resize(ROWS, 159);
+
+    let screen = wait_for(&session, "repainted");
+    assert!(screen.contains("repainted"), "{screen}");
+    assert!(!screen.contains("ready"), "{screen}");
+}
+
+#[test]
 fn dropping_a_session_ends_a_command_that_ignores_hangup() {
     let session = start("trap '' HUP; echo \"pid:$$\"; while :; do sleep 1; done");
     let pid = pid_shown(&session);
@@ -239,6 +269,19 @@ fn replied(query: &str, length: usize) -> String {
         "stty raw -echo; printf '{query}'; r=$(dd bs=1 count={length} 2>/dev/null); \
          printf 'reply:%s' \"$r\" | tr -d '\\033'; sleep 5"
     )
+}
+
+fn wide_at_the_edge() -> [String; 3] {
+    let script = "trap 'printf \"\\033[5;1Hrepainted\"' WINCH; \
+                  cols=$(stty size | cut -d' ' -f2); \
+                  printf '\\033[1;%dH\\343\\201\\202' $((cols-1)); \
+                  printf '\\033[3;1Hready'; \
+                  while read -r line; do \
+                  cols=$(stty size | cut -d' ' -f2); \
+                  printf '\\033[1;1H%*s' \"$cols\" ''; \
+                  printf '\\033[4;1Hredrew %s' \"$cols\"; \
+                  done";
+    ["/bin/sh".to_string(), "-c".into(), script.into()]
 }
 
 fn start(script: &str) -> Session {

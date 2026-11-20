@@ -11,7 +11,7 @@ use ratatui::widgets::{
 use crate::demo;
 use crate::help;
 use crate::keys;
-use crate::session::Session;
+use crate::session::{self, Session};
 
 const NARROW: u16 = 60;
 const HINT: &str = "No session yet: press n to start one.";
@@ -26,6 +26,7 @@ pub struct App {
     shown_pane: Rect,
     sidebar: Rect,
     pane_focused: bool,
+    dragging: bool,
     failed: Option<String>,
     asking: Option<Question>,
     helping: bool,
@@ -62,6 +63,7 @@ impl App {
             shown_pane: Rect::default(),
             sidebar: Rect::default(),
             pane_focused: false,
+            dragging: false,
             failed: None,
             asking: None,
             helping: false,
@@ -130,15 +132,25 @@ impl App {
             if self.sidebar.contains(at) {
                 self.pane_focused = false;
             } else if pane.contains(at) {
-                self.pane_focused = true;
+                self.pane_focused = !self.sessions.is_empty();
             }
         }
-        if pane.contains(at)
+        let inside = pane.contains(at);
+        let held =
+            self.dragging && matches!(event.kind, MouseEventKind::Drag(_) | MouseEventKind::Up(_));
+        match event.kind {
+            MouseEventKind::Down(_) => self.dragging = inside,
+            MouseEventKind::Up(_) => self.dragging = false,
+            _ => {}
+        }
+        if (inside || held)
             && let Some(entry) = self.sessions.get(self.selected)
         {
+            let column = event.column.clamp(pane.x, pane.right().saturating_sub(1));
+            let row = event.row.clamp(pane.y, pane.bottom().saturating_sub(1));
             entry
                 .session
-                .mouse(event.kind, event.column - pane.x, event.row - pane.y);
+                .mouse(event.kind, column - pane.x, row - pane.y);
         }
     }
 
@@ -312,6 +324,12 @@ impl App {
         } else {
             (area, Rect::default())
         }
+    }
+}
+
+impl Drop for App {
+    fn drop(&mut self) {
+        session::end_all(self.sessions.iter_mut().map(|entry| &mut entry.session));
     }
 }
 

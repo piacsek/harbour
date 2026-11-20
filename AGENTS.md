@@ -47,7 +47,7 @@ src/main.rs      the binary: `--version`/`-V`/`version`, `--help`/`-h`/`help`, `
 src/lib.rs                    the library the binary and the tests share
 src/tui.rs                    the terminal: enters and restores it, reads its events, draws the app; the program a session runs (`claude`, or what `HARBOUR_SESSION_COMMAND` names)
 src/app.rs                    the app: what is on screen and what each key does
-src/session.rs                a session: a command in a PTY, its output parsed into a screen that renders as a widget, its terminal queries answered, its exit status, its screen never under 2 rows or 2 columns (vt100 panics below that); writes go through a writer thread so a child that does not read never blocks the interface; ending it (or dropping it) hangs up its whole process group, then kills it, only while the child is unreaped
+src/session.rs                a session: a command in a PTY, its output parsed into a screen that renders as a widget, its terminal queries answered, its exit status, its screen never under 2 rows or 2 columns (vt100 panics below that); every call into vt100 contained, so a panic gives that session a fresh screen and a repaint instead of taking harbour down, and the panic hook stays silent for it; writes go through a writer thread so a child that does not read never blocks the interface; ending it (or dropping it) hangs up its whole process group, then kills it, only while the child is unreaped; quitting hangs up every session first and waits once
 src/demo.rs                   the made-up sessions of `--demo`: `acme/*` scripts, never real data
 src/help.rs                   what the help view shows: `KEYS`, which the README key table mirrors, and the tmux pattern
 src/keys.rs                   the bytes a terminal sends for a key (legacy encoding) or a mouse event (SGR), which a session receives
@@ -137,6 +137,10 @@ impact.
 - **`check` builds and tests on Linux only**: the tests never run on macOS, and a macOS-only
   break of the release build itself fails in the release run; the flake's macOS leg catches a
   plain macOS build break (`.github/AGENTS.md`).
+- **A session that exited by itself leaves behind what ignores hangup**: once its command is
+  reaped its pid can be reused, so harbour never signals its group again, and a background
+  process that ignores hangup keeps running after its row is removed or harbour quits, as in any
+  terminal (`src/session.rs`).
 - **No tag ruleset guards `v*` tags**: the owner can still push or delete one by hand
   (`.github/AGENTS.md`).
 - **A Nix outage blocks merges that touch the flake's inputs once the ruleset requires

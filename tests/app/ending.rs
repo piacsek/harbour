@@ -1,6 +1,8 @@
+use std::time::{Duration, Instant};
+
 use crossterm::event::{KeyCode, KeyModifiers, MouseButton, MouseEventKind};
 
-use crate::{Screen, directory, raw_agent, reading_agent, script};
+use crate::{Screen, directory, numbered_agent, raw_agent, reading_agent, script};
 
 #[test]
 fn x_on_a_running_session_asks_before_ending_it() {
@@ -117,4 +119,21 @@ fn a_click_in_the_pane_cancels_the_question_and_does_not_focus_the_pane() {
     let shown = screen.wait_for("acme agent read:");
     assert!(shown.contains("acme agent read:w"), "{shown}");
     assert!(!shown.contains("y/n"), "{shown}");
+}
+
+#[test]
+fn quitting_ends_every_running_session_within_one_grace_period() {
+    let scratch = tempfile::tempdir().unwrap();
+    let mut screen = Screen::new(numbered_agent(scratch.path()));
+    for _ in 0..5 {
+        screen.press('n');
+    }
+    screen.wait_for("acme agent 5");
+    screen.press('q');
+    screen.press('y');
+    let started = Instant::now();
+
+    drop(screen);
+
+    assert!(started.elapsed() < Duration::from_millis(600));
 }

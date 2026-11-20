@@ -1,4 +1,6 @@
+use std::cell::Cell;
 use std::io::{self, Read, Write};
+use std::panic::{self, AssertUnwindSafe};
 use std::sync::mpsc::{self, Sender};
 use std::sync::{Arc, Mutex};
 use std::thread;
@@ -18,6 +20,10 @@ use crate::keys;
 const HANGUP_GRACE: Duration = Duration::from_millis(200);
 
 type Parser = vt100::Parser<Replies>;
+
+thread_local! {
+    static CONTAINING: Cell<bool> = const { Cell::new(false) };
+}
 
 pub struct Session {
     parser: Arc<Mutex<Parser>>,
@@ -70,7 +76,10 @@ impl Session {
             while let Ok(read @ 1..) = reader.read(&mut buffer) {
                 let replies = {
                     let mut parser = shared.lock().unwrap();
-                    parser.process(&buffer[..read]);
+                    let (rows, cols) = parser.screen().size();
+                    contained(&mut parser, rows, cols, |parser| {
+                        parser.process(&buffer[..read]);
+                    });
                     std::mem::take(&mut parser.callbacks_mut().bytes)
                 };
                 if !replies.is_empty() {
@@ -93,10 +102,20 @@ impl Session {
         }
         let (rows, cols) = safe_size(rows, cols);
         let mut parser = self.parser.lock().unwrap();
-        if parser.screen().size() == (rows, cols) {
+        let repaint = std::mem::take(&mut parser.callbacks_mut().repaint);
+        if parser.screen().size() == (rows, cols) && !repaint {
             return;
         }
-        parser.screen_mut().set_size(rows, cols);
+        contained(&mut parser, rows, cols, |parser| {
+            parser.screen_mut().set_size(rows, cols);
+        });
+        if repaint {
+            self.resize_pty(rows, cols.saturating_sub(1).max(1));
+        }
+        self.resize_pty(rows, cols);
+    }
+
+    fn resize_pty(&self, rows: u16, cols: u16) {
         let _ = self.master.resize(PtySize {
             rows,
             cols,
@@ -113,20 +132,17 @@ impl Session {
     }
 
     pub fn end(&mut self) {
+        end_all([self]);
+    }
+
+    fn group(&mut self) -> Option<Pid> {
         if self.exit().is_some() {
-            return;
+            return None;
         }
-        let Some(group) = self
-            .child
+        self.child
             .process_id()
             .and_then(|pid| i32::try_from(pid).ok())
             .map(Pid::from_raw)
-        else {
-            return;
-        };
-        let _ = killpg(group, Signal::SIGHUP);
-        thread::sleep(HANGUP_GRACE);
-        let _ = killpg(group, Signal::SIGKILL);
     }
 
     pub fn send(&self, bytes: &[u8]) {
@@ -157,10 +173,25 @@ impl Session {
 
 impl Drop for Session {
     fn drop(&mut self) {
-        if self.exit().is_none() {
-            self.end();
-            let _ = self.child.wait();
-        }
+        self.end();
+    }
+}
+
+pub fn end_all<'a>(sessions: impl IntoIterator<Item = &'a mut Session>) {
+    let mut running: Vec<(&mut Session, Pid)> = sessions
+        .into_iter()
+        .filter_map(|session| session.group().map(|group| (session, group)))
+        .collect();
+    if running.is_empty() {
+        return;
+    }
+    for (_, group) in &running {
+        let _ = killpg(*group, Signal::SIGHUP);
+    }
+    thread::sleep(HANGUP_GRACE);
+    for (session, group) in &mut running {
+        let _ = killpg(*group, Signal::SIGKILL);
+        session.exit = session.child.wait().ok();
     }
 }
 
@@ -181,6 +212,27 @@ fn spawn_reason(text: &str) -> String {
         .join("; ")
 }
 
+pub fn containing() -> bool {
+    CONTAINING.get()
+}
+
+fn contained(parser: &mut Parser, rows: u16, cols: u16, work: impl FnOnce(&mut Parser)) {
+    CONTAINING.set(true);
+    let failed = panic::catch_unwind(AssertUnwindSafe(|| work(parser))).is_err();
+    CONTAINING.set(false);
+    if failed {
+        *parser = Parser::new_with_callbacks(
+            rows,
+            cols,
+            0,
+            Replies {
+                bytes: Vec::new(),
+                repaint: true,
+            },
+        );
+    }
+}
+
 fn safe_size(rows: u16, cols: u16) -> (u16, u16) {
     (rows.max(2), cols.max(2))
 }
@@ -199,13 +251,18 @@ fn spawn_writer(mut pty: Box<dyn Write + Send>) -> Sender<Vec<u8>> {
 
 impl Widget for &Session {
     fn render(self, area: Rect, buffer: &mut Buffer) {
-        PseudoTerminal::new(self.parser.lock().unwrap().screen()).render(area, buffer);
+        let mut parser = self.parser.lock().unwrap();
+        let (rows, cols) = parser.screen().size();
+        contained(&mut parser, rows, cols, |parser| {
+            PseudoTerminal::new(parser.screen()).render(area, buffer);
+        });
     }
 }
 
 #[derive(Default)]
 struct Replies {
     bytes: Vec<u8>,
+    repaint: bool,
 }
 
 impl vt100::Callbacks for Replies {

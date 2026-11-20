@@ -84,3 +84,34 @@ fn a_click_in_the_pane_gives_it_the_focus_and_is_not_sent_unasked() {
     let shown = screen.wait_for("acme agent read:");
     assert!(shown.contains("acme agent read:z"), "{shown}");
 }
+
+#[test]
+fn a_click_in_the_empty_pane_leaves_the_focus_on_the_sidebar() {
+    let scratch = tempfile::tempdir().unwrap();
+    let mut screen = Screen::new(numbered_agent(scratch.path()));
+
+    screen.mouse(MouseEventKind::Down(MouseButton::Left), 45, 3);
+    screen.press('n');
+    screen.wait_for("acme agent 1");
+    screen.press('n');
+
+    let shown = screen.wait_for("acme agent 2");
+    assert!(shown.contains("acme agent 2"), "{shown}");
+}
+
+#[test]
+fn a_drag_that_leaves_the_pane_still_reaches_the_session_up_to_its_release() {
+    let mut screen = Screen::new(raw_agent("\\033[?1002h\\033[?1006h", 28));
+    screen.press('n');
+    screen.wait_for("acme agent ready");
+
+    screen.mouse(MouseEventKind::Down(MouseButton::Left), 45, 3);
+    screen.mouse(MouseEventKind::Drag(MouseButton::Left), 10, 3);
+    screen.mouse(MouseEventKind::Up(MouseButton::Left), 10, 3);
+
+    let shown = screen.wait_for("acme agent read:");
+    assert!(
+        shown.contains("acme agent read:[<0;5;3M[<32;1;3M[<0;1;3m"),
+        "{shown}"
+    );
+}

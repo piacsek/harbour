@@ -49,7 +49,10 @@ hand in Ghostty inside tmux 3.7c, with Claude Code 2.1.328. The spike is not in 
   harbour owns, and ends when harbour quits. Quitting with a session still running asks first.
   Sessions that outlive harbour need their own spike and are a later phase.
 - **`vt100` and `tui-term` for this phase.** The emoji fault is a known limit, not a blocker. A
-  second parser is not weighed until a user-visible fault that matters shows up.
+  second parser is not weighed until a user-visible fault that matters shows up. Its panics are
+  contained: a call into `vt100` that panics gives that one session a fresh screen at its size
+  and asks the command to repaint, and harbour and the other sessions carry on. Replacing the
+  parser is in the backlog of `PLAN.md`.
 - **Legacy key encoding only.** harbour does not track which keyboard protocol the child asked
   for. Shift+Enter is sent as ESC CR, which Claude Code reads as a newline.
 - **`Ctrl-h` always returns to the sidebar from a Claude Code pane.** Claude Code loses it as a

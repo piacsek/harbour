@@ -1,4 +1,5 @@
 use std::io;
+use std::panic::PanicHookInfo;
 use std::time::Duration;
 
 use crossterm::event::{
@@ -8,6 +9,9 @@ use crossterm::event::{
 use crossterm::execute;
 
 use crate::app::App;
+use crate::session;
+
+type PanicHook = dyn Fn(&PanicHookInfo<'_>) + Send + Sync + 'static;
 
 pub const SESSION_COMMAND: &str = "HARBOUR_SESSION_COMMAND";
 
@@ -21,16 +25,22 @@ pub fn demo() -> io::Result<()> {
 
 fn show(app: App) -> io::Result<()> {
     let mut terminal = ratatui::init();
-    let restore_terminal = std::panic::take_hook();
-    std::panic::set_hook(Box::new(move |info| {
-        let _ = leave_terminal(&mut io::stdout());
-        restore_terminal(info);
-    }));
+    std::panic::set_hook(panic_hook(std::panic::take_hook()));
     let result = execute!(io::stdout(), EnableBracketedPaste, EnableMouseCapture)
         .and_then(|()| drive(&mut terminal, app));
     let _ = leave_terminal(&mut io::stdout());
     ratatui::restore();
     result
+}
+
+pub fn panic_hook(restore_terminal: Box<PanicHook>) -> Box<PanicHook> {
+    Box::new(move |info| {
+        if session::containing() {
+            return;
+        }
+        let _ = leave_terminal(&mut io::stdout());
+        restore_terminal(info);
+    })
 }
 
 pub fn leave_terminal(out: &mut impl io::Write) -> io::Result<()> {
