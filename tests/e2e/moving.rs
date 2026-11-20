@@ -75,6 +75,92 @@ fn a_directory_that_is_gone_moves_the_pane_path_back_where_harbour_was_opened() 
 
 #[test]
 #[ignore]
+fn a_directory_replaced_in_place_moves_the_pane_path_into_the_new_one() {
+    let home = tempfile::tempdir().unwrap();
+    let web = repository(home.path(), "acme-web");
+    let server = opened("moving-replaced", home.path());
+    start(&server, &web, "acme-web 1");
+    let canonical = web.canonicalize().unwrap();
+    assert_eq!(server.wait_for_path(&canonical), canonical);
+
+    fs::rename(&web, home.path().join("acme-web-old")).unwrap();
+    repository(home.path(), "acme-web");
+
+    assert_eq!(server.wait_for_path(&canonical), canonical);
+}
+
+#[test]
+#[ignore]
+fn a_picker_on_a_relative_path_entry_still_starts_once_harbour_moved() {
+    let home = tempfile::tempdir().unwrap();
+    let web = repository(home.path(), "acme-web");
+    let docs = repository(home.path(), "acme-docs");
+    linked(&home.path().join("acme-api"), "acme-pick", PICKER);
+    let server = Server::start("moving-path-picker", 160, 20);
+    server.exec(
+        home.path(),
+        "",
+        &[
+            (SESSION_COMMAND, AGENT),
+            (DIR_PICKER, "acme-pick"),
+            ("PATH", &relative_path(home.path())),
+        ],
+        &[],
+    );
+    let screen = server.wait_for_screen("press n to start one");
+    assert!(screen.contains("press n to start one"), "{screen}");
+    start(&server, &web, "acme-web 1");
+    let web = web.canonicalize().unwrap();
+    assert_eq!(server.wait_for_path(&web), web);
+
+    start(&server, &docs, "acme-docs 2");
+
+    let screen = server.wait_for_screen("acme agent in acme-docs");
+    assert!(screen.contains("acme agent in acme-docs"), "{screen}");
+}
+
+#[test]
+#[ignore]
+fn sessions_and_editors_on_a_relative_path_entry_start_before_and_after_a_move() {
+    let home = tempfile::tempdir().unwrap();
+    let web = repository(home.path(), "acme-web");
+    let docs = repository(home.path(), "acme-docs");
+    for repository in [&web, &docs] {
+        linked(repository, "acme-agent", AGENT);
+        linked(repository, "acme-nvim", FIXTURE_EDITOR);
+    }
+    let server = Server::start("moving-path-session", 160, 20);
+    server.exec(
+        home.path(),
+        "",
+        &[
+            (SESSION_COMMAND, "acme-agent"),
+            (DIR_PICKER, PICKER),
+            (EDITOR, "acme-nvim"),
+            ("PATH", &relative_path(home.path())),
+        ],
+        &[],
+    );
+    let screen = server.wait_for_screen("press n to start one");
+    assert!(screen.contains("press n to start one"), "{screen}");
+    start(&server, &web, "acme-web 1");
+    let screen = server.wait_for_screen("acme agent in acme-web");
+    assert!(screen.contains("acme agent in acme-web"), "{screen}");
+    let canonical = web.canonicalize().unwrap();
+    assert_eq!(server.wait_for_path(&canonical), canonical);
+
+    server.send_keys(&["Enter", "C-l"]);
+    let screen = server.wait_for_screen("acme editor in acme-web");
+    assert!(screen.contains("acme editor in acme-web"), "{screen}");
+    server.send_keys(&["C-h", "C-h"]);
+    start(&server, &docs, "acme-docs 2");
+
+    let screen = server.wait_for_screen("acme agent in acme-docs");
+    assert!(screen.contains("acme agent in acme-docs"), "{screen}");
+}
+
+#[test]
+#[ignore]
 fn removing_the_last_session_moves_the_pane_path_back_where_harbour_was_opened() {
     let home = tempfile::tempdir().unwrap();
     let web = repository(home.path(), "acme-web");
@@ -229,6 +315,16 @@ fn start(server: &Server, directory: &Path, row: &str) {
     let screen = server.wait_for_screen(row);
     assert!(screen.contains(row), "{screen}");
     server.send_keys(&["C-h"]);
+}
+
+fn linked(directory: &Path, name: &str, target: &str) {
+    let bin = directory.join("acme-bin");
+    fs::create_dir_all(&bin).unwrap();
+    std::os::unix::fs::symlink(target, bin.join(name)).unwrap();
+}
+
+fn relative_path(home: &Path) -> String {
+    format!("acme-bin:{}", home.join("bin").display())
 }
 
 fn repository(home: &Path, name: &str) -> PathBuf {

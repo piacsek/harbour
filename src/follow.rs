@@ -1,4 +1,6 @@
+use std::fs;
 use std::io;
+use std::os::unix::fs::MetadataExt;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
@@ -15,7 +17,7 @@ pub type Mover = Box<dyn FnMut(&Path) -> io::Result<()>>;
 
 pub struct Follow {
     mover: Mover,
-    at: Option<PathBuf>,
+    at: Option<(PathBuf, Option<(u64, u64)>)>,
     seen: Option<PathBuf>,
     checked_at: Option<Instant>,
 }
@@ -48,13 +50,20 @@ impl Follow {
     }
 
     fn enter(&mut self, directory: &Path) -> bool {
-        if self.at.as_deref() == Some(directory) {
+        let identity = identity(directory);
+        if self.at.as_ref() == Some(&(directory.to_path_buf(), identity)) {
             return true;
         }
         let entered = (self.mover)(directory).is_ok();
         if entered {
-            self.at = Some(directory.to_path_buf());
+            self.at = Some((directory.to_path_buf(), identity));
         }
         entered
     }
+}
+
+fn identity(directory: &Path) -> Option<(u64, u64)> {
+    fs::metadata(directory)
+        .ok()
+        .map(|meta| (meta.dev(), meta.ino()))
 }

@@ -167,6 +167,26 @@ fn an_open_picker_leaves_harbour_where_the_selected_session_works() {
 }
 
 #[test]
+fn a_directory_replaced_in_place_is_entered_again() {
+    let scratch = tempfile::tempdir().unwrap();
+    let api = repository(scratch.path(), "acme-api");
+    let (mut screen, moves) = opened(scratch.path(), reading_agent(), None);
+    start(&mut screen, scratch.path(), &api, "acme-api 1");
+    let canonical = api.canonicalize().unwrap();
+    assert_eq!(
+        wait_until_at(&mut screen, &moves, &canonical),
+        Some(canonical.clone())
+    );
+    let entered = moves.lock().unwrap().len();
+
+    fs::rename(&api, scratch.path().join("acme-api-old")).unwrap();
+    repository(scratch.path(), "acme-api");
+
+    assert_eq!(wait_until_moved(&mut screen, &moves, entered), entered + 1);
+    assert_eq!(moves.lock().unwrap().last(), Some(&canonical));
+}
+
+#[test]
 fn an_app_given_no_mover_never_moves_the_process() {
     let scratch = tempfile::tempdir().unwrap();
     let api = repository(scratch.path(), "acme-api");
@@ -254,6 +274,18 @@ fn wait_until_at(screen: &mut Screen, moves: &Moves, expected: &Path) -> Option<
         let at = moves.lock().unwrap().last().cloned();
         if at.as_deref() == Some(expected) || Instant::now() > deadline {
             return at;
+        }
+        sleep(Duration::from_millis(20));
+    }
+}
+
+fn wait_until_moved(screen: &mut Screen, moves: &Moves, entered: usize) -> usize {
+    let deadline = Instant::now() + Duration::from_secs(5);
+    loop {
+        screen.draw();
+        let count = moves.lock().unwrap().len();
+        if count > entered || Instant::now() > deadline {
+            return count;
         }
         sleep(Duration::from_millis(20));
     }

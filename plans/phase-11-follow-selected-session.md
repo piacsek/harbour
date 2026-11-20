@@ -22,8 +22,10 @@ Checked in a scratch server only (`tmux -L <scratch> -f /dev/null`), never the u
 - Harbour's sessions run on PTYs of their own, so the foreground process of harbour's pane tty
   is harbour: its working directory is what tmux reports.
 - `portable_pty` resolves a relative program, and relative `PATH` entries, against the
-  directory the command is given (`cwd`), which `Session::start` always sets; harbour's own
-  working directory never decides where a program is found or where it starts.
+  directory the command is given (`cwd`), which `Session::start` always sets, so a child is
+  found and started the same wherever harbour is. Harbour's own lookups are another matter:
+  `picker::startable` searched a relative `PATH` entry from harbour's working directory, which
+  this phase moves (corrected in review round 1).
 - `std::env::set_current_dir` changes the whole process. In-process tests run in parallel
   threads of one process, so no in-process test may really move it.
 
@@ -40,6 +42,7 @@ session's last seen directory), so a tmux split and `Ctrl-l` agree:
 | The selected session works outside any repository (a `.git` at the home directory itself does not count) | that directory itself |
 | The selection moves (`j`, `k`, a new session, a removed row) | where the newly selected session works, at the next frame |
 | The directory is gone | where harbour was opened, within half a second |
+| The directory is renamed or removed and another appears at its path | the new one, within half a second: harbour compares the device and inode it entered with the path's |
 | The directory is there but harbour cannot enter it (not searchable) | where harbour was opened; tried again at the next change or check |
 | The selected session exited | where it was last seen working, as for its editor |
 | The picker popup, the help or a question is open | unchanged: the selection does not move |
@@ -53,6 +56,7 @@ session's last seen directory), so a tmux split and `Ctrl-l` agree:
 | A relative `HARBOUR_SESSION_COMMAND` | resolved against the session's own directory by `portable_pty`, as before; unchanged |
 | A relative `HARBOUR_EDITOR` | resolved against the editor's directory, as before; unchanged |
 | A relative `HARBOUR_DIR_PICKER` | checked and run from where harbour was opened, as before (`Pick::open` gets `home`) |
+| A picker found through a relative `PATH` entry (`.`, `bin`, `node_modules/.bin`) | `startable` searches each relative entry from where harbour was opened, where the popup's shell runs it; sessions and editors keep resolving them from their own directory, as before |
 | A relative `CLAUDE_CONFIG_DIR` (or the registry and transcripts under it) | made absolute at start, before harbour moves |
 | A relative `TMPDIR` (the picker's scratch directory, Neovim's socket) | read once at start and made absolute; the picker and the editor are handed it |
 | The demo's registry under a relative `TMPDIR` | already absolute: `tempfile` joins a relative parent to the working directory when it creates it, before harbour moves |
@@ -65,8 +69,8 @@ session's last seen directory), so a tmux split and `Ctrl-l` agree:
 
 ## Decisions
 
-- Harbour moves only when the target differs from where it last moved, so a check every half
-  second costs a few `stat` calls and no `chdir`.
+- Harbour moves only when the target differs from where it last moved, by path or by device
+  and inode, so a check every half second costs a few `stat` calls and no `chdir`.
 - A directory harbour cannot enter falls back to where harbour was opened, silently: the
   selected session is still usable, and no message would help the user fix a tmux split.
 - An exited session keeps the directory it was last seen in, the same rule as its editor.
@@ -75,10 +79,17 @@ session's last seen directory), so a tmux split and `Ctrl-l` agree:
 - A relative `CLAUDE_CONFIG_DIR` is read from where harbour was opened, as before this phase;
   sessions still inherit it unchanged, so a Claude Code started elsewhere reads it from its own
   directory, as it always did.
-- tmux reports the directory of the pane's foreground process group leader. Started from an
-  interactive shell, or as the pane's own command, that is harbour. Started by a script without
-  job control (`sh -c 'harbour; read'`), it is the script, and the pane's directory does not
-  follow: nothing in harbour can change that, so it is left as is.
+- tmux reports the directory of the pane's foreground process group leader. Typed at an
+  interactive shell, that is harbour. As a pane command or from a wrapper script, it is harbour
+  only when the shell replaces itself with harbour: measured in tmux 3.7c, `harbour` and
+  `env FOO=1 harbour` follow, `cd <dir> && harbour` and `harbour; sleep 5` do not under
+  `/bin/sh`, and a wrapper script without `exec` never does. A pane command or a wrapper must
+  end with `exec harbour`; `harbour --help` says so, since the help view has no row to spare
+  at 20 rows. Nothing in harbour can change the leader, so it is left as is.
+- Relative `PATH` entries stay as they are in what children inherit: a session or an editor
+  resolves them from its own directory, as before this phase, so only harbour's own lookup
+  (the picker's) changed, to search from where the popup runs. Making `PATH` absolute at start
+  would have changed what every child resolves, and needs `unsafe` `set_var` in edition 2024.
 
 ## Tasks
 
@@ -105,9 +116,14 @@ session's last seen directory), so a tmux split and `Ctrl-l` agree:
   end-to-end test that failed before the fix.
 - The README now says "the directory harbour was opened in" where it said "the current
   directory", which now moves.
-- Nothing visible changed on screen; the screenshots are unchanged.
+- Review round 1: the picker is found through a relative `PATH` entry from where harbour was
+  opened, a directory replaced in place is entered again, the help names where the picker
+  starts, and `harbour --help` says a pane command or wrapper must end with `exec harbour`.
+- The main interface is unchanged (`docs/details.png`); the help view and `harbour --help`
+  screenshots changed with their text, and the `--help` shot grew from 11 to 14 rows so its first lines still show.
 
 ## Hurdles
 
 - `test-seam` The e2e launcher runs harbour under a non-interactive `sh -c`, so tmux reported the shell's directory and the first end-to-end tests stayed red with the move wired in; harbour now runs as the pane's own process in those tests (`Server::exec`) → rule in `tests/AGENTS.md`
 - `design` The plan listed the demo's registry under a relative `TMPDIR` as broken by the move; its test would not go red, because `tempfile` already makes a relative parent absolute when it creates the directory, so that change was dropped → none
+- `review-loop` Round 1 found a relative `PATH` entry searched from harbour's moved directory by the picker, and a directory replaced in place never entered again; both came from a Verified fact and a cache that assumed a path names one directory for good → code

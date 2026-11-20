@@ -176,7 +176,7 @@ fn startable(program: &str, from: &Path) -> io::Result<()> {
         };
     }
     let path = env::var_os("PATH").unwrap_or_default();
-    if env::split_paths(&path).any(|directory| executable(&directory.join(program))) {
+    if env::split_paths(&path).any(|directory| executable(&from.join(directory).join(program))) {
         Ok(())
     } else {
         Err(io::Error::other("is it installed and on PATH?"))

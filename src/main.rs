@@ -13,7 +13,10 @@ beside a live pane. --demo opens the same with made-up sessions: no claude neede
 status prints how many sessions of every running harbour are blocked, working,
 idle or unknown. For tmux, put #(harbour status) in your status-right, for example
   set -g status-right '#(harbour status) %H:%M'
-and raise status-right-length if the counts are cut off.";
+and raise status-right-length if the counts are cut off.
+In tmux, splits and popups opened at #{pane_current_path} follow the selected
+session when harbour is typed at a shell prompt, or when a pane command or a
+wrapper script ends with exec harbour.";
 
 fn main() -> ExitCode {
     let args: Vec<_> = std::env::args_os().skip(1).collect();
