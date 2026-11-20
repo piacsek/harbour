@@ -373,7 +373,7 @@ nearest the code the guideline is about.
     Notes cell:
 
     ```bash
-    jq -r 'select(.type=="assistant" and .isSidechain==false and .message.usage) | [.timestamp, (.message.usage | .input_tokens + .cache_read_input_tokens + .cache_creation_input_tokens)] | @tsv' ~/.claude/projects/<project>/<session>.jsonl
+    jq -r 'select(.type=="assistant" and .isSidechain==false and .message.usage and .message.model!="<synthetic>") | [.timestamp, (.message.usage | .input_tokens + .cache_read_input_tokens + .cache_creation_input_tokens)] | @tsv' ~/.claude/projects/<project>/<session>.jsonl
     ```
   - After the merge: a branch cannot record its own ready, merge or release, so its row leaves
     those cells empty, the report of step 6 gives them, and the first ship of the next phase

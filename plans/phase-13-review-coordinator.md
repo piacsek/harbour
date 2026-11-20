@@ -84,4 +84,25 @@ Probed from a sub-agent (the builder of this phase), which is where a coordinato
 
 ## Outcome
 
+- One review coordinator per pull request is the rule: step 3 of "Work autonomously", "Review
+  before ready" and "Time and tokens" in `AGENTS.md` say what it is given, how it runs each
+  round, when it escalates and what its one report holds.
+- Sibling resume works both ways: the coordinator's `SendMessage` resumed the builder it did
+  not start, and the builder's `SendMessage` reply and its completion notice (166968
+  `subagent_tokens`) both reached the coordinator, not the orchestrator.
+- The coordinator launched Codex from its own Bash (with the sandbox disabled) twice, and both
+  runs completed. Codex could not reach GitHub from its sandbox in either round (`gh` and web
+  requests failed), so the checks that need GitHub came only from the Claude reviewer.
+- Review round 1 found 3 should findings (the probe agent counted as two, the spawn timing
+  disagreeing with step 3, no path when the builder's notice goes elsewhere) and 3 minor ones,
+  all fixed; round 2, unprimed, was clean, with 2 minor ones fixed in the last ship (the
+  context `jq` command now skips the `<synthetic>` turns, and the session's start is named as
+  its first turn).
+- The orchestrator's context grew by 22195 over 2 rounds, against 45575 over 1 round for
+  phase 9; `plans/metrics.md` holds both rows.
+
 ## Hurdles
+
+- `tooling` Codex ran without network in its sandbox, so it could not run `gh` or fetch from GitHub in either round; the Claude reviewer covered the checks that need GitHub → none
+- `process` The round 2 Claude reviewer ran one read-only git command in the branch's worktree, against its brief to stay in its own detached worktree → none
+- `review-loop` Review round 1 found 3 should findings in the new rule's wording (the probe agent count, the coordinator's spawn timing, the builder's notice going elsewhere) → rule in `AGENTS.md`
