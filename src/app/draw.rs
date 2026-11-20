@@ -20,6 +20,7 @@ impl App {
         self.finish_pick();
         self.finish_editors();
         self.read_files();
+        self.settle_exited();
         self.screen = frame.area();
         let (sidebar, pane) = self.areas(frame.area());
         self.sidebar = sidebar;
@@ -114,7 +115,7 @@ impl App {
                             frame.render_widget(session, self.pane);
                         }
                         None => frame.render_widget(
-                            Paragraph::new(remember::RESUME)
+                            Paragraph::new(remember::pane(shown.why))
                                 .wrap(Wrap { trim: false })
                                 .block(pane_block),
                             pane,

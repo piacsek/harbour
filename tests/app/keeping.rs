@@ -87,6 +87,15 @@ fn a_new_session_id_replaces_the_remembered_one() {
     let kept = remembered_soon(&mut screen, &scratch.memory(), OTHER_ID, "The second one");
     assert_eq!(kept.len(), 1);
     assert_eq!(kept[0].session_id, OTHER_ID);
+    let file = scratch
+        .dir
+        .path()
+        .join(format!("state/harbour/sessions/{OTHER_ID}.json"));
+    assert!(
+        std::fs::read_to_string(file)
+            .unwrap()
+            .contains(&format!(r#""replaces":"{ID}""#))
+    );
 }
 
 #[test]
@@ -133,11 +142,11 @@ fn x_on_an_exited_remembered_session_forgets_it() {
     assert_eq!(scratch.memory().recall(), Vec::new());
 }
 
-fn titled(title: &str) -> String {
+pub(crate) fn titled(title: &str) -> String {
     format!(r#"{{"type":"ai-title","aiTitle":"{title}"}}"#)
 }
 
-fn registered(sessions: &Path, id: &str) -> Vec<String> {
+pub(crate) fn registered(sessions: &Path, id: &str) -> Vec<String> {
     script(&format!(
         "printf '%s' '{{\"status\":\"busy\",\"sessionId\":\"{id}\"}}' > '{}'/$$.json; \
          echo 'acme agent registered'; exec sleep 600",
@@ -155,7 +164,12 @@ fn registered_with_pid(sessions: &Path, id: &str, pid_file: &Path) -> Vec<String
     ))
 }
 
-fn remembered_soon(screen: &mut Screen, memory: &Memory, id: &str, title: &str) -> Vec<Remembered> {
+pub(crate) fn remembered_soon(
+    screen: &mut Screen,
+    memory: &Memory,
+    id: &str,
+    title: &str,
+) -> Vec<Remembered> {
     let deadline = Instant::now() + Duration::from_secs(3);
     loop {
         screen.draw();

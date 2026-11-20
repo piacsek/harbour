@@ -1,11 +1,12 @@
 use std::fs;
 use std::path::Path;
 use std::process::{Child, Command};
+use std::time::{Duration, SystemTime};
 
 use crossterm::event::{KeyCode, KeyModifiers};
 
 use crate::below;
-use crate::remembering::{ID, Scratch, TITLE};
+use crate::remembering::{ID, OTHER_ID, Scratch, TITLE};
 
 #[test]
 fn a_stopped_card_whose_directory_is_gone_says_so() {
@@ -161,6 +162,176 @@ fn a_registry_file_of_an_ended_process_does_not_hold_a_card() {
     let shown = screen.wait_for(TITLE);
 
     assert_eq!(below(&shown, TITLE), "stopped");
+}
+
+#[test]
+fn the_pane_of_a_card_whose_directory_is_gone_says_x_forgets_it() {
+    let scratch = Scratch::new();
+    scratch.remember(ID, TITLE, 0);
+    scratch.transcript(ID, r#"{"type":"user","message":{}}"#);
+    fs::remove_dir_all(scratch.checkout()).unwrap();
+    let mut screen = scratch.watching(resuming_agent());
+
+    let shown = screen.wait_for("x forgets it");
+
+    assert!(
+        shown.contains("Its directory is gone. x forgets it."),
+        "{shown}"
+    );
+}
+
+#[test]
+fn the_pane_of_a_card_open_elsewhere_says_to_close_it_there() {
+    let scratch = Scratch::new();
+    scratch.remember(ID, TITLE, 0);
+    scratch.transcript(ID, r#"{"type":"user","message":{}}"#);
+    let _other = Elsewhere::open(&scratch.sessions(), ID);
+    let mut screen = scratch.watching(resuming_agent());
+
+    let shown = screen.wait_for("close it there");
+
+    assert!(
+        shown.contains("Open elsewhere: close it there, then Enter resumes it here."),
+        "{shown}"
+    );
+}
+
+#[test]
+fn the_held_message_goes_once_another_card_is_selected() {
+    let scratch = Scratch::new();
+    scratch.remember(ID, TITLE, 0);
+    scratch.remember(OTHER_ID, "The second one", 1);
+    scratch.transcript(ID, r#"{"type":"user","message":{}}"#);
+    scratch.transcript(OTHER_ID, r#"{"type":"user","message":{}}"#);
+    let _other = Elsewhere::open(&scratch.sessions(), ID);
+    let mut screen = scratch.watching(resuming_agent());
+    let before = screen.wait_for("open elsewhere");
+    assert!(before.contains("open elsewhere"), "{before}");
+    screen.key(KeyCode::Enter, KeyModifiers::NONE);
+    let held = screen.wait_for("This conversation is open elsewhere");
+    assert!(
+        held.contains("This conversation is open elsewhere"),
+        "{held}"
+    );
+
+    screen.press('j');
+
+    let shown = screen.draw();
+    assert!(
+        !shown.contains("This conversation is open elsewhere"),
+        "{shown}"
+    );
+}
+
+#[test]
+fn the_held_message_goes_once_the_card_can_be_resumed() {
+    let scratch = Scratch::new();
+    scratch.remember(ID, TITLE, 0);
+    scratch.transcript(ID, r#"{"type":"user","message":{}}"#);
+    let other = Elsewhere::open(&scratch.sessions(), ID);
+    let mut screen = scratch.watching(resuming_agent());
+    let before = screen.wait_for("open elsewhere");
+    assert!(before.contains("open elsewhere"), "{before}");
+    screen.key(KeyCode::Enter, KeyModifiers::NONE);
+    let held = screen.wait_for("This conversation is open elsewhere");
+    assert!(
+        held.contains("This conversation is open elsewhere"),
+        "{held}"
+    );
+
+    drop(other);
+
+    let shown = screen.wait_for("stopped");
+    assert_eq!(below(&shown, TITLE), "stopped");
+    assert!(
+        !shown.contains("This conversation is open elsewhere"),
+        "{shown}"
+    );
+}
+
+#[test]
+fn the_gone_message_goes_once_another_card_is_selected() {
+    let scratch = Scratch::new();
+    scratch.remember(ID, TITLE, 0);
+    scratch.remember(OTHER_ID, "The second one", 1);
+    scratch.transcript(ID, r#"{"type":"user","message":{}}"#);
+    scratch.transcript(OTHER_ID, r#"{"type":"user","message":{}}"#);
+    let mut screen = scratch.watching(resuming_agent());
+    let before = screen.wait_for("The second one");
+    assert!(before.contains("The second one"), "{before}");
+    fs::remove_file(scratch.transcript_file(ID)).unwrap();
+    screen.key(KeyCode::Enter, KeyModifiers::NONE);
+    let gone = screen.wait_for("This conversation is gone");
+    assert!(gone.contains("This conversation is gone"), "{gone}");
+
+    screen.press('k');
+
+    let shown = screen.draw();
+    assert!(!shown.contains("This conversation is gone"), "{shown}");
+}
+
+#[test]
+fn a_remembered_file_named_like_an_option_is_not_shown() {
+    let scratch = Scratch::new();
+    let memory = scratch.dir.path().join("state/harbour/sessions");
+    fs::create_dir_all(&memory).unwrap();
+    fs::write(
+        memory.join("--settings.json"),
+        format!(
+            r#"{{"version":1,"sessionId":"--settings","directory":"{}","title":"Forged","position":0}}"#,
+            scratch.checkout().display()
+        ),
+    )
+    .unwrap();
+    scratch.transcript("--settings", r#"{"type":"user","message":{}}"#);
+    let mut screen = scratch.watching(resuming_agent());
+
+    let shown = screen.wait_for("No session yet");
+
+    assert!(!shown.contains("Forged"), "{shown}");
+}
+
+#[test]
+fn a_stale_card_whose_transcript_is_gone_is_forgotten() {
+    let scratch = Scratch::new();
+    scratch.remember(ID, TITLE, 0);
+    let file = scratch
+        .dir
+        .path()
+        .join(format!("state/harbour/sessions/{ID}.json"));
+    fs::File::options()
+        .write(true)
+        .open(&file)
+        .unwrap()
+        .set_modified(SystemTime::now() - Duration::from_secs(31 * 24 * 60 * 60))
+        .unwrap();
+    let mut screen = scratch.watching(resuming_agent());
+
+    let shown = screen.wait_for("No session yet");
+
+    assert!(!shown.contains(TITLE), "{shown}");
+    assert_eq!(scratch.memory().recall(), Vec::new());
+}
+
+#[test]
+fn at_most_a_hundred_cards_come_back() {
+    let scratch = Scratch::new();
+    for n in 0..101 {
+        let id = format!("00000000-0000-4000-8000-{n:012x}");
+        scratch.remember(&id, &format!("Card {n:03}"), n);
+        scratch.transcript(&id, r#"{"type":"user","message":{}}"#);
+    }
+    let mut screen = scratch.watching(resuming_agent());
+    let first = screen.wait_for("Card 000");
+    assert!(first.contains("Card 000"), "{first}");
+
+    for _ in 0..120 {
+        screen.press('j');
+    }
+
+    let shown = screen.draw();
+    assert!(shown.contains("Card 099"), "{shown}");
+    assert!(!shown.contains("Card 100"), "{shown}");
 }
 
 struct Elsewhere {

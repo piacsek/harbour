@@ -181,6 +181,58 @@ fn n_still_starts_a_new_session_beside_stopped_cards() {
     assert!(shown.contains(TITLE), "{shown}");
 }
 
+#[test]
+fn enter_on_a_resumed_card_focuses_it_and_starts_no_second_copy() {
+    let scratch = Scratch::new();
+    scratch.remember(ID, TITLE, 0);
+    let count = scratch.dir.path().join("count");
+    let mut screen = scratch.screen(counted_resuming_agent(&count));
+    screen.key(KeyCode::Enter, KeyModifiers::NONE);
+    let ready = screen.wait_for("acme agent run 1");
+    assert!(ready.contains("acme agent run 1"), "{ready}");
+    screen.key(KeyCode::Char('h'), KeyModifiers::CONTROL);
+
+    screen.key(KeyCode::Enter, KeyModifiers::NONE);
+    screen.type_text("hello\r");
+
+    let shown = screen.wait_for("acme agent got: hello");
+    assert!(shown.contains("acme agent got: hello"), "{shown}");
+    assert_eq!(fs::read_to_string(&count).unwrap().trim(), "1");
+}
+
+#[test]
+fn many_stopped_cards_scroll_to_the_selected_one() {
+    let scratch = Scratch::new();
+    for n in 0..30 {
+        let id = format!("00000000-0000-4000-8000-{n:012x}");
+        scratch.remember(&id, &format!("Card {n:03}"), n);
+    }
+    let mut screen = scratch.screen(started_agent());
+    let first = screen.wait_for("Card 000");
+    assert!(first.contains("Card 000"), "{first}");
+
+    for _ in 0..29 {
+        screen.press('j');
+    }
+
+    let shown = screen.draw();
+    assert!(shown.contains("Card 029"), "{shown}");
+    assert!(!shown.contains("Card 000"), "{shown}");
+}
+
+#[test]
+fn a_title_with_control_and_bidi_characters_from_disk_is_cleaned() {
+    let scratch = Scratch::new();
+    scratch.remember(ID, "Fix\u{1b}[31m the \u{202e}login", 0);
+    let mut screen = scratch.screen(started_agent());
+
+    let shown = screen.wait_for("login");
+
+    assert!(shown.contains("Fix"), "{shown}");
+    assert!(!shown.contains('\u{1b}'), "{shown}");
+    assert!(!shown.contains('\u{202e}'), "{shown}");
+}
+
 pub(crate) struct Scratch {
     pub(crate) dir: TempDir,
 }
@@ -261,6 +313,15 @@ fn numbered_resuming_agent(scratch: &Path) -> Vec<String> {
     script(&format!(
         "n=$(($(cat '{count}' 2>/dev/null || echo 0) + 1)); echo $n > '{count}'; \
          echo \"acme agent run $n\"; sleep 0.3; exit 0",
+        count = count.display()
+    ))
+}
+
+fn counted_resuming_agent(count: &Path) -> Vec<String> {
+    script(&format!(
+        "n=$(($(cat '{count}' 2>/dev/null || echo 0) + 1)); echo $n > '{count}'; \
+         echo \"acme agent run $n\"; \
+         while :; do read -r line || continue; echo \"acme agent got: $line\"; done",
         count = count.display()
     ))
 }

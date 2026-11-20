@@ -50,8 +50,8 @@ src/tui.rs                    the terminal: enters and restores it, reads its ev
 src/picker.rs                 the directory picker of `n`: a program run as a session in a popup, its standard output sent to a file in a temporary directory only its owner can open (0700), the first line it prints, as bytes, canonicalized (read from harbour's directory when relative), every path kept as bytes on the way into its arguments, exit statuses 126 and 127 (and 2 for fzf) named as "could not start"; fzf given `--no-expect --no-print-query --no-read0 --no-print0` after the user's `FZF_DEFAULT_OPTS`, so it prints one directory a line; for fzf the popup's own shell writes the list (harbour's directory first, then the list command's lines without it) into a FIFO fzf reads, so a slow list never holds up harbour, and a missing fzf means "start at once"
 src/app/mod.rs                the app: its state and what each key, paste and mouse event does; each session's one directory Claude Code was last seen in, which C-l opens, and its editors, one per directory, which `e` shows in turn
 src/app/draw.rs               what the app draws
-src/app/remember.rs           what the app does with remembered sessions: recalls them once as stopped cards (a card whose transcript is gone is left out, its file kept), says on line 2 why one cannot resume (`directory gone`, `open elsewhere` while a live pid's registry file names its id), resumes one with `<command> --resume <id>` in its directory after checking both again, keeps each running session's id, directory, title and position once its transcript exists, forgets on `x` (never a file a session open elsewhere owns), and adds `Conversations come back stopped.` to the quit question
-src/memory.rs                 the remembered sessions on disk: one `<sessionId>.json` per conversation under `$XDG_STATE_HOME/harbour/sessions/`, else `~/.local/state/harbour/sessions/` (0700 folder, 0600 files, written through a staged file and a rename); read leniently: a regular file only, never through a symlink, at most 64 KiB, `version` 1, a plain id matching its name, an absolute directory, anything else skipped and left on disk, a file from a newer version never overwritten or removed
+src/app/remember.rs           what the app does with remembered sessions: recalls them once as stopped cards, at most 100 by position, from one listing of every projects folder (a card whose transcript is gone is left out, its file forgotten once it is 30 days old), says on line 2 and in the pane why one cannot resume (`directory gone`, `open elsewhere` while a live pid's registry file or another harbour's reservation names its id), resumes one with `<command> --resume <id>` in its directory after checking both again and reserving the id for as long as it runs, keeps each session's id, directory, title and position once its transcript exists (again when its file went missing, once more when it exits and at quit), merges a stopped card into the session that resumed its conversation, forgets on `x` (never a file a session open elsewhere owns), clears its `gone` and `open elsewhere` messages on a new selection, the next attempt or once the card can resume, and adds `Conversations come back stopped.` to the quit question
+src/memory.rs                 the remembered sessions on disk: one `<sessionId>.json` per conversation under `$XDG_STATE_HOME/harbour/sessions/`, else `~/.local/state/harbour/sessions/` (0700 folder, 0600 files, written through a staged file and a rename); a new id's file names the id it `replaces`, and recall drops and removes a replaced file; read leniently: a regular file only, never through a symlink, at most 64 KiB, `version` 1, an id of Claude Code's shape (a lowercase 8-4-4-4-12 hex UUID, so `--resume <id>` never reads it as an option) matching its name, an absolute directory, anything else skipped and left on disk, a file from a newer version never overwritten or removed; `reserve`: a private `<id>.<unique>.lock` held with a non-blocking lock while a resumed session runs, dead ones swept
 src/editor.rs                 an editor beside a session's Claude Code pane: the program it runs and the directory it belongs to, `root` (the repository root `repo::root` finds, the card's own walk, never walked up from a directory that is gone); Neovim listens on a socket in a private (0700) temporary directory removed with the editor, under `/tmp` when the temporary directory would make the socket path too long for macOS (103 bytes), and without one when that directory cannot be made, and says through it whether it has unsaved changes (`changes`: saved, unsaved, or unknown when it cannot be asked; a modified buffer counts when its `buftype` is empty or `acwrite`, a file the user would lose, never a terminal, prompt, `nofile` or `nowrite` buffer), and whether C-h stays in it (`wants_ctrl_h`: anything but mode `n` or `nt` with `blocking` false in the leftmost window); a session's editors end with it
 src/nvim.rs                   `mode` and `eval`: one msgpack-RPC `nvim_get_mode` or `nvim_eval` over that socket, the connect, the write and the read all bounded by one deadline, the reply matched by its request id (a notification before it is skipped, at most 1 MiB read), `None` for no answer before the deadline
 src/tabs.rs                   `strip`, a pure function: the pane border's `claude | <editor>: <directory>`, fitted by display width (the directory loses its start first, then the editor's name; nothing shows once not one column of the editor's name fits)
@@ -195,14 +195,21 @@ impact.
   only when a count changed, and by two file checks or one fresh publication (with its sweep of
   dead ones) at most every 5 s
   (`plans/phase-3-status-dots.md`, `plans/phase-5-tmux-status-line.md`).
-- **Remembered sessions are read and written on the draw thread too**: the files once at start, a
-  write of a few hundred bytes only when a session's id, title or position changed, one listing
-  and read of the registry folder per registry read while a card is stopped, and one search of
-  the projects directory per remembered card at start and at Enter; slow storage delays keys by
-  that long (`plans/phase-10-resumable-sessions.md`).
-- **A registry file left by a crash whose pid now belongs to another process keeps its card
-  `open elsewhere`** until that process ends: the safe side, never a second copy of a
-  conversation (`plans/phase-10-resumable-sessions.md`).
+- **Remembered sessions are read and written on the draw thread too**: at start every remembered
+  file is read once (at most 64 KiB each) and every projects folder listed once, so a few
+  thousand files cost seconds once (2000 files over 300 folders took about 2.6 s before the cap
+  and the pruning); then at most 100 cards, each a directory check, plus one listing of the
+  registry and of the reservations every 500 ms while a card is stopped, and a write of a few
+  hundred bytes only when a session's id, title or position changed
+  (`plans/phase-10-resumable-sessions.md`).
+- **A kill by signal loses what changed since the last read**: a kill, or the hangup of closing
+  harbour's terminal window, skips the read at quit, so a title or id that changed in the last
+  500 ms is not remembered, and its reservation files stay until the next harbour sweeps them as
+  dead (`plans/phase-10-resumable-sessions.md`).
+- **A card held `open elsewhere` by a reused pid cannot be forgotten and returns at every
+  start**: a registry file left by a crash whose pid now belongs to another process names its id
+  until that process ends, the safe side, never a second copy of a conversation
+  (`plans/phase-10-resumable-sessions.md`).
 - **The release attestation records the `main` commit that started the run, not the release
   commit the tag points at**: its subjects are the right tarballs, but the source commit it
   names is the merge (`.github/AGENTS.md`, "What the attestation proves").

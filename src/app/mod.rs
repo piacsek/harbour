@@ -15,7 +15,7 @@ use crate::card::Sidebar;
 use crate::demo;
 use crate::editor::{self, Changes, Editor, Program};
 use crate::keys;
-use crate::memory::{Memory, Remembered};
+use crate::memory::{Memory, Remembered, Reservation};
 use crate::mouse::{self, Gesture, Target};
 use crate::picker::{Pick, Picked, Picker};
 use crate::registry::Record;
@@ -83,6 +83,7 @@ struct Entry {
     remembered: Option<String>,
     kept: Option<Remembered>,
     why: &'static str,
+    reservation: Option<Reservation>,
 }
 
 impl Entry {
@@ -277,9 +278,9 @@ impl App {
             KeyCode::Char('e') => self.next_editor(),
             KeyCode::Char('?') => self.helping = true,
             KeyCode::Char('j') => {
-                self.selected = (self.selected + 1).min(self.sessions.len().saturating_sub(1))
+                self.select((self.selected + 1).min(self.sessions.len().saturating_sub(1)))
             }
-            KeyCode::Char('k') => self.selected = self.selected.saturating_sub(1),
+            KeyCode::Char('k') => self.select(self.selected.saturating_sub(1)),
             _ => {}
         }
     }
@@ -385,7 +386,7 @@ impl App {
             entry,
             self.registry.as_deref(),
             self.transcripts.as_deref(),
-            true,
+            read::Reading::Now,
         );
         let directory = editor::root(&entry.seen, user_home().as_deref());
         if let Some(index) = entry
@@ -472,6 +473,7 @@ impl App {
             let changes = changes(self.sessions.iter().flat_map(|entry| &entry.editors));
             self.asking = Some(Question::Quit(changes));
         } else {
+            self.settle_all();
             self.quitting = true;
         }
     }
@@ -494,7 +496,10 @@ impl App {
                     self.remove_selected();
                 }
             }
-            Question::Quit(_) => self.quitting = true,
+            Question::Quit(_) => {
+                self.settle_all();
+                self.quitting = true;
+            }
         }
     }
 
@@ -587,6 +592,7 @@ impl App {
                     remembered: None,
                     kept: None,
                     why: remember::STOPPED,
+                    reservation: None,
                 });
                 self.selected = self.sessions.len() - 1;
             }

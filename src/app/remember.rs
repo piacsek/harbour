@@ -13,12 +13,20 @@ use crate::text;
 use crate::transcript::Transcript;
 
 pub(super) const STOPPED: &str = "stopped";
-pub(super) const RESUME: &str = "Stopped. Enter resumes it, x forgets it.";
 const DIRECTORY_GONE: &str = "directory gone";
 const ELSEWHERE: &str = "open elsewhere";
 const GONE: &str = "This conversation is gone: Claude Code no longer has it.";
 const HELD: &str = "This conversation is open elsewhere: close it there first.";
 const COME_BACK: &str = "Conversations come back stopped.";
+const RECALLED: usize = 100;
+
+pub(super) fn pane(why: &str) -> &'static str {
+    match why {
+        DIRECTORY_GONE => "Its directory is gone. x forgets it.",
+        ELSEWHERE => "Open elsewhere: close it there, then Enter resumes it here.",
+        _ => "Stopped. Enter resumes it, x forgets it.",
+    }
+}
 
 impl App {
     pub fn with_memory(mut self, memory: Memory) -> App {
@@ -31,10 +39,25 @@ impl App {
             return;
         };
         self.recalled = true;
+        let existing = match self.transcripts.as_deref() {
+            None => None,
+            Some(projects) => match Transcript::existing(projects) {
+                None => return,
+                found => found,
+            },
+        };
+        let mut recalled = Vec::new();
         for remembered in memory.recall() {
-            if !self.transcript_exists(&remembered.session_id) {
-                continue;
+            if existing
+                .as_ref()
+                .is_some_and(|ids| !ids.contains(&remembered.session_id))
+            {
+                memory.forget_stale(&remembered.session_id);
+            } else if recalled.len() < RECALLED {
+                recalled.push(remembered);
             }
+        }
+        for remembered in recalled {
             self.sessions.push(Entry {
                 id: 0,
                 name: remembered.title,
@@ -53,7 +76,23 @@ impl App {
                 remembered: Some(remembered.session_id),
                 kept: None,
                 why: STOPPED,
+                reservation: None,
             });
+        }
+    }
+
+    pub(super) fn select(&mut self, index: usize) {
+        self.selected = index;
+        self.clear_refusal();
+    }
+
+    fn clear_refusal(&mut self) {
+        if self
+            .failed
+            .as_deref()
+            .is_some_and(|failed| failed == GONE || failed == HELD)
+        {
+            self.failed = None;
         }
     }
 
@@ -71,16 +110,25 @@ impl App {
         {
             return false;
         }
+        self.clear_refusal();
         if !self.transcript_exists(&id) {
             self.sessions.remove(self.selected);
             self.selected = self.selected.min(self.sessions.len().saturating_sub(1));
             self.failed = Some(GONE.to_string());
             return true;
         }
-        if self.open_ids().contains(&id) {
+        if self.held_ids().contains(&id) {
             self.failed = Some(HELD.to_string());
             return true;
         }
+        let reservation = match self.memory.as_ref().map(|memory| memory.reserve(&id)) {
+            Some(Ok(None)) => {
+                self.failed = Some(HELD.to_string());
+                return true;
+            }
+            Some(Ok(Some(reservation))) => Some(reservation),
+            _ => None,
+        };
         let mut command = self.command.clone();
         let transcript = self
             .transcripts
@@ -105,6 +153,7 @@ impl App {
                 entry.transcript = transcript;
                 entry.seen = entry.directory.clone();
                 entry.followed = false;
+                entry.reservation = reservation;
                 self.failed = None;
                 self.pane_focused = true;
             }
@@ -119,65 +168,100 @@ impl App {
         if !self.recalled {
             self.recall();
         }
-        let open = if self.sessions.iter().any(|entry| entry.session.is_none()) {
-            self.open_ids()
+        let held = if self.sessions.iter().any(|entry| entry.session.is_none()) {
+            self.held_ids()
         } else {
             HashSet::new()
         };
-        let Some(memory) = &self.memory else {
-            return;
-        };
-        for (position, entry) in self.sessions.iter_mut().enumerate() {
-            let Some(session) = entry.session.as_mut() else {
+        for entry in &mut self.sessions {
+            if entry.session.is_none() {
                 entry.why = if !entry.directory.is_dir() {
                     DIRECTORY_GONE
                 } else if entry
                     .remembered
                     .as_ref()
-                    .is_some_and(|id| open.contains(id))
+                    .is_some_and(|id| held.contains(id))
                 {
                     ELSEWHERE
                 } else {
                     STOPPED
                 };
-                continue;
-            };
-            if session.exit().is_some() {
-                continue;
             }
-            let Some(transcript) = entry.transcript.as_ref().filter(|found| found.is_found())
-            else {
-                continue;
-            };
-            let wanted = Remembered {
-                session_id: transcript.session_id().to_string(),
-                directory: entry.directory.clone(),
-                title: transcript
-                    .facts()
-                    .title
-                    .clone()
-                    .unwrap_or_else(|| entry.name.clone()),
-                position,
-            };
-            if entry.kept.as_ref() == Some(&wanted) || memory.keep(&wanted).is_err() {
-                continue;
+        }
+        if self
+            .sessions
+            .get(self.selected)
+            .is_some_and(|entry| entry.why != ELSEWHERE)
+            && self.failed.as_deref() == Some(HELD)
+        {
+            self.failed = None;
+        }
+        let mut index = 0;
+        while index < self.sessions.len() {
+            index = self.keep(index) + 1;
+        }
+    }
+
+    fn keep(&mut self, mut index: usize) -> usize {
+        let Some(memory) = &self.memory else {
+            return index;
+        };
+        let Some(wanted) = wanted(&self.sessions[index], index) else {
+            return index;
+        };
+        let entry = &self.sessions[index];
+        if entry.kept.as_ref() == Some(&wanted) && memory.holds(&wanted.session_id) {
+            return index;
+        }
+        let old = entry
+            .remembered
+            .clone()
+            .filter(|old| *old != wanted.session_id);
+        if entry.remembered.as_deref() != Some(wanted.session_id.as_str()) {
+            let other = self
+                .sessions
+                .iter()
+                .position(|other| other.remembered.as_deref() == Some(wanted.session_id.as_str()));
+            if let Some(other) = other {
+                if self.sessions[other].running() {
+                    return index;
+                }
+                self.sessions.remove(other);
+                if other < self.selected {
+                    self.selected -= 1;
+                }
+                if other < index {
+                    index -= 1;
+                }
             }
-            if let Some(old) = entry
-                .remembered
-                .as_ref()
-                .filter(|old| **old != wanted.session_id)
-            {
-                memory.forget(old);
+        }
+        let Some(memory) = &self.memory else {
+            return index;
+        };
+        let kept = match &old {
+            Some(old) => memory.replace(old, &wanted),
+            None => memory.keep(&wanted),
+        };
+        if kept.is_ok() {
+            let entry = &mut self.sessions[index];
+            if old.is_some() {
+                entry.reservation = None;
             }
             entry.remembered = Some(wanted.session_id.clone());
             entry.kept = Some(wanted);
         }
+        index
     }
 
     pub(super) fn forget(&self, entry: &Entry) {
-        if let (Some(memory), Some(id)) = (&self.memory, &entry.remembered)
-            && !self.open_ids().contains(id)
-        {
+        let Some((memory, id)) = self.memory.as_ref().zip(entry.remembered.as_ref()) else {
+            return;
+        };
+        let shared = self
+            .sessions
+            .iter()
+            .any(|other| other.remembered.as_ref() == Some(id));
+        if !shared && !self.held_ids().contains(id) {
             memory.forget(id);
         }
     }
@@ -204,10 +288,30 @@ impl App {
             .is_none_or(|projects| Transcript::exists(projects, id))
     }
 
-    fn open_ids(&self) -> HashSet<String> {
-        self.registry
+    fn held_ids(&self) -> HashSet<String> {
+        let mut held = self
+            .registry
             .as_deref()
             .map(registry::open_ids)
-            .unwrap_or_default()
+            .unwrap_or_default();
+        if let Some(memory) = &self.memory {
+            held.extend(memory.reserved());
+        }
+        held
     }
+}
+
+fn wanted(entry: &Entry, position: usize) -> Option<Remembered> {
+    entry.session.as_ref()?;
+    let transcript = entry.transcript.as_ref().filter(|found| found.is_found())?;
+    Some(Remembered {
+        session_id: transcript.session_id().to_string(),
+        directory: entry.directory.clone(),
+        title: transcript
+            .facts()
+            .title
+            .clone()
+            .unwrap_or_else(|| entry.name.clone()),
+        position,
+    })
 }
