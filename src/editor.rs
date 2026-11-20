@@ -18,7 +18,6 @@ const UNSAVED: &str = "len(filter(getbufinfo({'bufmodified': 1}), \
                        {_, b -> index(['', 'acwrite'], getbufvar(b.bufnr, '&buftype')) >= 0}))";
 
 const RETRY_OPEN: Duration = Duration::from_millis(10);
-const LOOKING: Duration = Duration::from_millis(100);
 const WAITING: &str = "Neovim is waiting for a key; answer it and try again";
 
 const SOCKET_PREFIX: &str = "harbour-nvim";
@@ -154,14 +153,13 @@ impl Editor {
         if waiting(&mode) {
             return Err(Unopened::Refused(WAITING.to_string()));
         }
-        let editing = deadline.checked_sub(LOOKING).unwrap_or(deadline);
-        match nvim::edit(socket, file, editing) {
-            Some(Ok(())) => Ok(()),
-            Some(Err(error)) => Err(Unopened::Refused(format!("Neovim refused: {error}"))),
-            None => match nvim::mode(socket, deadline) {
-                Some(mode) if waiting(&mode) => Err(Unopened::Refused(WAITING.to_string())),
-                _ => Err(Unopened::Silent),
-            },
+        match nvim::edit(socket, file, deadline) {
+            Some(nvim::Edited::Done) => Ok(()),
+            Some(nvim::Edited::Refused(error)) => {
+                Err(Unopened::Refused(format!("Neovim refused: {error}")))
+            }
+            Some(nvim::Edited::Waiting) => Err(Unopened::Refused(WAITING.to_string())),
+            None => Err(Unopened::Silent),
         }
     }
 

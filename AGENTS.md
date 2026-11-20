@@ -178,7 +178,7 @@ impact.
   (`src/transcript.rs`).
 - **An open of `harbour edit` into a running Neovim runs on the draw thread**: the listener's
   threads accept and read requests, but the RPC to Neovim (`nvim_get_mode`, retried while its
-  socket is not up yet, then `nvim_cmd`) runs on the draw thread, at most 1 s each for a
+  socket is not up yet, then `nvim_cmd`, its mode asked every 50 ms while that waits, so a prompt it raises is refused at once) runs on the draw thread, at most 1 s each for a
   running Neovim and the whole request deadline (under 5 s) for one harbour has just started,
   4 a frame, so a Neovim that never answers holds the interface that long; once the command is
   sent, it may still land after `harbour edit` reported a failure (a swap prompt answered after

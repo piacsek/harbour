@@ -118,12 +118,14 @@ fn an_open_that_starts_a_neovim_which_stops_at_a_prompt_on_loading_the_file_is_r
     let mut screen = harbour(scratch.path());
     start_in(&mut screen, scratch.path(), "acme-api", 1);
     let _asked = answering_in(scratch.path(), "n", false, Duration::ZERO, Edit::Prompting);
+    let started = Instant::now();
 
     let reply = screen
         .app
         .hand(Verb::Open, &file(scratch.path(), "acme-api"), soon());
 
     assert_eq!(reply, Reply::Refused(WAITING.to_string()));
+    assert!(started.elapsed() < Duration::from_secs(2));
 }
 
 #[test]
