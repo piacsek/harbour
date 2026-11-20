@@ -84,4 +84,24 @@ One red-green-refactor cycle each, shipped with `scripts/ship.sh`.
 
 ## Outcome
 
+- `n` opens a popup that runs the picker as a session of its own; its standard output goes to a
+  file in a private temporary directory, and the first line it prints is the directory. Keys,
+  paste and the mouse go to the picker while the popup is open.
+- The default picker is fzf over harbour's directory (first, selected) and `zoxide query
+  --list` without it. Without zoxide the list is harbour's directory alone; without fzf, `n`
+  starts at once in harbour's directory, as before this phase.
+- A session is named after the folder it starts in, so rows of one harbour can differ.
+- After a confirmed directory the pane has the focus; a cancel leaves it where it was.
+- `HARBOUR_DIR_PICKER` names another picker, run with no shell and no arguments.
+- The end-to-end tests run the binary on `PATH=/usr/bin:/bin`, so the real fzf never opens;
+  `tests/fixtures/picker.sh` stands in for a picker and `tests/fixtures/fzf/fzf` for fzf in the
+  demo test.
+- The demo's picker is fzf over made-up `/home/acme/...` directories; `docs/picker.png` shows it.
+  Its first line is the screenshot script's scratch directory, `/tmp/harbour-shots.XXXXXX`,
+  whose random suffix changes the image on every run of the script.
+
 ## Hurdles
+
+- `test-seam` A fixture picker that drew on stdout had its drawing taken as the directory it picked; picker fixtures draw on stderr → rule in `tests/AGENTS.md`
+- `test-seam` The end-to-end tests and the screenshot script ran the binary on the user's `PATH`, where `n` would now open the real fzf over the real zoxide database → rule in `tests/AGENTS.md`
+- `api-shape` `App` implements `Drop`, so `with_picker` could not be built with struct update syntax over `App::new` → none
