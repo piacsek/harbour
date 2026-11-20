@@ -12,7 +12,8 @@ file under `plans/`; its time and tokens are a row of [`plans/metrics.md`](plans
 | 2 | [the selected session and the focused side in cyan](plans/phase-2-cyan-highlight.md) | [v0.2.0](https://github.com/piacsek/harbour/releases/tag/v0.2.0) |
 | 3 | [whether each agent is working, idle or waiting on you](plans/phase-3-status-dots.md) | [v0.3.0](https://github.com/piacsek/harbour/releases/tag/v0.3.0) |
 | 4 | [choose the directory a new session starts in, by fuzzy search](plans/phase-4-directory-picker.md) | [v0.4.0](https://github.com/piacsek/harbour/releases/tag/v0.4.0) |
-| 5 | [the counts in the tmux status line](plans/phase-5-tmux-status-line.md) | |
+| 5 | [the counts in the tmux status line](plans/phase-5-tmux-status-line.md) | [v0.5.0](https://github.com/piacsek/harbour/releases/tag/v0.5.0) |
+| 8 | [each session's title, activity, repository and branch in the sidebar](plans/phase-8-session-card.md) | |
 
 ## Backlog
 
