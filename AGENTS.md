@@ -72,7 +72,7 @@ src/keys.rs                   the bytes a terminal sends for a key (legacy encod
 src/mouse.rs                  `route`, a pure function: a gesture belongs to where its button went down and to the session shown then, and ends when another session is shown, and the selected session gets only what its mouse mode asked for (`?9` presses, `?1000` presses, releases and the wheel, `?1002` drags too, `?1003` moves too), with Shift, Alt and Ctrl, in its encoding (SGR, UTF-8 or the legacy bytes), clamped to the pane; an empty pane forwards nothing and ends the gesture
 src/changelog.rs              the bundled CHANGELOG.md and the rules a release entry must meet
 CHANGELOG.md                  only its `# Changelog` heading on `main`; each release commit writes its sections
-CLAUDE.md                     a symlink to `AGENTS.md`, for tools that read only that name
+CLAUDE.md                     a symlink to `AGENTS.md`, for tools that read only that name; on a checkout without symlink support it holds only the text `AGENTS.md`, the file to read
 rust-toolchain.toml           the one Rust version (rustfmt and clippy with it) that local gates and CI run; see Development
 flake.nix, flake.lock         the Nix flake: the binary built from `Cargo.toml`, `Cargo.lock`, `CHANGELOG.md` and `src/` with the Rust `rust-toolchain.toml` names, through the locked `rust-overlay`, without the components it lists (rustfmt, clippy); feeds the binary
 scripts/gates.sh              the quality gates; fails loudly, never pipe it through tail
@@ -160,10 +160,11 @@ next to the code; read the one for a directory before changing anything in it.
 
 ## Known limits
 
-Accepted limits a reviewer treats as decided (the orchestrator when it rates findings, the
-`adversarial-review` skill when it reads this file), one line each, with where they are written
-down. Pointing reviewers here is not priming, since the list is in
-the repo. A limit joins it when a review finding is declined for good; a finding on one still
+Accepted limits, one line each, with where they are written down. The orchestrator treats them
+as decided when it rates review findings, and the `adversarial-review` skill when it reads this
+file; the `/code-review` agent may read them through the root `CLAUDE.md`, but filtering its
+findings against them stays the orchestrator's job. Pointing reviewers here is not priming,
+since the list is in the repo. A limit joins it when a review finding is declined for good; a finding on one still
 counts as must when it shows new impact.
 
 - **The `version` check judges "feeds the binary" by path only**, can be pointed by cargo at
@@ -310,11 +311,8 @@ nearest the code the guideline is about.
   3. The orchestrator runs the `/code-review` loop on the PR itself (see "Review before ready":
      how it runs, what counts as must or should, when to redesign, who fixes). Every must and
      should finding is fixed, TDD like any change, one ship per round, and reviewed again.
-     Minor findings are fixed when cheap, else listed in the PR body. The loop ends only on a
-     round with no must/should findings, or, when a round's only must or should finding is a
-     failing required check, once that check passes on the fixed head, with no further review
-     round. The reviewer is **unprimed** by construction: the
-     skill gets only the level and the PR number, never the list of earlier findings or what
+     Minor findings are fixed when cheap, else listed in the PR body. The loop ends as "Review
+     before ready" says. The reviewer is **unprimed** by construction: the skill gets only the level and the PR number, never the list of earlier findings or what
      was decided about them. The orchestrator's memory of earlier rounds is no reason to drop
      a finding; only "Known limits" or another rule of this file is. Never post the review on
      the PR.
@@ -435,24 +433,38 @@ nearest the code the guideline is about.
   impact beyond the stated limit (never because an earlier round declined it: a finding declined
   for good is first written into "Known limits"), and rates what holds by the severity
   definition below. The skill labels its findings `important`, `nit` or `pre_existing`; the
-  orchestrator rates each by reachability whatever its label, and a `pre_existing` finding the
-  PR does not make reachable is not fixed in the PR but becomes an issue or a backlog line. The skill's conventions pass reads
-  `CLAUDE.md` files; the root `CLAUDE.md` links to this file, so it reads the root rules of the
+  orchestrator rates each by reachability whatever its label, except that a `pre_existing`
+  finding is fixed in the PR only when the PR makes it reachable or worse, and otherwise
+  becomes an issue or a backlog line, whatever its reachability. The skill's conventions pass
+  reads `CLAUDE.md` files; the root `CLAUDE.md` links to this file, so it reads the root rules of the
   checkout it runs in, but `tests/AGENTS.md` and `.github/AGENTS.md` have no such link, so each
   round the orchestrator also checks the diff against the rules of every `AGENTS.md` (the
   fragment, the screenshot of a visible change, TDD shown red, read from the builder's reports
   since the red run is not in the diff, the public-repo rule, the README shape) and reports a
   break as a finding like any other. No reviewer runs the gates: `scripts/ship.sh` runs them,
   the scrub check included, before every push, and the required `check` job tests the pull
-  request. Before `gh pr ready` the orchestrator runs `scripts/scrub-check.sh` in the branch's
-  worktree at the PR head, since CI does not run the scrub and a commit pushed without
-  `ship.sh` would otherwise never meet it; without an argument it reads the contents and paths
-  of the index and the working tree, not commit messages or the branch name, so before the
-  merge the orchestrator also reads the PR's commit messages (`gh pr view <N> --json commits`),
-  which the squash commit's body carries. The loop ends on a round with no must or should
-  finding, or, when a round's only must or should finding is a failing required check, once
-  that check passes on the fixed head, with no further review round. `gh pr ready` comes after
-  the findings are addressed, not before.
+  request. The loop ends on a round with no must or should finding. It also ends without
+  another round when a round's only must or should finding is a failing required check and
+  its fix changes no code (a rerun, a fragment added, a doc changed, a file removed), once that
+  check passes on the fixed head; a fix that changes anything under `src/`, `tests/`,
+  `scripts/` or `.github/` gets another round like any other. `gh pr ready` comes after the
+  findings are addressed, not before.
+  - **Scrub before ready and before the merge.** CI does not run the scrub, and a commit
+    pushed without `ship.sh` would otherwise never meet it. Before `gh pr ready` the
+    orchestrator runs `scripts/scrub-check.sh` in the branch's worktree at the PR head; without
+    an argument it reads the contents and paths of the index and the working tree, not commit
+    messages, the branch name or the PR title. Right before the merge it puts the PR title,
+    which becomes the squash commit's subject, and the commit messages, which its body carries,
+    through the same list with the same `grep -iF -f`:
+
+    ```bash
+    { gh pr view <N> --json title --jq .title; gh api --paginate repos/piacsek/harbour/pulls/<N>/commits --jq '.[].commit.message'; } | grep -inF -f "${HARBOUR_DENYLIST:-$HOME/.config/harbour-dev/denylist}"
+    ```
+
+    No output and exit 1 is clean; a printed line is a match to fix; exit 2 means the list
+    could not be read. The commits come from `gh api`, since `gh pr view` cuts a long subject in
+    two. It does not read the PR body, and unlike the script it does not refuse
+    an empty list.
   - **Severity by reachability.** A finding is must or should only when the user hits it while
     using harbour, the release pipeline hits it in normal operation, or a pull request could
     execute code or reach a token or secret. A bypass that needs a deliberately forged file,
