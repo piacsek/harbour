@@ -374,7 +374,7 @@ impl Neovim {
         let screen = self.server.wait_for_screen("acme-settled");
         assert!(screen.contains("acme-settled"), "{screen}");
         self.server.send_keys(&[":echo ''", "Enter"]);
-        let cleared = self.server.wait_until(|screen| {
+        let cleared = self.server.wait_until("the echo cleared", |screen| {
             screen.contains("claude | nvim: ")
                 && !screen.contains("acme-settled")
                 && !screen.contains(":echo")
@@ -391,7 +391,9 @@ impl Neovim {
     fn pending(&self, keys: &str) {
         let screen = self
             .server
-            .wait_until(|screen| screen.lines().any(|line| showing(line, keys)));
+            .wait_until(&format!("{keys:?} pending"), |screen| {
+                screen.lines().any(|line| showing(line, keys))
+            });
         assert!(screen.lines().any(|line| showing(line, keys)), "{screen}");
     }
 

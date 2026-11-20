@@ -150,10 +150,14 @@ these suites come from; the ones about sessions were hit in harbour.
   or names a fixture); the directory read another way (`$PWD`, `std::env::var("PWD")`, `"."`, a
   relative path); and an `App` started outside a `Screen`, which takes the process's directory
   as its home.
-- **`wait_for` returns after its timeout without failing.** It hands back the last screen it drew,
-  so a wait used only to sync passes even when its text never shows. When a later assertion relies
-  on that text having been on screen (the state before a change, a count before an exit), assert on
-  what the wait returned.
+- **Every wait fails the test when its deadline passes**, naming what it waited for and the last
+  screen, path, line or count it saw. Waits once returned the last screen silently, so a wait
+  whose text could never show (a stale demo name, a card's old layout, a numbered session that
+  raced) passed as a mere pause. A new wait helper fails the same way and gets a test of its own
+  that sees it fail (`waits.rs` in `tests/app/` and `tests/e2e/`). A test that means "nothing
+  happens" uses a wait that says so: it keeps drawing for a fixed time and stops early only on
+  the unwanted thing (`settled` in `tests/app/moving.rs` and `tests/app/switching.rs`,
+  `remembered_after_a_while` in `tests/app/keeping.rs`).
 - **`#{pane_current_path}` is the directory of the pane's foreground process group leader.**
   `Server::run` starts harbour under a non-interactive `sh -c`, which has no job control, so
   harbour stays in the shell's process group and tmux reports the shell's directory, never

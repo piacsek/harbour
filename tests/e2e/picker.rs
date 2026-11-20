@@ -10,7 +10,7 @@ fn n_in_the_demo_without_fzf_starts_a_session_at_once() {
     let home = tempfile::tempdir().unwrap();
     let server = Server::start("demo-no-fzf", 160, 20);
     server.run(home.path(), &[], &["--demo"]);
-    server.wait_for_screen("acme-api 5");
+    server.wait_for_screen("acme-infra 5");
 
     server.send_keys(&["n"]);
 
@@ -144,7 +144,7 @@ fn n_in_the_demo_lists_made_up_directories_in_fzf() {
     let server = Server::start("demo-picker", 160, 20);
     let path = format!("{FAKE_FZF}:{}", tools(home.path()));
     server.run(home.path(), &[("PATH", &path)], &["--demo"]);
-    server.wait_for_screen("acme-api 5");
+    server.wait_for_screen("acme-infra 5");
     server.send_keys(&["n"]);
 
     let screen = server.wait_for_screen_all(&["acme fzf lists:", "/home/acme/web"]);
