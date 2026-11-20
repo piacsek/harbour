@@ -1,3 +1,6 @@
+use std::path::PathBuf;
+use std::time::{Duration, Instant};
+
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers, MouseEvent, MouseEventKind};
 use portable_pty::ExitStatus;
 use ratatui::Frame;
@@ -12,10 +15,13 @@ use crate::demo;
 use crate::help;
 use crate::keys;
 use crate::mouse::{self, Gesture, Target};
+use crate::registry::{self, Record};
 use crate::session::{self, Session};
+use crate::state;
 
 const NARROW: u16 = 60;
 const HINT: &str = "No session yet: press n to start one.";
+const READ_EVERY: Duration = Duration::from_millis(500);
 
 pub struct App {
     command: Vec<String>,
@@ -32,6 +38,8 @@ pub struct App {
     asking: Option<Question>,
     helping: bool,
     quitting: bool,
+    registry: Option<PathBuf>,
+    read_at: Option<Instant>,
 }
 
 #[derive(Clone, Copy, PartialEq)]
@@ -44,6 +52,7 @@ struct Entry {
     id: usize,
     name: String,
     session: Session,
+    record: Option<Record>,
 }
 
 impl App {
@@ -70,7 +79,14 @@ impl App {
             asking: None,
             helping: false,
             quitting: false,
+            registry: None,
+            read_at: None,
         }
+    }
+
+    pub fn with_registry(mut self, dir: PathBuf) -> App {
+        self.registry = Some(dir);
+        self
     }
 
     pub fn demo() -> App {
@@ -222,6 +238,7 @@ impl App {
                     id: self.started,
                     name: format!("{} {}", self.directory, self.started),
                     session,
+                    record: None,
                 });
                 self.selected = self.sessions.len() - 1;
             }
@@ -234,7 +251,21 @@ impl App {
         }
     }
 
+    fn read_registry(&mut self) {
+        let Some(dir) = &self.registry else {
+            return;
+        };
+        if self.read_at.is_some_and(|at| at.elapsed() < READ_EVERY) {
+            return;
+        }
+        self.read_at = Some(Instant::now());
+        for entry in &mut self.sessions {
+            entry.record = entry.session.pid().and_then(|pid| registry::read(dir, pid));
+        }
+    }
+
     pub fn draw(&mut self, frame: &mut Frame) {
+        self.read_registry();
         let (sidebar, pane) = self.areas(frame.area());
         self.sidebar = sidebar;
         let mut sidebar_block = bordered(!self.pane_focused).title(" sessions ");
@@ -254,12 +285,12 @@ impl App {
         for entry in &mut self.sessions {
             entry.session.resize(self.pane.height, self.pane.width);
         }
-        let rows: Vec<String> = self
+        let rows: Vec<Line> = self
             .sessions
             .iter_mut()
-            .map(|entry| match entry.session.exit() {
-                None => format!("● {}", entry.name),
-                Some(status) => format!("○ {} exited{}", entry.name, exit_note(status)),
+            .map(|entry| {
+                let note = entry.session.exit().map(exit_note);
+                state::row(&entry.name, note, entry.record.as_ref())
             })
             .collect();
         let exited = self

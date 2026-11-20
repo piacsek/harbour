@@ -7,6 +7,10 @@ use harbour::tui::SESSION_COMMAND;
 
 const AGENT: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/agent.sh");
 const RAW_AGENT: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/raw-agent.sh");
+const REGISTERED_AGENT: &str = concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/tests/fixtures/registered-agent.sh"
+);
 
 #[test]
 #[ignore]
@@ -184,6 +188,43 @@ fn q_with_a_running_session_asks_and_y_leaves() {
 
 #[test]
 #[ignore]
+fn a_session_dot_follows_its_file_in_the_claude_config_dir() {
+    let home = tempfile::tempdir().unwrap();
+    let config = tempfile::tempdir().unwrap();
+    let config_dir = config.path().display().to_string();
+    let server = Server::start("registry", 160, 20);
+    server.run(
+        home.path(),
+        &[
+            (SESSION_COMMAND, REGISTERED_AGENT),
+            ("CLAUDE_CONFIG_DIR", &config_dir),
+        ],
+        &[],
+    );
+    server.wait_for_screen("press n to start one");
+
+    server.send_keys(&["n"]);
+
+    let screen = server.wait_for_screen("● acme-api 1");
+    assert!(screen.contains("● acme-api 1"), "{screen}");
+}
+
+#[test]
+#[ignore]
+fn without_a_claude_config_dir_the_registry_is_read_under_home() {
+    let home = tempfile::tempdir().unwrap();
+    let server = Server::start("registry-home", 160, 20);
+    server.run(home.path(), &[(SESSION_COMMAND, REGISTERED_AGENT)], &[]);
+    server.wait_for_screen("press n to start one");
+
+    server.send_keys(&["n"]);
+
+    let screen = server.wait_for_screen("● acme-api 1");
+    assert!(screen.contains("● acme-api 1"), "{screen}");
+}
+
+#[test]
+#[ignore]
 fn the_demo_shows_made_up_sessions_one_of_them_exited() {
     let home = tempfile::tempdir().unwrap();
     let server = Server::start("demo", 160, 20);
@@ -191,10 +232,10 @@ fn the_demo_shows_made_up_sessions_one_of_them_exited() {
     server.run(home.path(), &[], &["--demo"]);
 
     let screen =
-        server.wait_for_screen_all(&["● acme-api 1", "○ acme-api 2 exited 1", "● acme-api 3"]);
-    assert!(screen.contains("● acme-api 1"), "{screen}");
+        server.wait_for_screen_all(&["○ acme-api 1", "○ acme-api 2 exited 1", "○ acme-api 3"]);
+    assert!(screen.contains("○ acme-api 1"), "{screen}");
     assert!(screen.contains("○ acme-api 2 exited 1"), "{screen}");
-    assert!(screen.contains("● acme-api 3"), "{screen}");
+    assert!(screen.contains("○ acme-api 3"), "{screen}");
     let screen = server.wait_for_screen("fix the flaky retry test in acme/api");
     assert!(
         screen.contains("fix the flaky retry test in acme/api"),
@@ -300,6 +341,8 @@ impl Server {
             "XDG_CONFIG_HOME".to_string(),
             "-u".to_string(),
             "XDG_STATE_HOME".to_string(),
+            "-u".to_string(),
+            "CLAUDE_CONFIG_DIR".to_string(),
             quoted(&format!("HOME={}", home.display())),
         ];
         words.extend(

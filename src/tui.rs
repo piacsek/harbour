@@ -9,6 +9,7 @@ use crossterm::event::{
 use crossterm::execute;
 
 use crate::app::App;
+use crate::registry;
 use crate::session;
 
 type PanicHook = dyn Fn(&PanicHookInfo<'_>) + Send + Sync + 'static;
@@ -16,7 +17,11 @@ type PanicHook = dyn Fn(&PanicHookInfo<'_>) + Send + Sync + 'static;
 pub const SESSION_COMMAND: &str = "HARBOUR_SESSION_COMMAND";
 
 pub fn run() -> io::Result<()> {
-    show(App::new(session_command()))
+    let app = App::new(session_command());
+    show(match claude_sessions() {
+        Some(dir) => app.with_registry(dir),
+        None => app,
+    })
 }
 
 pub fn demo() -> io::Result<()> {
@@ -64,4 +69,11 @@ fn drive(terminal: &mut ratatui::DefaultTerminal, mut app: App) -> io::Result<()
 
 fn session_command() -> Vec<String> {
     vec![std::env::var(SESSION_COMMAND).unwrap_or_else(|_| "claude".to_string())]
+}
+
+fn claude_sessions() -> Option<std::path::PathBuf> {
+    registry::sessions_dir(
+        std::env::var_os("CLAUDE_CONFIG_DIR").map(Into::into),
+        std::env::var_os("HOME").map(Into::into),
+    )
 }
