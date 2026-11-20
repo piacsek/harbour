@@ -15,7 +15,7 @@ impl App {
         match (verb, self.holder(file)) {
             (Verb::Ask, Some(holder)) => Reply::Holds(self.sessions[holder].used_at),
             (Verb::Ask, None) => Reply::None,
-            (Verb::Open, Some(holder)) => self.open_in(holder),
+            (Verb::Open, Some(holder)) => self.open_in(holder, file),
             (Verb::Open, None) => {
                 Reply::Refused(format!("no harbour session holds {}", file.display()))
             }
@@ -32,7 +32,7 @@ impl App {
         if self.editor.is_none() || self.sessions.get(self.selected).is_none() {
             return;
         }
-        if let Err(refused) = self.show_editor(self.selected) {
+        if let Err(refused) = self.show_editor(self.selected, None) {
             self.failed = Some(refused);
         }
     }
@@ -51,7 +51,7 @@ impl App {
             .max_by_key(|index| self.sessions[*index].used_at)
     }
 
-    fn open_in(&mut self, holder: usize) -> Reply {
+    fn open_in(&mut self, holder: usize, file: &Path) -> Reply {
         if let Some(program) = self.editor.as_ref().filter(|program| !program.is_neovim()) {
             return Reply::Refused(format!(
                 "a file can only be handed to Neovim, and HARBOUR_EDITOR is {}",
@@ -59,7 +59,7 @@ impl App {
             ));
         }
         self.helping = false;
-        match self.show_editor(holder) {
+        match self.show_editor(holder, Some(file)) {
             Ok(()) => {
                 self.selected = holder;
                 self.pane_focused = true;
@@ -73,7 +73,7 @@ impl App {
         }
     }
 
-    fn show_editor(&mut self, index: usize) -> Result<(), String> {
+    fn show_editor(&mut self, index: usize, file: Option<&Path>) -> Result<(), String> {
         let Some(program) = &self.editor else {
             return Ok(());
         };
@@ -90,7 +90,12 @@ impl App {
             .iter()
             .position(|editor| editor.directory == directory)
         {
-            Some(running) => running,
+            Some(running) => {
+                if let Some(file) = file {
+                    entry.editors[running].open(file)?;
+                }
+                running
+            }
             None => {
                 self.started += 1;
                 entry.editors.push(started(
@@ -99,6 +104,7 @@ impl App {
                     &self.temporary,
                     self.started,
                     self.pane,
+                    file,
                 )?);
                 self.failed = None;
                 entry.editors.len() - 1
@@ -116,9 +122,18 @@ fn started(
     temporary: &Path,
     id: usize,
     pane: ratatui::layout::Rect,
+    file: Option<&Path>,
 ) -> Result<Editor, String> {
-    Editor::start(program, directory, temporary, id, pane.height, pane.width)
-        .map_err(|error| refusal(program.name(), &error))
+    Editor::start(
+        program,
+        directory,
+        temporary,
+        id,
+        pane.height,
+        pane.width,
+        file,
+    )
+    .map_err(|error| refusal(program.name(), &error))
 }
 
 fn canonical(path: &Path) -> PathBuf {

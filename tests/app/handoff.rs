@@ -1,6 +1,9 @@
 use std::fs;
+use std::os::unix::ffi::OsStrExt;
+use std::os::unix::net::UnixListener;
 use std::path::{Path, PathBuf};
-use std::thread::sleep;
+use std::sync::mpsc::{self, Receiver};
+use std::thread::{self, sleep};
 use std::time::{Duration, SystemTime};
 
 use crossterm::event::{KeyCode, KeyModifiers};
@@ -10,6 +13,7 @@ use harbour::handoff::{Reply, Verb};
 use harbour::picker::Picker;
 use ratatui::Terminal;
 use ratatui::backend::TestBackend;
+use rmpv::Value;
 
 use crate::{Screen, numbered_agent, script};
 
@@ -114,15 +118,27 @@ fn the_opened_editor_takes_the_keys() {
 }
 
 #[test]
-fn open_with_an_editor_running_at_the_root_starts_no_other() {
+fn open_with_no_editor_running_gives_neovim_the_file_as_its_one_argument() {
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = harbour(scratch.path());
     start_in(&mut screen, scratch.path(), "acme-api", 1);
-    screen.key(KeyCode::Enter, KeyModifiers::NONE);
-    screen.key(KeyCode::Char('l'), KeyModifiers::CONTROL);
+    let file = file(scratch.path(), "acme-api");
+
+    screen.app.hand(Verb::Open, &file);
+
     screen.wait_for("acme nvim ready");
-    screen.key(KeyCode::Char('h'), KeyModifiers::CONTROL);
-    screen.wait_for("acme agent 1");
+    let recorded = recorded(scratch.path());
+    assert_eq!(recorded[1], "--listen");
+    assert_eq!(recorded[3], "--");
+    assert_eq!(recorded[4], file.display().to_string());
+    assert_eq!(recorded.len(), 5);
+}
+
+#[test]
+fn open_to_a_running_neovim_starts_no_other() {
+    let scratch = tempfile::tempdir().unwrap();
+    let (mut screen, socket) = editing(scratch.path());
+    let _asked = neovim_at(&socket, false, Edit::Done);
     fs::remove_file(scratch.path().join("args")).unwrap();
 
     let reply = screen
@@ -134,6 +150,97 @@ fn open_with_an_editor_running_at_the_root_starts_no_other() {
     assert!(shown.contains("acme nvim ready"), "{shown}");
     sleep(Duration::from_millis(200));
     assert!(!scratch.path().join("args").exists());
+}
+
+#[test]
+fn open_to_a_running_neovim_edits_the_path_as_it_is() {
+    let scratch = tempfile::tempdir().unwrap();
+    let (mut screen, socket) = editing(scratch.path());
+    let asked = neovim_at(&socket, false, Edit::Done);
+    let file = file(scratch.path(), "acme-api").with_file_name("a %b#c|d e.rs");
+
+    screen.app.hand(Verb::Open, &file);
+
+    assert_eq!(called(&asked).0, "nvim_get_mode");
+    let (method, arguments) = called(&asked);
+    assert_eq!(method, "nvim_cmd");
+    assert_eq!(field(&arguments[0], "cmd"), Value::from("edit"));
+    assert_eq!(
+        field(&arguments[0], "args"),
+        Value::Array(vec![Value::Binary(file.as_os_str().as_bytes().to_vec())])
+    );
+    assert_eq!(
+        field(&field(&arguments[0], "magic"), "file"),
+        Value::from(false)
+    );
+    assert_eq!(
+        field(&field(&arguments[0], "magic"), "bar"),
+        Value::from(false)
+    );
+    assert_eq!(arguments[1], Value::Map(Vec::new()));
+}
+
+#[test]
+fn open_while_neovim_waits_for_a_key_is_refused_and_edits_nothing() {
+    let scratch = tempfile::tempdir().unwrap();
+    let (mut screen, socket) = editing(scratch.path());
+    let asked = neovim_at(&socket, true, Edit::Done);
+
+    let reply = screen
+        .app
+        .hand(Verb::Open, &file(scratch.path(), "acme-api"));
+
+    let refusal = "Neovim is waiting for a key; answer it and try again";
+    assert_eq!(reply, Reply::Refused(refusal.to_string()));
+    assert_eq!(called(&asked).0, "nvim_get_mode");
+    assert!(asked.recv_timeout(Duration::from_millis(200)).is_err());
+}
+
+#[test]
+fn open_that_neovim_refuses_names_its_error_and_keeps_the_session_shown() {
+    let scratch = tempfile::tempdir().unwrap();
+    let (mut screen, socket) = editing(scratch.path());
+    let _asked = neovim_at(
+        &socket,
+        false,
+        Edit::Refused("Vim:E37: No write since last change"),
+    );
+
+    let reply = screen
+        .app
+        .hand(Verb::Open, &file(scratch.path(), "acme-api"));
+
+    let refusal = "Neovim refused: Vim:E37: No write since last change";
+    assert_eq!(reply, Reply::Refused(refusal.to_string()));
+    let shown = screen.draw();
+    assert!(!shown.contains("acme nvim ready"), "{shown}");
+}
+
+#[test]
+fn open_to_a_neovim_that_never_answers_the_edit_says_so() {
+    let scratch = tempfile::tempdir().unwrap();
+    let (mut screen, socket) = editing(scratch.path());
+    let asked = neovim_at(&socket, false, Edit::Silent);
+
+    let reply = screen
+        .app
+        .hand(Verb::Open, &file(scratch.path(), "acme-api"));
+
+    assert_eq!(reply, Reply::Refused("Neovim did not answer".to_string()));
+    assert_eq!(called(&asked).0, "nvim_get_mode");
+    assert_eq!(called(&asked).0, "nvim_cmd");
+}
+
+#[test]
+fn open_to_a_neovim_that_never_answers_says_so() {
+    let scratch = tempfile::tempdir().unwrap();
+    let (mut screen, _socket) = editing(scratch.path());
+
+    let reply = screen
+        .app
+        .hand(Verb::Open, &file(scratch.path(), "acme-api"));
+
+    assert_eq!(reply, Reply::Refused("Neovim did not answer".to_string()));
 }
 
 #[test]
@@ -304,6 +411,75 @@ fn start_in(screen: &mut Screen, scratch: &Path, folder: &str, number: usize) {
     assert!(shown.contains(&row), "{shown}");
     assert!(shown.contains(&agent), "{shown}");
     screen.key(KeyCode::Char('h'), KeyModifiers::CONTROL);
+}
+
+fn editing(scratch: &Path) -> (Screen, PathBuf) {
+    let mut screen = harbour(scratch);
+    start_in(&mut screen, scratch, "acme-api", 1);
+    screen.key(KeyCode::Enter, KeyModifiers::NONE);
+    screen.key(KeyCode::Char('l'), KeyModifiers::CONTROL);
+    let shown = screen.wait_for("acme nvim ready");
+    assert!(shown.contains("acme nvim ready"), "{shown}");
+    screen.key(KeyCode::Char('h'), KeyModifiers::CONTROL);
+    let shown = screen.wait_for_all(&["acme agent 1"]);
+    assert!(!shown.contains("acme nvim ready"), "{shown}");
+    let socket = PathBuf::from(&recorded(scratch)[2]);
+    (screen, socket)
+}
+
+fn neovim_at(socket: &Path, blocking: bool, edit: Edit) -> Receiver<(String, Vec<Value>)> {
+    let listener = UnixListener::bind(socket).unwrap();
+    let (asked, calls) = mpsc::channel();
+    thread::spawn(move || {
+        while let Ok((mut stream, _)) = listener.accept() {
+            let request = rmpv::decode::read_value(&mut stream).unwrap();
+            let fields = request.as_array().unwrap().clone();
+            let method = fields[2].as_str().unwrap().to_string();
+            let (error, result) = match (method.as_str(), edit) {
+                ("nvim_get_mode", _) => (
+                    Value::Nil,
+                    Value::Map(vec![
+                        (Value::from("mode"), Value::from("n")),
+                        (Value::from("blocking"), Value::from(blocking)),
+                    ]),
+                ),
+                (_, Edit::Silent) => {
+                    let _ = asked.send((method, fields[3].as_array().unwrap().clone()));
+                    thread::sleep(Duration::from_secs(5));
+                    continue;
+                }
+                (_, Edit::Refused(refusal)) => (
+                    Value::Array(vec![Value::from(0), Value::from(refusal)]),
+                    Value::Nil,
+                ),
+                _ => (Value::Nil, Value::Map(Vec::new())),
+            };
+            let _ = asked.send((method, fields[3].as_array().unwrap().clone()));
+            let reply = Value::Array(vec![Value::from(1), fields[1].clone(), error, result]);
+            rmpv::encode::write_value(&mut stream, &reply).unwrap();
+        }
+    });
+    calls
+}
+
+#[derive(Clone, Copy)]
+enum Edit {
+    Done,
+    Refused(&'static str),
+    Silent,
+}
+
+fn called(asked: &Receiver<(String, Vec<Value>)>) -> (String, Vec<Value>) {
+    asked.recv_timeout(Duration::from_secs(5)).unwrap()
+}
+
+fn field(map: &Value, name: &str) -> Value {
+    map.as_map()
+        .unwrap()
+        .iter()
+        .find(|(key, _)| key.as_str() == Some(name))
+        .map(|(_, value)| value.clone())
+        .unwrap()
 }
 
 fn opened_beside(screen: &mut Screen) -> String {

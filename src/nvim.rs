@@ -1,5 +1,6 @@
 use std::io::{self, Read, Write};
 use std::os::fd::AsRawFd;
+use std::os::unix::ffi::OsStrExt;
 use std::os::unix::net::UnixStream;
 use std::path::Path;
 use std::thread;
@@ -39,7 +40,43 @@ pub fn eval(socket: &Path, expression: &str, deadline: Instant) -> Option<i64> {
     request(socket, "nvim_eval", vec![Value::from(expression)], deadline)?.as_i64()
 }
 
+pub fn edit(socket: &Path, file: &Path, deadline: Instant) -> Option<Result<(), String>> {
+    let off = Value::Map(vec![
+        (Value::from("file"), Value::from(false)),
+        (Value::from("bar"), Value::from(false)),
+    ]);
+    let command = Value::Map(vec![
+        (Value::from("cmd"), Value::from("edit")),
+        (
+            Value::from("args"),
+            Value::Array(vec![Value::Binary(file.as_os_str().as_bytes().to_vec())]),
+        ),
+        (Value::from("magic"), off),
+    ]);
+    let arguments = vec![command, Value::Map(Vec::new())];
+    match call(socket, "nvim_cmd", arguments, deadline)? {
+        Ok(_) => Some(Ok(())),
+        Err(error) => Some(Err(message(&error))),
+    }
+}
+
+fn message(error: &Value) -> String {
+    match error.as_array().map(Vec::as_slice) {
+        Some([_, text]) if text.is_str() => text.as_str().unwrap_or_default().to_string(),
+        _ => error.to_string(),
+    }
+}
+
 fn request(socket: &Path, method: &str, arguments: Vec<Value>, deadline: Instant) -> Option<Value> {
+    call(socket, method, arguments, deadline)?.ok()
+}
+
+fn call(
+    socket: &Path,
+    method: &str,
+    arguments: Vec<Value>,
+    deadline: Instant,
+) -> Option<Result<Value, Value>> {
     let mut stream = connect(socket, deadline)?;
     let patience = deadline.checked_duration_since(Instant::now())?;
     let request = Value::Array(vec![
@@ -82,14 +119,14 @@ fn connect(socket: &Path, deadline: Instant) -> Option<UnixStream> {
     Some(stream)
 }
 
-fn read_reply(stream: &mut UnixStream, deadline: Instant) -> Option<Value> {
+fn read_reply(stream: &mut UnixStream, deadline: Instant) -> Option<Result<Value, Value>> {
     let mut received = Vec::new();
     let mut buffer = [0; 4096];
     loop {
         while let Some((message, used)) = next_message(&received) {
             received.drain(..used);
             if let Some(answer) = response(&message) {
-                return answer;
+                return Some(answer);
             }
         }
         if received.len() > READ_AT_MOST {
@@ -112,12 +149,16 @@ fn next_message(received: &[u8]) -> Option<(Value, usize)> {
     Some((message, received.len() - rest.len()))
 }
 
-fn response(message: &Value) -> Option<Option<Value>> {
+fn response(message: &Value) -> Option<Result<Value, Value>> {
     match message.as_array()?.as_slice() {
         [kind, id, error, result]
             if kind.as_i64() == Some(1) && id.as_i64() == Some(REQUEST_ID) =>
         {
-            Some(error.is_nil().then(|| result.clone()))
+            Some(if error.is_nil() {
+                Ok(result.clone())
+            } else {
+                Err(error.clone())
+            })
         }
         _ => None,
     }

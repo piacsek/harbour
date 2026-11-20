@@ -16,6 +16,8 @@ const LEFTMOST: &str = "winnr('h') == winnr()";
 const UNSAVED: &str = "len(filter(getbufinfo({'bufmodified': 1}), \
                        {_, b -> index(['', 'acwrite'], getbufvar(b.bufnr, '&buftype')) >= 0}))";
 
+const OPEN_PATIENCE: Duration = Duration::from_secs(1);
+
 const SOCKET_PREFIX: &str = "harbour-nvim";
 const SOCKET_RANDOM: usize = 6;
 const LONGEST_SOCKET_PATH: usize = 103;
@@ -89,6 +91,7 @@ impl Editor {
         id: usize,
         rows: u16,
         cols: u16,
+        file: Option<&Path>,
     ) -> io::Result<Editor> {
         let mut command = program.command.clone();
         let private = program.neovim.then(|| {
@@ -105,6 +108,10 @@ impl Editor {
             command.push(path.clone().into());
             (path, private)
         });
+        if let Some(file) = file {
+            command.push("--".into());
+            command.push(file.into());
+        }
         let session = Session::start(&command, directory, rows, cols)?;
         Ok(Editor {
             id,
@@ -124,6 +131,20 @@ impl Editor {
                 nvim::eval(socket, LEFTMOST, deadline) == Some(0)
             }
             Listening::No => false,
+        }
+    }
+
+    pub fn open(&self, file: &Path) -> Result<(), String> {
+        let silent = || "Neovim did not answer".to_string();
+        let (socket, _) = self.socket.as_ref().ok_or_else(silent)?;
+        let deadline = Instant::now() + OPEN_PATIENCE;
+        if nvim::mode(socket, deadline).ok_or_else(silent)?.blocking {
+            return Err("Neovim is waiting for a key; answer it and try again".to_string());
+        }
+        match nvim::edit(socket, file, deadline) {
+            Some(Ok(())) => Ok(()),
+            Some(Err(error)) => Err(format!("Neovim refused: {error}")),
+            None => Err(silent()),
         }
     }
 
