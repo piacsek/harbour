@@ -66,12 +66,12 @@ workflows' inline pipes (`tee`, `cut`, `base64 | tr`, `od | tr`, an `awk` withou
   with the same status, so every message stays byte for byte and the existing script tests pass
   unchanged.
 - The guard is a test, `tests/scripts/pipe_readers.rs`, not only a rule: it reads every
-  `scripts/*.sh` and `.github/workflows/*.yml` and fails naming the file and line of a pipe into
-  `head`, `read` or a `grep` with `-q`, `-m` or `-l`, and of an `exit` in an `awk` program
-  outside `BEGIN` and `END` (strings, regexes and comments skipped). It is red on `main` naming
+  `scripts/*.sh` and the `run:` steps of `.github/workflows/*.yml` as shell and fails naming
+  the file and line of a pipe into `head`, `read` or a `grep` that stops at a match, and of an
+  `exit` outside `BEGIN` and `END` in a single-quoted `awk` program. It is red on `main` naming
   the 19 places above. It flags an `exit` even where the program reads a file: the rule is
-  simpler to keep than the exception. `tests/AGENTS.md` carries the rule and its reason for
-  what the scan cannot see (`sed q`, a `while` loop that `break`s, another program).
+  simpler to keep than the exception. `tests/AGENTS.md` carries the rule, its reason and the
+  exact list of what the scan cannot see.
 - No fragment: nothing here feeds the binary (`scripts/feeds-binary.sh` prints nothing for the
   changed paths).
 
@@ -87,4 +87,36 @@ One red-green-refactor cycle each, shipped with `scripts/ship.sh`.
 
 ## Outcome
 
+- Cause, proven: an `awk` that calls `exit` while `printf` is still writing kills the writer with
+  `SIGPIPE`, and `set -o pipefail` turns that into exit 141. A lock with about 600 KB after the
+  `harbour` entry makes `scripts/version-check.sh` exit 141 on every run on `main`, on macOS
+  (BSD awk) and on ubuntu (`mawk`); this repository's 50 KB lock loses it only now and then,
+  as in run 44695247823.
+- Fixed: the 19 places in the table, in eight `awk` programs and three `head` pipelines. Every
+  message and exit status is unchanged: the existing script tests pass untouched, and both
+  reviewers ran the old and the new form of each `awk` program on the same inputs (BSD awk,
+  `mawk` and `gawk`) and found the same output and status.
+- Guard: `tests/scripts/pipe_readers.rs` reads the scripts and the workflows' `run:` steps as
+  shell, with quotes, comments, here-documents and line continuations as text, and never
+  panics on what it cannot parse. It finds a pipe into `head`, `read` or a `grep` that stops at a
+  match (short and long options, through `command`, on the line after a trailing `|`), and an
+  `exit` outside `BEGIN` and `END` in a single-quoted `awk`, `gawk`, `mawk` or `nawk` program.
+  Against `origin/main` it names exactly the 19 places; against the branch, none. What it
+  cannot see (a program in a variable, a file, double quotes or a here-document; a reader behind
+  `xargs`, `env`, `sh -c` or `eval`; `sed q`; a loop that `break`s) is listed under the rule in
+  `tests/AGENTS.md`.
+- Review: one round, unprimed, clean for both reviewers (no must, no should). Its minor findings
+  on the guard (a panic on an unbalanced apostrophe after `awk` in a comment, spellings it
+  missed, a `|` in quotes read as a pipe, the overstated coverage sentence) were fixed in step 4
+  without touching `scripts/` or `.github/`.
+- The `version` workflow judges a pull request with `main`'s copy of the script, so this pull
+  request was judged by the unfixed one; the fix protects pull requests once merged.
+- No fragment: nothing here feeds the binary, so the merge releases nothing.
+
 ## Hurdles
+
+- `ci` the `check` job failed on `main` itself for the merge of #19, on a lock that was right:
+  `version-check.sh` died of `SIGPIPE` when `awk` left before `printf` finished writing → code
+- `test-seam` the first guard parsed only from the word `awk` onwards and treated every `|` as
+  a pipe, so a comment or a quoted string could make it panic or report text; it became a small
+  shell lexer → code

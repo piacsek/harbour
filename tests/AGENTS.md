@@ -58,8 +58,16 @@ these suites come from; the ones about sessions were hit in harbour.
   `grep -q`, `grep -m`, `sed q`, `read`, a loop that `break`s, or an `awk` that calls `exit`
   outside `BEGIN` and `END`: remember the first answer (`!found && ... { print; found = 1 }`),
   `next` past the rest, set the status in `END`, take the first line with `sed -n 1p`, or feed
-  the reader a here-string or a file. `tests/scripts/pipe_readers.rs` fails on the `head`,
-  `read`, `grep` and `awk` cases, naming the file and line; the rest is this rule.
+  the reader a here-string or a file. `tests/scripts/pipe_readers.rs` reads `scripts/*.sh`
+  and the `run:` steps of `.github/workflows/*.yml` as shell (quotes, comments and
+  here-documents are text) and fails, naming the file and line, on a pipe into `head`, `read` or
+  a `grep` with `-q`, `-m`, `-l`, `-L` or their long names, and on an `exit` outside `BEGIN` and
+  `END` in an `awk`, `gawk`, `mawk` or `nawk` program written as one single-quoted word. It
+  cannot see, so this rule covers: an `awk` program held in a variable, read from a file
+  (`-f`), double-quoted or only partly single-quoted, or given in a here-document; a reader
+  started through another program (`xargs`, `env`, `sh -c`, `eval`); `sed q`, `perl`, `python`
+  or a loop that `break`s; a `case` inside `$( )`, whose `)` ends the substitution early for the
+  scan.
 - **A scratch repository's `scripts/` are symlinks to the real scripts.** `link_script` links
   them, so a test that writes to one of those paths (`committed(&work, "scripts/<name>.sh", …)`)
   writes through the link and overwrites the tracked script in the worktree, and every later
