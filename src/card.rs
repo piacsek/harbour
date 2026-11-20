@@ -1,14 +1,15 @@
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
-use ratatui::style::{Color, Modifier, Style};
 use std::time::Duration;
 
+use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
 use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 
 use crate::registry::Record;
 use crate::repo::Place;
 use crate::state::State;
+use crate::transcript::Facts;
 
 const HEIGHT: usize = 3;
 const STEP: usize = HEIGHT + 1;
@@ -29,20 +30,42 @@ impl Card {
         record: Option<&Record>,
         place: &Place,
         elapsed: Option<Duration>,
+        facts: Option<&Facts>,
     ) -> Card {
         let state = State::of(exit_note.is_some(), record);
+        let fact = |pick: fn(&Facts) -> Option<&String>| {
+            facts
+                .and_then(pick)
+                .map(|text| clean(text))
+                .filter(|text| !text.is_empty())
+        };
         let doing = match (exit_note, state) {
             (Some(note), _) => Some((format!("exited{note}"), Style::default())),
             (None, State::Blocked) => record
                 .and_then(|record| record.waiting_for.as_deref())
                 .map(|reason| (clean(reason), state.style())),
+            (None, State::Working) => {
+                fact(|facts| facts.activity.as_ref()).map(|activity| (activity, Style::default()))
+            }
+            (None, State::Idle) => fact(|facts| facts.prompt.as_ref())
+                .map(|prompt| (prompt, Style::default().add_modifier(Modifier::DIM))),
             _ => None,
         };
+        let shown = Place {
+            repository: place.repository.clone(),
+            branch: facts
+                .and_then(|facts| facts.branch.clone())
+                .or_else(|| place.branch.clone()),
+        };
+        let pull_request = facts
+            .and_then(|facts| facts.pull_request)
+            .map(|number| format!(" · #{number}"))
+            .unwrap_or_default();
         Card {
             state,
-            title: clean(title),
+            title: fact(|facts| facts.title.as_ref()).unwrap_or_else(|| clean(title)),
             doing,
-            place: clean(&place.to_string()),
+            place: clean(&format!("{shown}{pull_request}")),
             age: elapsed.map(age),
         }
     }

@@ -1,0 +1,222 @@
+use std::fs::{self, OpenOptions};
+use std::io::Write;
+use std::path::PathBuf;
+use std::thread::sleep;
+use std::time::Duration;
+
+use harbour::app::App;
+use ratatui::style::Modifier;
+
+use crate::status::showing;
+use crate::{Screen, below, script};
+
+const ID: &str = "0f1e2d3c-4b5a-6978-8a9b-0c1d2e3f4a5b";
+const OTHER_ID: &str = "9a8b7c6d-5e4f-4a3b-2c1d-0e9f8a7b6c5d";
+
+#[test]
+fn a_working_session_shows_its_title_and_its_last_tool_call() {
+    let claude = Claude::new();
+    claude.transcript(
+        ID,
+        r#"{"type":"ai-title","aiTitle":"Fix the flaky login test"}"#,
+    );
+    claude.transcript(ID, &tool(r#"{"description":"Run the login tests"}"#));
+    let mut screen = claude.screen("busy", ID);
+    screen.press('n');
+
+    let shown = screen.wait_for("Fix the flaky login test");
+
+    assert_eq!(
+        below(&shown, "Fix the flaky login test"),
+        "Run the login tests"
+    );
+}
+
+#[test]
+fn an_idle_session_shows_its_last_prompt_dimmed() {
+    let claude = Claude::new();
+    claude.transcript(
+        ID,
+        r#"{"type":"ai-title","aiTitle":"Tidy the billing module"}"#,
+    );
+    claude.transcript(ID, &tool(r#"{"description":"Run the billing tests"}"#));
+    claude.transcript(
+        ID,
+        r#"{"type":"last-prompt","lastPrompt":"split the invoice\nhelper"}"#,
+    );
+    let mut screen = claude.screen("idle", ID);
+    screen.press('n');
+
+    let shown = screen.wait_for("split the invoice helper");
+
+    assert_eq!(
+        below(&shown, "Tidy the billing module"),
+        "split the invoice helper"
+    );
+    assert!(screen.cell(5, 2).modifier.contains(Modifier::DIM));
+}
+
+#[test]
+fn a_blocked_session_shows_what_it_waits_for_not_its_last_tool_call() {
+    let claude = Claude::new();
+    claude.transcript(ID, r#"{"type":"ai-title","aiTitle":"Deploy acme-api"}"#);
+    claude.transcript(ID, &tool(r#"{"command":"make deploy"}"#));
+    let mut screen = claude.screen_with(&format!(
+        r#"{{"status":"waiting","waitingFor":"permission prompt","sessionId":"{ID}"}}"#
+    ));
+    screen.press('n');
+
+    let shown = screen.wait_for("Deploy acme-api");
+
+    assert_eq!(below(&shown, "Deploy acme-api"), "permission prompt");
+}
+
+#[test]
+fn the_third_line_takes_the_transcripts_directory_branch_and_pull_request() {
+    let claude = Claude::new();
+    let repository = claude.repository("acme-web", "main");
+    claude.transcript(ID, r#"{"type":"ai-title","aiTitle":"Ship the web login"}"#);
+    claude.transcript(
+        ID,
+        &format!(
+            r#"{{"type":"user","gitBranch":"fix-login","cwd":"{}","message":{{}}}}"#,
+            repository.display()
+        ),
+    );
+    claude.transcript(ID, r#"{"type":"pr-link","prNumber":42}"#);
+    let mut screen = claude.screen("busy", ID);
+    screen.press('n');
+
+    let shown = screen.wait_for("acme-web · fix-login · #42");
+
+    assert!(shown.contains("acme-web · fix-login · #42"), "{shown}");
+}
+
+#[test]
+fn a_new_session_id_forgets_the_old_transcript() {
+    let claude = Claude::new();
+    claude.transcript(
+        ID,
+        r#"{"type":"ai-title","aiTitle":"The first conversation"}"#,
+    );
+    claude.transcript(
+        OTHER_ID,
+        r#"{"type":"ai-title","aiTitle":"The second one"}"#,
+    );
+    let mut screen = claude.screen_with(&format!(r#"{{"status":"idle","sessionId":"{ID}"}}"#));
+    screen.press('n');
+    screen.wait_for("The first conversation");
+
+    claude.register(&format!(r#"{{"status":"idle","sessionId":"{OTHER_ID}"}}"#));
+
+    let shown = screen.wait_for("The second one");
+    assert!(!shown.contains("The first conversation"), "{shown}");
+}
+
+#[test]
+fn a_title_appended_later_replaces_the_one_shown() {
+    let claude = Claude::new();
+    claude.transcript(ID, r#"{"type":"ai-title","aiTitle":"A first guess"}"#);
+    let mut screen = claude.screen("busy", ID);
+    screen.press('n');
+    screen.wait_for("A first guess");
+
+    claude.transcript(ID, r#"{"type":"ai-title","aiTitle":"A better title"}"#);
+
+    let shown = screen.wait_for("A better title");
+    assert!(!shown.contains("A first guess"), "{shown}");
+}
+
+#[test]
+fn an_exited_session_keeps_its_title() {
+    let claude = Claude::new();
+    claude.transcript(ID, r#"{"type":"ai-title","aiTitle":"Short lived"}"#);
+    let mut screen = claude.screen_running(&format!(
+        "printf '%s' '{{\"status\":\"busy\",\"sessionId\":\"{ID}\"}}' > '{}'/$$.json; sleep 1; exit 3",
+        claude.sessions().display()
+    ));
+    screen.press('n');
+    screen.wait_for("Short lived");
+
+    let shown = screen.wait_for("exited 3");
+    sleep(Duration::from_millis(600));
+    let again = screen.draw();
+
+    assert!(shown.contains("Short lived"), "{shown}");
+    assert!(again.contains("Short lived"), "{again}");
+}
+
+struct Claude {
+    config: tempfile::TempDir,
+    pid_file: PathBuf,
+}
+
+impl Claude {
+    fn new() -> Claude {
+        let config = tempfile::tempdir().unwrap();
+        fs::create_dir_all(config.path().join("sessions")).unwrap();
+        fs::create_dir_all(config.path().join("projects/-home-acme")).unwrap();
+        let pid_file = config.path().join("pid");
+        Claude { config, pid_file }
+    }
+
+    fn sessions(&self) -> PathBuf {
+        self.config.path().join("sessions")
+    }
+
+    fn transcript(&self, id: &str, line: &str) {
+        let file = self
+            .config
+            .path()
+            .join(format!("projects/-home-acme/{id}.jsonl"));
+        OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(file)
+            .unwrap()
+            .write_all(format!("{line}\n").as_bytes())
+            .unwrap();
+    }
+
+    fn repository(&self, name: &str, branch: &str) -> PathBuf {
+        let repository = self.config.path().join(name);
+        fs::create_dir_all(repository.join(".git")).unwrap();
+        fs::write(
+            repository.join(".git/HEAD"),
+            format!("ref: refs/heads/{branch}\n"),
+        )
+        .unwrap();
+        repository
+    }
+
+    fn screen(&self, status: &str, id: &str) -> Screen {
+        self.screen_with(&format!(r#"{{"status":"{status}","sessionId":"{id}"}}"#))
+    }
+
+    fn screen_with(&self, json: &str) -> Screen {
+        self.screen_running(&format!(
+            "echo $$ > '{}'; printf '%s' '{json}' > '{}'/$$.json; echo 'acme agent'; exec sleep 600",
+            self.pid_file.display(),
+            self.sessions().display()
+        ))
+    }
+
+    fn screen_running(&self, text: &str) -> Screen {
+        showing(
+            App::new(script(text))
+                .with_registry(self.sessions())
+                .with_transcripts(self.config.path().join("projects")),
+        )
+    }
+
+    fn register(&self, json: &str) {
+        let pid = fs::read_to_string(&self.pid_file).unwrap();
+        fs::write(self.sessions().join(format!("{}.json", pid.trim())), json).unwrap();
+    }
+}
+
+fn tool(input: &str) -> String {
+    format!(
+        r#"{{"type":"assistant","message":{{"content":[{{"type":"tool_use","name":"Bash","input":{input}}}]}}}}"#
+    )
+}

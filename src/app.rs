@@ -21,6 +21,7 @@ use crate::repo::{self, Place};
 use crate::session::{self, Session};
 use crate::state;
 use crate::summary::Summary;
+use crate::transcript::Transcript;
 
 const NARROW: u16 = 60;
 const HINT: &str = "No session yet: press n to start one.";
@@ -47,6 +48,7 @@ pub struct App {
     helping: bool,
     quitting: bool,
     registry: Option<PathBuf>,
+    transcripts: Option<PathBuf>,
     read_at: Option<Instant>,
     summary: Option<Summary>,
 }
@@ -66,6 +68,7 @@ struct Entry {
     directory: PathBuf,
     place: Place,
     exited_at: Option<Instant>,
+    transcript: Option<Transcript>,
 }
 
 impl Entry {
@@ -108,6 +111,7 @@ impl App {
             helping: false,
             quitting: false,
             registry: None,
+            transcripts: None,
             read_at: None,
             summary: None,
         }
@@ -120,6 +124,11 @@ impl App {
 
     pub fn with_registry(mut self, dir: PathBuf) -> App {
         self.registry = Some(dir);
+        self
+    }
+
+    pub fn with_transcripts(mut self, projects: PathBuf) -> App {
+        self.transcripts = Some(projects);
         self
     }
 
@@ -351,6 +360,7 @@ impl App {
                     directory: directory.to_path_buf(),
                     place: repo::place(directory),
                     exited_at: None,
+                    transcript: None,
                 });
                 self.selected = self.sessions.len() - 1;
             }
@@ -370,11 +380,31 @@ impl App {
             if entry.session.exit().is_some() {
                 continue;
             }
-            entry.place = repo::place(&entry.directory);
             entry.record = self.registry.as_deref().and_then(|dir| {
                 let pid = entry.session.pid()?;
                 registry::read(dir, pid, entry.started_at, last)
             });
+            let id = entry
+                .record
+                .as_ref()
+                .and_then(|record| record.session_id.as_deref());
+            if let (Some(id), Some(projects)) = (id, &self.transcripts)
+                && entry
+                    .transcript
+                    .as_ref()
+                    .is_none_or(|transcript| transcript.session_id() != id)
+            {
+                entry.transcript = Some(Transcript::new(projects, id));
+            }
+            if let Some(transcript) = &mut entry.transcript {
+                transcript.read();
+            }
+            let directory = entry
+                .transcript
+                .as_ref()
+                .and_then(|transcript| transcript.facts().directory.as_deref())
+                .unwrap_or(&entry.directory);
+            entry.place = repo::place(directory);
         }
     }
 
@@ -433,6 +463,7 @@ impl App {
                     entry.record.as_ref(),
                     &entry.place,
                     entry.elapsed(),
+                    entry.transcript.as_ref().map(Transcript::facts),
                 )
             })
             .collect();

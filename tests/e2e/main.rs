@@ -5,6 +5,7 @@ use std::time::{Duration, Instant};
 
 use harbour::tui::{DIR_PICKER, SESSION_COMMAND};
 
+mod cards;
 mod picker;
 
 const AGENT: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/agent.sh");

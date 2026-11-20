@@ -9,6 +9,7 @@ mod layout;
 mod picker;
 mod selection;
 mod status;
+mod transcripts;
 
 use std::path::Path;
 use std::thread::sleep;
