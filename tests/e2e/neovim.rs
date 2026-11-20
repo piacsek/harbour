@@ -1,5 +1,5 @@
 use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
 
 use harbour::tui::{EDITOR, SESSION_COMMAND};
@@ -11,6 +11,7 @@ use super::{AGENT, Server, tools};
 const CLEAN_NVIM: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/nvim/nvim");
 const SIDEBAR_CLICK: &str = "\x1b[<0;3;3M";
 const SIDEBAR_RELEASE: &str = "\x1b[<0;3;3m";
+const WAITING: &str = "harbour: Neovim is waiting for a key; answer it and try again\n";
 
 #[test]
 #[ignore]
@@ -56,6 +57,23 @@ fn harbour_edit_twice_in_a_row_opens_the_second_file_in_the_neovim_the_first_sta
     assert_eq!(String::from_utf8_lossy(&reopened.stderr), "");
     assert_eq!(reopened.status.code(), Some(0));
     neovim.shows("acme second line");
+}
+
+#[test]
+#[ignore]
+fn harbour_edit_starting_a_neovim_stopped_at_a_stale_swap_prompt_is_refused() {
+    let Some(neovim) = Neovim::beside_claude("nvim-edit-swap") else {
+        return;
+    };
+    let file = source_file(neovim.home.path(), "main.rs");
+    let state = neovim.home.path().join("xdg/state");
+    left_unsaved(&neovim, &file);
+
+    let output = handed(neovim.home.path(), Some(state.to_str().unwrap()), &file);
+
+    neovim.end_every_neovim();
+    assert_eq!(String::from_utf8_lossy(&output.stderr), WAITING);
+    assert_eq!(output.status.code(), Some(2));
 }
 
 struct Neovim {
@@ -191,6 +209,44 @@ fn is_executable(candidate: &Path) -> bool {
     candidate
         .metadata()
         .is_ok_and(|metadata| metadata.is_file() && metadata.permissions().mode() & 0o111 != 0)
+}
+
+fn appeared(file: &Path) -> bool {
+    let deadline = Instant::now() + Duration::from_secs(10);
+    while Instant::now() < deadline {
+        if file.exists() {
+            return true;
+        }
+        std::thread::sleep(Duration::from_millis(20));
+    }
+    false
+}
+
+fn left_unsaved(neovim: &Neovim, file: &Path) {
+    let xdg = neovim.home.path().join("xdg");
+    let preserved = neovim.home.path().join(format!(
+        "preserved-{}",
+        file.file_name().unwrap().to_string_lossy()
+    ));
+    let mut other = Command::new(nvim_on_path().unwrap())
+        .args(["--headless", "--clean", "-c", "normal! oacme unsaved"])
+        .args(["-c", "preserve", "-c"])
+        .arg(format!("call writefile([], '{}')", preserved.display()))
+        .arg(file)
+        .env("HOME", neovim.home.path())
+        .env("XDG_CONFIG_HOME", xdg.join("config"))
+        .env("XDG_DATA_HOME", xdg.join("data"))
+        .env("XDG_STATE_HOME", xdg.join("state"))
+        .env("XDG_CACHE_HOME", xdg.join("cache"))
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()
+        .unwrap();
+    let swapped = appeared(&preserved);
+    other.kill().unwrap();
+    other.wait().unwrap();
+    assert!(swapped, "the swap file was never preserved");
 }
 
 fn lingering(home: &Path, patience: Duration) -> Vec<String> {

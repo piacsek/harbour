@@ -3,7 +3,7 @@ use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
 
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-use harbour::editor::{Changes, Editor, Program, Unopened};
+use harbour::editor::{Changes, Editor, Program, Unopened, socket_base};
 use harbour::nvim::{self, Mode};
 use tempfile::TempDir;
 
@@ -12,6 +12,7 @@ const WAITING: &str = "refused: Neovim is waiting for a key; answer it and try a
 const PRESS_ENTER: &str = ":echo \"acme\\nprompt\"\r";
 const PATIENCE: Duration = Duration::from_secs(10);
 const OPENING: Duration = Duration::from_secs(5);
+const INHERITED: [&str; 3] = ["NVIM", "NVIM_APPNAME", "VIMINIT"];
 const ESCAPE: &str = "\x1b";
 const CTRL_W: &str = "\x17";
 const LEAVE_TERMINAL: &str = "\x1c\x0e";
@@ -32,7 +33,7 @@ fn the_normal_mode_of_a_terminal_buffer_lets_ctrl_h_go_to_claude_code() {
     let Some(neovim) = Neovim::start("terminal") else {
         return;
     };
-    neovim.types(":terminal sleep 600\r");
+    neovim.types(":terminal sleep 30\r");
     neovim.holds("&buftype ==# 'terminal'");
     neovim.types("i");
     neovim.in_mode("t");
@@ -263,6 +264,14 @@ impl Scratch {
             std::fs::create_dir_all(home.path().join(folder)).unwrap();
         }
         std::os::unix::fs::symlink(real, home.path().join("bin/real-nvim")).unwrap();
+        let tmp = home.path().join("tmp");
+        assert_eq!(
+            socket_base(&tmp),
+            tmp,
+            "the scratch TMPDIR {} is {} bytes, too long for the editor's socket, which then goes under /tmp",
+            tmp.display(),
+            tmp.as_os_str().len()
+        );
         Some(Scratch { home })
     }
 
@@ -295,7 +304,11 @@ impl Scratch {
             "preserved-{}",
             file.file_name().unwrap().to_string_lossy()
         ));
-        let mut other = Command::new(self.path().join("bin/real-nvim"))
+        let mut command = Command::new(self.path().join("bin/real-nvim"));
+        for name in INHERITED {
+            command.env_remove(name);
+        }
+        let mut other = command
             .args(["--headless", "--clean", "-c", "normal! oacme unsaved"])
             .args(["-c", "preserve", "-c"])
             .arg(format!("call writefile([], '{}')", preserved.display()))
@@ -314,7 +327,7 @@ impl Scratch {
 
     fn neovim(self, file: Option<&Path>) -> Neovim {
         let mut command = vec!["/usr/bin/env".to_string()];
-        for unset in ["NVIM", "NVIM_APPNAME", "VIMINIT"] {
+        for unset in INHERITED {
             command.push("-u".into());
             command.push(unset.into());
         }
@@ -392,7 +405,7 @@ impl Neovim {
     }
 
     fn open(&mut self, file: &Path) -> String {
-        match self.editor.open(file, Instant::now() + OPENING) {
+        match self.editor.open(file, Instant::now() + PATIENCE) {
             Ok(()) => "opened".to_string(),
             Err(Unopened::Refused(refusal)) => format!("refused: {refusal}"),
             Err(Unopened::Silent) => "silent".to_string(),

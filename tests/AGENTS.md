@@ -56,8 +56,9 @@ these suites come from; the ones about sessions were hit in harbour.
   `nvim::eval` that returns 1) before it asserts on `wants_ctrl_h`, `changes` or `open`. There
   the prompts show: press-enter is mode `r` blocking, the swap prompt `r?`, a pending `C-w`
   mode `n` blocking. `Session::end` ends the embed server too, even at a swap prompt.
-  `tests/e2e/neovim.rs` keeps three smoke tests that the wiring through tmux and harbour still
-  holds (C-h to Claude Code, `x` over unsaved changes, `harbour edit` twice).
+  `tests/e2e/neovim.rs` keeps four smoke tests that the wiring through tmux and harbour still
+  holds (C-h to Claude Code, `x` over unsaved changes, `harbour edit` twice, and `harbour edit`
+  starting a Neovim stopped at a stale swap prompt, refused with exit 2).
 
 - **dash is `/bin/sh` on Linux.** A session script's `read` returns non-zero when a trapped
   signal (the window change of a resize) interrupts it, so a loop written `while read` ends on
