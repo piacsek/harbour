@@ -89,11 +89,17 @@ pub enum Picked {
 }
 
 impl Pick {
-    pub fn open(picker: &Picker, from: &Path, rows: u16, cols: u16) -> io::Result<Option<Pick>> {
+    pub fn open(
+        picker: &Picker,
+        from: &Path,
+        temporary: &Path,
+        rows: u16,
+        cols: u16,
+    ) -> io::Result<Option<Pick>> {
         let scratch = tempfile::Builder::new()
             .prefix("harbour-pick")
             .permissions(fs::Permissions::from_mode(0o700))
-            .tempdir()?;
+            .tempdir_in(temporary)?;
         let output = scratch.path().join("picked");
         match (picker, startable(picker.program(), from)) {
             (Picker::Command(_), Err(error)) => return Err(error),
@@ -170,7 +176,7 @@ fn startable(program: &str, from: &Path) -> io::Result<()> {
         };
     }
     let path = env::var_os("PATH").unwrap_or_default();
-    if env::split_paths(&path).any(|directory| executable(&directory.join(program))) {
+    if env::split_paths(&path).any(|directory| executable(&from.join(directory).join(program))) {
         Ok(())
     } else {
         Err(io::Error::other("is it installed and on PATH?"))
