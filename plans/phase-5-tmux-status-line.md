@@ -199,6 +199,9 @@ dropped from 6 to 3 and held. Codex and orchestrator usage remain unknown in eve
   folder would grow without bound. A harbour that makes a publication now sweeps the dead ones
   (exclusive lock free, harbour's own naming, regular files only); `harbour status` still
   removes nothing.
+- `main` was merged in after phase 4 shipped as v0.4.0 (conflicts in `src/tui.rs`, the e2e
+  tests, both index files and `AGENTS.md`); a session started through the directory picker is
+  published like any other, and a test says so.
 
 ## Hurdles
 

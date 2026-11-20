@@ -11,6 +11,7 @@ file under `plans/`; its time and tokens are a row of [`plans/metrics.md`](plans
 | 1 | [agent sessions in a sidebar, each with a live Claude Code pane](plans/phase-1-session-pane.md) | [v0.1.0](https://github.com/piacsek/harbour/releases/tag/v0.1.0) |
 | 2 | [the selected session and the focused side in cyan](plans/phase-2-cyan-highlight.md) | [v0.2.0](https://github.com/piacsek/harbour/releases/tag/v0.2.0) |
 | 3 | [whether each agent is working, idle or waiting on you](plans/phase-3-status-dots.md) | [v0.3.0](https://github.com/piacsek/harbour/releases/tag/v0.3.0) |
+| 4 | [choose the directory a new session starts in, by fuzzy search](plans/phase-4-directory-picker.md) | [v0.4.0](https://github.com/piacsek/harbour/releases/tag/v0.4.0) |
 | 5 | [the counts in the tmux status line](plans/phase-5-tmux-status-line.md) | |
 
 ## Backlog

@@ -1,4 +1,5 @@
-use std::path::PathBuf;
+use std::io;
+use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant, SystemTime};
 
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers, MouseEvent, MouseEventKind};
@@ -15,6 +16,7 @@ use crate::demo;
 use crate::help;
 use crate::keys;
 use crate::mouse::{self, Gesture, Target};
+use crate::picker::{Pick, Picked, Picker};
 use crate::registry::{self, Record};
 use crate::session::{self, Session};
 use crate::state;
@@ -26,7 +28,11 @@ const READ_EVERY: Duration = Duration::from_millis(500);
 
 pub struct App {
     command: Vec<String>,
-    directory: String,
+    home: PathBuf,
+    picker: Option<Picker>,
+    picking: Option<Pick>,
+    picking_area: Rect,
+    screen: Rect,
     sessions: Vec<Entry>,
     selected: usize,
     started: usize,
@@ -60,16 +66,17 @@ struct Entry {
 
 impl App {
     pub fn new(command: Vec<String>) -> App {
-        let directory = std::env::current_dir()
+        let home = std::env::current_dir()
             .ok()
-            .and_then(|path| {
-                path.file_name()
-                    .map(|name| name.to_string_lossy().into_owned())
-            })
+            .or_else(|| std::env::var_os("PWD").map(PathBuf::from))
             .unwrap_or_default();
         App {
             command,
-            directory,
+            home,
+            picker: None,
+            picking: None,
+            picking_area: Rect::default(),
+            screen: Rect::new(0, 0, 80, 24),
             sessions: Vec::new(),
             selected: 0,
             started: 0,
@@ -88,6 +95,11 @@ impl App {
         }
     }
 
+    pub fn with_picker(mut self, picker: Picker) -> App {
+        self.picker = Some(picker);
+        self
+    }
+
     pub fn with_registry(mut self, dir: PathBuf) -> App {
         self.registry = Some(dir);
         self
@@ -99,7 +111,9 @@ impl App {
     }
 
     pub fn demo(registry: PathBuf) -> App {
-        let mut app = App::new(demo::working(&registry)).with_registry(registry.clone());
+        let mut app = App::new(demo::working(&registry))
+            .with_registry(registry.clone())
+            .with_picker(demo::picker());
         app.start();
         app.start_with(&demo::blocked(&registry));
         app.start_with(&demo::idle(&registry));
@@ -114,6 +128,11 @@ impl App {
     }
 
     pub fn key(&mut self, key: KeyEvent) {
+        if let Some(pick) = &self.picking {
+            let session = pick.session();
+            session.send(&keys::encode(key, session.application_cursor()));
+            return;
+        }
         if self.dismiss(is_yes(key)) {
             return;
         }
@@ -129,7 +148,7 @@ impl App {
             _ if is_ctrl(key, 'l') => self.pane_focused = !self.sessions.is_empty(),
             KeyCode::Enter => self.pane_focused = !self.sessions.is_empty(),
             KeyCode::Char('q') => self.quit(),
-            KeyCode::Char('n') => self.start(),
+            KeyCode::Char('n') => self.pick_or_start(),
             KeyCode::Char('x') => self.end_or_remove(),
             KeyCode::Char('?') => self.helping = true,
             KeyCode::Char('j') => {
@@ -141,6 +160,10 @@ impl App {
     }
 
     pub fn paste(&mut self, text: &str) {
+        if let Some(pick) = &self.picking {
+            pick.session().paste(text);
+            return;
+        }
         if self.dismiss(false) {
             return;
         }
@@ -150,6 +173,21 @@ impl App {
     }
 
     pub fn mouse(&mut self, event: MouseEvent) {
+        if let Some(pick) = &self.picking {
+            let (mode, encoding) = pick.session().mouse_protocol();
+            let target = Target {
+                session: 0,
+                mode,
+                encoding,
+            };
+            let (gesture, bytes) =
+                mouse::route(self.gesture, event, self.picking_area, Some(target));
+            self.gesture = gesture;
+            if let Some(bytes) = bytes {
+                pick.session().send(&bytes);
+            }
+            return;
+        }
         if self.helping || self.asking.is_some() {
             self.gesture = Gesture::Idle;
             if matches!(event.kind, MouseEventKind::Down(_)) {
@@ -237,19 +275,58 @@ impl App {
         }
     }
 
+    fn pick_or_start(&mut self) {
+        let Some(picker) = &self.picker else {
+            self.start();
+            return;
+        };
+        let popup = popup(self.screen);
+        match Pick::open(picker, &self.home, popup.height, popup.width) {
+            Ok(Some(pick)) => {
+                self.gesture = Gesture::Idle;
+                self.picking = Some(pick);
+            }
+            Ok(None) => self.start(),
+            Err(error) => self.failed = Some(refusal(picker.program(), &error)),
+        }
+    }
+
+    fn finish_pick(&mut self) {
+        let Some(picked) = self.picking.as_mut().and_then(Pick::picked) else {
+            return;
+        };
+        self.picking = None;
+        self.gesture = Gesture::Idle;
+        match picked {
+            Picked::Cancelled => {}
+            Picked::Refused(refusal) => self.failed = Some(refusal),
+            Picked::Chosen(directory) => {
+                let before = self.started;
+                self.start_in(&self.command.clone(), &directory);
+                if self.started > before {
+                    self.pane_focused = true;
+                }
+            }
+        }
+    }
+
     fn start(&mut self) {
         self.start_with(&self.command.clone());
     }
 
     fn start_with(&mut self, command: &[String]) {
+        self.start_in(command, &self.home.clone());
+    }
+
+    fn start_in(&mut self, command: &[String], directory: &Path) {
         let started_at = SystemTime::now();
-        match Session::start(command, self.pane.height, self.pane.width) {
+        match Session::start(command, directory, self.pane.height, self.pane.width) {
             Ok(session) => {
                 self.failed = None;
                 self.started += 1;
                 self.sessions.push(Entry {
                     id: self.started,
-                    name: format!("{} {}", self.directory, self.started),
+                    name: format!("{} {}", folder_name(directory), self.started),
                     session,
                     started_at,
                     record: None,
@@ -257,10 +334,7 @@ impl App {
                 self.selected = self.sessions.len() - 1;
             }
             Err(error) => {
-                self.failed = Some(format!(
-                    "Could not start {}: {error}",
-                    command.first().map_or("", String::as_str)
-                ))
+                self.failed = Some(refusal(command.first().map_or("", String::as_str), &error))
             }
         }
     }
@@ -286,7 +360,9 @@ impl App {
     }
 
     pub fn draw(&mut self, frame: &mut Frame) {
+        self.finish_pick();
         self.read_registry();
+        self.screen = frame.area();
         let (sidebar, pane) = self.areas(frame.area());
         self.sidebar = sidebar;
         let notes: Vec<Option<String>> = self
@@ -380,6 +456,16 @@ impl App {
         if self.helping {
             self.draw_help(frame);
         }
+        if let Some(pick) = &mut self.picking {
+            let area = popup(frame.area());
+            let block = bordered(true).title(" directory ");
+            let inner = block.inner(area);
+            self.picking_area = inner;
+            pick.resize(inner.height, inner.width);
+            frame.render_widget(Clear, area);
+            frame.render_widget(block, area);
+            frame.render_widget(pick.session(), inner);
+        }
     }
 
     fn draw_help(&self, frame: &mut Frame) {
@@ -460,4 +546,21 @@ fn is_ctrl(key: KeyEvent, c: char) -> bool {
 
 fn is_yes(key: KeyEvent) -> bool {
     matches!(key.code, KeyCode::Char('y' | 'Y')) && KeyModifiers::SHIFT.contains(key.modifiers)
+}
+
+fn refusal(program: &str, error: &io::Error) -> String {
+    match error.kind() {
+        io::ErrorKind::NotADirectory => error.to_string(),
+        _ => format!("Could not start {program}: {error}"),
+    }
+}
+
+fn folder_name(path: &Path) -> String {
+    path.file_name()
+        .map(|name| name.to_string_lossy().into_owned())
+        .unwrap_or_else(|| path.display().to_string())
+}
+
+fn popup(area: Rect) -> Rect {
+    area.centered(Constraint::Percentage(80), Constraint::Percentage(80))
 }

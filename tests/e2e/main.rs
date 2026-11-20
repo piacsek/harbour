@@ -3,11 +3,18 @@ use std::process::Command;
 use std::thread::sleep;
 use std::time::{Duration, Instant};
 
-use harbour::tui::SESSION_COMMAND;
+use harbour::tui::{DIR_PICKER, SESSION_COMMAND};
+
+mod picker;
 
 const AGENT: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/agent.sh");
 const RAW_AGENT: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/raw-agent.sh");
 const WORKING: &str = "#[fg=yellow]● 1#[default]\n";
+const PICKER: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/picker.sh");
+const FAKE_FZF: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/fzf");
+const TOOLS: [&str; 8] = [
+    "cat", "dd", "grep", "mkdir", "mkfifo", "sleep", "stty", "tr",
+];
 const REGISTERED_AGENT: &str = concat!(
     env!("CARGO_MANIFEST_DIR"),
     "/tests/fixtures/registered-agent.sh"
@@ -64,6 +71,47 @@ fn n_starts_a_session_named_after_the_directory_and_shows_it() {
 
     let screen = server.wait_for_screen_all(&["acme agent in acme-api", "acme-api 1"]);
     assert!(screen.contains("acme agent in acme-api"), "{screen}");
+    assert!(screen.contains("acme-api 1"), "{screen}");
+}
+
+#[test]
+#[ignore]
+fn n_runs_the_dir_picker_and_starts_the_session_in_the_directory_it_prints() {
+    let home = tempfile::tempdir().unwrap();
+    let web = home.path().join("acme-web");
+    std::fs::create_dir(&web).unwrap();
+    let server = Server::start("picker", 160, 20);
+    server.run(
+        home.path(),
+        &[(SESSION_COMMAND, AGENT), (DIR_PICKER, PICKER)],
+        &[],
+    );
+    server.wait_for_screen("press n to start one");
+    server.send_keys(&["n"]);
+    server.wait_for_screen("acme picker: type a directory");
+
+    server.send_keys(&["../acme-web", "Enter"]);
+
+    let screen = server.wait_for_screen_all(&["acme agent in acme-web", "acme-web 1"]);
+    assert!(screen.contains("acme agent in acme-web"), "{screen}");
+    assert!(screen.contains("acme-web 1"), "{screen}");
+}
+
+#[test]
+#[ignore]
+fn an_empty_dir_picker_setting_counts_as_unset() {
+    let home = tempfile::tempdir().unwrap();
+    let server = Server::start("empty-picker", 160, 20);
+    server.run(
+        home.path(),
+        &[(SESSION_COMMAND, AGENT), (DIR_PICKER, "")],
+        &[],
+    );
+    server.wait_for_screen("press n to start one");
+
+    server.send_keys(&["n"]);
+
+    let screen = server.wait_for_screen_all(&["acme agent in acme-api", "acme-api 1"]);
     assert!(screen.contains("acme-api 1"), "{screen}");
 }
 
@@ -185,6 +233,34 @@ fn q_with_a_running_session_asks_and_y_leaves() {
 
     let screen = server.wait_for_screen("harbour exited 0");
     assert!(screen.contains("harbour exited 0"), "{screen}");
+}
+
+#[test]
+#[ignore]
+fn a_session_started_from_the_picker_gets_its_dot_and_the_picked_name() {
+    let home = tempfile::tempdir().unwrap();
+    let web = home.path().join("acme-web");
+    std::fs::create_dir(&web).unwrap();
+    let config = tempfile::tempdir().unwrap();
+    let config_dir = config.path().display().to_string();
+    let server = Server::start("picked-registry", 160, 20);
+    server.run(
+        home.path(),
+        &[
+            (SESSION_COMMAND, REGISTERED_AGENT),
+            (DIR_PICKER, PICKER),
+            ("CLAUDE_CONFIG_DIR", &config_dir),
+        ],
+        &[],
+    );
+    server.wait_for_screen("press n to start one");
+    server.send_keys(&["n"]);
+    server.wait_for_screen("acme picker: type a directory");
+
+    server.send_keys(&["../acme-web", "Enter"]);
+
+    let screen = server.wait_for_screen("● acme-web 1");
+    assert!(screen.contains("● acme-web 1"), "{screen}");
 }
 
 #[test]
@@ -388,20 +464,31 @@ impl Server {
     }
 
     fn run(&self, home: &Path, env: &[(&str, &str)], args: &[&str]) {
+        self.launch(home, "", env, args);
+    }
+
+    fn launch(&self, home: &Path, before: &str, env: &[(&str, &str)], args: &[&str]) {
         let directory = home.join("acme-api");
         std::fs::create_dir_all(&directory).unwrap();
         let mut words = vec![
             "cd".to_string(),
             quoted(&directory.display().to_string()),
             "&&".to_string(),
+            before.to_string(),
             "env".to_string(),
             "-u".to_string(),
             "XDG_CONFIG_HOME".to_string(),
             "-u".to_string(),
             "XDG_STATE_HOME".to_string(),
             "-u".to_string(),
+            DIR_PICKER.to_string(),
+            "-u".to_string(),
+            SESSION_COMMAND.to_string(),
+            "-u".to_string(),
             "CLAUDE_CONFIG_DIR".to_string(),
             quoted(&format!("HOME={}", home.display())),
+            quoted(&format!("TMPDIR={}", scratch_tmp(home).display())),
+            quoted(&format!("PATH={}", tools(home))),
         ];
         words.extend(
             env.iter()
@@ -487,4 +574,27 @@ fn wait_for_status(home: &Path, done: impl Fn(&str) -> bool) -> String {
         }
         sleep(Duration::from_millis(50));
     }
+}
+
+fn scratch_tmp(home: &Path) -> std::path::PathBuf {
+    let tmp = home.join("tmp");
+    std::fs::create_dir_all(&tmp).unwrap();
+    tmp
+}
+
+fn tools(home: &Path) -> String {
+    let bin = home.join("bin");
+    std::fs::create_dir_all(&bin).unwrap();
+    for tool in TOOLS {
+        let found = ["/bin", "/usr/bin"]
+            .iter()
+            .map(|directory| Path::new(directory).join(tool))
+            .find(|path| path.exists())
+            .unwrap();
+        let link = bin.join(tool);
+        if !link.exists() {
+            std::os::unix::fs::symlink(found, link).unwrap();
+        }
+    }
+    bin.display().to_string()
 }

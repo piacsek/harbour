@@ -3,6 +3,8 @@ use std::path::Path;
 
 use tempfile::TempDir;
 
+use crate::picker::Picker;
+
 const WORKING: &str = r#"printf '\033[38;5;209m*\033[0m \033[1macme agent\033[0m in ~/%s\n\n' "${PWD##*/}"
 printf '\033[2m>\033[0m fix the flaky retry test in acme/api\n\n'
 printf '\033[38;5;114m*\033[0m Read src/retry.rs\n'
@@ -22,6 +24,16 @@ exec sleep 86400"#;
 
 const FAILED: &str = r#"printf 'acme agent: could not reach acme/web\n'
 exit 1"#;
+
+const PLACES: &str = r#"printf '%s\n' /home/acme/api /home/acme/web /home/acme/infra /home/acme/docs /home/acme/api/crates/retry"#;
+
+pub fn picker() -> Picker {
+    Picker::Fuzzy {
+        fzf: vec!["fzf".to_string()],
+        list: script(PLACES),
+        here_first: false,
+    }
+}
 
 const UNKNOWN: &str = r#"printf 'acme shell in ~/%s\n' "${PWD##*/}"
 exec sleep 86400"#;

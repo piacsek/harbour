@@ -1,6 +1,8 @@
 use std::cell::Cell;
+use std::ffi::OsStr;
 use std::io::{self, Read, Write};
 use std::panic::{self, AssertUnwindSafe};
+use std::path::Path;
 use std::sync::mpsc::{self, Sender};
 use std::sync::{Arc, Mutex};
 use std::thread;
@@ -31,7 +33,18 @@ pub struct Session {
 }
 
 impl Session {
-    pub fn start(command: &[String], rows: u16, cols: u16) -> io::Result<Session> {
+    pub fn start<S: AsRef<OsStr>>(
+        command: &[S],
+        directory: &Path,
+        rows: u16,
+        cols: u16,
+    ) -> io::Result<Session> {
+        if !directory.is_dir() {
+            return Err(io::Error::new(
+                io::ErrorKind::NotADirectory,
+                format!("Not a directory: {}", directory.display()),
+            ));
+        }
         let (rows, cols) = safe_size(rows, cols);
         let pty = native_pty_system()
             .openpty(PtySize {
@@ -41,14 +54,10 @@ impl Session {
                 pixel_height: 0,
             })
             .map_err(|error| io::Error::other(format!("could not open a terminal: {error}")))?;
-        let mut builder = CommandBuilder::new(&command[0]);
+        let mut builder = CommandBuilder::new(command[0].as_ref());
         builder.args(&command[1..]);
-        builder.cwd(std::env::current_dir().map_err(|error| {
-            io::Error::new(
-                error.kind(),
-                format!("could not read the working directory: {error}"),
-            )
-        })?);
+        builder.cwd(directory);
+        builder.env("PWD", directory);
         builder.env_remove("TMUX");
         builder.env_remove("TMUX_PANE");
         builder.env("TERM", "xterm-256color");

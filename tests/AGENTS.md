@@ -18,8 +18,17 @@ these suites come from; the ones about sessions were hit in harbour.
   names (`SESSION_COMMAND` in `src/tui.rs`, on the `SEAMS` list), `claude` when it is unset.
   The end-to-end tests set it to `tests/fixtures/agent.sh`, `tests/fixtures/raw-agent.sh` or
   `tests/fixtures/registered-agent.sh` (which writes a registry file, so only under a scratch `HOME`);
-  in-process tests hand `App::new` or `Session::start` a `/bin/sh -c` script, so no test writes
-  an executable.
+  in-process tests hand `App::new` or `Session::start` a `/bin/sh -c` script; the one executable
+  a test writes is a picker whose interpreter is missing.
+
+- **No test opens the real fzf or reads the real zoxide database.** `n` runs fzf over
+  `zoxide query --list` unless `HARBOUR_DIR_PICKER` names another picker, and both are on the
+  build machine's `PATH`, and a Linux distribution may install both in `/usr/bin`. The
+  end-to-end tests clear `HARBOUR_DIR_PICKER` and `HARBOUR_SESSION_COMMAND` unless the test sets
+  them, and run the binary on a `PATH` of links to the tools the fixtures need (`tools` in
+  `tests/e2e/main.rs`), where neither is, so `n` starts at once, and with `TMPDIR` under the scratch `HOME`, so a picker still open when the tmux server dies leaves no `harbour-pick*` directory behind; they set `HARBOUR_DIR_PICKER`
+  to `tests/fixtures/picker.sh` to test the picker; in-process tests hand the builder `.with_picker` of `App` a `Picker` of `/bin/sh -c`
+  scripts. A picker script draws on stderr: its stdout is the directory it picks.
 
 - **dash is `/bin/sh` on Linux.** A session script's `read` returns non-zero when a trapped
   signal (the window change of a resize) interrupts it, so a loop written `while read` ends on

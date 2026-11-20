@@ -4,6 +4,7 @@ use std::thread::sleep;
 use std::time::{Duration, Instant};
 
 use harbour::app::App;
+use harbour::picker::Picker;
 use harbour::summary::Summary;
 use ratatui::Terminal;
 use ratatui::backend::TestBackend;
@@ -335,6 +336,33 @@ fn a_running_harbour_publishes_the_counts_of_the_title() {
     screen.press('n');
 
     screen.wait_for(&format!("● {} 1", directory()));
+
+    assert_eq!(
+        std::fs::read_to_string(counts_file(state.path())).unwrap(),
+        "0 1 0 0\n"
+    );
+}
+
+#[test]
+fn a_session_started_through_the_picker_is_published_like_any_other() {
+    let registry = tempfile::tempdir().unwrap();
+    let state = tempfile::tempdir().unwrap();
+    let scratch = tempfile::tempdir().unwrap();
+    let web = scratch.path().join("acme-web");
+    std::fs::create_dir(&web).unwrap();
+    let mut screen = showing(
+        App::new(registered(registry.path(), "busy"))
+            .with_picker(Picker::Command(script(
+                "echo 'acme picker' >&2; read -r line; printf '%s\\n' \"$line\"",
+            )))
+            .with_registry(registry.path().to_path_buf())
+            .with_summary(Summary::new(state.path())),
+    );
+    screen.press('n');
+    screen.wait_for("acme picker");
+    screen.type_text(&format!("{}\r", web.display()));
+
+    screen.wait_for("● acme-web 1");
 
     assert_eq!(
         std::fs::read_to_string(counts_file(state.path())).unwrap(),
