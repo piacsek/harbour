@@ -142,4 +142,21 @@ One red-green-refactor cycle each, shipped with `scripts/ship.sh`.
 
 ## Outcome
 
+- Shipped as planned, in eight tasks on PR #20: every session is a three-line card with its
+  title, age, activity or reason, repository, branch, pull request and running subagents.
+- The registry gains `sessionId`, which names the transcript; `Record` gains no `cwd`, since the
+  transcript's last `cwd` and `gitBranch` are newer than the registry's and outrank git's files.
+- An exited card keeps its title and line 3 but drops the subagent count: nothing runs once the
+  session has exited.
+- `n` in the demo starts a plain session (`demo::fresh`), so the made-up cards stay the only
+  titled ones and the picker test keeps its numbering.
+- `scripts/screenshots.sh` waits for the text a shot needs (the blocked card's reason, the
+  picker's count) instead of a fixed sleep; two runs give byte-identical images.
+
 ## Hurdles
+
+- `test-seam` `an_exited_session_counts_no_subagent` passed on its first run, since `wait_for` returns after 5 s without failing; it was proved by wiring the count in without the exclusion and seeing it red → none
+- `test-seam` Tests of the tui wiring and the cards e2e test were proved by breaking `src/tui.rs` by hand, as in phases 1 to 5 → none
+- `tooling` The demo stamped `statusUpdatedAt` with `date`, which the e2e tests' restricted `PATH` lacks; the time is now computed in Rust → code
+- `test-seam` `n` in the demo started another titled session and broke the picker e2e test's numbering → code
+- `tooling` The screenshots raced the first registry read (every card unknown) and fzf's first draw (an empty picker); the script now polls for the text each shot needs → code
