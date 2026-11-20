@@ -44,6 +44,7 @@ session's last seen directory), so a tmux split and `Ctrl-l` agree:
 | The directory is gone | where harbour was opened, within half a second |
 | The directory is renamed or removed and another appears at its path | the new one, within half a second: harbour compares the device and inode it entered with the path's |
 | The directory is there but harbour cannot enter it (not searchable) | where harbour was opened; tried again at the next change or check |
+| Search permission is taken away from the followed directory while harbour is already in it | unchanged until the selection or the directory changes: its name, device and inode still match (review round 2, minor, not fixed) |
 | The selected session exited | where it was last seen working, as for its editor |
 | The picker popup, the help or a question is open | unchanged: the selection does not move |
 | Not running inside tmux | the same moves; nothing reads them |
@@ -85,7 +86,9 @@ session's last seen directory), so a tmux split and `Ctrl-l` agree:
   `env FOO=1 harbour` follow, `cd <dir> && harbour` and `harbour; sleep 5` do not under
   `/bin/sh`, and a wrapper script without `exec` never does. A pane command or a wrapper must
   end with `exec harbour`; `harbour --help` says so, since the help view has no row to spare
-  at 20 rows. Nothing in harbour can change the leader, so it is left as is.
+  at 20 rows. Nothing in harbour can change the leader, so it is left as is. A bare `harbour`
+  as the pane command follows too (the shell execs a lone command), so "ends with
+  `exec harbour`" is stricter than needed, but never wrong.
 - Relative `PATH` entries stay as they are in what children inherit: a session or an editor
   resolves them from its own directory, as before this phase, so only harbour's own lookup
   (the picker's) changed, to search from where the popup runs. Making `PATH` absolute at start
@@ -121,9 +124,17 @@ session's last seen directory), so a tmux split and `Ctrl-l` agree:
   starts, and `harbour --help` says a pane command or wrapper must end with `exec harbour`.
 - The main interface is unchanged (`docs/details.png`); the help view and `harbour --help`
   screenshots changed with their text, and the `--help` shot grew from 11 to 14 rows so its first lines still show.
+- Review: 2 rounds, both unprimed, the second clean. Round 1 found the picker searching a
+  relative `PATH` entry from harbour's moved directory and a directory replaced in place never
+  entered again (both fixed, with tests seen red), plus three minor findings (the help's `.`,
+  the `exec harbour` wording, two Known limits lines), all fixed. Round 2 found nothing to fix:
+  one minor (search permission taken away while harbour is in the directory) is left, listed
+  in the table above and the PR body, and the relative `CLAUDE_CONFIG_DIR` end-to-end tests now
+  change the registry and the transcript after the move, so they prove reads after it.
 
 ## Hurdles
 
 - `test-seam` The e2e launcher runs harbour under a non-interactive `sh -c`, so tmux reported the shell's directory and the first end-to-end tests stayed red with the move wired in; harbour now runs as the pane's own process in those tests (`Server::exec`) → rule in `tests/AGENTS.md`
 - `design` The plan listed the demo's registry under a relative `TMPDIR` as broken by the move; its test would not go red, because `tempfile` already makes a relative parent absolute when it creates the directory, so that change was dropped → none
 - `review-loop` Round 1 found a relative `PATH` entry searched from harbour's moved directory by the picker, and a directory replaced in place never entered again; both came from a Verified fact and a cache that assumed a path names one directory for good → code
+- `ci` A Nix network outage (DNS timeouts to the Nix cache, HTTP 503) failed the macOS `flake` leg once on round 1's head; a rerun passed → known limit

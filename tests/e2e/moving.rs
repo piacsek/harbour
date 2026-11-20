@@ -1,4 +1,5 @@
 use std::fs;
+use std::io::Write;
 use std::path::{Path, PathBuf};
 
 use harbour::tui::{DIR_PICKER, EDITOR, SESSION_COMMAND};
@@ -202,6 +203,18 @@ fn a_relative_claude_config_dir_is_read_from_where_harbour_was_opened() {
     assert_eq!(server.wait_for_path(&root), root);
     let screen = server.wait_for_screen("● src 1");
     assert!(screen.contains("● src 1"), "{screen}");
+
+    let sessions = api.join("src/acme-config/sessions");
+    let record = fs::read_dir(&sessions)
+        .unwrap()
+        .next()
+        .unwrap()
+        .unwrap()
+        .path();
+    fs::write(&record, r#"{"status":"idle"}"#).unwrap();
+
+    let screen = server.wait_for_screen("○ src 1");
+    assert!(screen.contains("○ src 1"), "{screen}");
 }
 
 #[test]
@@ -228,6 +241,26 @@ fn a_relative_claude_config_dir_holds_the_transcripts_once_harbour_moved() {
     assert_eq!(server.wait_for_path(&root), root);
     let screen = server.wait_for_screen("Fix the flaky login test");
     assert!(screen.contains("● Fix the flaky login test"), "{screen}");
+
+    let projects = api.join("src/acme-config/projects/-home-acme-api");
+    let transcript = fs::read_dir(&projects)
+        .unwrap()
+        .next()
+        .unwrap()
+        .unwrap()
+        .path();
+    let mut file = fs::OpenOptions::new()
+        .append(true)
+        .open(&transcript)
+        .unwrap();
+    writeln!(
+        file,
+        r#"{{"type":"ai-title","aiTitle":"Speed up the checkout page"}}"#
+    )
+    .unwrap();
+
+    let screen = server.wait_for_screen("Speed up the checkout page");
+    assert!(screen.contains("● Speed up the checkout page"), "{screen}");
 }
 
 #[test]
