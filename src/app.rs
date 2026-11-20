@@ -58,7 +58,7 @@ impl App {
             sessions: Vec::new(),
             selected: 0,
             started: 0,
-            pane: Rect::default(),
+            pane: Rect::new(0, 0, 80, 24),
             shown_pane: Rect::default(),
             sidebar: Rect::default(),
             pane_focused: false,

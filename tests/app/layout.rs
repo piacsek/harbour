@@ -1,6 +1,12 @@
-use crossterm::event::{KeyCode, KeyModifiers};
+use std::thread::sleep;
+use std::time::Duration;
 
-use crate::{Screen, directory, numbered_agent, sized_agent};
+use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+use harbour::app::App;
+use ratatui::Terminal;
+use ratatui::backend::TestBackend;
+
+use crate::{Screen, directory, numbered_agent, script, sized_agent};
 
 #[test]
 fn a_resize_reaches_a_session_that_is_not_shown() {
@@ -61,4 +67,23 @@ fn a_narrow_terminal_gives_a_session_the_whole_width() {
 
     let shown = screen.wait_for("size:14 48");
     assert!(shown.contains("size:14 48"), "{shown}");
+}
+
+#[test]
+fn a_session_started_before_the_first_draw_keeps_its_output() {
+    let mut app = App::new(script(
+        "echo 'acme agent: the retry now waits on its clock'; exec sleep 600",
+    ));
+    app.key(KeyEvent::new(KeyCode::Char('n'), KeyModifiers::NONE));
+    sleep(Duration::from_millis(500));
+    let mut screen = Screen {
+        app,
+        terminal: Terminal::new(TestBackend::new(120, 20)).unwrap(),
+    };
+
+    let shown = screen.wait_for("acme agent: the retry now waits on its clock");
+    assert!(
+        shown.contains("acme agent: the retry now waits on its clock"),
+        "{shown}"
+    );
 }
