@@ -20,7 +20,7 @@ fn x_on_a_running_session_asks_before_ending_it() {
 
 #[test]
 fn y_to_the_question_ends_the_session() {
-    let mut screen = Screen::new(reading_agent());
+    let mut screen = Screen::wide(reading_agent());
     screen.press('n');
     screen.wait_for("acme agent ready");
     screen.press('x');
@@ -35,7 +35,7 @@ fn y_to_the_question_ends_the_session() {
 
 #[test]
 fn another_answer_to_the_question_keeps_the_session_running() {
-    let mut screen = Screen::new(reading_agent());
+    let mut screen = Screen::wide(reading_agent());
     screen.press('n');
     screen.wait_for("acme agent ready");
     screen.press('x');
@@ -50,7 +50,7 @@ fn another_answer_to_the_question_keeps_the_session_running() {
 
 #[test]
 fn x_on_an_exited_session_removes_its_row() {
-    let mut screen = Screen::new(script("exit 0"));
+    let mut screen = Screen::wide(script("exit 0"));
     screen.press('n');
     screen.press('n');
     screen.wait_for(&format!("○ {} 1 exited", directory()));
@@ -69,7 +69,7 @@ fn x_on_an_exited_session_removes_its_row() {
 
 #[test]
 fn ctrl_y_to_the_question_keeps_the_session_running() {
-    let mut screen = Screen::new(reading_agent());
+    let mut screen = Screen::wide(reading_agent());
     screen.press('n');
     screen.wait_for("acme agent ready");
     screen.press('x');
@@ -121,7 +121,7 @@ fn q_with_a_running_session_asks_before_quitting() {
 
 #[test]
 fn q_with_only_exited_sessions_quits_without_asking() {
-    let mut screen = Screen::new(script("exit 0"));
+    let mut screen = Screen::wide(script("exit 0"));
     screen.press('n');
     screen.wait_for("exited");
 

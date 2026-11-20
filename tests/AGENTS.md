@@ -59,3 +59,12 @@ these suites come from; the ones about sessions were hit in harbour.
   `scrub-check.sh` tests remove `HARBOUR_DENYLIST` next to their scratch `HOME`, and `isolated`
   (`tests/scripts/helpers.rs`) drops the git variables and configs; any new launcher that sets a
   scratch `HOME` removes what outranks it too.
+- **A sidebar row carries the name of the checkout's folder.** A session is named after the
+  directory harbour starts in, so in-process tests name their rows after the folder the tests
+  run from, and the sidebar is a third of the screen: in a folder named longer than about 22
+  characters, `exited 3` fell off the end of the row at 120 columns and ten `tests/app/` tests
+  failed in a review worktree. A test that asserts on a row (or waits for `exited`) builds its
+  screen with `Screen::wide`, which sizes the screen to the folder name; one that cannot widen
+  (the narrow layout) asserts only on the row's start, and a test that prints a path sizes the
+  session to it. Before pushing such a test, run it once from a worktree whose folder name is 40
+  characters or more.

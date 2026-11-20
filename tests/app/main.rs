@@ -31,6 +31,13 @@ impl Screen {
         screen
     }
 
+    fn wide(command: Vec<String>) -> Screen {
+        let mut screen = Screen::new(command);
+        let width = 3 * (directory().chars().count() + 32);
+        screen.resize(u16::try_from(width.max(120)).unwrap(), 20);
+        screen
+    }
+
     fn press(&mut self, c: char) {
         self.key(KeyCode::Char(c), KeyModifiers::NONE);
     }
@@ -163,4 +170,14 @@ fn region(shown: &str, from: usize, width: usize) -> String {
         })
         .collect::<Vec<_>>()
         .join("\n")
+}
+
+fn pane_corner(shown: &str) -> u16 {
+    let top = shown.lines().next().unwrap();
+    let column = top
+        .chars()
+        .skip(1)
+        .position(|c| c == '┌' || c == '┏')
+        .unwrap();
+    u16::try_from(column + 1).unwrap()
 }
