@@ -43,8 +43,8 @@ render() {
   # the borders jog. Menlo has them at (almost) the same advance, and DejaVu is its Linux twin.
   sed -i.bak 's/font-family="FiraCode Nerd Font"/font-family="FiraCode Nerd Font, Menlo, DejaVu Sans Mono, monospace"/' "$svg"
   local w h
-  w="$(grep -o 'width="[0-9.]*"' "$svg" | head -1 | grep -o '[0-9]*' | head -1)"
-  h="$(grep -o 'height="[0-9.]*"' "$svg" | head -1 | grep -o '[0-9]*' | head -1)"
+  w="$(grep -o 'width="[0-9.]*"' "$svg" | sed -n 1p | grep -o '[0-9]*' | sed -n 1p)"
+  h="$(grep -o 'height="[0-9.]*"' "$svg" | sed -n 1p | grep -o '[0-9]*' | sed -n 1p)"
   "$chrome" --headless=new --disable-gpu --hide-scrollbars --force-device-scale-factor=2 \
     --window-size="$w,$h" --screenshot="$out/$name.png" "file://$svg" >/dev/null 2>&1
 }
