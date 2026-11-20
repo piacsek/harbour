@@ -10,6 +10,7 @@ file under `plans/`; its time and tokens are a row of [`plans/metrics.md`](plans
 | 0 | [the foundations, scaffolded from the `rust_tui` recipe](plans/phase-0-foundations.md) | [v0.0.1](https://github.com/piacsek/harbour/releases/tag/v0.0.1) |
 | 1 | [agent sessions in a sidebar, each with a live Claude Code pane](plans/phase-1-session-pane.md) | [v0.1.0](https://github.com/piacsek/harbour/releases/tag/v0.1.0) |
 | 2 | [the selected session and the focused side in cyan](plans/phase-2-cyan-highlight.md) | |
+| 4 | [choose the directory a new session starts in, by fuzzy search](plans/phase-4-directory-picker.md) | |
 
 ## Backlog
 

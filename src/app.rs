@@ -1,3 +1,5 @@
+use std::path::{Path, PathBuf};
+
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers, MouseEvent, MouseEventKind};
 use portable_pty::ExitStatus;
 use ratatui::Frame;
@@ -20,6 +22,7 @@ const HINT: &str = "No session yet: press n to start one.";
 pub struct App {
     command: Vec<String>,
     directory: String,
+    home: PathBuf,
     sessions: Vec<Entry>,
     selected: usize,
     started: usize,
@@ -48,16 +51,11 @@ struct Entry {
 
 impl App {
     pub fn new(command: Vec<String>) -> App {
-        let directory = std::env::current_dir()
-            .ok()
-            .and_then(|path| {
-                path.file_name()
-                    .map(|name| name.to_string_lossy().into_owned())
-            })
-            .unwrap_or_default();
+        let home = std::env::current_dir().unwrap_or_default();
         App {
             command,
-            directory,
+            directory: folder_name(&home),
+            home,
             sessions: Vec::new(),
             selected: 0,
             started: 0,
@@ -214,7 +212,7 @@ impl App {
     }
 
     fn start_with(&mut self, command: &[String]) {
-        match Session::start(command, self.pane.height, self.pane.width) {
+        match Session::start(command, &self.home, self.pane.height, self.pane.width) {
             Ok(session) => {
                 self.failed = None;
                 self.started += 1;
@@ -383,4 +381,10 @@ fn is_ctrl(key: KeyEvent, c: char) -> bool {
 
 fn is_yes(key: KeyEvent) -> bool {
     matches!(key.code, KeyCode::Char('y' | 'Y')) && KeyModifiers::SHIFT.contains(key.modifiers)
+}
+
+fn folder_name(path: &Path) -> String {
+    path.file_name()
+        .map(|name| name.to_string_lossy().into_owned())
+        .unwrap_or_default()
 }
