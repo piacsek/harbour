@@ -12,9 +12,9 @@ use rmpv::Value;
 
 use crate::{Screen, reading_agent, script};
 
-const LEFTMOST_IN_NORMAL_MODE: &str = "mode() ==# 'n' && winnr('h') == winnr()";
+const LEFTMOST: &str = "winnr('h') == winnr()";
 const UNSAVED: &str = "len(filter(getbufinfo({'bufmodified': 1}), \
-                       {_, b -> getbufvar(b.bufnr, '&buftype') ==# ''}))";
+                       {_, b -> index(['', 'acwrite'], getbufvar(b.bufnr, '&buftype')) >= 0}))";
 
 #[test]
 fn neovim_is_told_to_listen_on_a_socket() {
@@ -41,7 +41,7 @@ fn the_socket_lives_in_a_directory_only_its_user_can_enter() {
 }
 
 #[test]
-fn ctrl_h_asks_neovim_whether_its_leftmost_window_is_in_normal_mode() {
+fn ctrl_h_asks_neovim_its_mode_then_whether_its_window_is_leftmost() {
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = open(scratch.path(), "exec sleep 600");
     let asked = ready(&socket(scratch.path()), Some(1));
@@ -51,7 +51,7 @@ fn ctrl_h_asks_neovim_whether_its_leftmost_window_is_in_normal_mode() {
     let first = asked.recv_timeout(Duration::from_secs(5)).unwrap();
     let second = asked.recv_timeout(Duration::from_secs(5)).unwrap();
     assert_eq!(first, "nvim_get_mode");
-    assert_eq!(second, format!("nvim_eval {LEFTMOST_IN_NORMAL_MODE}"));
+    assert_eq!(second, format!("nvim_eval {LEFTMOST}"));
 }
 
 #[test]
@@ -183,7 +183,7 @@ fn x_says_neovim_may_have_unsaved_changes_when_it_never_answers() {
 fn x_says_neovim_may_have_unsaved_changes_while_it_is_blocking() {
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = in_the_sidebar(scratch.path());
-    let asked = answering(&socket(scratch.path()), Some(true), Some(0));
+    let asked = answering(&socket(scratch.path()), Some(("n", true)), Some(0));
 
     screen.press('x');
 
@@ -196,7 +196,7 @@ fn x_says_neovim_may_have_unsaved_changes_while_it_is_blocking() {
 fn x_says_neovim_may_have_unsaved_changes_when_it_tells_its_mode_but_not_its_buffers() {
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = in_the_sidebar_of(fake_neovim(scratch.path(), "exec sleep 600"));
-    let _asked = answering(&socket(scratch.path()), Some(false), None);
+    let _asked = answering(&socket(scratch.path()), Some(("n", false)), None);
 
     screen.press('x');
 
@@ -208,13 +208,50 @@ fn x_says_neovim_may_have_unsaved_changes_when_it_tells_its_mode_but_not_its_buf
 fn ctrl_h_while_neovim_is_blocking_reaches_neovim() {
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = open(scratch.path(), "exec sleep 600");
-    let asked = answering(&socket(scratch.path()), Some(true), Some(1));
+    let asked = answering(&socket(scratch.path()), Some(("n", true)), Some(1));
 
     screen.key(KeyCode::Char('h'), KeyModifiers::CONTROL);
 
     let shown = screen.wait_for("acme nvim read:08");
     assert!(shown.contains("acme nvim read:08"), "{shown}");
     assert_eq!(asked.try_iter().count(), 1);
+}
+
+#[test]
+fn ctrl_h_with_an_operator_pending_in_the_leftmost_window_reaches_neovim() {
+    let scratch = tempfile::tempdir().unwrap();
+    let mut screen = open(scratch.path(), "exec sleep 600");
+    let _asked = answering(&socket(scratch.path()), Some(("no", false)), Some(1));
+
+    screen.key(KeyCode::Char('h'), KeyModifiers::CONTROL);
+
+    let shown = screen.wait_for("acme nvim read:08");
+    assert!(shown.contains("acme nvim read:08"), "{shown}");
+}
+
+#[test]
+fn ctrl_h_after_ctrl_o_in_insert_mode_reaches_neovim() {
+    let scratch = tempfile::tempdir().unwrap();
+    let mut screen = open(scratch.path(), "exec sleep 600");
+    let _asked = answering(&socket(scratch.path()), Some(("niI", false)), Some(1));
+
+    screen.key(KeyCode::Char('h'), KeyModifiers::CONTROL);
+
+    let shown = screen.wait_for("acme nvim read:08");
+    assert!(shown.contains("acme nvim read:08"), "{shown}");
+}
+
+#[test]
+fn a_notification_before_the_answer_does_not_hide_it() {
+    let scratch = tempfile::tempdir().unwrap();
+    let mut screen = in_the_sidebar(scratch.path());
+    let _asked = serving(&socket(scratch.path()), Some(("n", false)), Some(1), true);
+
+    screen.press('x');
+
+    let shown = screen.draw();
+    assert!(shown.contains("Unsaved changes. End? y/n"), "{shown}");
+    assert!(!shown.contains("May have"), "{shown}");
 }
 
 #[test]
@@ -276,10 +313,23 @@ fn socket(scratch: &Path) -> PathBuf {
 }
 
 fn ready(socket: &Path, eval: Option<i64>) -> Receiver<String> {
-    answering(socket, Some(false), eval)
+    answering(socket, Some(("n", false)), eval)
 }
 
-fn answering(socket: &Path, blocking: Option<bool>, eval: Option<i64>) -> Receiver<String> {
+fn answering(
+    socket: &Path,
+    mode: Option<(&'static str, bool)>,
+    eval: Option<i64>,
+) -> Receiver<String> {
+    serving(socket, mode, eval, false)
+}
+
+fn serving(
+    socket: &Path,
+    mode: Option<(&'static str, bool)>,
+    eval: Option<i64>,
+    notify_first: bool,
+) -> Receiver<String> {
     let listener = UnixListener::bind(socket).unwrap();
     let (asked, requests) = mpsc::channel();
     thread::spawn(move || {
@@ -289,9 +339,9 @@ fn answering(socket: &Path, blocking: Option<bool>, eval: Option<i64>) -> Receiv
             let method = fields[2].as_str().unwrap().to_string();
             let answer = if method == "nvim_get_mode" {
                 let _ = asked.send(method);
-                blocking.map(|blocking| {
+                mode.map(|(mode, blocking)| {
                     Value::Map(vec![
-                        (Value::from("mode"), Value::from("n")),
+                        (Value::from("mode"), Value::from(mode)),
                         (Value::from("blocking"), Value::from(blocking)),
                     ])
                 })
@@ -302,6 +352,14 @@ fn answering(socket: &Path, blocking: Option<bool>, eval: Option<i64>) -> Receiv
             };
             match answer {
                 Some(answer) => {
+                    if notify_first {
+                        let notification = Value::Array(vec![
+                            Value::from(2),
+                            Value::from("acme_event"),
+                            Value::Array(Vec::new()),
+                        ]);
+                        rmpv::encode::write_value(&mut stream, &notification).unwrap();
+                    }
                     let reply =
                         Value::Array(vec![Value::from(1), fields[1].clone(), Value::Nil, answer]);
                     rmpv::encode::write_value(&mut stream, &reply).unwrap();

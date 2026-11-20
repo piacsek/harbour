@@ -102,13 +102,16 @@ fn the_whole_help_shows_on_a_20_row_terminal() {
 }
 
 #[test]
-fn question_mark_says_that_ctrl_backspace_focuses_the_sidebar() {
+fn question_mark_says_that_ctrl_backspace_acts_as_ctrl_h() {
     let mut screen = Screen::new(reading_agent());
 
     screen.press('?');
 
     let shown = screen.draw();
-    assert!(shown.contains("C-Backspace"), "{shown}");
+    assert!(
+        shown.contains("Most terminals send C-Backspace as C-h, so it acts as C-h."),
+        "{shown}"
+    );
 }
 
 #[test]

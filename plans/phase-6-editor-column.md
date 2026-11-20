@@ -30,7 +30,15 @@ to another worktree, `Ctrl-l` opens a second editor there and the first keeps ru
   gesture when the pane switches between Claude Code and the editor.
 - Review round 1 (2026-11-20): the reviewer's Neovim leaves `nvim_eval` unanswered at a "Press
   ENTER" prompt and with `Ctrl-w` pending; `nvim_get_mode` is api-fast per Neovim's `:help
-  api-fast` and answers there with `blocking: true`. Not re-run here: no test runs a real Neovim.
+  api-fast` and answers there with `blocking: true`.
+- Review round 2 (2026-11-20), the reviewer's real `nvim --clean` over RPC: with an operator
+  pending (`d`, `c`, `y`, `gu`) `nvim_get_mode` answers mode `no` with `blocking: false` and
+  `mode()` is `n`; after insert-mode `Ctrl-o` it answers `niI`. `Ctrl-w`, `g`, `z`, `f`, `"`,
+  `r`, a count, a partial mapping, and insert-mode `Ctrl-v`, `Ctrl-r` and `Ctrl-k` answer
+  `blocking: true`. Rechecked here through harbour by `tests/e2e/neovim.rs` with NVIM v0.12.6.
+- A Unix socket whose listener never accepts: once its backlog is full, `connect` blocks on
+  Linux (a non-blocking one gives `EAGAIN`) and is refused at once on macOS. Seen in a
+  `rust:1.98.1` container and with Python on the build machine.
 - Claude Code's registry `<CLAUDE_CONFIG_DIR or ~/.claude>/sessions/<pid>.json`, read on the
   build machine by field name only, no value printed: its files carry `sessionId` and `cwd`
   (beside `pid`, `status`, `updatedAt` and others; some hold only a peer token). In the 4 live
@@ -50,9 +58,8 @@ to another worktree, `Ctrl-l` opens a second editor there and the first keeps ru
 | Sidebar | `Ctrl-l` or Enter | whatever the pane last showed for that session |
 | Claude Code | `Ctrl-l` | the editor of the directory Claude Code is in, started on first use |
 | Claude Code | `Ctrl-h` | the sidebar |
-| Neovim, leftmost window, normal mode | `Ctrl-h` | Claude Code |
-| Neovim, anywhere else | `Ctrl-h` | Neovim |
-| Neovim blocking (`Ctrl-w` pending, "Press ENTER", any half-typed command) | `Ctrl-h` | Neovim |
+| Neovim, mode exactly `n`, not blocking, leftmost window | `Ctrl-h` | Claude Code |
+| Neovim, anywhere else (another window, any other mode, blocking) | `Ctrl-h` | Neovim |
 | Neovim not answering on its socket | `Ctrl-h` | Claude Code |
 | Another editor | `Ctrl-h` | Claude Code, always |
 | The editor | `Ctrl-l` | the editor |
@@ -61,24 +68,30 @@ to another worktree, `Ctrl-l` opens a second editor there and the first keeps ru
 
 One rule settles `Ctrl-h` and the questions: harbour asks `nvim_get_mode` first, and only a
 Neovim that answers it with `blocking: false` is asked `nvim_eval`; both share one 100 ms
-deadline. A key Neovim is waiting for goes to Neovim, and an editor harbour cannot ask may have
-unsaved changes.
+deadline. `Ctrl-h` leaves Neovim only when the `mode` field is exactly `n`, `blocking` is false
+and the window is leftmost; every other mode keeps the key in Neovim. A key Neovim is waiting
+for goes to Neovim, and an editor harbour cannot ask may have unsaved changes. Measured with a
+real Neovim (see Verified facts):
 
 | Neovim state | `Ctrl-h` goes to | `x` / `q` ask |
 | --- | --- | --- |
-| Normal mode, leftmost window | Claude Code | `End? y/n`, or `Unsaved changes. End? y/n` |
-| Normal mode, another window | Neovim | as above |
-| Insert mode | Neovim | as above |
-| Operator pending (`d` typed) | Neovim (blocking) | `May have unsaved changes. End? y/n` |
-| `Ctrl-w` pending | Neovim (blocking) | `May have unsaved changes. End? y/n` |
-| "Press ENTER" prompt | Neovim (blocking) | `May have unsaved changes. End? y/n` |
+| Normal mode (`n`), leftmost window | Claude Code | `End? y/n`, or `Unsaved changes. End? y/n` |
+| Normal mode (`n`), another window | Neovim | as above |
+| Insert mode (`i`) | Neovim | as above |
+| Operator pending (`d`, `c`, `y`, `gu`: mode `no`, not blocking) | Neovim | as above |
+| Insert-mode `Ctrl-o` (mode `niI`, not blocking) | Neovim | as above |
+| `Ctrl-w`, `g`, `z`, `f`, `"`, `r`, a count or a partial mapping pending (blocking) | Neovim | `May have unsaved changes. End? y/n` |
+| "Press ENTER" prompt (blocking) | Neovim | `May have unsaved changes. End? y/n` |
 | Command line | Neovim (blocking, or mode `c`) | `May have unsaved changes. End? y/n` when blocking, else as normal mode |
 | Terminal buffer | Neovim (mode `t`) | as normal mode |
 | No answer (busy, gone, socket not made) | Claude Code, after at most 100 ms | `May have unsaved changes. End? y/n` |
 | Answers its mode, not `nvim_eval` | Claude Code | `May have unsaved changes. End? y/n` |
 | Not Neovim (another `HARBOUR_EDITOR`) | Claude Code | `May have unsaved changes. End? y/n` |
 
-`q` reads the same with `Quit?`; the strongest of its editors' answers wins.
+`q` reads the same with `Quit?`; the strongest of its editors' answers wins. A modified buffer
+counts as unsaved when its `buftype` is empty (a file) or `acwrite` (written through a
+`BufWriteCmd` handler, as many plugins do): both are work the user would lose. A terminal,
+prompt, `nofile`, `nowrite`, help or quickfix buffer holds nothing to save and does not count.
 
 ## States
 
@@ -135,13 +148,24 @@ unsaved changes.
   `harbour-nvim` and 6 random characters, under `/tmp` when the temporary directory would make
   its path longer than the 103 bytes macOS allows. Each question opens a fresh connection, and
   `nvim_get_mode` and `nvim_eval` share one 100 ms deadline, so an answer that arrives late
-  never lands on the next question. No answer means "go to Claude Code" for `Ctrl-h` and
+  never lands on the next question. The connect is non-blocking and bounded by the same deadline,
+  so a Neovim that stopped accepting cannot hold the key thread; the reply is the response to the
+  request id sent, any notification before it is skipped, and at most 1 MiB is read. No answer means "go to Claude Code" for `Ctrl-h` and
   "may have unsaved changes" for the questions (see Neovim states).
 - **Questions sit at the bottom of the sidebar, wrapped by words**, bold, above the failure
   message, instead of in the sidebar's bottom border, where the narrowest layouts cut them.
 - **The tab strip is in the pane's top border**: `claude | <editor>` before the first editor
   starts for the session, `claude | <editor>: <directory>` with the directory of the editor the
   pane would show; the shown one is bold, the other dim.
+- **`Ctrl-h` leaves Neovim only from mode exactly `n`, not blocking, in the leftmost window.**
+  Round 2 showed `mode()` reads `n` with an operator pending, so the rule reads the `mode` field
+  of `nvim_get_mode` itself instead of `mode()`.
+- **Editors take ids from the counter of rows, but not their numbers**: a session's name counts
+  sessions only, so opening an editor does not make the next session `sub 3` instead of `sub 2`.
+- **A real Neovim runs in the end-to-end tests of `tests/e2e/neovim.rs` only**, with `--clean`
+  and every directory it reads or writes under the scratch `HOME`, and only when `nvim` is on the
+  `PATH` the tests run with; without one they pass and say why. Issue #4 asks for them, and they
+  are what checks the mode rule against Neovim itself.
 - **An editor's exit message reuses the row's wording** (`exited 1`, `exited (Killed: 9)`),
   prefixed with the editor's name; editors harbour ends itself are forgotten without a message.
 
@@ -160,9 +184,9 @@ One red-green-refactor cycle each, shipped with `scripts/ship.sh`.
    editor per directory.
 7. `x` and `q` end the editors; the questions say when a Neovim has unsaved changes.
 8. The binary reads `HARBOUR_EDITOR`; the help view, its notes and the README.
-9. The demo's editor and the screenshots; end-to-end tests with the fixture editor. No test runs
-   a real Neovim: it would read the build machine's configuration and differ between machines,
-   and CI has none; the fake Neovim of `tests/app/neovim.rs` answers the same RPC instead.
+9. The demo's editor and the screenshots; end-to-end tests with the fixture editor. The fake
+   Neovim of `tests/app/neovim.rs` answers the same RPC in process; review round 2 added
+   end-to-end tests with a real, clean Neovim (`tests/e2e/neovim.rs`) where one is installed.
 
 ## Outcome
 
@@ -190,6 +214,14 @@ One red-green-refactor cycle each, shipped with `scripts/ship.sh`.
   screen dimmed; the help at 18 rows (the blank line before its notes dropped, the notes
   shortened) fits 80x24; the quitting test returns to the sidebar and checks that the run ended
   before the drop; the socket kept short.
+- Review round 2 fixes: `Ctrl-h` leaves Neovim only from mode `n` (an operator pending and
+  insert-mode `Ctrl-o` stay); modified `acwrite` buffers count as unsaved; the connect is bounded
+  by the deadline (its red seen on Linux only, in a container, since macOS refuses at once); a
+  notification before the reply is skipped; opening an editor no longer skips a session number;
+  the C-Backspace note no longer says where C-h goes. Ten end-to-end tests run a real
+  `nvim --clean` when one is installed (`tests/e2e/neovim.rs`), and pass without one, as in CI.
+- When harbour is killed by a signal, each editor's empty socket directory stays in the temp
+  directory: declined, a known limit in `AGENTS.md`.
 - Every Decision above was taken without the owner, as the most conservative reading of issue #4.
 
 ## Hurdles
@@ -197,6 +229,12 @@ One red-green-refactor cycle each, shipped with `scripts/ship.sh`.
 - `review-loop` Round 1 found that no answer from Neovim was read as "nothing unsaved", and the
   reviewer's own Neovim showed blocking states that leave `nvim_eval` unanswered; the plan had no
   table of Neovim's states, now added → code
+- `review-loop` Round 2 found a second hole in the same Neovim rule: an operator pending reports
+  mode `no` without blocking and `mode()` reads `n`, so `Ctrl-h` left Neovim mid-operator. The
+  table had been written from what the fake Neovim was told to answer; the class went once the
+  end-to-end tests asked a real, clean Neovim (`tests/e2e/neovim.rs`), as issue #4 asked → code
+- `tooling` The unbounded connect blocks only on Linux; macOS refuses at once, so its test could
+  not go red on the build machine and was run red in a `rust:1.98.1` container → none
 
 - `test-seam` The Neovim routing test failed about one full run in five: the fake Neovim wrote
   its reply in pieces and closed, and on macOS setting a read timeout on a socket whose peer

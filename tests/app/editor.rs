@@ -136,6 +136,23 @@ fn the_pane_border_marks_the_editor_while_it_is_shown() {
     assert!(screen.cell(editor, 0).modifier.contains(Modifier::BOLD));
 }
 
+#[test]
+fn opening_an_editor_does_not_skip_a_number_in_the_next_session_name() {
+    let mut screen = editor_open();
+    screen.key(KeyCode::Char('h'), KeyModifiers::CONTROL);
+    screen.key(KeyCode::Char('h'), KeyModifiers::CONTROL);
+
+    screen.press('n');
+
+    let folder = std::path::Path::new(&directory())
+        .file_name()
+        .unwrap()
+        .to_string_lossy()
+        .into_owned();
+    let shown = screen.wait_for(&format!("{folder} 2"));
+    assert!(shown.contains(&format!("{folder} 2")), "{shown}");
+}
+
 pub(crate) fn reading_editor() -> Program {
     Program::new(
         "acme-edit",

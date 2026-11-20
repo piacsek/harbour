@@ -35,6 +35,7 @@ pub struct App {
     sessions: Vec<Entry>,
     selected: usize,
     started: usize,
+    named: usize,
     pane: Rect,
     shown_pane: Rect,
     sidebar: Rect,
@@ -116,6 +117,7 @@ impl App {
             sessions: Vec::new(),
             selected: 0,
             started: 0,
+            named: 0,
             pane: Rect::new(0, 0, 80, 24),
             shown_pane: Rect::default(),
             sidebar: Rect::default(),
@@ -468,9 +470,10 @@ impl App {
             Ok(session) => {
                 self.failed = None;
                 self.started += 1;
+                self.named += 1;
                 self.sessions.push(Entry {
                     id: self.started,
-                    name: format!("{} {}", folder_name(directory), self.started),
+                    name: format!("{} {}", folder_name(directory), self.named),
                     directory: directory.to_path_buf(),
                     session,
                     started_at,

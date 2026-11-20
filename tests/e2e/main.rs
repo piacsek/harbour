@@ -6,6 +6,7 @@ use std::time::{Duration, Instant};
 use harbour::tui::{DIR_PICKER, EDITOR, SESSION_COMMAND};
 
 mod editor;
+mod neovim;
 mod picker;
 
 const AGENT: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/agent.sh");

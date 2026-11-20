@@ -30,6 +30,16 @@ these suites come from; the ones about sessions were hit in harbour.
   to `tests/fixtures/picker.sh` to test the picker; in-process tests hand the builder `.with_picker` of `App` a `Picker` of `/bin/sh -c`
   scripts. A picker script draws on stderr: its stdout is the directory it picks.
 
+- **A real Neovim runs only in `tests/e2e/neovim.rs`, and only clean.** Each of its tests
+  looks for `nvim` on the `PATH` the tests run with; without one it prints why and passes, so
+  CI, which has no Neovim, runs them as no-ops. With one, it links it as `real-nvim` on the
+  scratch `PATH` (the one deliberate way that `PATH` finds it) and sets `HARBOUR_EDITOR` to
+  `tests/fixtures/nvim/nvim`, a wrapper named `nvim` (so harbour gives it `--listen`) that runs
+  `real-nvim --clean`: no configuration or plugin is read, and with `HOME`, `TMPDIR` and
+  `XDG_CONFIG_HOME`, `XDG_DATA_HOME`, `XDG_STATE_HOME` and `XDG_CACHE_HOME` under the scratch
+  `HOME`, nothing is written outside it. A mapping a test needs (`<C-h>` to `<C-w>h`) is typed
+  in that Neovim. Every other test uses `tests/fixtures/editor.sh` or a `/bin/sh -c` script.
+
 - **dash is `/bin/sh` on Linux.** A session script's `read` returns non-zero when a trapped
   signal (the window change of a resize) interrupts it, so a loop written `while read` ends on
   Linux and not on macOS; write `while :; do read -r line || continue; ...; done`. A trap runs

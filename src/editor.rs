@@ -10,9 +10,10 @@ use tempfile::TempDir;
 use crate::nvim;
 use crate::session::Session;
 
-const LEFTMOST_IN_NORMAL_MODE: &str = "mode() ==# 'n' && winnr('h') == winnr()";
+const NORMAL_MODE: &str = "n";
+const LEFTMOST: &str = "winnr('h') == winnr()";
 const UNSAVED: &str = "len(filter(getbufinfo({'bufmodified': 1}), \
-                       {_, b -> getbufvar(b.bufnr, '&buftype') ==# ''}))";
+                       {_, b -> index(['', 'acwrite'], getbufvar(b.bufnr, '&buftype')) >= 0}))";
 
 const SOCKET_PREFIX: &str = "harbour-nvim";
 const SOCKET_RANDOM: usize = 6;
@@ -111,15 +112,16 @@ impl Editor {
     pub fn wants_ctrl_h(&self) -> bool {
         match self.listening() {
             Listening::Blocking => true,
-            Listening::Ready(socket, deadline) => {
-                nvim::eval(socket, LEFTMOST_IN_NORMAL_MODE, deadline) == Some(0)
+            Listening::Ready(_, _, mode) if mode != NORMAL_MODE => true,
+            Listening::Ready(socket, deadline, _) => {
+                nvim::eval(socket, LEFTMOST, deadline) == Some(0)
             }
             Listening::No => false,
         }
     }
 
     pub fn changes(&self) -> Changes {
-        let Listening::Ready(socket, deadline) = self.listening() else {
+        let Listening::Ready(socket, deadline, _) = self.listening() else {
             return Changes::Unknown;
         };
         match nvim::eval(socket, UNSAVED, deadline) {
@@ -134,9 +136,9 @@ impl Editor {
             return Listening::No;
         };
         let deadline = Instant::now() + self.patience;
-        match nvim::blocking(socket, deadline) {
-            Some(true) => Listening::Blocking,
-            Some(false) => Listening::Ready(socket, deadline),
+        match nvim::mode(socket, deadline) {
+            Some(mode) if mode.blocking => Listening::Blocking,
+            Some(mode) => Listening::Ready(socket, deadline, mode.mode),
             None => Listening::No,
         }
     }
@@ -152,7 +154,7 @@ pub enum Changes {
 enum Listening<'a> {
     No,
     Blocking,
-    Ready(&'a Path, Instant),
+    Ready(&'a Path, Instant, String),
 }
 
 pub fn socket_base(temporary: &Path) -> PathBuf {
