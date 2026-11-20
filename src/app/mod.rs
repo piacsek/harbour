@@ -3,24 +3,17 @@ use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant, SystemTime};
 
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers, MouseEvent, MouseEventKind};
-use portable_pty::ExitStatus;
-use ratatui::Frame;
-use ratatui::layout::{Constraint, Layout, Position, Rect};
-use ratatui::style::{Color, Modifier, Stylize};
-use ratatui::text::{Line, Span};
-use ratatui::widgets::{
-    Block, BorderType, Clear, HighlightSpacing, List, ListState, Paragraph, Wrap,
-};
+use ratatui::layout::{Position, Rect};
+
+mod draw;
 
 use crate::demo;
 use crate::editor::{Editor, Program};
-use crate::help;
 use crate::keys;
 use crate::mouse::{self, Gesture, Target};
 use crate::picker::{Pick, Picked, Picker};
 use crate::registry::{self, Record};
 use crate::session::{self, Session};
-use crate::state;
 
 const NARROW: u16 = 60;
 const HINT: &str = "No session yet: press n to start one.";
@@ -64,12 +57,21 @@ struct Entry {
     started_at: SystemTime,
     record: Option<Record>,
     editors: Vec<Editor>,
-    shown: Option<usize>,
+    editor: Option<usize>,
+    on_editor: bool,
 }
 
 impl Entry {
+    fn editor(&self) -> Option<&Editor> {
+        self.editor.and_then(|index| self.editors.get(index))
+    }
+
+    fn showing_editor(&self) -> Option<&Editor> {
+        self.editor().filter(|_| self.on_editor)
+    }
+
     fn shown(&self) -> &Session {
-        match self.shown.and_then(|index| self.editors.get(index)) {
+        match self.showing_editor() {
             Some(editor) => &editor.session,
             None => &self.session,
         }
@@ -149,10 +151,19 @@ impl App {
             return;
         }
         if self.pane_focused && is_ctrl(key, 'h') {
-            self.pane_focused = false;
+            match self.sessions.get_mut(self.selected) {
+                Some(entry) if entry.on_editor => entry.on_editor = false,
+                _ => self.pane_focused = false,
+            }
             return;
         }
-        if self.pane_focused && is_ctrl(key, 'l') {
+        if self.pane_focused
+            && is_ctrl(key, 'l')
+            && self
+                .sessions
+                .get(self.selected)
+                .is_some_and(|entry| !entry.on_editor)
+        {
             self.open_editor();
             return;
         }
@@ -263,6 +274,10 @@ impl App {
         let Some(entry) = self.sessions.get_mut(self.selected) else {
             return;
         };
+        if entry.editor().is_some() {
+            entry.on_editor = true;
+            return;
+        }
         self.started += 1;
         match Editor::start(
             program,
@@ -274,7 +289,8 @@ impl App {
             Ok(editor) => {
                 self.failed = None;
                 entry.editors.push(editor);
-                entry.shown = Some(entry.editors.len() - 1);
+                entry.editor = Some(entry.editors.len() - 1);
+                entry.on_editor = true;
             }
             Err(error) => self.failed = Some(refusal(program.name(), &error)),
         }
@@ -320,7 +336,7 @@ impl App {
             self.start();
             return;
         };
-        let popup = popup(self.screen);
+        let popup = draw::popup(self.screen);
         match Pick::open(picker, &self.home, popup.height, popup.width) {
             Ok(Some(pick)) => {
                 self.gesture = Gesture::Idle;
@@ -372,7 +388,8 @@ impl App {
                     started_at,
                     record: None,
                     editors: Vec::new(),
-                    shown: None,
+                    editor: None,
+                    on_editor: false,
                 });
                 self.selected = self.sessions.len() - 1;
             }
@@ -401,185 +418,11 @@ impl App {
             };
         }
     }
-
-    pub fn draw(&mut self, frame: &mut Frame) {
-        self.finish_pick();
-        self.read_registry();
-        self.screen = frame.area();
-        let (sidebar, pane) = self.areas(frame.area());
-        self.sidebar = sidebar;
-        let notes: Vec<Option<String>> = self
-            .sessions
-            .iter_mut()
-            .map(|entry| entry.session.exit().map(exit_note))
-            .collect();
-        let title = state::title(
-            self.sessions
-                .iter()
-                .zip(&notes)
-                .map(|(entry, note)| (note.is_some(), entry.record.as_ref())),
-            usize::from(sidebar.width.saturating_sub(2)),
-        );
-        let mut sidebar_block = bordered(!self.pane_focused).title(title);
-        match self.asking {
-            Some(Question::End) => sidebar_block = sidebar_block.title_bottom(" End? y/n "),
-            Some(Question::Quit) => sidebar_block = sidebar_block.title_bottom(" Quit? y/n "),
-            None => {}
-        }
-        let below_rows = sidebar_block.inner(sidebar);
-        let pane_block = bordered(self.pane_focused);
-        self.pane = pane_block.inner(if pane.is_empty() { frame.area() } else { pane });
-        self.shown_pane = if pane.is_empty() {
-            Rect::default()
-        } else {
-            self.pane
-        };
-        for entry in &mut self.sessions {
-            entry.session.resize(self.pane.height, self.pane.width);
-            for editor in &mut entry.editors {
-                editor.session.resize(self.pane.height, self.pane.width);
-            }
-        }
-        let rows: Vec<Line> = self
-            .sessions
-            .iter()
-            .zip(notes)
-            .map(|(entry, note)| {
-                state::row(
-                    &entry.name,
-                    note,
-                    entry.record.as_ref(),
-                    usize::from(below_rows.width.saturating_sub(2)),
-                )
-            })
-            .collect();
-        let exited = self
-            .sessions
-            .get_mut(self.selected)
-            .is_some_and(|entry| entry.session.exit().is_some());
-        match self.sessions.get(self.selected) {
-            None => {
-                let message = self.failed.as_deref().unwrap_or(HINT);
-                frame.render_widget(
-                    Paragraph::new(HINT)
-                        .wrap(Wrap { trim: false })
-                        .block(sidebar_block),
-                    sidebar,
-                );
-                frame.render_widget(
-                    Paragraph::new(message)
-                        .wrap(Wrap { trim: false })
-                        .block(pane_block),
-                    pane,
-                );
-            }
-            Some(shown) => {
-                let list = List::new(rows)
-                    .block(sidebar_block)
-                    .highlight_symbol(Line::from(vec![
-                        Span::from("▌").fg(Color::Cyan),
-                        Span::from(" "),
-                    ]))
-                    .highlight_spacing(HighlightSpacing::Always)
-                    .highlight_style(Modifier::BOLD);
-                let mut state = ListState::default().with_selected(Some(self.selected));
-                frame.render_stateful_widget(list, sidebar, &mut state);
-                if !pane.is_empty() {
-                    frame.render_widget(pane_block, pane);
-                    frame.render_widget(shown.shown(), self.pane);
-                    if exited {
-                        frame.buffer_mut().set_style(self.pane, Modifier::DIM);
-                    }
-                }
-            }
-        }
-        if let Some(failed) = &self.failed {
-            draw_failure(frame, failed, below_rows);
-        }
-        if self.helping {
-            self.draw_help(frame);
-        }
-        if let Some(pick) = &mut self.picking {
-            let area = popup(frame.area());
-            let block = bordered(true).title(" directory ");
-            let inner = block.inner(area);
-            self.picking_area = inner;
-            pick.resize(inner.height, inner.width);
-            frame.render_widget(Clear, area);
-            frame.render_widget(block, area);
-            frame.render_widget(pick.session(), inner);
-        }
-    }
-
-    fn draw_help(&self, frame: &mut Frame) {
-        let keys = help::KEYS
-            .iter()
-            .map(|(key, what)| Line::from(format!("{key:<10} {what}")));
-        let notes = help::NOTES.iter().map(|line| Line::from(*line));
-        let lines: Vec<Line> = keys
-            .chain([Line::default()])
-            .chain(state::legend())
-            .chain([Line::default()])
-            .chain(notes)
-            .collect();
-        frame.render_widget(Clear, frame.area());
-        frame.render_widget(
-            Paragraph::new(lines)
-                .wrap(Wrap { trim: false })
-                .block(Block::bordered().title(" help ")),
-            frame.area(),
-        );
-    }
-
-    fn areas(&self, area: Rect) -> (Rect, Rect) {
-        if area.width >= NARROW {
-            let [sidebar, pane] =
-                Layout::horizontal([Constraint::Ratio(1, 3), Constraint::Ratio(2, 3)]).areas(area);
-            (sidebar, pane)
-        } else if self.pane_focused {
-            (Rect::default(), area)
-        } else {
-            (area, Rect::default())
-        }
-    }
 }
 
 impl Drop for App {
     fn drop(&mut self) {
         session::end_all(self.sessions.iter_mut().map(|entry| &mut entry.session));
-    }
-}
-
-fn draw_failure(frame: &mut Frame, failed: &str, area: Rect) {
-    let width = usize::from(area.width.max(1));
-    let chars: Vec<char> = failed.chars().collect();
-    let lines: Vec<Line> = chars
-        .chunks(width)
-        .map(|chunk| Line::from(chunk.iter().collect::<String>()))
-        .collect();
-    let height = u16::try_from(lines.len())
-        .unwrap_or(u16::MAX)
-        .min(area.height);
-    let bottom = Rect::new(area.x, area.bottom() - height, area.width, height);
-    frame.render_widget(Clear, bottom);
-    frame.render_widget(Paragraph::new(lines), bottom);
-}
-
-fn exit_note(status: &ExitStatus) -> String {
-    match (status.signal(), status.exit_code()) {
-        (Some(signal), _) => format!(" ({signal})"),
-        (None, 0) => String::new(),
-        (None, code) => format!(" {code}"),
-    }
-}
-
-fn bordered(focused: bool) -> Block<'static> {
-    if focused {
-        Block::bordered()
-            .border_type(BorderType::Thick)
-            .border_style(Color::Cyan)
-    } else {
-        Block::bordered().border_type(BorderType::Plain)
     }
 }
 
@@ -602,8 +445,4 @@ fn folder_name(path: &Path) -> String {
     path.file_name()
         .map(|name| name.to_string_lossy().into_owned())
         .unwrap_or_else(|| path.display().to_string())
-}
-
-fn popup(area: Rect) -> Rect {
-    area.centered(Constraint::Percentage(80), Constraint::Percentage(80))
 }

@@ -24,6 +24,7 @@ impl Program {
 pub struct Editor {
     pub id: usize,
     pub directory: PathBuf,
+    pub label: String,
     pub session: Session,
 }
 
@@ -39,7 +40,17 @@ impl Editor {
         Ok(Editor {
             id,
             directory: directory.to_path_buf(),
+            label: label(directory),
             session,
         })
+    }
+}
+
+fn label(directory: &Path) -> String {
+    let home = std::env::var_os("HOME").map(PathBuf::from);
+    match home.and_then(|home| directory.strip_prefix(home).ok()) {
+        Some(below) if below.as_os_str().is_empty() => "~".to_string(),
+        Some(below) => format!("~/{}", below.display()),
+        None => directory.display().to_string(),
     }
 }
