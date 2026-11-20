@@ -4,6 +4,7 @@ use std::thread::sleep;
 use std::time::{Duration, Instant};
 
 use harbour::app::App;
+use harbour::summary::Summary;
 use ratatui::Terminal;
 use ratatui::backend::TestBackend;
 use ratatui::buffer::Cell;
@@ -322,9 +323,45 @@ fn with_no_session_the_title_counts_zero_of_each() {
     assert!(shown.contains(" sessions ● 0 ◉ 0 ○ 0 · 0 "), "{shown}");
 }
 
+#[test]
+fn a_running_harbour_publishes_the_counts_of_the_title() {
+    let registry = tempfile::tempdir().unwrap();
+    let state = tempfile::tempdir().unwrap();
+    let mut screen = showing(
+        App::new(registered(registry.path(), "busy"))
+            .with_registry(registry.path().to_path_buf())
+            .with_summary(Summary::create(state.path(), 101).unwrap()),
+    );
+    screen.press('n');
+
+    screen.wait_for(&format!("● {} 1", directory()));
+
+    assert_eq!(
+        std::fs::read_to_string(state.path().join("101.counts")).unwrap(),
+        "0 1 0 0\n"
+    );
+}
+
+#[test]
+fn a_harbour_that_quits_removes_its_counts() {
+    let state = tempfile::tempdir().unwrap();
+    let screen = showing(
+        App::new(script("exec sleep 600"))
+            .with_summary(Summary::create(state.path(), 101).unwrap()),
+    );
+
+    drop(screen);
+
+    assert!(!state.path().join("101.counts").exists());
+}
+
 fn watching(registry: &Path, command: Vec<String>) -> Screen {
+    showing(App::new(command).with_registry(registry.to_path_buf()))
+}
+
+fn showing(app: App) -> Screen {
     let mut screen = Screen {
-        app: App::new(command).with_registry(registry.to_path_buf()),
+        app,
         terminal: Terminal::new(TestBackend::new(120, 20)).unwrap(),
     };
     let width = 3 * (directory().chars().count() + 32);

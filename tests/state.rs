@@ -1,5 +1,5 @@
 use harbour::registry::{Record, Status};
-use harbour::state::{row, title};
+use harbour::state::{counts, row, title};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::text::Line;
@@ -47,7 +47,7 @@ fn the_title_counts_unknown_sessions_on_their_own() {
         (false, None),
     ];
 
-    let line = title(sessions.into_iter(), 60);
+    let line = title(counts(sessions.into_iter()), 60);
 
     assert_eq!(text(&line), " sessions ● 1 ◉ 0 ○ 2 · 1 ");
 }
@@ -66,7 +66,7 @@ fn the_narrowest_title_keeps_every_count_when_each_is_past_nine() {
         })
         .collect();
 
-    let line = title(sessions.into_iter(), NARROWEST_TITLE);
+    let line = title(counts(sessions.into_iter()), NARROWEST_TITLE);
 
     assert_eq!(text(&line), " ●10 ◉10 ○10 ·10 ");
     assert!(line.width() <= NARROWEST_TITLE);

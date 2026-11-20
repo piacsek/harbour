@@ -18,6 +18,7 @@ use crate::mouse::{self, Gesture, Target};
 use crate::registry::{self, Record};
 use crate::session::{self, Session};
 use crate::state;
+use crate::summary::Summary;
 
 const NARROW: u16 = 60;
 const HINT: &str = "No session yet: press n to start one.";
@@ -40,6 +41,7 @@ pub struct App {
     quitting: bool,
     registry: Option<PathBuf>,
     read_at: Option<Instant>,
+    summary: Option<Summary>,
 }
 
 #[derive(Clone, Copy, PartialEq)]
@@ -82,11 +84,17 @@ impl App {
             quitting: false,
             registry: None,
             read_at: None,
+            summary: None,
         }
     }
 
     pub fn with_registry(mut self, dir: PathBuf) -> App {
         self.registry = Some(dir);
+        self
+    }
+
+    pub fn with_summary(mut self, summary: Summary) -> App {
+        self.summary = Some(summary);
         self
     }
 
@@ -286,13 +294,16 @@ impl App {
             .iter_mut()
             .map(|entry| entry.session.exit().map(exit_note))
             .collect();
-        let title = state::title(
+        let counts = state::counts(
             self.sessions
                 .iter()
                 .zip(&notes)
                 .map(|(entry, note)| (note.is_some(), entry.record.as_ref())),
-            usize::from(sidebar.width.saturating_sub(2)),
         );
+        if let Some(summary) = &mut self.summary {
+            summary.publish(counts);
+        }
+        let title = state::title(counts, usize::from(sidebar.width.saturating_sub(2)));
         let mut sidebar_block = bordered(!self.pane_focused).title(title);
         match self.asking {
             Some(Question::End) => sidebar_block = sidebar_block.title_bottom(" End? y/n "),

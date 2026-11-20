@@ -42,10 +42,7 @@ fn main() -> ExitCode {
 }
 
 fn print_status() {
-    let Some(dir) = summary::directory(
-        std::env::var_os("XDG_STATE_HOME").map(Into::into),
-        std::env::var_os("HOME").map(Into::into),
-    ) else {
+    let Some(dir) = summary::directory_from_env() else {
         return;
     };
     let line = state::status_line(summary::total(&dir));

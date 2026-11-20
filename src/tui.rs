@@ -12,6 +12,7 @@ use crate::app::App;
 use crate::demo::Registry;
 use crate::registry;
 use crate::session;
+use crate::summary::{self, Summary};
 
 type PanicHook = dyn Fn(&PanicHookInfo<'_>) + Send + Sync + 'static;
 
@@ -19,8 +20,12 @@ pub const SESSION_COMMAND: &str = "HARBOUR_SESSION_COMMAND";
 
 pub fn run() -> io::Result<()> {
     let app = App::new(session_command());
-    show(match claude_sessions() {
+    let app = match claude_sessions() {
         Some(dir) => app.with_registry(dir),
+        None => app,
+    };
+    show(match published() {
+        Some(summary) => app.with_summary(summary),
         None => app,
     })
 }
@@ -78,4 +83,8 @@ fn claude_sessions() -> Option<std::path::PathBuf> {
         std::env::var_os("CLAUDE_CONFIG_DIR").map(Into::into),
         std::env::var_os("HOME").map(Into::into),
     )
+}
+
+fn published() -> Option<Summary> {
+    Summary::create(&summary::directory_from_env()?, std::process::id()).ok()
 }
