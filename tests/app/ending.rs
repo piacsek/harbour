@@ -14,7 +14,7 @@ fn x_on_a_running_session_asks_before_ending_it() {
     screen.press('x');
 
     let shown = screen.draw();
-    assert!(shown.contains(" End? y/n "), "{shown}");
+    assert!(shown.contains("End? y/n"), "{shown}");
     assert!(shown.contains("▌ ·"), "{shown}");
 }
 
@@ -116,7 +116,7 @@ fn q_with_a_running_session_asks_before_quitting() {
     screen.press('q');
 
     let shown = screen.draw();
-    assert!(shown.contains(" Quit? y/n "), "{shown}");
+    assert!(shown.contains("Quit? y/n"), "{shown}");
     assert!(screen.app.running());
 }
 

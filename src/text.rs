@@ -36,18 +36,28 @@ pub fn fit(text: &str, width: usize) -> String {
 
 pub fn wrap(text: &str, width: usize) -> Vec<String> {
     let width = width.max(1);
-    let mut lines = Vec::new();
-    let mut line = String::new();
-    for grapheme in text.graphemes(true) {
-        let length = line.len();
-        line.push_str(grapheme);
-        if columns(&line) > width && length > 0 {
-            line.truncate(length);
-            lines.push(std::mem::take(&mut line));
-            line.push_str(grapheme);
-        }
+    let mut lines: Vec<String> = Vec::new();
+    if text.is_empty() {
+        return lines;
     }
-    if !line.is_empty() {
+    for word in text.split(' ') {
+        if let Some(line) = lines.last_mut()
+            && columns(line) + 1 + columns(word) <= width
+        {
+            line.push(' ');
+            line.push_str(word);
+            continue;
+        }
+        let mut line = String::new();
+        for grapheme in word.graphemes(true) {
+            let length = line.len();
+            line.push_str(grapheme);
+            if columns(&line) > width && length > 0 {
+                line.truncate(length);
+                lines.push(std::mem::take(&mut line));
+                line.push_str(grapheme);
+            }
+        }
         lines.push(line);
     }
     lines

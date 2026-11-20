@@ -10,6 +10,7 @@ use crossterm::execute;
 
 use crate::app::App;
 use crate::demo::Registry;
+use crate::editor::Program;
 use crate::picker::Picker;
 use crate::registry;
 use crate::session;
@@ -19,21 +20,25 @@ type PanicHook = dyn Fn(&PanicHookInfo<'_>) + Send + Sync + 'static;
 
 pub const SESSION_COMMAND: &str = "HARBOUR_SESSION_COMMAND";
 pub const DIR_PICKER: &str = "HARBOUR_DIR_PICKER";
+pub const EDITOR: &str = "HARBOUR_EDITOR";
 
 pub fn run() -> io::Result<()> {
-    let app = App::new(session_command()).with_picker(dir_picker());
-    let app = match claude_sessions() {
-        Some(dir) => app.with_registry(dir),
-        None => app,
-    };
-    let app = match claude_projects() {
-        Some(dir) => app.with_transcripts(dir),
-        None => app,
-    };
-    show(match published() {
-        Some(summary) => app.with_summary(summary),
-        None => app,
-    })
+    let mut app = App::new(session_command())
+        .with_picker(dir_picker())
+        .with_editor(editor());
+    if let Some(dir) = claude_sessions() {
+        app = app.with_registry(dir);
+    }
+    if let Some(dir) = claude_projects() {
+        app = app.with_transcripts(dir);
+    }
+    if std::env::var_os(SESSION_COMMAND).is_none() {
+        app = app.naming_sessions();
+    }
+    if let Some(summary) = published() {
+        app = app.with_summary(summary);
+    }
+    show(app)
 }
 
 pub fn demo() -> io::Result<()> {
@@ -88,6 +93,13 @@ fn dir_picker() -> Picker {
             list: ["zoxide", "query", "--list"].map(String::from).to_vec(),
             here_first: true,
         },
+    }
+}
+
+fn editor() -> Program {
+    match std::env::var_os(EDITOR) {
+        Some(program) if !program.is_empty() => Program::named(program),
+        _ => Program::named("nvim".into()),
     }
 }
 

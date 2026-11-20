@@ -15,7 +15,7 @@ for f in "$HOME/Library/Fonts/FiraCodeNerdFont-Regular.ttf" /usr/share/fonts/tru
 done
 
 sock="harbour-shots-$$"
-home="$(mktemp -d /tmp/harbour-shots.XXXXXX)"
+home="$(cd "$(mktemp -d /tmp/harbour-shots.XXXXXX)" && pwd -P)"
 trap 'tmux -L "$sock" kill-server 2>/dev/null || true; rm -rf "$home"' EXIT
 t() { tmux -L "$sock" -f /dev/null "$@"; }
 
@@ -80,16 +80,20 @@ shoot() {
   t respawn-pane -k -t "$shot_window" "exec cat"
   t send-keys -R -t "$shot_window"
   t clear-history -t "$shot_window"
-  t respawn-pane -k -t "$shot_window" "cd $(printf %q "$home/acme-api") && env -u XDG_CONFIG_HOME -u XDG_STATE_HOME -u FZF_DEFAULT_OPTS -u FZF_DEFAULT_OPTS_FILE -u HARBOUR_DIR_PICKER -u HARBOUR_SESSION_COMMAND HOME=$(printf %q "$home") $(printf %q "$bin") $args; exec cat"
+  t respawn-pane -k -t "$shot_window" "cd $(printf %q "$home/acme-api") && env -u XDG_CONFIG_HOME -u XDG_STATE_HOME -u FZF_DEFAULT_OPTS -u FZF_DEFAULT_OPTS_FILE -u HARBOUR_DIR_PICKER -u HARBOUR_SESSION_COMMAND -u HARBOUR_EDITOR HOME=$(printf %q "$home") TMPDIR=$(printf %q "$home/tmp") $(printf %q "$bin") $args; exec cat"
   sleep 1.5
   [ "$args" = --demo ] && wait_for "permission prompt"
-  [ -n "$keys" ] && press "$keys"
+  local key
+  read -ra keys <<<"$keys"
+  for key in ${keys[@]+"${keys[@]}"}; do
+    press "$key"
+  done
   [ -n "$shown" ] && wait_for "$shown"
-  t capture-pane -e -p -t "$shot_window" | python3 "$home/truecolor.py" >"$home/$name.ansi"
+  t capture-pane -e -p -t "$shot_window" | sed -E 's/harbour-demo-[A-Za-z0-9]{6}/harbour-demo-x7q2mf/g' | python3 "$home/truecolor.py" >"$home/$name.ansi"
   render "$name" --padding 20,64,20,20 --window --language text
 }
 
-mkdir -p "$home/acme-api"
+mkdir -p "$home/acme-api" "$home/tmp"
 shoot details 160 26 --demo ""
 echo "wrote $out/details.png"
 shoot pane 160 26 --demo "Enter"
@@ -100,6 +104,8 @@ shoot question 160 26 --demo "x"
 echo "wrote $out/question.png"
 shoot picker 160 26 --demo "n" "5/5"
 echo "wrote $out/picker.png"
+shoot editor 160 26 --demo "Enter C-l" "src/retry.rs"
+echo "wrote $out/editor.png"
 shoot narrow 56 26 --demo ""
 echo "wrote $out/narrow.png"
 shoot help 160 11 --help ""

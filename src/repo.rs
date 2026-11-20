@@ -1,8 +1,9 @@
 use std::ffi::OsStr;
 use std::fmt;
-use std::fs::File;
+use std::fs::{self, File};
 use std::io::Read;
 use std::os::unix::ffi::OsStrExt;
+use std::os::unix::fs::MetadataExt;
 use std::path::{Path, PathBuf};
 
 const SMALL: u64 = 4096;
@@ -22,14 +23,30 @@ impl fmt::Display for Place {
     }
 }
 
-pub fn place(directory: &Path) -> Place {
-    directory
-        .ancestors()
-        .find_map(repository_at)
+pub fn place(directory: &Path, home: Option<&Path>) -> Place {
+    nearest(directory, home)
+        .map(|(_, place)| place)
         .unwrap_or_else(|| Place {
             repository: name_of(directory),
             branch: None,
         })
+}
+
+pub fn root<'a>(directory: &'a Path, home: Option<&Path>) -> Option<&'a Path> {
+    nearest(directory, home).map(|(folder, _)| folder)
+}
+
+fn nearest<'a>(directory: &'a Path, home: Option<&Path>) -> Option<(&'a Path, Place)> {
+    let home = home.and_then(identity);
+    directory
+        .ancestors()
+        .filter(|folder| home.is_none() || identity(folder) != home)
+        .find_map(|folder| Some((folder, repository_at(folder)?)))
+}
+
+fn identity(folder: &Path) -> Option<(u64, u64)> {
+    let metadata = fs::metadata(folder).ok()?;
+    Some((metadata.dev(), metadata.ino()))
 }
 
 fn repository_at(folder: &Path) -> Option<Place> {

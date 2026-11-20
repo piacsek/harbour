@@ -1,11 +1,18 @@
 mod ages;
 mod cards;
+mod directory;
+mod editor;
+mod editor_ending;
+mod editor_exits;
+mod editor_input;
 mod ending;
 mod exits;
 mod focus;
+mod following;
 mod help;
 mod input;
 mod layout;
+mod neovim;
 mod picker;
 mod selection;
 mod status;
@@ -18,6 +25,7 @@ use std::time::{Duration, Instant};
 
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers, MouseEvent, MouseEventKind};
 use harbour::app::App;
+use harbour::editor::Program;
 use harbour::picker::Picker;
 use ratatui::Terminal;
 use ratatui::backend::TestBackend;
@@ -47,6 +55,10 @@ impl Screen {
 
     fn picking(command: Vec<String>, picker: Picker) -> Screen {
         Screen::of(App::new(command).with_picker(picker))
+    }
+
+    fn editing(command: Vec<String>, editor: Program) -> Screen {
+        Screen::of(App::new(command).with_editor(editor))
     }
 
     fn press(&mut self, c: char) {

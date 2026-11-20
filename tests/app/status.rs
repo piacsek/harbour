@@ -3,7 +3,9 @@ use std::process::Command;
 use std::thread::sleep;
 use std::time::{Duration, Instant};
 
+use crossterm::event::{KeyCode, KeyModifiers};
 use harbour::app::App;
+use harbour::editor::Program;
 use harbour::picker::Picker;
 use harbour::summary::Summary;
 use ratatui::buffer::Cell;
@@ -366,6 +368,32 @@ fn a_session_started_through_the_picker_is_published_like_any_other() {
     screen.type_text(&format!("{}\r", web.display()));
 
     screen.wait_for("● acme-web 1");
+
+    assert_eq!(
+        std::fs::read_to_string(counts_file(state.path())).unwrap(),
+        "0 1 0 0\n"
+    );
+}
+
+#[test]
+fn a_session_with_its_editor_open_is_published_once() {
+    let registry = tempfile::tempdir().unwrap();
+    let state = tempfile::tempdir().unwrap();
+    let mut screen = showing(
+        App::new(registered(registry.path(), "busy"))
+            .with_editor(Program::new(
+                "acme-edit",
+                script("echo 'acme editor ready'; exec sleep 600"),
+            ))
+            .with_registry(registry.path().to_path_buf())
+            .with_summary(Summary::new(state.path())),
+    );
+    screen.press('n');
+    screen.wait_for(&format!("● {} 1", directory()));
+    screen.key(KeyCode::Enter, KeyModifiers::NONE);
+    screen.key(KeyCode::Char('l'), KeyModifiers::CONTROL);
+
+    screen.wait_for("acme editor ready");
 
     assert_eq!(
         std::fs::read_to_string(counts_file(state.path())).unwrap(),

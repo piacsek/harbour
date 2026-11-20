@@ -39,11 +39,12 @@ harbour status      # blocked, working and idle counts for the tmux status line
 |---|---|
 | `j/k` | select the next / previous session |
 | `n` | pick a directory and start a session there |
-| `C-l/Enter` | focus the pane |
-| `C-h` | focus the sidebar, from the pane |
-| `x` | end the session, or remove it once it has exited |
+| `C-l/Enter` | focus the pane; from Claude Code, C-l opens its editor |
+| `C-h` | focus the sidebar; from the editor, Claude Code |
+| `e` | show the session's next editor, one per directory |
+| `x` | end the session and its editors, or remove it once it has exited |
 | `?` | show or hide the help |
-| `q` | quit, after a yes while a session runs |
+| `q` | quit, after a yes while a session or editor runs |
 
 `n` picks the directory with fzf, from the current directory and the ones zoxide ranks;
 `HARBOUR_DIR_PICKER` names another picker. Without fzf, sessions start in the current

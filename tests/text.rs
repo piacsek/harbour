@@ -92,6 +92,19 @@ fn wrapped_text_breaks_by_columns() {
 }
 
 #[test]
+fn wrapped_text_breaks_between_words_where_a_word_fits() {
+    assert_eq!(
+        wrap("Could not start acme-edit", 12),
+        vec!["Could not", "start", "acme-edit"]
+    );
+}
+
+#[test]
+fn a_word_wider_than_the_line_starts_its_own_line_and_breaks_by_columns() {
+    assert_eq!(wrap("is acme-api", 4), vec!["is", "acme", "-api"]);
+}
+
+#[test]
 fn wrapped_wide_characters_are_never_split_across_lines() {
     assert_eq!(wrap("東京大阪", 5), vec!["東京", "大阪"]);
 }

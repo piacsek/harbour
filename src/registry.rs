@@ -24,21 +24,13 @@ pub struct Record {
     pub waiting_for: Option<String>,
     pub status_since: Option<SystemTime>,
     pub session_id: Option<String>,
+    pub cwd: Option<PathBuf>,
 }
 
 const CLOCK_SLACK: Duration = Duration::from_secs(2);
 
 pub fn read(dir: &Path, pid: u32, since: SystemTime, last: Option<Record>) -> Option<Record> {
-    let mut file = File::open(dir.join(format!("{pid}.json"))).ok()?;
-    let modified = file.metadata().and_then(|meta| meta.modified()).ok();
-    if modified.is_some_and(|modified| modified + CLOCK_SLACK < since) {
-        return None;
-    }
-    let mut text = String::new();
-    if file.read_to_string(&mut text).is_err() {
-        return last;
-    }
-    let Ok(fields) = serde_json::from_str::<Map<String, Value>>(&text) else {
+    let Some(fields) = fields(dir, pid, since)? else {
         return last;
     };
     let status_since = match fields.get("statusUpdatedAt") {
@@ -58,6 +50,7 @@ pub fn read(dir: &Path, pid: u32, since: SystemTime, last: Option<Record>) -> Op
     Some(Record {
         status_since,
         session_id,
+        cwd: fields.get("cwd").and_then(Value::as_str).map(PathBuf::from),
         status: fields
             .get("status")
             .and_then(|status| Status::deserialize(status).ok())
@@ -67,6 +60,19 @@ pub fn read(dir: &Path, pid: u32, since: SystemTime, last: Option<Record>) -> Op
             .and_then(Value::as_str)
             .map(str::to_string),
     })
+}
+
+fn fields(dir: &Path, pid: u32, since: SystemTime) -> Option<Option<Map<String, Value>>> {
+    let mut file = File::open(dir.join(format!("{pid}.json"))).ok()?;
+    let modified = file.metadata().and_then(|meta| meta.modified()).ok();
+    if modified.is_some_and(|modified| modified + CLOCK_SLACK < since) {
+        return None;
+    }
+    let mut text = String::new();
+    if file.read_to_string(&mut text).is_err() {
+        return Some(None);
+    }
+    Some(serde_json::from_str(&text).ok())
 }
 
 pub fn sessions_dir(config_dir: Option<PathBuf>, home: Option<PathBuf>) -> Option<PathBuf> {

@@ -12,10 +12,42 @@ fn question_mark_shows_the_keys_and_the_tmux_pattern() {
     let shown = screen.draw();
     assert!(shown.contains("j/k"), "{shown}");
     assert!(
-        shown.contains("end the session, or remove it once it has exited"),
+        shown.contains("end the session and its editors, or remove it once it has exited"),
         "{shown}"
     );
     assert!(shown.contains("vim-tmux-navigator"), "{shown}");
+}
+
+#[test]
+fn question_mark_shows_the_editor_keys() {
+    let mut screen = Screen::new(reading_agent());
+
+    screen.press('?');
+
+    let shown = screen.draw();
+    assert!(
+        shown.contains("from Claude Code, C-l opens its editor"),
+        "{shown}"
+    );
+    assert!(
+        shown.contains("In Neovim, C-h goes back only from the leftmost window, in normal mode."),
+        "{shown}"
+    );
+    assert!(shown.contains("the session and its editors"), "{shown}");
+    assert!(
+        shown.contains("show the session's next editor, one per directory"),
+        "{shown}"
+    );
+}
+
+#[test]
+fn question_mark_names_the_setting_for_another_editor() {
+    let mut screen = Screen::new(reading_agent());
+
+    screen.press('?');
+
+    let shown = screen.draw();
+    assert!(shown.contains("HARBOUR_EDITOR"), "{shown}");
 }
 
 #[test]
@@ -43,13 +75,47 @@ fn question_mark_explains_the_dots() {
 }
 
 #[test]
-fn question_mark_says_that_ctrl_backspace_focuses_the_sidebar() {
+fn the_whole_help_shows_on_an_80_by_24_terminal() {
+    let mut screen = Screen::new(reading_agent());
+    screen.resize(80, 24);
+
+    screen.press('?');
+
+    let shown = screen.draw();
+    assert!(
+        shown.contains("select the next / previous session"),
+        "{shown}"
+    );
+    assert!(shown.contains("status unknown"), "{shown}");
+    assert!(shown.contains("in normal mode."), "{shown}");
+    assert!(shown.contains("use Alt-Enter for a newline."), "{shown}");
+}
+
+#[test]
+fn the_whole_help_shows_on_a_20_row_terminal() {
     let mut screen = Screen::new(reading_agent());
 
     screen.press('?');
 
     let shown = screen.draw();
-    assert!(shown.contains("C-Backspace"), "{shown}");
+    assert!(
+        shown.contains("select the next / previous session"),
+        "{shown}"
+    );
+    assert!(shown.contains("use Alt-Enter for a newline."), "{shown}");
+}
+
+#[test]
+fn question_mark_says_that_ctrl_backspace_acts_as_ctrl_h() {
+    let mut screen = Screen::new(reading_agent());
+
+    screen.press('?');
+
+    let shown = screen.draw();
+    assert!(
+        shown.contains("Most terminals send C-Backspace as C-h, so it acts as C-h."),
+        "{shown}"
+    );
 }
 
 #[test]

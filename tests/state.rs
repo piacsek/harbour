@@ -45,6 +45,7 @@ fn record(status: Status) -> Record {
         waiting_for: None,
         status_since: None,
         session_id: None,
+        cwd: None,
     }
 }
 
