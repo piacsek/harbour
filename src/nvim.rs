@@ -1,5 +1,6 @@
 use std::io::{self, Read, Write};
 use std::os::fd::AsRawFd;
+use std::os::unix::ffi::OsStrExt;
 use std::os::unix::net::UnixStream;
 use std::path::Path;
 use std::thread;
@@ -14,10 +15,29 @@ pub const PATIENCE: Duration = Duration::from_millis(100);
 const READ_AT_MOST: usize = 1024 * 1024;
 const RETRY_CONNECT: Duration = Duration::from_millis(2);
 const REQUEST_ID: i64 = 1;
+const WATCH: Duration = Duration::from_millis(50);
 
 pub struct Mode {
     pub mode: String,
     pub blocking: bool,
+}
+
+impl Mode {
+    pub fn waiting(&self) -> bool {
+        self.blocking || self.mode.starts_with(['c', 'r']) || self.mode.starts_with("no")
+    }
+}
+
+pub enum Edited {
+    Done,
+    Refused(String),
+    Waiting,
+}
+
+enum Reading {
+    Answer(Result<Value, Value>),
+    Pending,
+    Gone,
 }
 
 pub fn mode(socket: &Path, deadline: Instant) -> Option<Mode> {
@@ -39,7 +59,69 @@ pub fn eval(socket: &Path, expression: &str, deadline: Instant) -> Option<i64> {
     request(socket, "nvim_eval", vec![Value::from(expression)], deadline)?.as_i64()
 }
 
+pub fn edit(socket: &Path, file: &Path, deadline: Instant) -> Option<Edited> {
+    let off = Value::Map(vec![
+        (Value::from("file"), Value::from(false)),
+        (Value::from("bar"), Value::from(false)),
+    ]);
+    let command = Value::Map(vec![
+        (Value::from("cmd"), Value::from("edit")),
+        (
+            Value::from("args"),
+            Value::Array(vec![Value::Binary(file.as_os_str().as_bytes().to_vec())]),
+        ),
+        (Value::from("magic"), off),
+    ]);
+    let arguments = vec![command, Value::Map(Vec::new())];
+    let mut stream = send(socket, "nvim_cmd", arguments, deadline)?;
+    let mut received = Vec::new();
+    loop {
+        let slice = deadline.min(Instant::now() + WATCH);
+        match read_reply(&mut stream, &mut received, slice) {
+            Reading::Answer(Ok(_)) => return Some(Edited::Done),
+            Reading::Answer(Err(error)) => return Some(Edited::Refused(message(&error))),
+            Reading::Gone => return None,
+            Reading::Pending if Instant::now() >= deadline => return None,
+            Reading::Pending => {
+                let probe = deadline.min(Instant::now() + WATCH);
+                if mode(socket, probe).is_some_and(|mode| mode.waiting()) {
+                    return Some(Edited::Waiting);
+                }
+            }
+        }
+    }
+}
+
+fn message(error: &Value) -> String {
+    match error.as_array().map(Vec::as_slice) {
+        Some([_, text]) if text.is_str() => text.as_str().unwrap_or_default().to_string(),
+        _ => error.to_string(),
+    }
+}
+
 fn request(socket: &Path, method: &str, arguments: Vec<Value>, deadline: Instant) -> Option<Value> {
+    call(socket, method, arguments, deadline)?.ok()
+}
+
+fn call(
+    socket: &Path,
+    method: &str,
+    arguments: Vec<Value>,
+    deadline: Instant,
+) -> Option<Result<Value, Value>> {
+    let mut stream = send(socket, method, arguments, deadline)?;
+    match read_reply(&mut stream, &mut Vec::new(), deadline) {
+        Reading::Answer(answer) => Some(answer),
+        Reading::Pending | Reading::Gone => None,
+    }
+}
+
+fn send(
+    socket: &Path,
+    method: &str,
+    arguments: Vec<Value>,
+    deadline: Instant,
+) -> Option<UnixStream> {
     let mut stream = connect(socket, deadline)?;
     let patience = deadline.checked_duration_since(Instant::now())?;
     let request = Value::Array(vec![
@@ -52,7 +134,7 @@ fn request(socket: &Path, method: &str, arguments: Vec<Value>, deadline: Instant
     rmpv::encode::write_value(&mut bytes, &request).ok()?;
     stream.set_write_timeout(Some(patience)).ok()?;
     stream.write_all(&bytes).ok()?;
-    read_reply(&mut stream, deadline)
+    Some(stream)
 }
 
 fn connect(socket: &Path, deadline: Instant) -> Option<UnixStream> {
@@ -82,26 +164,35 @@ fn connect(socket: &Path, deadline: Instant) -> Option<UnixStream> {
     Some(stream)
 }
 
-fn read_reply(stream: &mut UnixStream, deadline: Instant) -> Option<Value> {
-    let mut received = Vec::new();
+fn read_reply(stream: &mut UnixStream, received: &mut Vec<u8>, until: Instant) -> Reading {
     let mut buffer = [0; 4096];
     loop {
-        while let Some((message, used)) = next_message(&received) {
+        while let Some((message, used)) = next_message(received) {
             received.drain(..used);
             if let Some(answer) = response(&message) {
-                return answer;
+                return Reading::Answer(answer);
             }
         }
         if received.len() > READ_AT_MOST {
-            return None;
+            return Reading::Gone;
         }
-        let left = deadline.checked_duration_since(Instant::now())?;
+        let Some(left) = until.checked_duration_since(Instant::now()) else {
+            return Reading::Pending;
+        };
         let _ = stream.set_read_timeout(Some(left.max(Duration::from_millis(1))));
         match stream.read(&mut buffer) {
-            Ok(0) => return None,
+            Ok(0) => return Reading::Gone,
             Ok(read) => received.extend_from_slice(&buffer[..read]),
             Err(error) if error.kind() == io::ErrorKind::Interrupted => {}
-            Err(_) => return None,
+            Err(error)
+                if matches!(
+                    error.kind(),
+                    io::ErrorKind::WouldBlock | io::ErrorKind::TimedOut
+                ) =>
+            {
+                return Reading::Pending;
+            }
+            Err(_) => return Reading::Gone,
         }
     }
 }
@@ -112,12 +203,16 @@ fn next_message(received: &[u8]) -> Option<(Value, usize)> {
     Some((message, received.len() - rest.len()))
 }
 
-fn response(message: &Value) -> Option<Option<Value>> {
+fn response(message: &Value) -> Option<Result<Value, Value>> {
     match message.as_array()?.as_slice() {
         [kind, id, error, result]
             if kind.as_i64() == Some(1) && id.as_i64() == Some(REQUEST_ID) =>
         {
-            Some(error.is_nil().then(|| result.clone()))
+            Some(if error.is_nil() {
+                Ok(result.clone())
+            } else {
+                Err(error.clone())
+            })
         }
         _ => None,
     }

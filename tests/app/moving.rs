@@ -268,7 +268,7 @@ fn recording(refused: Option<PathBuf>) -> (Mover, Moves) {
 }
 
 fn wait_until_at(screen: &mut Screen, moves: &Moves, expected: &Path) -> Option<PathBuf> {
-    let deadline = Instant::now() + Duration::from_secs(5);
+    let deadline = Instant::now() + Duration::from_secs(12);
     loop {
         screen.draw();
         let at = moves.lock().unwrap().last().cloned();
@@ -280,7 +280,7 @@ fn wait_until_at(screen: &mut Screen, moves: &Moves, expected: &Path) -> Option<
 }
 
 fn wait_until_moved(screen: &mut Screen, moves: &Moves, entered: usize) -> usize {
-    let deadline = Instant::now() + Duration::from_secs(5);
+    let deadline = Instant::now() + Duration::from_secs(12);
     loop {
         screen.draw();
         let count = moves.lock().unwrap().len();

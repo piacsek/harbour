@@ -11,6 +11,7 @@ use crossterm::execute;
 use crate::app::App;
 use crate::demo::Registry;
 use crate::editor::Program;
+use crate::handoff::{self, Listener};
 use crate::memory::Memory;
 use crate::picker::Picker;
 use crate::registry;
@@ -41,6 +42,9 @@ pub fn run() -> io::Result<()> {
     }
     if let Some(memory) = remembered() {
         app = app.with_memory(memory);
+    }
+    if let Some(dir) = handoff::directory_from_env() {
+        app = app.with_handoff(Listener::new(&dir));
     }
     show(app)
 }

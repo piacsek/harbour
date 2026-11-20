@@ -1,5 +1,7 @@
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::thread::sleep;
+use std::time::{Duration, SystemTime};
 
 use crossterm::event::{KeyCode, KeyModifiers};
 use harbour::app::App;
@@ -7,6 +9,7 @@ use harbour::memory::{Memory, Remembered};
 use ratatui::style::Modifier;
 use tempfile::TempDir;
 
+use crate::handoff::last_use;
 use crate::{Screen, below, script};
 
 pub(crate) const ID: &str = "0f1e2d3c-4b5a-6978-8a9b-0c1d2e3f4a5b";
@@ -116,6 +119,23 @@ fn a_resumed_card_is_no_longer_stopped() {
     let shown = screen.wait_for("acme agent --resume");
     assert!(shown.contains("acme agent --resume"), "{shown}");
     assert!(!shown.contains("stopped"), "{shown}");
+}
+
+#[test]
+fn resuming_a_stopped_card_counts_as_its_last_use() {
+    let scratch = Scratch::new();
+    scratch.remember(ID, TITLE, 0);
+    let mut screen = scratch.screen(resuming_agent());
+    let drawn = screen.draw();
+    assert!(drawn.contains(TITLE), "{drawn}");
+    sleep(Duration::from_millis(5));
+    let resumed_at = SystemTime::now();
+
+    screen.key(KeyCode::Enter, KeyModifiers::NONE);
+
+    let shown = screen.wait_for("acme agent --resume");
+    assert!(shown.contains("acme agent --resume"), "{shown}");
+    assert!(last_use(&mut screen, scratch.dir.path()) >= resumed_at);
 }
 
 #[test]

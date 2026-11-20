@@ -30,6 +30,7 @@ impl App {
         self.finish_editors();
         self.read_files();
         self.settle_exited();
+        self.serve();
         self.follow_selected();
         self.screen = frame.area();
         let (sidebar, pane) = self.areas(frame.area());

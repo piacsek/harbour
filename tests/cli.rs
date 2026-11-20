@@ -118,6 +118,123 @@ fn a_non_utf8_argument_prints_the_usage_on_stderr() {
 }
 
 #[test]
+fn edit_without_a_file_prints_the_usage_on_stderr() {
+    assert_eq!(stderr(&launch(&["edit"])), USAGE);
+}
+
+#[test]
+fn edit_without_a_file_exits_one() {
+    assert_eq!(launch(&["edit"]).status.code(), Some(1));
+}
+
+#[test]
+fn edit_with_two_files_prints_the_usage_on_stderr() {
+    assert_eq!(stderr(&launch(&["edit", "a.rs", "b.rs"])), USAGE);
+}
+
+#[test]
+fn edit_with_two_files_exits_one() {
+    assert_eq!(launch(&["edit", "a.rs", "b.rs"]).status.code(), Some(1));
+}
+
+#[test]
+fn edit_takes_the_file_after_a_leading_double_dash() {
+    let scratch = tempfile::tempdir().unwrap();
+
+    let output = launch_at_home(scratch.path(), &["edit", "--", "acme-missing/main.rs"]);
+
+    assert_eq!(
+        stderr(&output),
+        "harbour: acme-missing/main.rs: No such file or directory\n"
+    );
+}
+
+#[test]
+fn edit_takes_a_file_named_like_a_flag_after_a_double_dash() {
+    let scratch = tempfile::tempdir().unwrap();
+
+    let output = launch_at_home(scratch.path(), &["edit", "--", "--help/main.rs"]);
+
+    assert_eq!(
+        stderr(&output),
+        "harbour: --help/main.rs: No such file or directory\n"
+    );
+}
+
+#[test]
+fn edit_with_an_empty_file_prints_the_usage_on_stderr() {
+    assert_eq!(stderr(&launch(&["edit", ""])), USAGE);
+}
+
+#[test]
+fn edit_with_an_empty_file_exits_one() {
+    assert_eq!(launch(&["edit", ""]).status.code(), Some(1));
+}
+
+#[test]
+fn edit_with_an_empty_file_after_a_double_dash_prints_the_usage_on_stderr() {
+    assert_eq!(stderr(&launch(&["edit", "--", ""])), USAGE);
+}
+
+#[test]
+fn edit_help_prints_the_usage_on_stdout() {
+    assert_eq!(stdout(&launch(&["edit", "--help"])), USAGE);
+}
+
+#[test]
+fn edit_help_exits_zero() {
+    assert_eq!(launch(&["edit", "--help"]).status.code(), Some(0));
+}
+
+#[test]
+fn edit_with_the_short_help_flag_prints_the_usage_on_stdout() {
+    assert_eq!(stdout(&launch(&["edit", "-h"])), USAGE);
+}
+
+#[test]
+fn edit_with_the_short_help_flag_exits_zero() {
+    assert_eq!(launch(&["edit", "-h"]).status.code(), Some(0));
+}
+
+#[test]
+fn edit_with_a_missing_folder_exits_two() {
+    let scratch = tempfile::tempdir().unwrap();
+
+    let output = launch_at_home(scratch.path(), &["edit", "acme-missing/main.rs"]);
+
+    assert_eq!(output.status.code(), Some(2));
+}
+
+#[test]
+fn edit_with_no_harbour_running_exits_three() {
+    let scratch = tempfile::tempdir().unwrap();
+    std::fs::write(scratch.path().join("main.rs"), "").unwrap();
+
+    let output = launch_at_home(scratch.path(), &["edit", "main.rs"]);
+
+    assert_eq!(output.status.code(), Some(3));
+}
+
+#[test]
+fn edit_with_only_a_double_dash_prints_the_usage_on_stderr() {
+    let scratch = tempfile::tempdir().unwrap();
+
+    assert_eq!(
+        stderr(&launch_at_home(scratch.path(), &["edit", "--"])),
+        USAGE
+    );
+}
+
+#[test]
+fn edit_with_a_double_dash_and_two_files_prints_the_usage_on_stderr() {
+    let scratch = tempfile::tempdir().unwrap();
+
+    let output = launch_at_home(scratch.path(), &["edit", "--", "a.rs", "b.rs"]);
+
+    assert_eq!(stderr(&output), USAGE);
+}
+
+#[test]
 fn changelog_prints_the_bundled_changelog_on_stdout() {
     assert_eq!(
         stdout(&launch(&["changelog"])),
@@ -137,7 +254,7 @@ fn changelog_writes_nothing_on_stderr() {
 
 const USAGE: &str = "harbour: Harbour: where shipping begins
 
-usage: harbour [--demo | --help | --version | changelog | status]
+usage: harbour [--demo | --help | --version | changelog | status | edit [--] <file>]
 
 With no argument on a terminal, harbour opens a sidebar of Claude Code sessions
 beside a live pane. --demo opens the same with made-up sessions: no claude needed.
@@ -145,6 +262,12 @@ status prints how many sessions of every running harbour are blocked, working,
 idle or unknown. For tmux, put #(harbour status) in your status-right, for example
   set -g status-right '#(harbour status) %H:%M'
 and raise status-right-length if the counts are cut off.
+edit <file> opens the file in the Neovim editor of the harbour session whose
+repository or worktree holds it, selects that session and shows the editor.
+It exits 0 when harbour took the file, 3 when no harbour runs or answers, no
+session holds the file or the Neovim harbour started did not answer in time or
+exited (open it yourself), 2 when harbour or Neovim refused it or harbour went
+silent once it had the file (it may still open it), and 1 on a usage error.
 In tmux, splits and popups opened at #{pane_current_path} follow the selected
 session when harbour is typed at a shell prompt, or when a pane command or a
 wrapper script ends with exec harbour.
@@ -157,6 +280,16 @@ fn version_line() -> String {
 fn launch(args: &[&str]) -> Output {
     Command::new(env!("CARGO_BIN_EXE_harbour"))
         .args(args)
+        .output()
+        .unwrap()
+}
+
+fn launch_at_home(home: &std::path::Path, args: &[&str]) -> Output {
+    Command::new(env!("CARGO_BIN_EXE_harbour"))
+        .args(args)
+        .env("HOME", home)
+        .env("XDG_STATE_HOME", home.join("state"))
+        .current_dir(home)
         .output()
         .unwrap()
 }

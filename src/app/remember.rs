@@ -64,6 +64,7 @@ impl App {
                 name: remembered.title,
                 session: None,
                 started_at: SystemTime::now(),
+                used_at: SystemTime::now(),
                 record: None,
                 place: repo::place(&remembered.directory, user_home().as_deref()),
                 exited_at: None,
@@ -162,6 +163,7 @@ impl App {
                 entry.id = self.started;
                 entry.session = Some(session);
                 entry.started_at = started_at;
+                entry.used_at = started_at;
                 entry.record = None;
                 entry.exited_at = None;
                 entry.transcript = transcript;

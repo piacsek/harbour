@@ -6,6 +6,7 @@ use crossterm::event::{KeyCode, KeyEvent, KeyModifiers, MouseEvent, MouseEventKi
 use ratatui::layout::{Position, Rect};
 
 mod draw;
+mod handoff;
 mod read;
 mod remember;
 
@@ -13,8 +14,9 @@ use draw::exit_note;
 
 use crate::card::Sidebar;
 use crate::demo;
-use crate::editor::{self, Changes, Editor, Program};
+use crate::editor::{Changes, Editor, Program};
 use crate::follow::{self, Follow, Mover};
+use crate::handoff::Listener;
 use crate::keys;
 use crate::memory::{Memory, Remembered, Reservation};
 use crate::mouse::{self, Gesture, Target};
@@ -59,6 +61,7 @@ pub struct App {
     memory: Option<Memory>,
     recalled: bool,
     follow: Option<Follow>,
+    handoff: Option<Listener>,
     temporary: PathBuf,
 }
 
@@ -73,6 +76,7 @@ struct Entry {
     name: String,
     session: Option<Session>,
     started_at: SystemTime,
+    used_at: SystemTime,
     record: Option<Record>,
     place: Place,
     exited_at: Option<Instant>,
@@ -171,6 +175,7 @@ impl App {
             memory: None,
             recalled: false,
             follow: None,
+            handoff: None,
             temporary: follow::temporary(),
         }
     }
@@ -210,6 +215,11 @@ impl App {
         self
     }
 
+    pub fn with_handoff(mut self, listener: Listener) -> App {
+        self.handoff = Some(listener);
+        self
+    }
+
     pub fn with_mover(mut self, mover: Mover) -> App {
         self.follow = Some(Follow::new(mover));
         self
@@ -243,6 +253,10 @@ impl App {
     }
 
     pub fn key(&mut self, key: KeyEvent) {
+        self.key_handled(key);
+    }
+
+    fn key_handled(&mut self, key: KeyEvent) {
         if let Some(pick) = &self.picking {
             let session = pick.session();
             session.send(&keys::encode(key, session.application_cursor()));
@@ -277,10 +291,12 @@ impl App {
                 .is_some_and(|entry| !entry.on_editor)
         {
             self.open_editor();
+            self.touch();
             return;
         }
         if let Some(session) = self.focused() {
             session.send(&keys::encode(key, session.application_cursor()));
+            self.touch();
             return;
         }
         match key.code {
@@ -300,6 +316,10 @@ impl App {
     }
 
     pub fn paste(&mut self, text: &str) {
+        self.paste_handled(text);
+    }
+
+    fn paste_handled(&mut self, text: &str) {
         if let Some(pick) = &self.picking {
             pick.session().paste(text);
             return;
@@ -309,10 +329,15 @@ impl App {
         }
         if let Some(session) = self.focused() {
             session.paste(text);
+            self.touch();
         }
     }
 
     pub fn mouse(&mut self, event: MouseEvent) {
+        self.mouse_handled(event);
+    }
+
+    fn mouse_handled(&mut self, event: MouseEvent) {
         if let Some(pick) = &self.picking {
             let (mode, encoding) = pick.session().mouse_protocol();
             let target = Target {
@@ -359,6 +384,7 @@ impl App {
         self.gesture = gesture;
         if let (Some((_, session)), Some(bytes)) = (shown, bytes) {
             session.send(&bytes);
+            self.touch();
         }
     }
 
@@ -386,48 +412,6 @@ impl App {
     fn focus_or_resume(&mut self) {
         if !self.resume() {
             self.pane_focused = !self.sessions.is_empty();
-        }
-    }
-
-    fn open_editor(&mut self) {
-        let Some(program) = &self.editor else {
-            return;
-        };
-        let Some(entry) = self.sessions.get_mut(self.selected) else {
-            return;
-        };
-        read::read_entry(
-            entry,
-            self.registry.as_deref(),
-            self.transcripts.as_deref(),
-            read::Reading::Now,
-        );
-        let directory = editor::root(&entry.seen, user_home().as_deref());
-        if let Some(index) = entry
-            .editors
-            .iter()
-            .position(|editor| editor.directory == directory)
-        {
-            entry.editor = Some(index);
-            entry.on_editor = true;
-            return;
-        }
-        self.started += 1;
-        match Editor::start(
-            program,
-            &directory,
-            &self.temporary,
-            self.started,
-            self.pane.height,
-            self.pane.width,
-        ) {
-            Ok(editor) => {
-                self.failed = None;
-                entry.editors.push(editor);
-                entry.editor = Some(entry.editors.len() - 1);
-                entry.on_editor = true;
-            }
-            Err(error) => self.failed = Some(refusal(program.name(), &error)),
         }
     }
 
@@ -601,6 +585,7 @@ impl App {
                     name: format!("{} {}", folder_name(directory), self.named),
                     session: Some(session),
                     started_at,
+                    used_at: started_at,
                     record: None,
                     place: repo::place(directory, user_home().as_deref()),
                     exited_at: None,

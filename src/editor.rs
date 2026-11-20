@@ -3,6 +3,7 @@ use std::fs::Permissions;
 use std::io;
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
+use std::thread;
 use std::time::{Duration, Instant};
 
 use tempfile::TempDir;
@@ -15,6 +16,9 @@ const NORMAL_MODES: [&str; 2] = ["n", "nt"];
 const LEFTMOST: &str = "winnr('h') == winnr()";
 const UNSAVED: &str = "len(filter(getbufinfo({'bufmodified': 1}), \
                        {_, b -> index(['', 'acwrite'], getbufvar(b.bufnr, '&buftype')) >= 0}))";
+
+const RETRY_OPEN: Duration = Duration::from_millis(10);
+const WAITING: &str = "Neovim is waiting for a key; answer it and try again";
 
 const SOCKET_PREFIX: &str = "harbour-nvim";
 const SOCKET_RANDOM: usize = 6;
@@ -66,6 +70,16 @@ impl Program {
     pub fn name(&self) -> &str {
         &self.name
     }
+
+    pub fn is_neovim(&self) -> bool {
+        self.neovim
+    }
+}
+
+pub enum Unopened {
+    Refused(String),
+    Silent,
+    Exited,
 }
 
 pub struct Editor {
@@ -85,6 +99,7 @@ impl Editor {
         id: usize,
         rows: u16,
         cols: u16,
+        file: Option<&Path>,
     ) -> io::Result<Editor> {
         let mut command = program.command.clone();
         let private = program.neovim.then(|| {
@@ -101,6 +116,10 @@ impl Editor {
             command.push(path.clone().into());
             (path, private)
         });
+        if let Some(file) = file {
+            command.push("--".into());
+            command.push(file.into());
+        }
         let session = Session::start(&command, directory, rows, cols)?;
         Ok(Editor {
             id,
@@ -120,6 +139,29 @@ impl Editor {
                 nvim::eval(socket, LEFTMOST, deadline) == Some(0)
             }
             Listening::No => false,
+        }
+    }
+
+    pub fn open(&mut self, file: &Path, deadline: Instant) -> Result<(), Unopened> {
+        let (socket, _) = self.socket.as_ref().ok_or(Unopened::Silent)?;
+        let mode = loop {
+            match nvim::mode(socket, deadline) {
+                Some(mode) => break mode,
+                None if self.session.exit().is_some() => return Err(Unopened::Exited),
+                None if Instant::now() + RETRY_OPEN < deadline => thread::sleep(RETRY_OPEN),
+                None => return Err(Unopened::Silent),
+            }
+        };
+        if mode.waiting() {
+            return Err(Unopened::Refused(WAITING.to_string()));
+        }
+        match nvim::edit(socket, file, deadline) {
+            Some(nvim::Edited::Done) => Ok(()),
+            Some(nvim::Edited::Refused(error)) => {
+                Err(Unopened::Refused(format!("Neovim refused: {error}")))
+            }
+            Some(nvim::Edited::Waiting) => Err(Unopened::Refused(WAITING.to_string())),
+            None => Err(Unopened::Silent),
         }
     }
 

@@ -6,6 +6,7 @@ use std::time::{Duration, Instant};
 use harbour::tui::{DIR_PICKER, EDITOR, SESSION_COMMAND};
 
 mod cards;
+mod edit;
 mod editor;
 mod moving;
 mod neovim;
