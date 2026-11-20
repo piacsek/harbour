@@ -71,7 +71,7 @@ the counts are added. It never waits, writes nothing and deletes nothing.
 | one harbour with sessions | its counts, states with zero left out | 0 |
 | two harbours with sessions | the sum of both | 0 |
 | a summary left by a harbour that crashed or was killed (lock free) | nothing for it; the next harbour that makes a publication removes it | 0 |
-| a file in the folder not named like a publication, or a symlink named like one | nothing for it; never removed, never followed | 0 |
+| a file in the folder not named like a publication, or a symlink named like one | nothing for it; never followed, and never removed, except a `.counts` or `.tmp` symlink beside a dead regular lock, which the sweep unlinks with it (its target untouched) | 0 |
 | a new harbour's lock removed by another harbour's sweep before it locked it | nothing for it until its check (at most every 5 s) finds the lock gone and a fresh publication is made | 0 |
 | a crashed harbour's pid reused by another process | nothing for it: the lock died with the old process | 0 |
 | a summary that cannot be read or parsed | nothing for it | 0 |
@@ -221,6 +221,14 @@ call a trend in tokens. Codex and orchestrator usage remain unknown in every row
   reload leaves it as it was (checked in a scratch tmux server), and says to raise
   `status-right-length` if the counts are cut off. An empty or relative `HOME` now counts as
   unset, like `XDG_STATE_HOME`.
+- Review round 5 was clean for both reviewers (no must, no should); its minors were docs, fixed
+  here, and two accepted limits listed in the PR body (tmux refreshes only every
+  `status-interval`, and the reader lists a status folder that is a symlink).
+- In all: 5 review rounds, every one unprimed, the last clean. Three designs changed on the way:
+  one publication per instance under a unique name, dropped whole on any failure (round 2); the
+  sweep of dead publications that unique names made necessary (before round 3); and the tmux
+  advice, from a line that replaced `status-right`, to one that appended to it, to one example
+  the user adapts (rounds 3 and 4).
 
 ## Hurdles
 
