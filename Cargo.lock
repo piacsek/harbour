@@ -480,6 +480,7 @@ dependencies = [
  "tempfile",
  "toml",
  "tui-term",
+ "unicode-width",
  "vt100",
 ]
 

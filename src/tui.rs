@@ -26,9 +26,7 @@ pub fn run() -> io::Result<()> {
 }
 
 pub fn demo() -> io::Result<()> {
-    let registry = Registry::create(
-        std::env::temp_dir().join(format!("harbour-demo-{}", std::process::id())),
-    )?;
+    let registry = Registry::create_in(&std::env::temp_dir())?;
     show(App::demo(registry.path().to_path_buf()))
 }
 

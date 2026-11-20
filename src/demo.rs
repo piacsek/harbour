@@ -1,5 +1,7 @@
 use std::io;
-use std::path::{Path, PathBuf};
+use std::path::Path;
+
+use tempfile::TempDir;
 
 const WORKING: &str = r#"printf '\033[38;5;209m*\033[0m \033[1macme agent\033[0m in ~/%s\n\n' "${PWD##*/}"
 printf '\033[2m>\033[0m fix the flaky retry test in acme/api\n\n'
@@ -57,21 +59,17 @@ fn script(text: &str) -> Vec<String> {
     vec!["/bin/sh".to_string(), "-c".to_string(), text.to_string()]
 }
 
-pub struct Registry(PathBuf);
+pub struct Registry(TempDir);
 
 impl Registry {
-    pub fn create(path: PathBuf) -> io::Result<Registry> {
-        std::fs::create_dir_all(&path)?;
-        Ok(Registry(path))
+    pub fn create_in(parent: &Path) -> io::Result<Registry> {
+        tempfile::Builder::new()
+            .prefix("harbour-demo-")
+            .tempdir_in(parent)
+            .map(Registry)
     }
 
     pub fn path(&self) -> &Path {
-        &self.0
-    }
-}
-
-impl Drop for Registry {
-    fn drop(&mut self) {
-        let _ = std::fs::remove_dir_all(&self.0);
+        self.0.path()
     }
 }

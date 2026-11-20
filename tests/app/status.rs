@@ -111,6 +111,34 @@ fn the_dot_follows_a_change_of_status() {
 }
 
 #[test]
+fn a_file_caught_half_written_keeps_the_dot_it_had() {
+    let registry = tempfile::tempdir().unwrap();
+    let mut screen = watching(registry.path(), registered(registry.path(), "busy"));
+    screen.press('n');
+    screen.wait_for(&format!("● {} 1", directory()));
+
+    std::fs::write(only_file(registry.path()), r#"{"status":"id"#).unwrap();
+    let dot = after_a_read(&mut screen);
+
+    assert_eq!(dot.symbol(), "●");
+    assert_eq!(dot.fg, Color::Yellow);
+}
+
+#[test]
+fn a_file_that_is_removed_turns_the_dot_unknown() {
+    let registry = tempfile::tempdir().unwrap();
+    let mut screen = watching(registry.path(), registered(registry.path(), "busy"));
+    screen.press('n');
+    screen.wait_for(&format!("● {} 1", directory()));
+
+    std::fs::remove_file(only_file(registry.path())).unwrap();
+
+    let dot = wait_for_dot(&mut screen, |cell| cell.symbol() == "·");
+    assert_eq!(dot.symbol(), "·");
+    assert_eq!(dot.fg, Color::DarkGray);
+}
+
+#[test]
 fn a_session_waiting_on_you_shows_a_red_target_and_what_it_waits_for() {
     let registry = tempfile::tempdir().unwrap();
     let mut screen = watching(
@@ -208,8 +236,8 @@ fn the_sidebar_title_counts_the_sessions_by_dot() {
         screen.wait_for(&format!("acme agent {status}"));
     }
 
-    let shown = screen.wait_for(" sessions ● 1 ◉ 1 ○ 2 ");
-    assert!(shown.contains(" sessions ● 1 ◉ 1 ○ 2 "), "{shown}");
+    let shown = screen.wait_for(" sessions ● 1 ◉ 1 ○ 1 · 1 ");
+    assert!(shown.contains(" sessions ● 1 ◉ 1 ○ 1 · 1 "), "{shown}");
     assert_eq!(screen.cell(11, 0).fg, Color::Yellow);
     assert_eq!(screen.cell(15, 0).fg, Color::Red);
 }
@@ -231,9 +259,9 @@ fn the_narrowest_sidebar_keeps_every_count_in_the_title_even_past_nine() {
         wait_for_files(registry.path(), started + 1);
     }
 
-    let shown = screen.wait_for("● 10 ◉ 1 ○ 1");
+    let shown = screen.wait_for("●10 ◉1 ○1 ·0");
     let title = shown.lines().next().unwrap();
-    assert!(title.contains(" ● 10 ◉ 1 ○ 1 "), "{shown}");
+    assert!(title.contains(" ●10 ◉1 ○1 ·0 "), "{shown}");
 }
 
 #[test]
@@ -244,7 +272,7 @@ fn a_wide_sidebar_names_the_sessions_in_the_title() {
 
     let shown = screen.draw();
 
-    assert!(shown.contains(" sessions ● 0 ◉ 0 ○ 0 "), "{shown}");
+    assert!(shown.contains(" sessions ● 0 ◉ 0 ○ 0 · 0 "), "{shown}");
 }
 
 #[test]
@@ -291,7 +319,7 @@ fn with_no_session_the_title_counts_zero_of_each() {
 
     let shown = screen.draw();
 
-    assert!(shown.contains(" sessions ● 0 ◉ 0 ○ 0 "), "{shown}");
+    assert!(shown.contains(" sessions ● 0 ◉ 0 ○ 0 · 0 "), "{shown}");
 }
 
 fn watching(registry: &Path, command: Vec<String>) -> Screen {

@@ -26,15 +26,19 @@ pub struct Record {
 
 const CLOCK_SLACK: Duration = Duration::from_secs(2);
 
-pub fn read(dir: &Path, pid: u32, since: SystemTime) -> Option<Record> {
+pub fn read(dir: &Path, pid: u32, since: SystemTime, last: Option<Record>) -> Option<Record> {
     let mut file = File::open(dir.join(format!("{pid}.json"))).ok()?;
     let modified = file.metadata().and_then(|meta| meta.modified()).ok();
     if modified.is_some_and(|modified| modified + CLOCK_SLACK < since) {
         return None;
     }
     let mut text = String::new();
-    file.read_to_string(&mut text).ok()?;
-    let fields: Map<String, Value> = serde_json::from_str(&text).ok()?;
+    if file.read_to_string(&mut text).is_err() {
+        return last;
+    }
+    let Ok(fields) = serde_json::from_str::<Map<String, Value>>(&text) else {
+        return last;
+    };
     Some(Record {
         status: fields
             .get("status")

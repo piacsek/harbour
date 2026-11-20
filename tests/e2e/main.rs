@@ -232,7 +232,7 @@ fn the_demo_shows_a_made_up_session_in_each_state() {
     server.run(home.path(), &[], &["--demo"]);
 
     let rows = [
-        " sessions ● 1 ◉ 1 ○ 3 ",
+        " sessions ● 1 ◉ 1 ○ 2 · 1 ",
         "● acme-api 1",
         "◉ acme-api 2 permission prompt",
         "○ acme-api 3",

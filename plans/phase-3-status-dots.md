@@ -7,7 +7,7 @@ idle and, above all, which one is blocked waiting on them. Today the sidebar dot
 whether the process runs or has exited. Issue #6 asks for each dot to follow Claude Code's own
 status, with tmux-agents' glyphs and colours, and for the sidebar title to count them.
 
-## Verified facts (2026-11-20, `main` at 7ce71e3)
+## Verified facts (2026-11-20 UTC, `main` at 7ce71e3)
 
 - Claude Code 2.1.325 to 2.1.329 keep one `<pid>.json` per live session in
   `~/.claude/sessions/`, next to a `<pid>.<hash>.key` file. Each JSON names `pid`, `status`
@@ -41,13 +41,15 @@ What the user sees in a session's row, for every state the registry and the proc
 | running | `status` `waiting`, no `waitingFor` | `◉` | red | name |
 | running | `status` `idle` | `○` | dim | name |
 | running | absent (not written yet, not Claude Code, removed) | `·` | dark grey | name |
-| running | unreadable, not JSON, `status` missing or a value not listed | `·` | dark grey | name |
+| running | unreadable or not JSON, with no earlier record | `·` | dark grey | name |
+| running | unreadable or not JSON (caught half written), after an earlier record | the earlier dot | the earlier colour | the earlier row |
+| running | `status` missing or a value not listed | `·` | dark grey | name |
 | running | no registry directory (no `CLAUDE_CONFIG_DIR` and no `HOME`) | `·` | dark grey | name |
 | running | last written more than 2 s before the session started (left by an earlier process with the same pid) | `·` | dark grey | name |
 | exited | anything | `○` | dim | name, "exited" and the code, as today |
 
-The title counts the dots: ` sessions ● <working> ◉ <blocked> ○ <the rest> `, all three always
-shown, zeros included. A change in the file shows within about 500 ms, the read interval.
+The title counts the dots: ` sessions ● <working> ◉ <blocked> ○ <idle and exited> · <unknown> `,
+all four always shown, zeros included. A change in the file shows within about 500 ms, the read interval.
 
 ## Decisions
 
@@ -58,12 +60,19 @@ shown, zeros included. A change in the file shows within about 500 ms, the read 
   counts as unset, so harbour never reads a `sessions` folder relative to where it runs.
 - **Only the dot and the waiting reason are coloured.** The name keeps its style (bold when
   selected), so cyan keeps meaning "where you are".
-- **The title always carries the three counts**, even with no session, so its shape never moves.
-  When ` sessions ● a ◉ b ○ c ` does not fit the sidebar (under about 72 columns), the word
-  `sessions` goes and the counts stay. `○` counts idle, exited and unknown alike.
+- **The title always carries the four counts**, even with no session, so its shape never moves.
+  `○` counts idle and exited, `·` counts unknown, so each count matches the dots beside it. When
+  ` sessions ● a ◉ b ○ c · d ` does not fit the sidebar, the word `sessions` and the space after
+  each glyph go (` ●a ◉b ○c ·d `), which fits the narrowest sidebar with every count up to 99.
 - **A waiting reason always shows, at least in part.** When the name and the reason do not fit,
   the name is cut with `…` to what is left after the reason, but never below half the row, and
   the reason is cut at the border. Other rows keep their full name; issue #9 redoes the card.
+- **Every width is measured in display columns** (`unicode-width`), never in characters, and a
+  name is cut on a character boundary without splitting a wide character, so a name in CJK or
+  with emoji leaves the reason as much room as a Latin one.
+- **A file caught half written keeps the last record.** A file that exists but cannot be read or
+  parsed leaves the row as it was; only a missing or stale file clears it, so the dot and the
+  counts never flicker while Claude Code rewrites the file.
 - **Unknown has its own glyph, `·`,** so idle and unknown differ by shape, not by shade alone.
 - **A file last written more than 2 s before its session started is ignored**, as left by an
   earlier process with the same pid; the 2 s allow for file systems with coarse timestamps.
@@ -71,7 +80,8 @@ shown, zeros included. A change in the file shows within about 500 ms, the read 
   read at most every 500 ms; a slow config directory is a known limit in `AGENTS.md`.
 - **The demo writes its own registry** in a temporary directory: each made-up session writes its
   file the way Claude Code does, so the demo goes through the same code and never reads the
-  user's real registry. The directory is removed when the demo ends.
+  user's real registry. The directory is a fresh `tempfile` directory, never an existing one
+  reused, removed when the demo ends or panics; a demo killed by a signal leaves it behind.
 - **The e2e launcher unsets `CLAUDE_CONFIG_DIR`** beside its scratch `HOME`, as it does the XDG
   variables, so no e2e test reads the real registry.
 
@@ -109,5 +119,6 @@ One red-green-refactor cycle each, shipped with `scripts/ship.sh`.
 - `test-seam` The exited-dot test passed on its first run, since task 2 already dimmed an exited dot; as in phase 2, a test that is green at once proves nothing until the code is broken → none
 - `tooling` A `sed` that moved the demo's running rows from `●` to `○` also rewrote the new registry e2e tests, which then failed until restored by hand → none
 - `review-loop` Round 1 found the title and the waiting reason cut off at the narrowest sidebars, which the plan's state table never covered by width → code
+- `review-loop` Round 2 found the round 1 width fix counting characters, not display columns, so a CJK name still hid the reason; the second finding on the same mechanism, settled by measuring every width with `unicode-width` → code
 - `test-seam` Two tests quoted `$$` in single quotes, so they wrote a literal `$$.json` and tested a missing file instead of the malformed and stale files they named → code
 - `process` The dead-code rule pulled the binary's registry wiring from task 5 into task 2, so the plan's task order did not hold → none

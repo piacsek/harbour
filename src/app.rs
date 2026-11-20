@@ -266,12 +266,13 @@ impl App {
         }
         self.read_at = Some(Instant::now());
         for entry in &mut self.sessions {
+            let last = entry.record.take();
             entry.record = match entry.session.exit() {
                 Some(_) => None,
                 None => entry
                     .session
                     .pid()
-                    .and_then(|pid| registry::read(dir, pid, entry.started_at)),
+                    .and_then(|pid| registry::read(dir, pid, entry.started_at, last)),
             };
         }
     }

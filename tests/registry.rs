@@ -11,7 +11,7 @@ fn a_session_file_is_read_by_pid_ignoring_unknown_fields() {
     let dir = tempfile::tempdir().unwrap();
     fs::write(dir.path().join("27756.json"), SAMPLE).unwrap();
 
-    let record = read(dir.path(), 27756, UNIX_EPOCH);
+    let record = read(dir.path(), 27756, UNIX_EPOCH, None);
 
     assert_eq!(
         record,
@@ -45,7 +45,7 @@ fn waiting_for_is_read_when_present() {
     )
     .unwrap();
 
-    let record = read(dir.path(), 1, UNIX_EPOCH).unwrap();
+    let record = read(dir.path(), 1, UNIX_EPOCH, None).unwrap();
 
     assert_eq!(record.waiting_for.as_deref(), Some("permission prompt"));
 }
@@ -69,7 +69,7 @@ fn a_waiting_for_that_is_not_text_keeps_the_status_and_drops_the_reason() {
     )
     .unwrap();
 
-    let record = read(dir.path(), 1, UNIX_EPOCH);
+    let record = read(dir.path(), 1, UNIX_EPOCH, None);
 
     assert_eq!(
         record,
@@ -94,9 +94,28 @@ fn a_missing_or_malformed_file_reads_as_nothing() {
     fs::write(dir.path().join("1.json"), "{not json").unwrap();
     fs::write(dir.path().join("2.json.tmp"), SAMPLE).unwrap();
 
-    assert_eq!(read(dir.path(), 1, UNIX_EPOCH), None);
-    assert_eq!(read(dir.path(), 2, UNIX_EPOCH), None);
-    assert_eq!(read(dir.path(), 3, UNIX_EPOCH), None);
+    assert_eq!(read(dir.path(), 1, UNIX_EPOCH, None), None);
+    assert_eq!(read(dir.path(), 2, UNIX_EPOCH, None), None);
+    assert_eq!(read(dir.path(), 3, UNIX_EPOCH, None), None);
+}
+
+#[test]
+fn a_file_caught_half_written_keeps_the_last_record() {
+    let dir = tempfile::tempdir().unwrap();
+    fs::write(dir.path().join("1.json"), r#"{"status":"wai"#).unwrap();
+
+    let record = read(dir.path(), 1, UNIX_EPOCH, Some(busy()));
+
+    assert_eq!(record, Some(busy()));
+}
+
+#[test]
+fn a_file_that_is_gone_clears_the_last_record() {
+    let dir = tempfile::tempdir().unwrap();
+
+    let record = read(dir.path(), 1, UNIX_EPOCH, Some(busy()));
+
+    assert_eq!(record, None);
 }
 
 #[test]
@@ -111,7 +130,7 @@ fn a_file_last_written_well_before_the_session_started_is_left_from_another_proc
         .set_modified(started - Duration::from_secs(3600))
         .unwrap();
 
-    assert_eq!(read(dir.path(), 1, started), None);
+    assert_eq!(read(dir.path(), 1, started, None), None);
 }
 
 #[test]
@@ -121,7 +140,7 @@ fn a_file_written_around_the_start_of_the_session_is_read() {
     let started = SystemTime::now() + Duration::from_secs(1);
 
     assert_eq!(
-        read(dir.path(), 1, started).map(|record| record.status),
+        read(dir.path(), 1, started, None).map(|record| record.status),
         Some(Status::Busy)
     );
 }
@@ -145,6 +164,13 @@ fn the_sessions_dir_honours_the_config_dir_and_defaults_to_home() {
     assert_eq!(sessions_dir(None, None), None);
 }
 
+fn busy() -> Record {
+    Record {
+        status: Status::Busy,
+        waiting_for: None,
+    }
+}
+
 fn status(dir: &tempfile::TempDir, pid: u32) -> Option<Status> {
-    read(dir.path(), pid, UNIX_EPOCH).map(|record| record.status)
+    read(dir.path(), pid, UNIX_EPOCH, None).map(|record| record.status)
 }

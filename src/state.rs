@@ -1,5 +1,6 @@
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
+use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 
 use crate::registry::{Record, Status};
 
@@ -75,8 +76,8 @@ pub fn row(
 
 fn shortened(name: &str, reason: &str, width: usize) -> String {
     let room = width.saturating_sub(2);
-    let length = name.chars().count();
-    let wanted = reason.chars().count() + 1;
+    let length = name.width();
+    let wanted = reason.width() + 1;
     if length + wanted <= room {
         return name.to_string();
     }
@@ -84,7 +85,13 @@ fn shortened(name: &str, reason: &str, width: usize) -> String {
     if length <= budget {
         return name.to_string();
     }
-    let kept: String = name.chars().take(budget.saturating_sub(1)).collect();
+    let mut kept = String::new();
+    for character in name.chars() {
+        if kept.width() + character.width().unwrap_or(0) > budget.saturating_sub(1) {
+            break;
+        }
+        kept.push(character);
+    }
     format!("{kept}…")
 }
 
@@ -92,28 +99,35 @@ pub fn title<'a>(
     sessions: impl Iterator<Item = (bool, Option<&'a Record>)>,
     width: usize,
 ) -> Line<'static> {
-    let mut counts = [0; 3];
+    let mut counts = [0; 4];
     for (exited, record) in sessions {
         counts[match State::of(exited, record) {
             State::Working => 0,
             State::Blocked => 1,
-            State::Idle | State::Exited | State::Unknown => 2,
+            State::Idle | State::Exited => 2,
+            State::Unknown => 3,
         }] += 1;
     }
-    let counts = vec![
-        Span::styled("●", State::Working.style()),
-        Span::from(format!(" {} ", counts[0])),
-        Span::styled("◉", State::Blocked.style()),
-        Span::from(format!(" {} ", counts[1])),
-        Span::from("○"),
-        Span::from(format!(" {} ", counts[2])),
-    ];
-    let full = Line::from([vec![Span::from(" sessions ")], counts.clone()].concat());
+    let full = counted(" sessions ", counts, " ");
     if full.width() <= width {
         full
     } else {
-        Line::from([vec![Span::from(" ")], counts].concat())
+        counted(" ", counts, "")
     }
+}
+
+fn counted(lead: &str, counts: [usize; 4], gap: &str) -> Line<'static> {
+    let mut spans = vec![Span::from(lead.to_string())];
+    for (glyph, style, count) in [
+        ("●", State::Working.style(), counts[0]),
+        ("◉", State::Blocked.style(), counts[1]),
+        ("○", Style::default(), counts[2]),
+        ("·", Style::default(), counts[3]),
+    ] {
+        spans.push(Span::styled(glyph, style));
+        spans.push(Span::from(format!("{gap}{count} ")));
+    }
+    Line::from(spans)
 }
 
 pub fn legend() -> Vec<Line<'static>> {
