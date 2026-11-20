@@ -1,7 +1,7 @@
 use std::fs::File;
 use std::io::Read;
 use std::path::{Path, PathBuf};
-use std::time::{Duration, SystemTime};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use serde::Deserialize;
 use serde_json::{Map, Value};
@@ -22,6 +22,7 @@ pub enum Status {
 pub struct Record {
     pub status: Status,
     pub waiting_for: Option<String>,
+    pub status_since: Option<SystemTime>,
 }
 
 const CLOCK_SLACK: Duration = Duration::from_secs(2);
@@ -39,7 +40,15 @@ pub fn read(dir: &Path, pid: u32, since: SystemTime, last: Option<Record>) -> Op
     let Ok(fields) = serde_json::from_str::<Map<String, Value>>(&text) else {
         return last;
     };
+    let status_since = match fields.get("statusUpdatedAt") {
+        None => None,
+        Some(value) => value
+            .as_u64()
+            .map(|millis| UNIX_EPOCH + Duration::from_millis(millis))
+            .or(last.and_then(|last| last.status_since)),
+    };
     Some(Record {
+        status_since,
         status: fields
             .get("status")
             .and_then(|status| Status::deserialize(status).ok())

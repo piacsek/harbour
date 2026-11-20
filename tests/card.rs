@@ -1,4 +1,6 @@
-use harbour::card::{clean, fit};
+use std::time::Duration;
+
+use harbour::card::{age, clean, fit};
 use unicode_width::UnicodeWidthStr;
 
 #[test]
@@ -35,6 +37,22 @@ fn no_room_leaves_nothing() {
 #[test]
 fn one_column_holds_only_the_ellipsis() {
     assert_eq!(fit("acme", 1), "…");
+}
+
+#[test]
+fn under_a_minute_reads_less_than_a_minute() {
+    assert_eq!(age(Duration::from_secs(0)), "<1m");
+    assert_eq!(age(Duration::from_secs(59)), "<1m");
+}
+
+#[test]
+fn minutes_hours_and_days_are_whole_and_rounded_down() {
+    assert_eq!(age(Duration::from_secs(60)), "1m");
+    assert_eq!(age(Duration::from_secs(59 * 60 + 59)), "59m");
+    assert_eq!(age(Duration::from_secs(3600)), "1h");
+    assert_eq!(age(Duration::from_secs(23 * 3600 + 3599)), "23h");
+    assert_eq!(age(Duration::from_secs(24 * 3600)), "1d");
+    assert_eq!(age(Duration::from_secs(400 * 24 * 3600)), "400d");
 }
 
 #[test]

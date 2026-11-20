@@ -18,6 +18,7 @@ fn a_session_file_is_read_by_pid_ignoring_unknown_fields() {
         Some(Record {
             status: Status::Busy,
             waiting_for: None,
+            status_since: Some(UNIX_EPOCH + Duration::from_millis(1788804089018)),
         })
     );
 }
@@ -76,8 +77,33 @@ fn a_waiting_for_that_is_not_text_keeps_the_status_and_drops_the_reason() {
         Some(Record {
             status: Status::Waiting,
             waiting_for: None,
+            status_since: None,
         })
     );
+}
+
+#[test]
+fn a_status_change_time_that_is_not_a_number_keeps_the_last_one() {
+    let dir = tempfile::tempdir().unwrap();
+    fs::write(
+        dir.path().join("1.json"),
+        r#"{"status":"busy","statusUpdatedAt":"soon"}"#,
+    )
+    .unwrap();
+
+    let record = read(dir.path(), 1, UNIX_EPOCH, Some(busy())).unwrap();
+
+    assert_eq!(record.status_since, busy().status_since);
+}
+
+#[test]
+fn a_status_change_time_missing_from_a_first_read_is_unknown() {
+    let dir = tempfile::tempdir().unwrap();
+    fs::write(dir.path().join("1.json"), r#"{"status":"busy"}"#).unwrap();
+
+    let record = read(dir.path(), 1, UNIX_EPOCH, None).unwrap();
+
+    assert_eq!(record.status_since, None);
 }
 
 #[test]
@@ -168,6 +194,7 @@ fn busy() -> Record {
     Record {
         status: Status::Busy,
         waiting_for: None,
+        status_since: Some(UNIX_EPOCH + Duration::from_millis(1788804089018)),
     }
 }
 

@@ -387,11 +387,11 @@ fn a_harbour_that_quits_removes_its_counts() {
     assert_eq!(std::fs::read_dir(state.path()).unwrap().count(), 0);
 }
 
-fn watching(registry: &Path, command: Vec<String>) -> Screen {
+pub(crate) fn watching(registry: &Path, command: Vec<String>) -> Screen {
     showing(App::new(command).with_registry(registry.to_path_buf()))
 }
 
-fn showing(app: App) -> Screen {
+pub(crate) fn showing(app: App) -> Screen {
     let mut screen = Screen {
         app,
         terminal: Terminal::new(TestBackend::new(120, 20)).unwrap(),
@@ -405,7 +405,7 @@ fn registered(registry: &Path, status: &str) -> Vec<String> {
     written(registry, &format!(r#"{{"status":"{status}"}}"#))
 }
 
-fn written(registry: &Path, json: &str) -> Vec<String> {
+pub(crate) fn written(registry: &Path, json: &str) -> Vec<String> {
     script(&format!(
         "printf '%s' '{json}' > '{}'/$$.json; echo 'acme agent registered'; exec sleep 600",
         registry.display()

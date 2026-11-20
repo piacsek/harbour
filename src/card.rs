@@ -1,6 +1,8 @@
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::style::{Color, Modifier, Style};
+use std::time::Duration;
+
 use ratatui::text::{Line, Span};
 use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 
@@ -17,6 +19,7 @@ pub struct Card {
     title: String,
     doing: Option<(String, Style)>,
     place: String,
+    age: Option<String>,
 }
 
 impl Card {
@@ -25,6 +28,7 @@ impl Card {
         exit_note: Option<String>,
         record: Option<&Record>,
         place: &Place,
+        elapsed: Option<Duration>,
     ) -> Card {
         let state = State::of(exit_note.is_some(), record);
         let doing = match (exit_note, state) {
@@ -39,15 +43,13 @@ impl Card {
             title: clean(title),
             doing,
             place: clean(&place.to_string()),
+            age: elapsed.map(age),
         }
     }
 
     fn lines(&self, width: usize) -> [Line<'static>; HEIGHT] {
         let room = width.saturating_sub(INDENT.len());
-        let first = Line::from(vec![
-            Span::styled(self.state.glyph(), self.state.style()),
-            Span::from(format!(" {}", fit(&self.title, room))),
-        ]);
+        let first = self.first_line(width);
         let second = match &self.doing {
             Some((text, style)) => Line::from(vec![
                 Span::from(INDENT),
@@ -57,6 +59,25 @@ impl Card {
         };
         let third = Line::from(vec![Span::from(INDENT), Span::from(fit(&self.place, room))]);
         [first, second, third]
+    }
+
+    fn first_line(&self, width: usize) -> Line<'static> {
+        let glyph = Span::styled(self.state.glyph(), self.state.style());
+        let room = width.saturating_sub(INDENT.len());
+        match &self.age {
+            Some(age) if room > age.width() + 1 => {
+                let title = fit(&self.title, room - age.width() - 1);
+                let gap = room - title.width() - age.width();
+                Line::from(vec![
+                    glyph,
+                    Span::from(format!(" {title}{}{age}", " ".repeat(gap))),
+                ])
+            }
+            _ => Line::from(vec![
+                glyph,
+                Span::from(format!(" {}", fit(&self.title, room))),
+            ]),
+        }
     }
 }
 
@@ -126,6 +147,16 @@ pub fn fit(text: &str, width: usize) -> String {
         kept.push(character);
     }
     format!("{kept}…")
+}
+
+pub fn age(elapsed: Duration) -> String {
+    let minutes = elapsed.as_secs() / 60;
+    match minutes {
+        0 => "<1m".to_string(),
+        1..60 => format!("{minutes}m"),
+        60..1440 => format!("{}h", minutes / 60),
+        _ => format!("{}d", minutes / 1440),
+    }
 }
 
 pub fn clean(text: &str) -> String {

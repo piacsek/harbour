@@ -43,6 +43,7 @@ fn record(status: Status) -> Record {
     Record {
         status,
         waiting_for: None,
+        status_since: None,
     }
 }
 

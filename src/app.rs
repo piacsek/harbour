@@ -65,6 +65,20 @@ struct Entry {
     record: Option<Record>,
     directory: PathBuf,
     place: Place,
+    exited_at: Option<Instant>,
+}
+
+impl Entry {
+    fn elapsed(&self) -> Option<Duration> {
+        match self.exited_at {
+            Some(at) => Some(at.elapsed()),
+            None => self
+                .record
+                .as_ref()
+                .and_then(|record| record.status_since)
+                .map(|since| SystemTime::now().duration_since(since).unwrap_or_default()),
+        }
+    }
 }
 
 impl App {
@@ -336,6 +350,7 @@ impl App {
                     record: None,
                     directory: directory.to_path_buf(),
                     place: repo::place(directory),
+                    exited_at: None,
                 });
                 self.selected = self.sessions.len() - 1;
             }
@@ -372,7 +387,13 @@ impl App {
         let notes: Vec<Option<String>> = self
             .sessions
             .iter_mut()
-            .map(|entry| entry.session.exit().map(exit_note))
+            .map(|entry| {
+                let note = entry.session.exit().map(exit_note);
+                if note.is_some() {
+                    entry.exited_at.get_or_insert_with(Instant::now);
+                }
+                note
+            })
             .collect();
         let counts = state::counts(
             self.sessions
@@ -405,7 +426,15 @@ impl App {
             .sessions
             .iter()
             .zip(notes)
-            .map(|(entry, note)| Card::new(&entry.name, note, entry.record.as_ref(), &entry.place))
+            .map(|(entry, note)| {
+                Card::new(
+                    &entry.name,
+                    note,
+                    entry.record.as_ref(),
+                    &entry.place,
+                    entry.elapsed(),
+                )
+            })
             .collect();
         let exited = self
             .sessions
