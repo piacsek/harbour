@@ -1,10 +1,38 @@
 # tests
 
 What has gone wrong in the tests before, and how the suites are set up to avoid it. Rules and
-working agreements are in the root `AGENTS.md`. The traps below were hit in conveyor, where
-these suites come from.
+working agreements are in the root `AGENTS.md`. Most traps below were hit in conveyor, where
+these suites come from; the ones about sessions were hit in harbour.
 
 ## Testing traps hit so far
+
+- **tmux is a test harness, not a dependency.** Only the `#[ignore]` tests of `tests/e2e/` use
+  it: they run the real binary in a scratch tmux server of their own (`-L harbour-e2e-<name>-<pid>`,
+  `-f /dev/null`, killed when the test's `Server` drops), never the user's server. They panic
+  with an install hint when tmux is missing; `gates.sh` runs them with `--include-ignored` when
+  tmux is installed and says it skipped them otherwise; the `check` job installs it. A pane whose
+  command exits at once loses its output before `capture-pane` reads it, even with
+  `remain-on-exit`, so the pane command ends in `echo "harbour exited $?"; exec sleep 600`.
+
+- **No test starts the real `claude`.** A session runs the program `HARBOUR_SESSION_COMMAND`
+  names (`SESSION_COMMAND` in `src/tui.rs`, on the `SEAMS` list), `claude` when it is unset.
+  The end-to-end tests set it to `tests/fixtures/agent.sh` or `tests/fixtures/raw-agent.sh`;
+  in-process tests hand `App::new` or `Session::start` a `/bin/sh -c` script, so no test writes
+  an executable.
+
+- **dash is `/bin/sh` on Linux.** A session script's `read` returns non-zero when a trapped
+  signal (the window change of a resize) interrupts it, so a loop written `while read` ends on
+  Linux and not on macOS; write `while :; do read -r line || continue; ...; done`. A trap runs
+  only once the foreground command (`read`, `dd`) returns, so a test that needs the trap to run
+  sends the script a byte first.
+
+- **A screen assertion waits for the text it asserts, never for a neighbouring signal.** A
+  session's exit can be seen before its last output is parsed, and one write can reach the
+  screen in two reads. `an_exited_session_keeps_its_last_screen_dimmed` waited for the sidebar
+  to say exited, then asserted `acme agent done` in the pane, and lost that race on CI. Wait
+  for every text the test asserts (`wait_for_all` in `tests/app/`, `wait_for_screen_all` in
+  `tests/e2e/`), the whole line rather than its prefix, and end a value the test parses (a pid)
+  with a marker to wait for.
 
 - **`awk` is not the same program everywhere.** macOS ships BSD awk, the ubuntu runner's `awk`
   is `mawk`, and either may be `gawk` where someone installed it; BSD awk (version 20200816)

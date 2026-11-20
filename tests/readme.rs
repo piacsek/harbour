@@ -1,8 +1,22 @@
+use harbour::help::KEYS;
+
 const README: &str = include_str!("../README.md");
 
 #[test]
 fn the_readme_opens_with_the_name_and_the_one_line_description() {
-    assert!(README.starts_with("# harbour\n\nHarbour: where shipping begins.\n\n## "));
+    assert!(README.starts_with("# harbour\n\nHarbour: where shipping begins.\n\n"));
+}
+
+#[test]
+fn the_readme_shows_the_details_screenshot_right_below_the_description() {
+    assert!(README.starts_with(
+        "# harbour\n\nHarbour: where shipping begins.\n\n![harbour: a sidebar of sessions beside a live pane](docs/details.png)\n\n## "
+    ));
+}
+
+#[test]
+fn the_readme_embeds_one_screenshot() {
+    assert_eq!(README.matches("![").count(), 1);
 }
 
 #[test]
@@ -62,6 +76,11 @@ fn the_readme_builds_from_source_at_the_newest_release() {
     ));
 }
 
+#[test]
+fn the_readme_key_table_mirrors_the_in_app_help() {
+    assert_eq!(readme_key_rows(), help_key_rows());
+}
+
 fn sections() -> Vec<&'static str> {
     prose()
         .into_iter()
@@ -81,4 +100,19 @@ fn prose() -> Vec<&'static str> {
             !fenced
         })
         .collect()
+}
+
+fn readme_key_rows() -> String {
+    README
+        .lines()
+        .filter(|line| line.starts_with("| `"))
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+fn help_key_rows() -> String {
+    KEYS.iter()
+        .map(|(key, what)| format!("| `{key}` | {what} |"))
+        .collect::<Vec<_>>()
+        .join("\n")
 }

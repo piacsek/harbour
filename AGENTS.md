@@ -5,9 +5,10 @@ factual; verify against the code before treating anything here as live state.
 
 ## What this is
 
-harbour: Harbour: where shipping begins. What it does is not defined yet: Phase 1 defines the product.
-Until then the binary only answers `--help`, `-h`, `help`, `--version`, `-V`, `version` and
-`changelog`. Phase 0 scaffolded the guidelines, guardrails, CI and the automatic release
+harbour: Harbour: where shipping begins. It is a terminal workspace for agent work.
+Phase 1 gave it its first interface: with no argument on a terminal it opens a sidebar of agent
+sessions beside a live pane; it also answers `--help`, `-h`, `help`, `--version`, `-V`, `version`
+and `changelog`. Phase 0 scaffolded the guidelines, guardrails, CI and the automatic release
 from the `rust_tui` recipe, which descends from conveyor, an earlier project by the recipe's
 author; the conveyor history below is that project's. `PLAN.md` is the index of phases and the
 backlog; each phase's plan, outcome and hurdles are in `plans/`.
@@ -42,8 +43,15 @@ The layout names what each file or directory is for; read its functions from the
 rules from the `AGENTS.md` of its directory.
 
 ```
-src/main.rs      the binary: `--version`/`-V`/`version`, `--help`/`-h`/`help`, `changelog`, the usage on anything else
-src/lib.rs                    the library the binary and the tests share; today only `changelog`
+src/main.rs      the binary: `--version`/`-V`/`version`, `--help`/`-h`/`help`, `changelog`, the interface with no argument on a terminal, the same with made-up sessions for `--demo` on a terminal, the usage on anything else
+src/lib.rs                    the library the binary and the tests share
+src/tui.rs                    the terminal: enters and restores it, reads its events, draws the app; the program a session runs (`claude`, or what `HARBOUR_SESSION_COMMAND` names)
+src/app.rs                    the app: what is on screen and what each key does
+src/session.rs                a session: a command in a PTY, its output parsed into a screen that renders as a widget, its terminal queries answered, its exit status, its screen never under 2 rows or 2 columns (vt100 panics below that); every call into vt100 contained, so a panic gives that session a fresh screen with the modes its program had turned on and a repaint instead of taking harbour down, and the panic hook stays silent for it; writes go through a writer thread so a child that does not read never blocks the interface; ending it (or dropping it) hangs up its whole process group, then kills it, only while the child is unreaped; quitting hangs up every session first and waits once
+src/demo.rs                   the made-up sessions of `--demo`: `acme/*` scripts, never real data
+src/help.rs                   what the help view shows: `KEYS`, which the README key table mirrors, and `NOTES` (C-Backspace arriving as C-h, the tmux pattern)
+src/keys.rs                   the bytes a terminal sends for a key (legacy encoding), which a session receives
+src/mouse.rs                  `route`, a pure function: a gesture belongs to where its button went down and to the session shown then, and ends when another session is shown, and the selected session gets only what its mouse mode asked for (`?9` presses, `?1000` presses, releases and the wheel, `?1002` drags too, `?1003` moves too), with Shift, Alt and Ctrl, in its encoding (SGR, UTF-8 or the legacy bytes), clamped to the pane; an empty pane forwards nothing and ends the gesture
 src/changelog.rs              the bundled CHANGELOG.md and the rules a release entry must meet
 CHANGELOG.md                  only its `# Changelog` heading on `main`; each release commit writes its sections
 rust-toolchain.toml           the one Rust version (rustfmt and clippy with it) that local gates and CI run; see Development
@@ -71,7 +79,7 @@ scripts/homebrew-formula.sh   prints the tap formula for a released version
 scripts/formula-version.sh    the `tap` job's decision; never a version below the formula's
 scripts/stable-version.sh     the `stable-build` and `stable` jobs' decision, asked by both: the release the `stable` branch moves to, never below the version it holds
 scripts/sweep-report.sh       `[<first phase>]`: the sweep's data from `plans/`, as Markdown; counts and groups, judges nothing
-scripts/screenshots.sh        renders docs/help.png from `harbour --help`, plus one `shoot` per extra view (truecolor.py converts ANSI)
+scripts/screenshots.sh        renders docs/details.png from `harbour --demo` and docs/help.png from `harbour --help`, plus one `shoot` per extra view (truecolor.py converts ANSI)
 scripts/sweep-issue.sh        the `issue` job of `sweep.yml`: opens "Sweep due before phase N" with the report once the next phase is a multiple of 5, never twice
 docs/                         the screenshots `scripts/screenshots.sh` writes (see "Documentation rule")
 changes/                      one fragment per pull request that feeds the binary (`kind:` and the changelog bullets); add-only, see Releasing
@@ -79,6 +87,10 @@ plans/                        one versioned plan file per phase, ending with its
 plans/metrics.md              time and tokens, one row per phase
 tests/           outside-in: `tests/cli.rs` runs the real binary;
                  `tests/scripts/` runs the scripts in a scratch directory and repository, with `tests/fixtures/` standing in for `cargo`, `gh`, `curl` and the scripts they call;
+                 `tests/e2e/` runs the real binary in a scratch tmux server (`#[ignore]`, see `tests/AGENTS.md`), with `HARBOUR_SESSION_COMMAND` pointing sessions at `tests/fixtures/agent.sh` (prints what it reads, a line at a time) or `tests/fixtures/raw-agent.sh` (asks for bracketed paste and the mouse, prints every byte it reads) instead of `claude`;
+                 `tests/session.rs` and `tests/app/` run sessions in process, as `/bin/sh -c` scripts;
+                 `tests/keys.rs` is the table of the bytes each key sends, `tests/mouse.rs` the table of what a session receives for each mouse event, mode, gesture and modifier;
+                 `tests/tui.rs` covers leaving the terminal (mouse capture and bracketed paste off) and the panic hook;
                  `tests/readme.rs` pins the README shape (see "Documentation rule");
                  `tests/source_size.rs` fails while any Rust file under `src/` or `tests/` is longer than 700 lines, naming it;
                  `tests/toolchain.rs` fails while the `toolchain:` of `ci.yml` or `release.yml` differs from the channel of `rust-toolchain.toml`, or the `components:` of `ci.yml` or of the `build` job of `release.yml` from its `components`, or `rust-version` in `Cargo.toml` from its `major.minor`, or the `tag` job of `release.yml` loses `RUSTUP_TOOLCHAIN: stable`;
@@ -91,7 +103,7 @@ tests/AGENTS.md  the testing traps hit so far
 .github/ISSUE_TEMPLATE/       the bug report and feature request forms, and `config.yml` sending questions to Discussions
 .github/CONTRIBUTING.md       where a newcomer starts: points here, to `scripts/gates.sh`, `scripts/ship.sh` and the fragment rule, restates none of them
 .claude/skills/sweep/          the `sweep` skill: runs `scripts/sweep-report.sh`, finds repeats and trends, proposes what each becomes, writes `### Sweep` on the user's yes
-.claude/skills/adversarial-review/ the `adversarial-review` skill: attack the repository, report what is bad, file the fixes as labelled issues on request
+.claude/skills/adversarial-review/ the `adversarial-review` skill: attack the repository, report what is bad, file the fixes as labelled issues on request; `drive-demo.sh` drives `harbour --demo` in a scratch tmux server at a given size
 ```
 
 ## Where the rest lives
@@ -107,8 +119,11 @@ next to the code; read the one for a directory before changing anything in it.
 ## Behaviour that is easy to break
 
 - **`--help`/`-h`/`help` and `--version`/`-V`/`version`** print to stdout and exit 0; anything
-  else, no argument included, prints the usage to stderr and exits 1. The Homebrew formula's
-  `test` block and the `flake` and `stable-build` jobs rely on both.
+  else prints the usage to stderr and exits 1, and so does no argument when stdin or stdout is not
+  a terminal (with both on a terminal it opens the interface). The usage names `--demo` and says
+  that no argument on a terminal opens the interface; `tests/cli.rs` pins it. The Homebrew
+  formula's `test` block (`--version`, and `usage: harbour` on an unknown argument) and the `flake`
+  and `stable-build` jobs (`--version`) rely on both.
 - **`changelog`** prints the bundled `CHANGELOG.md` to stdout and exits 0: the heading alone in a
   build from `main`, every release in a release build. `tests/changelog.rs` holds the rules a
   release entry must meet, and `the_changelog_has_a_real_entry_for_the_crate_version` checks that a
@@ -127,6 +142,10 @@ impact.
 - **`check` builds and tests on Linux only**: the tests never run on macOS, and a macOS-only
   break of the release build itself fails in the release run; the flake's macOS leg catches a
   plain macOS build break (`.github/AGENTS.md`).
+- **A session that exited by itself leaves behind what ignores hangup**: once its command is
+  reaped its pid can be reused, so harbour never signals its group again, and a background
+  process that ignores hangup keeps running after its row is removed or harbour quits, as in any
+  terminal (`src/session.rs`).
 - **No tag ruleset guards `v*` tags**: the owner can still push or delete one by hand
   (`.github/AGENTS.md`).
 - **A Nix outage blocks merges that touch the flake's inputs once the ruleset requires
@@ -142,16 +161,15 @@ impact.
 `README.md` is minimal and holds only what a user needs, in this order and nothing else: the
 `# harbour` heading, the one line "Harbour: where shipping begins.", then `## Installation`, `## Usage`
 and `## Development`, with no subsection. `tests/readme.rs` fails when that shape changes, when
-the tap, the Nix or the source install line (built from `stable`) goes, or when the usage stops showing `--version` and `--help`.
+the tap, the Nix or the source install line (built from `stable`) goes, when the usage stops showing `--version` and `--help`, or when the key table stops mirroring `KEYS` of `src/help.rs`, the keys the help view shows.
 Feature depth belongs in the `AGENTS.md` files, not there.
-**Every visible change to the main interface shows in `docs/details.png`**, from the phase that
-gives harbour its first interface: a new or changed line, glyph, bar, title, column or footer
-element. That phase adds the `details` shot to `scripts/screenshots.sh`, puts the image in
-`README.md` right below the description and makes `tests/readme.rs` pin it there. From then on,
-extend the demo until the change appears on screen, rerun the script, and commit the image in
-the same pull request; a reviewer reports a missing or stale screenshot as a should. Until then
-the script shoots one image, `docs/help.png`, the output of `harbour --help`, which the README
-does not embed. Run `scripts/screenshots.sh` (needs tmux, `brew install
+**Every visible change to the main interface shows in `docs/details.png`**: a new or changed
+line, glyph, bar, title, column or footer element. The `details` shot of `scripts/screenshots.sh`
+takes it from `harbour --demo`, `README.md` embeds it right below the description, and
+`tests/readme.rs` pins it there as the README's only image. Extend the demo (`src/demo.rs`)
+until the change appears on screen, rerun the script, and commit the image in the same pull
+request; a reviewer reports a missing or stale screenshot as a should. The script also shoots
+`docs/help.png`, the output of `harbour --help`, which the README does not embed. Run `scripts/screenshots.sh` (needs tmux, `brew install
 charmbracelet/tap/freeze`, Google Chrome or chromium, and the FiraCode Nerd Font in
 `~/Library/Fonts`) and commit the new images. Freeze lays out an SVG with the font embedded;
 headless Chrome rasterises it, because freeze's own PNG output cannot draw Nerd Font glyphs.

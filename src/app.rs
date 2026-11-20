@@ -1,0 +1,383 @@
+use crossterm::event::{KeyCode, KeyEvent, KeyModifiers, MouseEvent, MouseEventKind};
+use portable_pty::ExitStatus;
+use ratatui::Frame;
+use ratatui::layout::{Constraint, Layout, Position, Rect};
+use ratatui::style::Modifier;
+use ratatui::text::Line;
+use ratatui::widgets::{
+    Block, BorderType, Clear, HighlightSpacing, List, ListState, Paragraph, Wrap,
+};
+
+use crate::demo;
+use crate::help;
+use crate::keys;
+use crate::mouse::{self, Gesture, Target};
+use crate::session::{self, Session};
+
+const NARROW: u16 = 60;
+const HINT: &str = "No session yet: press n to start one.";
+
+pub struct App {
+    command: Vec<String>,
+    directory: String,
+    sessions: Vec<Entry>,
+    selected: usize,
+    started: usize,
+    pane: Rect,
+    shown_pane: Rect,
+    sidebar: Rect,
+    pane_focused: bool,
+    gesture: Gesture,
+    failed: Option<String>,
+    asking: Option<Question>,
+    helping: bool,
+    quitting: bool,
+}
+
+#[derive(Clone, Copy, PartialEq)]
+enum Question {
+    End,
+    Quit,
+}
+
+struct Entry {
+    id: usize,
+    name: String,
+    session: Session,
+}
+
+impl App {
+    pub fn new(command: Vec<String>) -> App {
+        let directory = std::env::current_dir()
+            .ok()
+            .and_then(|path| {
+                path.file_name()
+                    .map(|name| name.to_string_lossy().into_owned())
+            })
+            .unwrap_or_default();
+        App {
+            command,
+            directory,
+            sessions: Vec::new(),
+            selected: 0,
+            started: 0,
+            pane: Rect::new(0, 0, 80, 24),
+            shown_pane: Rect::default(),
+            sidebar: Rect::default(),
+            pane_focused: false,
+            gesture: Gesture::Idle,
+            failed: None,
+            asking: None,
+            helping: false,
+            quitting: false,
+        }
+    }
+
+    pub fn demo() -> App {
+        let mut app = App::new(demo::working());
+        app.start();
+        app.start_with(&demo::failed());
+        app.start();
+        app
+    }
+
+    pub fn running(&self) -> bool {
+        !self.quitting
+    }
+
+    pub fn key(&mut self, key: KeyEvent) {
+        if self.dismiss(is_yes(key)) {
+            return;
+        }
+        if self.pane_focused && is_ctrl(key, 'h') {
+            self.pane_focused = false;
+            return;
+        }
+        if let Some(session) = self.focused() {
+            session.send(&keys::encode(key, session.application_cursor()));
+            return;
+        }
+        match key.code {
+            _ if is_ctrl(key, 'l') => self.pane_focused = !self.sessions.is_empty(),
+            KeyCode::Enter => self.pane_focused = !self.sessions.is_empty(),
+            KeyCode::Char('q') => self.quit(),
+            KeyCode::Char('n') => self.start(),
+            KeyCode::Char('x') => self.end_or_remove(),
+            KeyCode::Char('?') => self.helping = true,
+            KeyCode::Char('j') => {
+                self.selected = (self.selected + 1).min(self.sessions.len().saturating_sub(1))
+            }
+            KeyCode::Char('k') => self.selected = self.selected.saturating_sub(1),
+            _ => {}
+        }
+    }
+
+    pub fn paste(&mut self, text: &str) {
+        if self.dismiss(false) {
+            return;
+        }
+        if let Some(session) = self.focused() {
+            session.paste(text);
+        }
+    }
+
+    pub fn mouse(&mut self, event: MouseEvent) {
+        if self.helping || self.asking.is_some() {
+            self.gesture = Gesture::Idle;
+            if matches!(event.kind, MouseEventKind::Down(_)) {
+                self.dismiss(false);
+            }
+            return;
+        }
+        let at = Position::new(event.column, event.row);
+        if matches!(event.kind, MouseEventKind::Down(_)) {
+            if self.sidebar.contains(at) {
+                self.pane_focused = false;
+            } else if self.shown_pane.contains(at) {
+                self.pane_focused = !self.sessions.is_empty();
+            }
+        }
+        let entry = self.sessions.get(self.selected);
+        let target = entry.map(|entry| {
+            let (mode, encoding) = entry.session.mouse_protocol();
+            Target {
+                session: entry.id,
+                mode,
+                encoding,
+            }
+        });
+        let (gesture, bytes) = mouse::route(self.gesture, event, self.shown_pane, target);
+        self.gesture = gesture;
+        if let (Some(entry), Some(bytes)) = (entry, bytes) {
+            entry.session.send(&bytes);
+        }
+    }
+
+    fn dismiss(&mut self, yes: bool) -> bool {
+        if self.helping {
+            self.helping = false;
+            return true;
+        }
+        let Some(question) = self.asking.take() else {
+            return false;
+        };
+        if yes {
+            self.answer_yes(question);
+        }
+        true
+    }
+
+    fn focused(&self) -> Option<&Session> {
+        self.sessions
+            .get(self.selected)
+            .filter(|_| self.pane_focused)
+            .map(|entry| &entry.session)
+    }
+
+    fn end_or_remove(&mut self) {
+        let Some(entry) = self.sessions.get_mut(self.selected) else {
+            return;
+        };
+        if entry.session.exit().is_some() {
+            self.sessions.remove(self.selected);
+            self.selected = self.selected.min(self.sessions.len().saturating_sub(1));
+        } else {
+            self.asking = Some(Question::End);
+        }
+    }
+
+    fn quit(&mut self) {
+        if self
+            .sessions
+            .iter_mut()
+            .all(|entry| entry.session.exit().is_some())
+        {
+            self.quitting = true;
+        } else {
+            self.asking = Some(Question::Quit);
+        }
+    }
+
+    fn answer_yes(&mut self, question: Question) {
+        match question {
+            Question::End => {
+                if let Some(entry) = self.sessions.get_mut(self.selected) {
+                    entry.session.end();
+                }
+            }
+            Question::Quit => self.quitting = true,
+        }
+    }
+
+    fn start(&mut self) {
+        self.start_with(&self.command.clone());
+    }
+
+    fn start_with(&mut self, command: &[String]) {
+        match Session::start(command, self.pane.height, self.pane.width) {
+            Ok(session) => {
+                self.failed = None;
+                self.started += 1;
+                self.sessions.push(Entry {
+                    id: self.started,
+                    name: format!("{} {}", self.directory, self.started),
+                    session,
+                });
+                self.selected = self.sessions.len() - 1;
+            }
+            Err(error) => {
+                self.failed = Some(format!(
+                    "Could not start {}: {error}",
+                    command.first().map_or("", String::as_str)
+                ))
+            }
+        }
+    }
+
+    pub fn draw(&mut self, frame: &mut Frame) {
+        let (sidebar, pane) = self.areas(frame.area());
+        self.sidebar = sidebar;
+        let mut sidebar_block = Block::bordered()
+            .border_type(border(!self.pane_focused))
+            .title(" sessions ");
+        match self.asking {
+            Some(Question::End) => sidebar_block = sidebar_block.title_bottom(" End? y/n "),
+            Some(Question::Quit) => sidebar_block = sidebar_block.title_bottom(" Quit? y/n "),
+            None => {}
+        }
+        let below_rows = sidebar_block.inner(sidebar);
+        let pane_block = Block::bordered().border_type(border(self.pane_focused));
+        self.pane = pane_block.inner(if pane.is_empty() { frame.area() } else { pane });
+        self.shown_pane = if pane.is_empty() {
+            Rect::default()
+        } else {
+            self.pane
+        };
+        for entry in &mut self.sessions {
+            entry.session.resize(self.pane.height, self.pane.width);
+        }
+        let rows: Vec<String> = self
+            .sessions
+            .iter_mut()
+            .map(|entry| match entry.session.exit() {
+                None => format!("● {}", entry.name),
+                Some(status) => format!("○ {} exited{}", entry.name, exit_note(status)),
+            })
+            .collect();
+        let exited = self
+            .sessions
+            .get_mut(self.selected)
+            .is_some_and(|entry| entry.session.exit().is_some());
+        match self.sessions.get(self.selected) {
+            None => {
+                let message = self.failed.as_deref().unwrap_or(HINT);
+                frame.render_widget(
+                    Paragraph::new(HINT)
+                        .wrap(Wrap { trim: false })
+                        .block(sidebar_block),
+                    sidebar,
+                );
+                frame.render_widget(
+                    Paragraph::new(message)
+                        .wrap(Wrap { trim: false })
+                        .block(pane_block),
+                    pane,
+                );
+            }
+            Some(shown) => {
+                let list = List::new(rows)
+                    .block(sidebar_block)
+                    .highlight_symbol("› ")
+                    .highlight_spacing(HighlightSpacing::Always)
+                    .highlight_style(Modifier::BOLD);
+                let mut state = ListState::default().with_selected(Some(self.selected));
+                frame.render_stateful_widget(list, sidebar, &mut state);
+                if !pane.is_empty() {
+                    frame.render_widget(pane_block, pane);
+                    frame.render_widget(&shown.session, self.pane);
+                    if exited {
+                        frame.buffer_mut().set_style(self.pane, Modifier::DIM);
+                    }
+                }
+            }
+        }
+        if let Some(failed) = &self.failed {
+            draw_failure(frame, failed, below_rows);
+        }
+        if self.helping {
+            self.draw_help(frame);
+        }
+    }
+
+    fn draw_help(&self, frame: &mut Frame) {
+        let keys = help::KEYS
+            .iter()
+            .map(|(key, what)| Line::from(format!("{key:<10} {what}")));
+        let notes = help::NOTES.iter().map(|line| Line::from(*line));
+        let lines: Vec<Line> = keys.chain([Line::default()]).chain(notes).collect();
+        frame.render_widget(Clear, frame.area());
+        frame.render_widget(
+            Paragraph::new(lines)
+                .wrap(Wrap { trim: false })
+                .block(Block::bordered().title(" help ")),
+            frame.area(),
+        );
+    }
+
+    fn areas(&self, area: Rect) -> (Rect, Rect) {
+        if area.width >= NARROW {
+            let [sidebar, pane] =
+                Layout::horizontal([Constraint::Ratio(1, 3), Constraint::Ratio(2, 3)]).areas(area);
+            (sidebar, pane)
+        } else if self.pane_focused {
+            (Rect::default(), area)
+        } else {
+            (area, Rect::default())
+        }
+    }
+}
+
+impl Drop for App {
+    fn drop(&mut self) {
+        session::end_all(self.sessions.iter_mut().map(|entry| &mut entry.session));
+    }
+}
+
+fn draw_failure(frame: &mut Frame, failed: &str, area: Rect) {
+    let width = usize::from(area.width.max(1));
+    let chars: Vec<char> = failed.chars().collect();
+    let lines: Vec<Line> = chars
+        .chunks(width)
+        .map(|chunk| Line::from(chunk.iter().collect::<String>()))
+        .collect();
+    let height = u16::try_from(lines.len())
+        .unwrap_or(u16::MAX)
+        .min(area.height);
+    let bottom = Rect::new(area.x, area.bottom() - height, area.width, height);
+    frame.render_widget(Clear, bottom);
+    frame.render_widget(Paragraph::new(lines), bottom);
+}
+
+fn exit_note(status: &ExitStatus) -> String {
+    match (status.signal(), status.exit_code()) {
+        (Some(signal), _) => format!(" ({signal})"),
+        (None, 0) => String::new(),
+        (None, code) => format!(" {code}"),
+    }
+}
+
+fn border(focused: bool) -> BorderType {
+    if focused {
+        BorderType::Thick
+    } else {
+        BorderType::Plain
+    }
+}
+
+fn is_ctrl(key: KeyEvent, c: char) -> bool {
+    key.code == KeyCode::Char(c) && key.modifiers == KeyModifiers::CONTROL
+}
+
+fn is_yes(key: KeyEvent) -> bool {
+    matches!(key.code, KeyCode::Char('y' | 'Y')) && KeyModifiers::SHIFT.contains(key.modifiers)
+}

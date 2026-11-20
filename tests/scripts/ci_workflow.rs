@@ -7,8 +7,8 @@ fn the_check_job_runs_the_formatter_the_linter_and_every_test() {
 }
 
 #[test]
-fn the_check_job_installs_nothing_beyond_the_toolchain() {
-    assert!(!ci().contains("apt-get"), "{}", ci());
+fn the_check_job_installs_nothing_beyond_the_toolchain_and_tmux() {
+    assert_eq!(ci().matches("apt-get install").count(), 1, "{}", ci());
 }
 
 #[test]
@@ -32,9 +32,10 @@ const CHECK_JOB: &str = "  check:
           toolchain: 1.98.1
           components: rustfmt, clippy
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
+      - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends tmux
       - run: cargo fmt --check
       - run: cargo clippy --locked --all-targets -- -D warnings
-      - run: cargo test --locked
+      - run: cargo test --locked -- --include-ignored
 ";
 
 const AUDIT_JOB: &str = "  audit:

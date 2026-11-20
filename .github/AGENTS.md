@@ -8,7 +8,8 @@ a sibling project by the recipe's author; a number measured there says so.
 ## CI
 
 `.github/workflows/ci.yml` runs on every push to `main` and every pull request: a `check` job
-(`cargo fmt --check`, clippy `-D warnings` and `cargo test`, both with `--locked`), an `audit` job
+(`cargo fmt --check`, clippy `-D warnings` and `cargo test -- --include-ignored`, both with `--locked`, with tmux
+installed for the e2e tests of `tests/e2e/`), an `audit` job
 (`cargo audit`), and the flake build behind its `paths` and `flake-ok` jobs (below).
 `tests/scripts/ci_workflow.rs` pins the `check` job step by step. Learnings from conveyor's CI
 speed-up, when its pipeline went from about 3 min 20 s to 37 s:
@@ -24,7 +25,8 @@ speed-up, when its pipeline went from about 3 min 20 s to 37 s:
   tool (`cargo-insta`, `cargo-deny`).
 - **Do not build what another workflow already builds.** `check` runs no `cargo build --release`:
   `release.yml` is what proves the release profile.
-- **One test invocation.** `cargo test` runs every suite in one pass; two invocations rebuild the
+- **One test invocation.** `cargo test -- --include-ignored` runs every suite, the tmux e2e
+  tests included, in one pass; two invocations rebuild the
   test harness twice for nothing.
 - **The floor is setup.** Job setup, checkout, toolchain and the `Swatinem/rust-cache` restore
   take most of `check`; fmt, clippy and tests are seconds. Shaving further means caching a
