@@ -89,11 +89,14 @@ impl App {
         self
     }
 
-    pub fn demo() -> App {
-        let mut app = App::new(demo::working());
+    pub fn demo(registry: PathBuf) -> App {
+        let mut app = App::new(demo::working(&registry)).with_registry(registry.clone());
         app.start();
+        app.start_with(&demo::blocked(&registry));
+        app.start_with(&demo::idle(&registry));
         app.start_with(&demo::failed());
-        app.start();
+        app.start_with(&demo::unknown());
+        app.selected = 0;
         app
     }
 

@@ -225,22 +225,49 @@ fn without_a_claude_config_dir_the_registry_is_read_under_home() {
 
 #[test]
 #[ignore]
-fn the_demo_shows_made_up_sessions_one_of_them_exited() {
+fn the_demo_shows_a_made_up_session_in_each_state() {
     let home = tempfile::tempdir().unwrap();
     let server = Server::start("demo", 160, 20);
 
     server.run(home.path(), &[], &["--demo"]);
 
-    let screen =
-        server.wait_for_screen_all(&["○ acme-api 1", "○ acme-api 2 exited 1", "○ acme-api 3"]);
-    assert!(screen.contains("○ acme-api 1"), "{screen}");
-    assert!(screen.contains("○ acme-api 2 exited 1"), "{screen}");
-    assert!(screen.contains("○ acme-api 3"), "{screen}");
-    let screen = server.wait_for_screen("fix the flaky retry test in acme/api");
-    assert!(
-        screen.contains("fix the flaky retry test in acme/api"),
-        "{screen}"
-    );
+    let rows = [
+        " sessions ● 1 ◉ 1 ○ 3 ",
+        "● acme-api 1",
+        "◉ acme-api 2 permission prompt",
+        "○ acme-api 3",
+        "○ acme-api 4 exited 1",
+        "○ acme-api 5",
+        "fix the flaky retry test in acme/api",
+    ];
+    let screen = server.wait_for_screen_all(&rows);
+    assert!(screen.contains(rows[0]), "{screen}");
+    assert!(screen.contains(rows[1]), "{screen}");
+    assert!(screen.contains(rows[2]), "{screen}");
+    assert!(screen.contains(rows[3]), "{screen}");
+    assert!(screen.contains(rows[4]), "{screen}");
+    assert!(screen.contains(rows[5]), "{screen}");
+    assert!(screen.contains(rows[6]), "{screen}");
+}
+
+#[test]
+#[ignore]
+fn the_demo_removes_its_made_up_registry_when_it_ends() {
+    let home = tempfile::tempdir().unwrap();
+    let temp = tempfile::tempdir().unwrap();
+    let temp_dir = temp.path().display().to_string();
+    let server = Server::start("demo-registry", 160, 20);
+    server.run(home.path(), &[("TMPDIR", &temp_dir)], &["--demo"]);
+    server.wait_for_screen("◉ acme-api 2 permission prompt");
+    assert_eq!(std::fs::read_dir(temp.path()).unwrap().count(), 1);
+
+    server.send_keys(&["q"]);
+    server.wait_for_screen("Quit? y/n");
+    server.send_keys(&["y"]);
+
+    let screen = server.wait_for_screen("harbour exited 0");
+    assert!(screen.contains("harbour exited 0"), "{screen}");
+    assert_eq!(std::fs::read_dir(temp.path()).unwrap().count(), 0);
 }
 
 struct Server {

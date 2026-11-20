@@ -25,7 +25,11 @@ pub fn run() -> io::Result<()> {
 }
 
 pub fn demo() -> io::Result<()> {
-    show(App::demo())
+    let registry = std::env::temp_dir().join(format!("harbour-demo-{}", std::process::id()));
+    std::fs::create_dir_all(&registry)?;
+    let result = show(App::demo(registry.clone()));
+    let _ = std::fs::remove_dir_all(&registry);
+    result
 }
 
 fn show(app: App) -> io::Result<()> {
