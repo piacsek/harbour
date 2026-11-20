@@ -9,8 +9,9 @@ belong to no pane. Issue #8 asks for `harbour status`, which prints the counts o
 harbour's sessions as tmux status-line text, for `status-right`. Only counts, only harbour's own
 sessions.
 
-Phase 5 is a sweep phase, so its `## Outcome` opens with the sweep of phases 0 to 3. Phase 4
-(PR #14, the directory picker) is still open, so its hurdles are not on `main` and are not swept.
+Phase 5 is a sweep phase, so its `## Outcome` opens with the sweep of phases 0 to 4. Phase 4
+(PR #14, the directory picker) was open when this plan was written and is folded in since it
+shipped as v0.4.0.
 
 ## Verified facts (2026-11-20 UTC, `main` at 57065de)
 
@@ -129,7 +130,8 @@ followed by a newline; when nothing is counted, nothing at all is printed.
   while the counts stay the same, so a broken folder costs at most one attempt per 5 s.
 - **The status folder is private**: harbour sets `harbour/status` itself to `0700`, whether it
   created it or found it, and creates its files `0600`; it publishes nothing when that folder is
-  a symlink or not a directory. Folders above it keep the modes they have. An `XDG_STATE_HOME`
+  a symlink or not a directory. Folders above it that already exist keep their modes; missing
+  ones are created `0700`. An `XDG_STATE_HOME`
   that is empty or relative counts as unset, as the XDG spec says.
 - **`harbour status` takes no option** and always exits 0, so a status line never shows an
   error; the tmux line to add goes into `--help`.
@@ -153,8 +155,8 @@ One red-green-refactor cycle each, shipped with `scripts/ship.sh`.
 
 ### Sweep
 
-Range: phases 0 to 3, read from `scripts/sweep-report.sh` and each plan's `## Outcome` and
-`## Hurdles`. Phase 4 (PR #14) was still open, so its hurdles were not on `main`. This is the
+Range: phases 0 to 4, read from `scripts/sweep-report.sh` (`scripts/sweep-report.sh 4` for
+phase 4, merged after the first pass) and each plan's `## Outcome` and `## Hurdles`. This is the
 first sweep. The owner was away, so nothing below was applied: every line is a **proposal
 awaiting the owner's yes**, and no `AGENTS.md` changed.
 
@@ -167,12 +169,16 @@ awaiting the owner's yes**, and no `AGENTS.md` changed.
 | 5 | Review rounds found faults in the previous round's own fixes (phase 1, four of six rounds; phase 3, round 2 on round 1's width fix) | 1, 3 | Decline as a rule: "Two strikes, then redesign" already covers it and held in phase 3 | none |
 | 6 | One-off tooling dead ends with `→ none` (cargo-audit not installed locally, pty exhaustion when tests run beside the gates, a stale e2e binary in a shared `target/`, a `sed` that rewrote other tests, Codex capacity) | 1, 2, 3 | Decline: no two are the same problem | none |
 | 7 | A plan's task order broke because the dead-code rule pulls wiring forward | 3 | Decline: one occurrence; a plan names the caller of each new `pub` item in the same task | none |
+| 8 | Review rounds found states of the outside world the plan's state table never listed: a directory gone before or after launch and fzf's options left to the user's `FZF_DEFAULT_OPTS` (phase 4, three rounds in a row, then round 4), a lock held by another host and a folder that already existed (phase 5) | 4, 5 | Rule: a plan's state table lists, for each thing the change reads from outside harbour (a path, a user's environment or configuration, another process or host), what the user sees when it is missing, changed in between, or shared | root `AGENTS.md`, "Plan before code" |
+| 9 | End-to-end runs reached the user's real state (the binary on `PATH` opening the real fzf over the real zoxide database, `harbour-pick*` left in the real temporary directory) | 4 | Decline: each already became a rule in `tests/AGENTS.md` in phase 4 | none |
+| 10 | One-offs: `App` implements `Drop`, so no struct update syntax; macOS `/bin/sh` exits 1 when `exec` fails; a test file pushed over 700 lines and split | 4 | Decline: no two are the same problem, and the size limit did its job | none |
 
-Metrics (from `plans/metrics.md`): review rounds 6, 3, 3 for phases 1 to 3; start to release
-4 h 13 min, 44 min, 1 h 3 min; Claude reviewer tokens per round 86k to 140k (phase 1 115k to 140k, phase 2 86k to 127k, rising
-over its rounds, phase 3 115k to 125k), with no rise from phase to phase; builder
-notices per phase 12, 4, 4. Three comparable rows are too few to call a trend in tokens; rounds
-dropped from 6 to 3 and held. Codex and orchestrator usage remain unknown in every row.
+Metrics (from `plans/metrics.md`): review rounds 6, 3, 3, 5 for phases 1 to 4; start to release
+4 h 13 min, 44 min, 1 h 3 min, 2 h 1 min; Claude reviewer tokens per round 86k to 146k (phase 1
+115k to 140k, phase 2 86k to 127k, rising over its rounds, phase 3 115k to 125k, phase 4 120k to
+146k); builder notices per phase 12, 4, 4, 7. Rounds went back up from 3 to 5 in phase 4, and
+three of its five were the states finding 8 is about; four comparable rows are still too few to
+call a trend in tokens. Codex and orchestrator usage remain unknown in every row.
 
 ### Build
 
@@ -202,6 +208,11 @@ dropped from 6 to 3 and held. Codex and orchestrator usage remain unknown in eve
 - `main` was merged in after phase 4 shipped as v0.4.0 (conflicts in `src/tui.rs`, the e2e
   tests, both index files and `AGENTS.md`); a session started through the directory picker is
   published like any other, and a test says so.
+- Review round 3 (no must): the tmux advice replaced the user's `status-right`; it now appends
+  with `set -ga`, and raises `status-right-length` to 80, since at tmux's default of 40 the
+  appended counts were cut off entirely (seen in a scratch tmux server). The sweep opens each
+  lock for writing, as NFS needs for an exclusive lock, and skips the publication's own name; the
+  reader counts only harbour's own names and regular files, never a symlink.
 
 ## Hurdles
 
@@ -211,3 +222,4 @@ dropped from 6 to 3 and held. Codex and orchestrator usage remain unknown in eve
 - `review-loop` Round 1 found three failure states the table had not listed (a lock held by another host, a write failing after a success, a status folder that already existed or was a symlink) → code
 - `design` Round 2 found four more holes in the same recovery mechanism (re-locking an old handle under a pid name); per "Two strikes, then redesign" it was replaced by one publication per instance with a unique name, dropped on any failure and made again at most every 5 s → code
 - `design` The redesign's unique names left nothing to reuse a killed harbour's pair, so the folder grew without bound until the orchestrator caught it before round 3; a harbour now sweeps dead publications when it makes one → code
+- `review-loop` Round 3 found that the advised tmux line replaced the user's `status-right`; the suggested append was cut off by tmux's default `status-right-length`, which only rendering it in a scratch tmux server showed → code

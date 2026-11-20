@@ -142,7 +142,9 @@ usage: harbour [--demo | --help | --version | changelog | status]
 With no argument on a terminal, harbour opens a sidebar of Claude Code sessions
 beside a live pane. --demo opens the same with made-up sessions: no claude needed.
 status prints how many sessions of every running harbour are blocked, working,
-idle or unknown, for tmux: set -g status-right '#(harbour status)'
+idle or unknown, for tmux, which cuts status-right off at status-right-length:
+  set -g status-right-length 80
+  set -ga status-right ' #(harbour status)'
 ";
 
 fn version_line() -> String {

@@ -5,7 +5,7 @@ use std::process::Command;
 use std::time::Duration;
 
 use harbour::state::Counts;
-use harbour::summary::Summary;
+use harbour::summary::{Summary, sweep};
 
 #[test]
 fn publishing_writes_the_counts_blocked_working_idle_unknown() {
@@ -384,6 +384,35 @@ fn a_publication_whose_files_another_harbour_swept_is_made_again() {
     summary.publish(counts(1, 0, 0, 0));
 
     assert_eq!(status(scratch.path()), "#[fg=red]◉ 1#[default]\n");
+}
+
+#[test]
+fn a_sweep_never_removes_its_own_publication() {
+    let scratch = tempfile::tempdir().unwrap();
+    let dir = scratch.path().join("harbour/status");
+    fs::create_dir_all(&dir).unwrap();
+    fs::write(dir.join("101-1700000000000000000-0.lock"), "").unwrap();
+    fs::write(dir.join("101-1700000000000000000-0.counts"), "1 0 0 0\n").unwrap();
+
+    sweep(&dir, "101-1700000000000000000-0");
+
+    assert!(dir.join("101-1700000000000000000-0.lock").exists());
+    assert!(dir.join("101-1700000000000000000-0.counts").exists());
+}
+
+#[test]
+fn a_lock_that_cannot_be_opened_for_writing_is_never_removed() {
+    let scratch = tempfile::tempdir().unwrap();
+    let dir = scratch.path().join("harbour/status");
+    fs::create_dir_all(&dir).unwrap();
+    fs::write(dir.join("101-1700000000000000000-0.lock"), "").unwrap();
+    set_mode(&dir.join("101-1700000000000000000-0.lock"), 0o400);
+    fs::write(dir.join("101-1700000000000000000-0.counts"), "1 0 0 0\n").unwrap();
+    let mut summary = Summary::new(&dir);
+
+    summary.publish(counts(0, 1, 0, 0));
+
+    assert!(dir.join("101-1700000000000000000-0.counts").exists());
 }
 
 #[test]

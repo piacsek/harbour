@@ -34,6 +34,11 @@ pub fn total(dir: &Path) -> Counts {
         .flatten()
         .map(|entry| entry.path())
         .filter(|path| path.extension().is_some_and(|ext| ext == "counts"))
+        .filter(|path| {
+            path.file_stem()
+                .and_then(|stem| stem.to_str())
+                .is_some_and(published_name)
+        })
         .filter(|path| running(&path.with_extension("lock")))
         .filter_map(|path| read(&path))
         .fold(Counts::default(), Counts::plus)
@@ -72,7 +77,7 @@ fn read(path: &Path) -> Option<Counts> {
 }
 
 fn regular(path: &Path) -> bool {
-    fs::metadata(path).is_ok_and(|meta| meta.is_file())
+    fs::symlink_metadata(path).is_ok_and(|meta| meta.is_file())
 }
 
 pub struct Summary {
@@ -156,7 +161,7 @@ impl Publication {
             lock,
         };
         publication.lock.try_lock()?;
-        sweep(dir);
+        sweep(dir, &publication.name);
         Ok(publication)
     }
 
@@ -196,7 +201,7 @@ impl Drop for Publication {
     }
 }
 
-fn sweep(dir: &Path) {
+pub fn sweep(dir: &Path, own: &str) {
     let Ok(entries) = fs::read_dir(dir) else {
         return;
     };
@@ -206,14 +211,14 @@ fn sweep(dir: &Path) {
             .file_name()
             .and_then(|name| name.to_str())
             .and_then(|name| name.strip_suffix(".lock"))
-            .filter(|name| published_name(name))
+            .filter(|name| published_name(name) && *name != own)
         else {
             continue;
         };
         if !entry.file_type().is_ok_and(|kind| kind.is_file()) {
             continue;
         }
-        let Ok(lock) = File::open(&path) else {
+        let Ok(lock) = OpenOptions::new().write(true).open(&path) else {
             continue;
         };
         if lock.try_lock().is_err() {

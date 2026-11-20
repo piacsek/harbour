@@ -1,4 +1,5 @@
 use std::fs::{self, File};
+use std::os::unix::fs::symlink;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
 
@@ -124,7 +125,7 @@ fn a_summary_that_cannot_be_read_is_left_out_of_the_sum() {
     let state = tempfile::tempdir().unwrap();
     let _harbour = running(state.path(), 202, "0 1 0 0");
     let _broken = running(state.path(), 101, "0 0 0 0");
-    let counts = summaries(state.path()).join("101.counts");
+    let counts = summaries(state.path()).join(format!("{}.counts", name(101)));
     fs::remove_file(&counts).unwrap();
     fs::create_dir(&counts).unwrap();
 
@@ -135,7 +136,7 @@ fn a_summary_that_cannot_be_read_is_left_out_of_the_sum() {
 fn a_summary_with_no_lock_beside_it_prints_nothing() {
     let state = tempfile::tempdir().unwrap();
     crashed(state.path(), 101, "1 1 3 0");
-    fs::remove_file(summaries(state.path()).join("101.lock")).unwrap();
+    fs::remove_file(summaries(state.path()).join(format!("{}.lock", name(101)))).unwrap();
 
     assert_eq!(stdout(&status(state.path())), "");
 }
@@ -144,7 +145,42 @@ fn a_summary_with_no_lock_beside_it_prints_nothing() {
 fn a_file_that_is_not_a_summary_is_ignored() {
     let state = tempfile::tempdir().unwrap();
     let _harbour = running(state.path(), 101, "0 1 0 0");
-    fs::write(summaries(state.path()).join("101.tmp"), "9 9 9 9").unwrap();
+    fs::write(
+        summaries(state.path()).join(format!("{}.tmp", name(101))),
+        "9 9 9 9",
+    )
+    .unwrap();
+
+    assert_eq!(stdout(&status(state.path())), "#[fg=yellow]● 1#[default]\n");
+}
+
+#[test]
+fn a_summary_not_named_like_a_publication_is_left_out_of_the_sum() {
+    let state = tempfile::tempdir().unwrap();
+    let _harbour = running(state.path(), 101, "0 1 0 0");
+    let dir = summaries(state.path());
+    fs::write(dir.join("acme.counts"), "1 0 0 0\n").unwrap();
+    let other = File::create(dir.join("acme.lock")).unwrap();
+    other.lock().unwrap();
+
+    assert_eq!(stdout(&status(state.path())), "#[fg=yellow]● 1#[default]\n");
+}
+
+#[test]
+fn a_symlink_to_a_live_summary_is_not_counted_again() {
+    let state = tempfile::tempdir().unwrap();
+    let _harbour = running(state.path(), 101, "0 1 0 0");
+    let dir = summaries(state.path());
+    symlink(
+        dir.join(format!("{}.counts", name(101))),
+        dir.join(format!("{}.counts", name(202))),
+    )
+    .unwrap();
+    symlink(
+        dir.join(format!("{}.lock", name(101))),
+        dir.join(format!("{}.lock", name(202))),
+    )
+    .unwrap();
 
     assert_eq!(stdout(&status(state.path())), "#[fg=yellow]● 1#[default]\n");
 }
@@ -230,6 +266,14 @@ fn running(state: &Path, pid: u32, counts: &str) -> File {
 fn crashed(state: &Path, pid: u32, counts: &str) -> File {
     let dir = summaries(state);
     fs::create_dir_all(&dir).unwrap();
-    fs::write(dir.join(format!("{pid}.counts")), format!("{counts}\n")).unwrap();
-    File::create(dir.join(format!("{pid}.lock"))).unwrap()
+    fs::write(
+        dir.join(format!("{}.counts", name(pid))),
+        format!("{counts}\n"),
+    )
+    .unwrap();
+    File::create(dir.join(format!("{}.lock", name(pid)))).unwrap()
+}
+
+fn name(pid: u32) -> String {
+    format!("{pid}-1700000000000000000-0")
 }
