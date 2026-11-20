@@ -279,6 +279,7 @@ fn harbour_edit_starting_a_neovim_stopped_at_a_stale_swap_prompt_is_refused() {
 
     let output = handed(neovim.home.path(), Some(state.to_str().unwrap()), &file);
 
+    neovim.end_every_neovim();
     assert_eq!(String::from_utf8_lossy(&output.stderr), WAITING);
     assert_eq!(output.status.code(), Some(2));
 }
@@ -428,6 +429,23 @@ impl Neovim {
         self.server.send_keys(&["x"]);
         self.server.wait_for_screen(question)
     }
+
+    fn end_every_neovim(&self) {
+        for pid in lingering(self.home.path(), Duration::ZERO) {
+            let _ = Command::new("kill").args(["-KILL", &pid]).status();
+        }
+    }
+}
+
+impl Drop for Neovim {
+    fn drop(&mut self) {
+        let _ = self.server.tmux(&["kill-server"]).status();
+        let left = lingering(self.home.path(), Duration::from_secs(3));
+        self.end_every_neovim();
+        if !std::thread::panicking() {
+            assert!(left.is_empty(), "Neovim left running: {left:?}");
+        }
+    }
 }
 
 fn nvim_on_path() -> Option<PathBuf> {
@@ -487,4 +505,24 @@ fn left_unsaved(neovim: &Neovim, file: &Path) {
     other.kill().unwrap();
     other.wait().unwrap();
     assert!(swapped, "the swap file was never preserved");
+}
+
+fn lingering(home: &Path, patience: Duration) -> Vec<String> {
+    let mark = home.file_name().unwrap().to_string_lossy().into_owned();
+    let deadline = Instant::now() + patience;
+    loop {
+        let listed = Command::new("ps")
+            .args(["-axo", "pid=,command="])
+            .output()
+            .unwrap();
+        let alive: Vec<String> = String::from_utf8_lossy(&listed.stdout)
+            .lines()
+            .filter(|line| line.contains("real-nvim") && line.contains(&mark))
+            .filter_map(|line| line.split_whitespace().next().map(String::from))
+            .collect();
+        if alive.is_empty() || Instant::now() >= deadline {
+            return alive;
+        }
+        std::thread::sleep(Duration::from_millis(50));
+    }
 }

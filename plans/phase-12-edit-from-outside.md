@@ -242,6 +242,27 @@ Product decisions the issue did not settle, each taken the most conservative way
   is refused at once; a harbour whose editor is not Neovim answers `none` to an ask; a started
   Neovim that exits ends the wait at once; resuming a stopped card counts as its last use; the
   usage says why a harbour silent after the `ask` exits 2.
+- Review round 5 was clean for both reviewers: no must or should finding. Its minors that touch
+  only tests were fixed: the stale swap e2e test left one `real-nvim --embed` stuck at the swap
+  prompt per run (each Neovim test now kills every `real-nvim` started under its scratch `HOME`
+  and fails while one survives; five runs in a row left none), and the in-process argument test
+  had no RPC responder, so it sat out two 5 s waits (it takes 1 s now and asserts the reply).
+- The loop took 5 rounds, every one unprimed: round 1 found 7 should findings, round 2 2,
+  round 3 3, round 4 1, round 5 none. What removed a class of finding rather than one case:
+  socket I/O on a thread of its own, the receiver resolving and checking the path itself, one
+  definition of "Neovim is waiting" (`Mode::waiting`), exit statuses a script can branch on, and
+  the holder whose root lies deepest first.
+- Decisions taken without the owner, all in "Decisions" above: only Neovim is supported; no line
+  or column argument; a stopped card never holds a file and `harbour edit` never resumes one;
+  the exit statuses are 0 opened, 3 nobody took the file, 2 refused, 1 usage; a harbour silent
+  after it answered the ask is 2, since it may still open the file.
+- Minor findings left open, each of which would change `src/`:
+
+  | Finding | What the user sees |
+  | --- | --- |
+  | Ctrl-h forwarded into Neovim does not count as a use for the "used last" tie-break | between two sessions at the same depth, neither selected, the other one may get the file |
+  | Publishing the socket by rename replaces a regular file or symlink planted under exactly the socket's name | only a file the same user put in the private 0700 folder is lost |
+  | A directory, a missing folder and a symlink loop exit 2 like a refusal | the usage's wording for 2 does not name them |
 
 ## Hurdles
 
@@ -260,3 +281,4 @@ Product decisions the issue did not settle, each taken the most conservative way
 - `test-seam` Running the real-Neovim tests 15 times under load showed two failures: `settled` took the screen as cleared while `:echo ''` was still typed on the command line, so `harbour edit` met mode `c` (it now waits until the command line is gone), and a Neovim harbour had just started answered `n` before loading its file, then raised the swap prompt with `nvim_cmd` waiting behind it, so the open was reported closed instead of waiting; a first fix asked the mode again 100 ms before the deadline, which CI's load ate, so harbour now asks its mode every 50 ms while `nvim_cmd` waits → code
 - `review-loop` Review round 4 found 1 should finding (the 50 ms check looked only at `blocking`, so a swap prompt `nvim_cmd` raised in a running Neovim, mode `r?`, ran the whole second and was reported silent; the e2e test asserted the status alone) and 4 minor ones (a non-Neovim harbour won the ask then refused, a started Neovim that exited cost the whole deadline, the usage hid why a silent harbour exits 2, a resume was not a use); the check shares `Mode::waiting`, and the e2e edit tests assert the message too → code
 - `test-seam` The real-Neovim prompt test ran at tmux's 24 rows, where the swap message filled the screen and Neovim showed `-- More --` (mode `rm`), so the `r` modes were never reached; the test now runs at 50 rows. The idle-listener test first read the wrong thread, since reader threads share the 15-character name; it runs in a binary of its own and retries until the thread is named → code
+- `test-seam` The stale swap e2e test left a `real-nvim --embed` stuck at the swap prompt after every run: Neovim's TUI runs its server in a process group of its own, which survives the tmux server's teardown and ignores SIGTERM; each Neovim test now kills every `real-nvim` started under its scratch `HOME` and fails while one survives → rule in `tests/AGENTS.md`

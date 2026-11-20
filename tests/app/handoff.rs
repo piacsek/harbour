@@ -113,10 +113,13 @@ fn open_with_no_editor_running_gives_neovim_the_file_as_its_one_argument() {
     let mut screen = harbour(scratch.path());
     start_in(&mut screen, scratch.path(), "acme-api", 1);
     let file = file(scratch.path(), "acme-api");
+    let _asked = answering(scratch.path());
 
-    screen.app.hand(Verb::Open, &file, soon());
+    let reply = screen.app.hand(Verb::Open, &file, soon());
 
-    screen.wait_for("acme nvim ready");
+    assert_eq!(reply, Reply::Opened);
+    let shown = screen.wait_for("acme nvim ready");
+    assert!(shown.contains("acme nvim ready"), "{shown}");
     let recorded = recorded(scratch.path());
     assert_eq!(recorded[1], "--listen");
     assert_eq!(recorded[3], "--");

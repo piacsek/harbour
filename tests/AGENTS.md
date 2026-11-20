@@ -40,6 +40,11 @@ these suites come from; the ones about sessions were hit in harbour.
   `XDG_CONFIG_HOME`, `XDG_DATA_HOME`, `XDG_STATE_HOME` and `XDG_CACHE_HOME` under the scratch
   `HOME`, nothing is written outside it. A mapping a test needs (`<C-h>` to `<C-w>h`) is typed
   in that Neovim. Every other test uses `tests/fixtures/editor.sh` or a `/bin/sh -c` script.
+  Neovim's TUI runs its server (`real-nvim --embed`) in a process group of its own: killing the
+  tmux server does not end it, and one stuck at a swap prompt ignores SIGTERM and outlives the
+  run. Dropping a `Neovim` of `tests/e2e/neovim.rs` kills the tmux server, then SIGKILLs every
+  `real-nvim` whose command line names the test's scratch `HOME`, and fails the test while one
+  was still alive; a test that leaves one behind on purpose ends it with `end_every_neovim`.
 
 - **dash is `/bin/sh` on Linux.** A session script's `read` returns non-zero when a trapped
   signal (the window change of a resize) interrupts it, so a loop written `while read` ends on
