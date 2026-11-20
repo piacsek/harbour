@@ -28,9 +28,11 @@ fn ctrl_h_in_the_normal_mode_of_a_terminal_buffer_goes_to_claude_code() {
     let Some(neovim) = Neovim::start("nvim-terminal") else {
         return;
     };
-    neovim
-        .server
-        .send_keys(&[":terminal sleep 600", "Enter", "i", "C-\\", "C-n"]);
+    neovim.server.send_keys(&[":terminal sleep 600", "Enter"]);
+    neovim.shows("term://");
+    neovim.server.send_keys(&["i"]);
+    neovim.shows("-- TERMINAL --");
+    neovim.server.send_keys(&["C-\\", "C-n"]);
     neovim
         .server
         .send_keys(&[":echo 'acme-mode-' . mode(1)", "Enter"]);
@@ -48,14 +50,14 @@ fn ctrl_h_with_a_window_on_the_left_reaches_the_mapping_that_moves_to_it() {
     let Some(neovim) = Neovim::start("nvim-split") else {
         return;
     };
-    neovim.server.send_keys(&[
-        ":nnoremap <C-h> <C-w>h",
-        "Enter",
-        ":vsplit",
-        "Enter",
-        "C-w",
-        "l",
-    ]);
+    neovim
+        .server
+        .send_keys(&[":nnoremap <C-h> <C-w>h", "Enter"]);
+    neovim.settled();
+    neovim.server.send_keys(&[":vsplit", "Enter"]);
+    neovim.settled();
+    neovim.server.send_keys(&["C-w", "l"]);
+    neovim.settled();
 
     neovim.server.send_keys(&["C-h"]);
 
@@ -73,6 +75,7 @@ fn ctrl_h_with_an_operator_pending_stays_in_neovim() {
         return;
     };
     neovim.server.send_keys(&["d"]);
+    neovim.pending("d");
 
     neovim.server.send_keys(&["C-h"]);
 
@@ -86,6 +89,7 @@ fn ctrl_h_after_ctrl_w_stays_in_neovim() {
         return;
     };
     neovim.server.send_keys(&["C-w"]);
+    neovim.pending("^W");
 
     neovim.server.send_keys(&["C-h"]);
 
@@ -112,6 +116,7 @@ fn ctrl_h_in_insert_mode_stays_in_neovim() {
         return;
     };
     neovim.server.send_keys(&["i"]);
+    neovim.shows("-- INSERT --");
 
     neovim.server.send_keys(&["C-h"]);
 
@@ -124,7 +129,7 @@ fn x_with_a_modified_buffer_says_there_are_unsaved_changes() {
     let Some(neovim) = Neovim::start("nvim-modified") else {
         return;
     };
-    neovim.server.send_keys(&["i", "acme", "Escape"]);
+    neovim.type_text("acme");
 
     let screen = neovim.end_from_the_sidebar("End? y/n");
 
@@ -137,17 +142,17 @@ fn x_with_a_modified_acwrite_buffer_says_there_are_unsaved_changes() {
     let Some(neovim) = Neovim::start("nvim-acwrite") else {
         return;
     };
-    neovim.server.send_keys(&[
-        ":file acme.txt",
-        "Enter",
-        ":setlocal buftype=acwrite",
-        "Enter",
-        ":autocmd BufWriteCmd <buffer> set nomodified",
-        "Enter",
-        "i",
-        "acme",
-        "Escape",
-    ]);
+    neovim.server.send_keys(&[":file acme.txt", "Enter"]);
+    neovim.settled();
+    neovim
+        .server
+        .send_keys(&[":setlocal buftype=acwrite", "Enter"]);
+    neovim.settled();
+    neovim
+        .server
+        .send_keys(&[":autocmd BufWriteCmd <buffer> set nomodified", "Enter"]);
+    neovim.settled();
+    neovim.type_text("acme");
 
     let screen = neovim.end_from_the_sidebar("End? y/n");
 
@@ -217,8 +222,12 @@ impl Neovim {
         server.wait_for_screen("press n to start one");
         server.send_keys(&["n"]);
         server.wait_for_screen("acme agent in acme-api");
-        server.send_keys(&["Enter", "C-l"]);
-        server.wait_for_screen("claude | nvim: ");
+        server.send_keys(&["Enter"]);
+        let focused = server.wait_for_screen("┏ claude");
+        assert!(focused.contains("┏ claude"), "{focused}");
+        server.send_keys(&["C-l"]);
+        let editing = server.wait_for_screen("claude | nvim: ");
+        assert!(editing.contains("claude | nvim: "), "{editing}");
         let neovim = Neovim {
             server,
             _home: home,
@@ -228,14 +237,49 @@ impl Neovim {
     }
 
     fn assert_in_neovim(&self) {
+        self.server.send_keys(&["Escape"]);
+        self.settled();
+    }
+
+    fn settled(&self) {
         self.server
-            .send_keys(&["Escape", ":echo 'acme-' . 'in-neovim'", "Enter"]);
-        let screen = self.server.wait_for_screen("acme-in-neovim");
-        assert!(screen.contains("acme-in-neovim"), "{screen}");
+            .send_keys(&[":echo 'acme-' . 'settled'", "Enter"]);
+        let screen = self.server.wait_for_screen("acme-settled");
+        assert!(screen.contains("acme-settled"), "{screen}");
         self.server.send_keys(&[":echo ''", "Enter"]);
+        let cleared = self
+            .server
+            .wait_for_screen_showing_without("claude | nvim: ", "acme-settled");
+        assert!(!cleared.contains("acme-settled"), "{cleared}");
+    }
+
+    fn shows(&self, text: &str) {
+        let screen = self.server.wait_for_screen(text);
+        assert!(screen.contains(text), "{screen}");
+    }
+
+    fn pending(&self, keys: &str) {
+        let screen = self
+            .server
+            .wait_until(|screen| screen.lines().any(|line| showing(line, keys)));
+        assert!(screen.lines().any(|line| showing(line, keys)), "{screen}");
+    }
+
+    fn type_text(&self, text: &str) {
+        self.server.send_keys(&["i"]);
+        self.shows("-- INSERT --");
+        self.server.send_keys(&[text]);
+        let line = format!("┃{text}");
+        self.shows(&line);
+        self.server.send_keys(&["Escape"]);
+        self.settled();
     }
 
     fn assert_in_claude_code(&self) {
+        let screen = self
+            .server
+            .wait_for_screen_showing_without("acme agent in acme-api", "acme-settled");
+        assert!(screen.contains("acme agent in acme-api"), "{screen}");
         self.server.send_keys(&["acme-ping", "Enter"]);
         let screen = self.server.wait_for_screen("acme agent got: acme-ping");
         assert!(screen.contains("acme agent got: acme-ping"), "{screen}");
@@ -250,6 +294,8 @@ impl Neovim {
     fn end_from_the_sidebar(&self, question: &str) -> String {
         self.server.send_bytes(SIDEBAR_CLICK);
         self.server.send_bytes(SIDEBAR_RELEASE);
+        let focused = self.server.wait_for_screen("┏ sessions");
+        assert!(focused.contains("┏ sessions"), "{focused}");
         self.server.send_keys(&["x"]);
         self.server.wait_for_screen(question)
     }
@@ -260,6 +306,13 @@ fn nvim_on_path() -> Option<PathBuf> {
     std::env::split_paths(&path)
         .map(|directory| directory.join("nvim"))
         .find(|candidate| is_executable(candidate))
+}
+
+fn showing(line: &str, keys: &str) -> bool {
+    line.trim_end()
+        .trim_end_matches('┃')
+        .trim_end()
+        .ends_with(&format!(" {keys}"))
 }
 
 fn is_executable(candidate: &Path) -> bool {

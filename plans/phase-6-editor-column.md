@@ -152,6 +152,7 @@ other, in the order they started, so no editor with unsaved buffers is ever out 
 | A question in the narrowest sidebar (20 columns at 60, 26 at 80) | it wraps by words, measured in display columns, at the bottom of the sidebar, and shows whole |
 | Narrow terminal (under 60 columns) | the focused pane takes the screen as before; the border's directory loses its start first (`…/acme/api`), then the editor's name is cut, all by display width; once not one column of it fits, the border shows no names |
 | A failure message where the sidebar or pane is narrow | it wraps by words, measured in display columns, and a word wider than the line breaks by columns |
+| A question in the sidebar while the selected card is the last one visible | the question (two lines in a 20 to 26 column sidebar) is drawn over the bottom rows of the cards, so that card's activity and repository lines are hidden while it is open; its name line stays visible; not fixed |
 | The picker popup open while an editor exists | every key, paste and mouse event goes to the picker; nothing reaches an editor |
 | The help view or a question open | as before: the next key closes or answers it; the editor gets nothing |
 | The help view at 80x24 or 120x20 | every key and note shows (18 rows) |
@@ -236,8 +237,9 @@ One red-green-refactor cycle each, shipped with `scripts/ship.sh`.
   editor, Neovim and `claude`, and end to end (`tests/e2e/editor.rs`) with
   `tests/fixtures/editor.sh`, also linked as `nvim`, on the scratch `PATH`.
 - New modules: `src/editor.rs` (the program, the editor, its socket), `src/nvim.rs` (`nvim_get_mode`,
-  then `nvim_eval`, over msgpack-RPC within one 100 ms deadline), `src/transcript.rs` (Claude Code's `cwd` from its
-  transcript), `src/tabs.rs` (the border strip). `src/app.rs` became `src/app/mod.rs` and
+  then `nvim_eval`, over msgpack-RPC within one 100 ms deadline), `src/tabs.rs` (the border
+  strip). The transcript reader this phase first wrote was replaced in round 5 by the one phase
+  8 put on `main` (`src/transcript.rs`), which now also gives the directory. `src/app.rs` became `src/app/mod.rs` and
   `src/app/draw.rs` to stay under 700 lines.
 - Editors are not rows: a session with its editor open is counted once by the sidebar title
   and by `harbour status`, and a test says so.
@@ -279,6 +281,23 @@ One red-green-refactor cycle each, shipped with `scripts/ship.sh`.
   directory itself no longer makes the home a repository for the editor or the card, which now
   share one walk up (`repo::root` and `repo::place`), comparing the home by device and inode so
   a home reached through a symlink still counts as home.
+- Review round 6, unprimed like every round, was clean for both reviewers: no must, no should.
+  The gates passed in a long-named folder and all 48 end-to-end tests passed, the 11 with a
+  real Neovim included.
+- Six review rounds in all. Round 1 found Neovim's states unlisted; round 2 a second hole in the
+  `Ctrl-h` rule; round 3 the narrow-terminal message, `nt`, and the directory after `/clear`;
+  round 4 a third hole in the directory lookup; round 5 a fourth, plus the two transcript
+  readers after the merge of `main`; round 6 nothing. What removed a class rather than one
+  finding: asking a real Neovim in the end-to-end tests (rounds 2 and 3), the one "last seen
+  directory" per session with its state table (rounds 4 and 5), the shared transcript reader
+  and `src/text.rs` for every width (round 5), and a scratch home for the test harness
+  (round 4).
+- The sidebar key `e`, which shows each of a session's editors in turn, was added in review
+  round 4 as the way back to every editor of a session. It was not in issue #4; the owner
+  judges whether it stays.
+- A question in the sidebar covers the bottom rows of the cards, so the last visible card loses
+  its activity and repository lines while the question is open: found in round 6 as minor and
+  left, since fixing it changes `src/` after the clean round.
 - When harbour is killed by a signal or its terminal window is closed, each editor's empty
   socket directory stays in the temp directory: declined, a known limit in `AGENTS.md`. A
   transcript line over 1 MiB is skipped, so its `cwd` waits for the next line: declined.
@@ -295,7 +314,6 @@ One red-green-refactor cycle each, shipped with `scripts/ship.sh`.
   end-to-end tests asked a real, clean Neovim (`tests/e2e/neovim.rs`), as issue #4 asked → code
 - `tooling` The unbounded connect blocks only on Linux; macOS refuses at once, so its test could
   not go red on the build machine and was run red in a `rust:1.98.1` container → none
-
 - `test-seam` The Neovim routing test failed about one full run in five: the fake Neovim wrote
   its reply in pieces and closed, and on macOS setting a read timeout on a socket whose peer
   has closed fails, so `eval` gave up with the whole reply buffered. A real bug, found only by
@@ -323,3 +341,14 @@ One red-green-refactor cycle each, shipped with `scripts/ship.sh`.
 - `tooling` The home `.git` end-to-end test failed while the unit tests passed: macOS gives the
   session's directory as `/private/var/...` while `HOME` reads `/var/...`, so a comparison of
   paths missed the home; folders are now compared by device and inode → code
+- `review-loop` Six rounds, three of them on one mechanism (the directory lookup, rounds 3 to
+  5): each round patched the order of sources until round 4 made it one value and round 5 wrote
+  its states and inputs as a table; the plan rule for external state would have asked for that
+  table before the first line of code → rule in `AGENTS.md`
+- `process` The README gained four lines of feature prose that the Documentation rule forbids,
+  caught only at the end; they were removed, the help notes carry it → none
+- `test-seam` A real-Neovim test failed once under load (`acxme` in the buffer): it sent keys
+  to Neovim and then to the sidebar without waiting for any of them to show. Every group of
+  keys in `tests/e2e/neovim.rs` now waits for its visible effect, and the 11 tests passed 15 runs
+  in a row each beside a looping release build (load average 13 to 21 on 12 cores) → rule in
+  `tests/AGENTS.md`

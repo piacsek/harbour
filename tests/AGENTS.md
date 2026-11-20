@@ -55,6 +55,16 @@ these suites come from; the ones about sessions were hit in harbour.
   `tests/e2e/`), the whole line rather than its prefix, and end a value the test parses (a pid)
   with a marker to wait for.
 
+- **Keys sent to a program inside harbour are followed by a wait for their visible effect.**
+  tmux delivers each `send_keys` at once, and harbour and the program take them in their own
+  time, so the next group can land before the last one was handled. In
+  `x_with_a_modified_acwrite_buffer_says_there_are_unsaved_changes`, under load, the sidebar
+  click was lost and its `x` reached Neovim, whose buffer read `acxme`. After each group, wait
+  for what it shows and assert on what the wait returned: the typed text, the mode
+  (`-- INSERT --`), a pending key in Neovim's `showcmd`, a focused border (`┏ sessions`), or,
+  where nothing shows, an `:echo` marker that Neovim can only print once it took every key
+  before it (`settled` in `tests/e2e/neovim.rs`).
+
 - **`awk` is not the same program everywhere.** macOS ships BSD awk, the ubuntu runner's `awk`
   is `mawk`, and either may be `gawk` where someone installed it; BSD awk (version 20200816)
   and `mawk` count bytes, `gawk` in a UTF-8 locale counts characters, so in conveyor a script
