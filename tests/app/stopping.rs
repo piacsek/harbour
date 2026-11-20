@@ -25,7 +25,7 @@ fn q_with_a_running_session_says_its_sessions_come_back_stopped() {
 
     let shown = screen.draw();
     assert!(shown.contains(COME_BACK), "{shown}");
-    assert!(shown.contains(" Quit? y/n "), "{shown}");
+    assert!(shown.contains("Quit? y/n"), "{shown}");
 }
 
 #[test]

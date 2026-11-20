@@ -5,6 +5,8 @@ const SEAMS: &[&str] = &[
     "check_released",
     "SESSION_COMMAND",
     "retrying_every",
+    "with_patience",
+    "neovim",
 ];
 
 const KINDS: &[&str] = &["fn", "struct", "enum", "const", "static", "trait", "type"];

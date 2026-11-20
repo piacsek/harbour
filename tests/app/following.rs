@@ -1,171 +1,198 @@
+use std::fs;
 use std::path::Path;
-use std::thread::sleep;
-use std::time::{Duration, Instant};
 
 use crossterm::event::{KeyCode, KeyModifiers};
-use harbour::memory::{Memory, Remembered};
 
-use crate::remembering::{ID, OTHER_ID, Scratch, TITLE};
-use crate::{Screen, home, script};
+use crate::Screen;
+use crate::directory::{
+    cwd, end_agent, following, repository, write_named_transcript, write_registry, write_transcript,
+};
 
 #[test]
-fn a_running_session_is_remembered_once_its_transcript_exists() {
-    let scratch = Scratch::new();
-    scratch.transcript(ID, &titled(TITLE));
-    let mut screen = scratch.watching(registered(&scratch.sessions(), ID));
-    screen.press('n');
+fn without_a_registry_a_transcript_with_no_directory_leaves_the_start_directory() {
+    let scratch = tempfile::tempdir().unwrap();
+    let mut screen = following(scratch.path(), &["{\"type\":\"queue-operation\"}"]);
 
-    let kept = remembered_soon(&mut screen, &scratch.memory(), ID, TITLE);
+    let shown = editor_at(&mut screen);
 
-    assert_eq!(kept.len(), 1);
-    assert_eq!(kept[0].session_id, ID);
-    assert_eq!(kept[0].title, TITLE);
-    assert_eq!(kept[0].directory, home());
-    assert_eq!(kept[0].position, 0);
+    assert!(shown.contains("acme editor at acme-start"), "{shown}");
 }
 
 #[test]
-fn a_running_session_without_a_transcript_is_not_remembered() {
-    let scratch = Scratch::new();
-    let mut screen = scratch.watching(registered(&scratch.sessions(), ID));
-    screen.press('n');
-    let shown = screen.wait_for("acme agent registered");
-    assert!(shown.contains("acme agent registered"), "{shown}");
+fn a_registry_naming_harbours_own_id_follows_its_transcript() {
+    let scratch = tempfile::tempdir().unwrap();
+    let one = repository(scratch.path(), "acme-one");
+    let two = repository(scratch.path(), "acme-two");
+    let mut screen = following(scratch.path(), &[&cwd(&one)]);
+    write_registry(scratch.path(), &own_id(scratch.path()), &two);
 
-    let kept = remembered_soon(&mut screen, &scratch.memory(), ID, TITLE);
+    let shown = editor_at(&mut screen);
 
-    assert_eq!(kept, Vec::new());
+    assert!(shown.contains("acme editor at acme-one"), "{shown}");
 }
 
 #[test]
-fn a_session_without_a_title_is_remembered_under_its_name() {
-    let scratch = Scratch::new();
-    scratch.transcript(ID, r#"{"type":"user","message":{}}"#);
-    let mut screen = scratch.watching(registered(&scratch.sessions(), ID));
-    screen.press('n');
+fn a_registry_naming_harbours_own_id_gives_its_directory_while_the_transcript_has_none() {
+    let scratch = tempfile::tempdir().unwrap();
+    let two = repository(scratch.path(), "acme-two");
+    let mut screen = following(scratch.path(), &["{\"type\":\"queue-operation\"}"]);
+    write_registry(scratch.path(), &own_id(scratch.path()), &two);
 
-    let kept = remembered_soon(&mut screen, &scratch.memory(), ID, "acme-home 1");
+    let shown = editor_at(&mut screen);
 
-    assert_eq!(kept.len(), 1);
-    assert_eq!(kept[0].title, "acme-home 1");
+    assert!(shown.contains("acme editor at acme-two"), "{shown}");
 }
 
 #[test]
-fn a_new_title_is_remembered() {
-    let scratch = Scratch::new();
-    scratch.transcript(ID, &titled("A first guess"));
-    let mut screen = scratch.watching(registered(&scratch.sessions(), ID));
-    screen.press('n');
-    let first = remembered_soon(&mut screen, &scratch.memory(), ID, "A first guess");
-    assert_eq!(first.len(), 1);
+fn a_registry_naming_harbours_own_id_gives_its_directory_while_the_transcript_is_missing() {
+    let scratch = tempfile::tempdir().unwrap();
+    let two = repository(scratch.path(), "acme-two");
+    let mut screen = following(scratch.path(), &[]);
+    fs::remove_dir_all(scratch.path().join("projects")).unwrap();
+    write_registry(scratch.path(), &own_id(scratch.path()), &two);
 
-    scratch.transcript(ID, &titled("A better title"));
+    let shown = editor_at(&mut screen);
 
-    let kept = remembered_soon(&mut screen, &scratch.memory(), ID, "A better title");
-    assert_eq!(kept.len(), 1);
-    assert_eq!(kept[0].title, "A better title");
+    assert!(shown.contains("acme editor at acme-two"), "{shown}");
 }
 
 #[test]
-fn a_new_session_id_replaces_the_remembered_one() {
-    let scratch = Scratch::new();
-    scratch.transcript(ID, &titled(TITLE));
-    scratch.transcript(OTHER_ID, &titled("The second one"));
-    let pid_file = scratch.dir.path().join("pid");
-    let mut screen = scratch.watching(registered_with_pid(&scratch.sessions(), ID, &pid_file));
-    screen.press('n');
-    let first = remembered_soon(&mut screen, &scratch.memory(), ID, TITLE);
-    assert_eq!(first.len(), 1);
-
-    let pid = std::fs::read_to_string(&pid_file).unwrap();
-    std::fs::write(
-        scratch.sessions().join(format!("{}.json", pid.trim())),
-        format!(r#"{{"status":"idle","sessionId":"{OTHER_ID}"}}"#),
-    )
-    .unwrap();
-
-    let kept = remembered_soon(&mut screen, &scratch.memory(), OTHER_ID, "The second one");
-    assert_eq!(kept.len(), 1);
-    assert_eq!(kept[0].session_id, OTHER_ID);
-}
-
-#[test]
-fn a_remembered_session_that_exits_resumes_with_enter() {
-    let scratch = Scratch::new();
-    scratch.transcript(ID, &titled(TITLE));
-    let mut screen = scratch.watching(script(&format!(
-        "printf '%s' '{{\"status\":\"busy\",\"sessionId\":\"{ID}\"}}' > '{}'/$$.json; \
-         echo \"acme agent resumed:$1\"; sleep 1; exit 0",
-        scratch.sessions().display()
-    )));
-    screen.press('n');
-    let kept = remembered_soon(&mut screen, &scratch.memory(), ID, TITLE);
-    assert_eq!(kept.len(), 1);
-    let exited = screen.wait_for("exited");
-    assert!(exited.contains("exited"), "{exited}");
-
-    screen.key(KeyCode::Enter, KeyModifiers::NONE);
-
-    let shown = screen.wait_for(&format!("acme agent resumed:{ID}"));
-    assert!(
-        shown.contains(&format!("acme agent resumed:{ID}")),
-        "{shown}"
+fn another_id_whose_transcript_has_no_directory_keeps_the_directory_found_last() {
+    let scratch = tempfile::tempdir().unwrap();
+    let one = repository(scratch.path(), "acme-one");
+    let two = repository(scratch.path(), "acme-two");
+    let mut screen = following(scratch.path(), &[&cwd(&one)]);
+    write_registry(scratch.path(), "acme-fresh", &two);
+    write_named_transcript(
+        scratch.path(),
+        "acme-fresh",
+        &["{\"type\":\"queue-operation\"}"],
     );
+
+    let shown = editor_at(&mut screen);
+
+    assert!(shown.contains("acme editor at acme-one"), "{shown}");
 }
 
 #[test]
-fn x_on_an_exited_remembered_session_forgets_it() {
-    let scratch = Scratch::new();
-    scratch.transcript(ID, &titled(TITLE));
-    let mut screen = scratch.watching(script(&format!(
-        "printf '%s' '{{\"status\":\"busy\",\"sessionId\":\"{ID}\"}}' > '{}'/$$.json; \
-         echo 'acme agent'; sleep 1; exit 0",
-        scratch.sessions().display()
-    )));
-    screen.press('n');
-    let kept = remembered_soon(&mut screen, &scratch.memory(), ID, TITLE);
-    assert_eq!(kept.len(), 1);
-    let exited = screen.wait_for("exited");
-    assert!(exited.contains("exited"), "{exited}");
+fn a_registry_gone_or_half_written_keeps_following_the_id_it_named() {
+    let scratch = tempfile::tempdir().unwrap();
+    let one = repository(scratch.path(), "acme-one");
+    let two = repository(scratch.path(), "acme-two");
+    let start = repository(scratch.path(), "acme-start");
+    let mut screen = following(scratch.path(), &[&cwd(&one)]);
+    write_registry(scratch.path(), "acme-resumed", &start);
+    write_named_transcript(scratch.path(), "acme-resumed", &[&cwd(&two)]);
+    let named = editor_at(&mut screen);
+    assert!(named.contains("acme editor at acme-two"), "{named}");
 
-    screen.press('x');
+    remove_registry(scratch.path());
+    let gone = editor_at(&mut screen);
+    half_write_registry(scratch.path());
+    let half = editor_at(&mut screen);
+    write_registry(scratch.path(), "acme-resumed", &start);
+    let back = editor_at(&mut screen);
 
-    assert_eq!(scratch.memory().recall(), Vec::new());
+    assert!(!gone.contains("acme editor at acme-one"), "{gone}");
+    assert!(gone.contains("acme editor at acme-two"), "{gone}");
+    assert!(!half.contains("acme editor at acme-one"), "{half}");
+    assert!(half.contains("acme editor at acme-two"), "{half}");
+    assert!(!back.contains("acme editor at acme-one"), "{back}");
+    assert!(back.contains("acme editor at acme-two"), "{back}");
 }
 
-fn titled(title: &str) -> String {
-    format!(r#"{{"type":"ai-title","aiTitle":"{title}"}}"#)
+#[test]
+fn a_registry_gone_after_naming_an_id_still_follows_that_transcript() {
+    let scratch = tempfile::tempdir().unwrap();
+    let one = repository(scratch.path(), "acme-one");
+    let two = repository(scratch.path(), "acme-two");
+    let three = repository(scratch.path(), "acme-three");
+    let start = repository(scratch.path(), "acme-start");
+    let mut screen = following(scratch.path(), &[&cwd(&one)]);
+    write_registry(scratch.path(), "acme-resumed", &start);
+    write_named_transcript(scratch.path(), "acme-resumed", &[&cwd(&two)]);
+    editor_at(&mut screen);
+    remove_registry(scratch.path());
+    write_named_transcript(scratch.path(), "acme-resumed", &[&cwd(&three)]);
+
+    let shown = editor_at(&mut screen);
+
+    assert!(shown.contains("acme editor at acme-three"), "{shown}");
 }
 
-fn registered(sessions: &Path, id: &str) -> Vec<String> {
-    script(&format!(
-        "printf '%s' '{{\"status\":\"busy\",\"sessionId\":\"{id}\"}}' > '{}'/$$.json; \
-         echo 'acme agent registered'; exec sleep 600",
-        sessions.display()
-    ))
+#[test]
+fn a_registry_gone_keeps_its_last_directory_while_no_transcript_gave_one() {
+    let scratch = tempfile::tempdir().unwrap();
+    let two = repository(scratch.path(), "acme-two");
+    let mut screen = following(scratch.path(), &["{\"type\":\"queue-operation\"}"]);
+    write_registry(scratch.path(), "acme-fresh", &two);
+    write_named_transcript(
+        scratch.path(),
+        "acme-fresh",
+        &["{\"type\":\"queue-operation\"}"],
+    );
+    editor_at(&mut screen);
+    remove_registry(scratch.path());
+
+    let shown = editor_at(&mut screen);
+
+    assert!(shown.contains("acme editor at acme-two"), "{shown}");
 }
 
-fn registered_with_pid(sessions: &Path, id: &str, pid_file: &Path) -> Vec<String> {
-    script(&format!(
-        "echo $$ > '{}'; \
-         printf '%s' '{{\"status\":\"busy\",\"sessionId\":\"{id}\"}}' > '{}'/$$.json; \
-         echo 'acme agent registered'; exec sleep 600",
-        pid_file.display(),
-        sessions.display()
-    ))
+#[test]
+fn a_registry_gone_after_naming_an_id_with_no_transcript_never_goes_back_to_harbours_own() {
+    let scratch = tempfile::tempdir().unwrap();
+    let one = repository(scratch.path(), "acme-one");
+    let two = repository(scratch.path(), "acme-two");
+    let start = repository(scratch.path(), "acme-start");
+    let mut screen = following(scratch.path(), &[&cwd(&one)]);
+    write_registry(scratch.path(), "acme-fresh", &start);
+    editor_at(&mut screen);
+    remove_registry(scratch.path());
+    write_transcript(scratch.path(), &[&cwd(&two)]);
+
+    let shown = editor_at(&mut screen);
+
+    assert!(shown.contains("acme editor at acme-one"), "{shown}");
 }
 
-fn remembered_soon(screen: &mut Screen, memory: &Memory, id: &str, title: &str) -> Vec<Remembered> {
-    let deadline = Instant::now() + Duration::from_secs(3);
-    loop {
-        screen.draw();
-        let kept = memory.recall();
-        let done = kept
-            .iter()
-            .any(|remembered| remembered.session_id == id && remembered.title == title);
-        if done || Instant::now() > deadline {
-            return kept;
-        }
-        sleep(Duration::from_millis(20));
-    }
+#[test]
+fn after_claude_code_exits_a_new_directory_in_its_transcript_is_not_read() {
+    let scratch = tempfile::tempdir().unwrap();
+    let one = repository(scratch.path(), "acme-one");
+    let two = repository(scratch.path(), "acme-two");
+    let mut screen = following(scratch.path(), &[&cwd(&one)]);
+    editor_at(&mut screen);
+    end_agent(scratch.path());
+    screen.wait_for("exited");
+    write_transcript(scratch.path(), &[&cwd(&two)]);
+
+    let shown = editor_at(&mut screen);
+
+    assert!(shown.contains("acme editor at acme-one"), "{shown}");
+}
+
+fn editor_at(screen: &mut Screen) -> String {
+    screen.key(KeyCode::Char('l'), KeyModifiers::CONTROL);
+    let shown = screen.wait_for("acme editor at");
+    screen.key(KeyCode::Char('h'), KeyModifiers::CONTROL);
+    shown
+}
+
+fn own_id(scratch: &Path) -> String {
+    let args = fs::read_to_string(scratch.join("args")).unwrap();
+    args.split_once(' ').unwrap().1.to_string()
+}
+
+fn registry_file(scratch: &Path) -> std::path::PathBuf {
+    let pid = fs::read_to_string(scratch.join("pid")).unwrap();
+    scratch.join(format!("sessions/{}.json", pid.trim()))
+}
+
+fn remove_registry(scratch: &Path) {
+    fs::remove_file(registry_file(scratch)).unwrap();
+}
+
+fn half_write_registry(scratch: &Path) {
+    fs::write(registry_file(scratch), "{\"pid\":").unwrap();
 }

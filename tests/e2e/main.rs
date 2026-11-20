@@ -3,12 +3,15 @@ use std::process::Command;
 use std::thread::sleep;
 use std::time::{Duration, Instant};
 
-use harbour::tui::{DIR_PICKER, SESSION_COMMAND};
+use harbour::tui::{DIR_PICKER, EDITOR, SESSION_COMMAND};
 
 mod cards;
+mod editor;
+mod neovim;
 mod picker;
 
 const AGENT: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/agent.sh");
+const ARGS_AGENT: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/args-agent.sh");
 const RAW_AGENT: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/raw-agent.sh");
 const WORKING: &str = "#[fg=yellow]● 1#[default]\n";
 const PICKER: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/picker.sh");
@@ -505,6 +508,8 @@ impl Server {
             DIR_PICKER.to_string(),
             "-u".to_string(),
             SESSION_COMMAND.to_string(),
+            "-u".to_string(),
+            EDITOR.to_string(),
             "-u".to_string(),
             "CLAUDE_CONFIG_DIR".to_string(),
             quoted(&format!("HOME={}", home.display())),

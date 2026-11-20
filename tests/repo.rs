@@ -8,7 +8,7 @@ fn a_folder_outside_any_repository_shows_its_name() {
     let scratch = tempfile::tempdir().unwrap();
     let folder = folder(scratch.path(), "acme-notes");
 
-    assert_eq!(place(&folder).to_string(), "acme-notes");
+    assert_eq!(place(&folder, None).to_string(), "acme-notes");
 }
 
 #[test]
@@ -16,7 +16,7 @@ fn a_repository_shows_its_folder_and_branch() {
     let scratch = tempfile::tempdir().unwrap();
     let repository = repository(scratch.path(), "acme-api", "ref: refs/heads/main\n");
 
-    assert_eq!(place(&repository).to_string(), "acme-api · main");
+    assert_eq!(place(&repository, None).to_string(), "acme-api · main");
 }
 
 #[test]
@@ -25,7 +25,7 @@ fn a_folder_inside_a_repository_shows_the_repository() {
     let repository = repository(scratch.path(), "acme-api", "ref: refs/heads/main\n");
     let inside = folder(&repository, "src/billing");
 
-    assert_eq!(place(&inside).to_string(), "acme-api · main");
+    assert_eq!(place(&inside, None).to_string(), "acme-api · main");
 }
 
 #[test]
@@ -33,7 +33,7 @@ fn a_branch_with_slashes_keeps_them() {
     let scratch = tempfile::tempdir().unwrap();
     let repository = repository(scratch.path(), "acme-api", "ref: refs/heads/fix/login\n");
 
-    assert_eq!(place(&repository).to_string(), "acme-api · fix/login");
+    assert_eq!(place(&repository, None).to_string(), "acme-api · fix/login");
 }
 
 #[test]
@@ -45,7 +45,7 @@ fn a_detached_head_reads_head() {
         "8c1f2a7d9e04b6c35a1f0e2d7b9c4a6e1f3d5b70\n",
     );
 
-    assert_eq!(place(&repository).to_string(), "acme-api · HEAD");
+    assert_eq!(place(&repository, None).to_string(), "acme-api · HEAD");
 }
 
 #[test]
@@ -62,7 +62,7 @@ fn a_worktree_shows_the_main_repository_and_its_own_branch() {
     )
     .unwrap();
 
-    assert_eq!(place(&worktree).to_string(), "acme-api · fix-login");
+    assert_eq!(place(&worktree, None).to_string(), "acme-api · fix-login");
 }
 
 #[test]
@@ -76,7 +76,7 @@ fn a_branch_name_that_is_not_utf8_still_shows() {
     .unwrap();
 
     assert_eq!(
-        place(&repository).to_string(),
+        place(&repository, None).to_string(),
         "acme-api \u{b7} fix-\u{fffd}-login"
     );
 }
@@ -101,7 +101,10 @@ fn a_worktree_whose_gitdir_path_is_not_utf8_still_shows_its_repository() {
     file.write_all(admin.as_os_str().as_bytes()).unwrap();
     file.write_all(b"\n").unwrap();
 
-    assert_eq!(place(&worktree).to_string(), "acme-api \u{b7} fix-login");
+    assert_eq!(
+        place(&worktree, None).to_string(),
+        "acme-api \u{b7} fix-login"
+    );
 }
 
 #[test]
@@ -118,7 +121,7 @@ fn a_worktree_with_a_relative_gitdir_is_found_too() {
     )
     .unwrap();
 
-    assert_eq!(place(&worktree).to_string(), "acme-api · fix-login");
+    assert_eq!(place(&worktree, None).to_string(), "acme-api · fix-login");
 }
 
 #[test]
@@ -134,7 +137,7 @@ fn a_submodule_shows_its_own_folder() {
     )
     .unwrap();
 
-    assert_eq!(place(&submodule).to_string(), "acme-vendor · stable");
+    assert_eq!(place(&submodule, None).to_string(), "acme-vendor · stable");
 }
 
 #[test]
@@ -145,7 +148,7 @@ fn a_bare_repository_drops_the_git_suffix() {
     folder(&bare, "refs");
     fs::write(bare.join("HEAD"), "ref: refs/heads/main\n").unwrap();
 
-    assert_eq!(place(&bare).to_string(), "acme-api · main");
+    assert_eq!(place(&bare, None).to_string(), "acme-api · main");
 }
 
 #[test]
@@ -165,7 +168,7 @@ fn a_worktree_of_a_bare_repository_shows_the_bare_repository_without_its_suffix(
     )
     .unwrap();
 
-    assert_eq!(place(&worktree).to_string(), "acme-api · topic");
+    assert_eq!(place(&worktree, None).to_string(), "acme-api · topic");
 }
 
 #[test]
@@ -174,7 +177,7 @@ fn a_deleted_folder_shows_the_repository_above_it() {
     let repository = repository(scratch.path(), "acme-api", "ref: refs/heads/main\n");
     let gone = repository.join("build/tmp");
 
-    assert_eq!(place(&gone).to_string(), "acme-api · main");
+    assert_eq!(place(&gone, None).to_string(), "acme-api · main");
 }
 
 #[test]
@@ -182,7 +185,7 @@ fn a_deleted_folder_outside_any_repository_shows_the_name_it_had() {
     let scratch = tempfile::tempdir().unwrap();
     let gone = scratch.path().join("acme-scratch");
 
-    assert_eq!(place(&gone).to_string(), "acme-scratch");
+    assert_eq!(place(&gone, None).to_string(), "acme-scratch");
 }
 
 #[test]
@@ -190,7 +193,7 @@ fn an_unreadable_head_leaves_the_branch_out() {
     let scratch = tempfile::tempdir().unwrap();
     let repository = repository(scratch.path(), "acme-api", "\u{0}\u{1}not a head");
 
-    assert_eq!(place(&repository).to_string(), "acme-api");
+    assert_eq!(place(&repository, None).to_string(), "acme-api");
 }
 
 #[test]
@@ -198,7 +201,7 @@ fn a_reftable_repository_s_placeholder_head_leaves_the_branch_out() {
     let scratch = tempfile::tempdir().unwrap();
     let repository = repository(scratch.path(), "acme-api", "ref: refs/heads/.invalid\n");
 
-    assert_eq!(place(&repository).to_string(), "acme-api");
+    assert_eq!(place(&repository, None).to_string(), "acme-api");
 }
 
 #[test]
@@ -207,7 +210,40 @@ fn a_gitdir_file_that_points_nowhere_shows_the_folder() {
     let broken = folder(scratch.path(), "acme-broken");
     fs::write(broken.join(".git"), "gitdir: /nowhere/acme\n").unwrap();
 
-    assert_eq!(place(&broken).to_string(), "acme-broken");
+    assert_eq!(place(&broken, None).to_string(), "acme-broken");
+}
+
+#[test]
+fn a_repository_at_the_home_directory_does_not_count() {
+    let scratch = tempfile::tempdir().unwrap();
+    let home = repository(scratch.path(), "acme-home", "ref: refs/heads/main\n");
+    let notes = folder(&home, "acme-notes");
+
+    assert_eq!(place(&notes, Some(&home)).to_string(), "acme-notes");
+}
+
+#[test]
+fn a_repository_below_the_home_directory_still_counts() {
+    let scratch = tempfile::tempdir().unwrap();
+    let home = repository(scratch.path(), "acme-home", "ref: refs/heads/main\n");
+    let api = repository(&home, "acme-api", "ref: refs/heads/fix-login\n");
+    let inside = folder(&api, "src");
+
+    assert_eq!(
+        place(&inside, Some(&home)).to_string(),
+        "acme-api · fix-login"
+    );
+}
+
+#[test]
+fn a_repository_at_a_home_directory_reached_through_a_link_does_not_count() {
+    let scratch = tempfile::tempdir().unwrap();
+    let home = repository(scratch.path(), "acme-home", "ref: refs/heads/main\n");
+    let notes = folder(&home, "acme-notes");
+    let linked = scratch.path().join("acme-link");
+    std::os::unix::fs::symlink(&home, &linked).unwrap();
+
+    assert_eq!(place(&notes, Some(&linked)).to_string(), "acme-notes");
 }
 
 fn folder(parent: &Path, name: &str) -> PathBuf {

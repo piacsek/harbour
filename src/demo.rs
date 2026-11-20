@@ -5,6 +5,7 @@ use std::time::{Duration, SystemTime};
 
 use tempfile::TempDir;
 
+use crate::editor::Program;
 use crate::memory::{Memory, Remembered};
 use crate::picker::Picker;
 
@@ -36,6 +37,25 @@ pub fn picker() -> Picker {
         list: script(PLACES),
         here_first: false,
     }
+}
+
+const EDITOR: &str = r#"printf '\033[2m  1 \033[0muse acme_clock::Clock;\n'
+printf '\033[2m  2 \033[0m\n'
+printf '\033[2m  3 \033[0mpub fn retry<T>(clock: &impl Clock, mut attempt: impl FnMut() -> Option<T>) -> Option<T> {\n'
+printf '\033[2m  4 \033[0m    for wait in [10, 100, 1000] {\n'
+printf '\033[2m  5 \033[0m        if let Some(done) = attempt() {\n'
+printf '\033[2m  6 \033[0m            return Some(done);\n'
+printf '\033[2m  7 \033[0m        }\n'
+printf '\033[2m  8 \033[0m        clock.sleep_ms(wait);\n'
+printf '\033[2m  9 \033[0m    }\n'
+printf '\033[2m 10 \033[0m    attempt()\n'
+printf '\033[2m 11 \033[0m}\n'
+printf '\033[34m~\033[0m\n\033[34m~\033[0m\n'
+printf '"src/retry.rs" 11L\n'
+exec sleep 86400"#;
+
+pub fn editor() -> Program {
+    Program::new("nvim", script(EDITOR))
 }
 
 const UNKNOWN: &str = r#"printf 'acme shell in ~/%s\n' "${PWD##*/}"

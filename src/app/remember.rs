@@ -1,17 +1,15 @@
 use std::collections::HashSet;
 use std::time::SystemTime;
 
-use ratatui::buffer::Buffer;
-use ratatui::layout::Rect;
-use ratatui::style::{Modifier, Style};
-use ratatui::widgets::{Clear, Paragraph, Widget};
+use ratatui::style::Stylize;
+use ratatui::text::Line;
 
-use super::{App, Entry, Question, refusal};
+use super::{App, Entry, refusal, user_home};
 use crate::memory::{Memory, Remembered};
 use crate::registry;
 use crate::repo;
 use crate::session::Session;
-use crate::text::fit;
+use crate::text;
 use crate::transcript::Transcript;
 
 pub(super) const STOPPED: &str = "stopped";
@@ -43,10 +41,15 @@ impl App {
                 session: None,
                 started_at: SystemTime::now(),
                 record: None,
-                place: repo::place(&remembered.directory),
-                directory: remembered.directory,
+                place: repo::place(&remembered.directory, user_home().as_deref()),
                 exited_at: None,
                 transcript: None,
+                editors: Vec::new(),
+                editor: None,
+                on_editor: false,
+                seen: remembered.directory.clone(),
+                followed: false,
+                directory: remembered.directory,
                 remembered: Some(remembered.session_id),
                 kept: None,
                 why: STOPPED,
@@ -79,6 +82,10 @@ impl App {
             return true;
         }
         let mut command = self.command.clone();
+        let transcript = self
+            .transcripts
+            .as_deref()
+            .map(|projects| Transcript::new(projects, &id));
         command.extend(["--resume".to_string(), id]);
         let started_at = SystemTime::now();
         let entry = &mut self.sessions[self.selected];
@@ -95,7 +102,9 @@ impl App {
                 entry.started_at = started_at;
                 entry.record = None;
                 entry.exited_at = None;
-                entry.transcript = None;
+                entry.transcript = transcript;
+                entry.seen = entry.directory.clone();
+                entry.followed = false;
                 self.failed = None;
                 self.pane_focused = true;
             }
@@ -106,7 +115,7 @@ impl App {
         true
     }
 
-    pub(super) fn follow(&mut self) {
+    pub(super) fn remember_all(&mut self) {
         if !self.recalled {
             self.recall();
         }
@@ -179,20 +188,14 @@ impl App {
             .is_some_and(|entry| entry.session.is_some())
     }
 
-    pub(super) fn note_quit(&self, area: Rect, buffer: &mut Buffer) {
-        if self.memory.is_none() || !matches!(self.asking, Some(Question::Quit)) || area.is_empty()
-        {
-            return;
+    pub(super) fn quit_note(&self, width: u16) -> Vec<Line<'static>> {
+        if self.memory.is_none() {
+            return Vec::new();
         }
-        let row = Rect {
-            y: area.bottom() - 1,
-            height: 1,
-            ..area
-        };
-        Clear.render(row, buffer);
-        Paragraph::new(fit(COME_BACK, usize::from(row.width)))
-            .style(Style::default().add_modifier(Modifier::DIM))
-            .render(row, buffer);
+        text::wrap(COME_BACK, usize::from(width))
+            .into_iter()
+            .map(|line| Line::from(line).dim())
+            .collect()
     }
 
     fn transcript_exists(&self, id: &str) -> bool {

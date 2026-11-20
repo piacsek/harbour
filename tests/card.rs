@@ -46,6 +46,7 @@ fn drawn(facts: &Facts, width: u16) -> Vec<String> {
         waiting_for: None,
         status_since: None,
         session_id: None,
+        cwd: None,
     };
     let place = Place {
         repository: "acme-api".to_string(),

@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 use std::ffi::OsString;
 use std::fs::{self, File};
-use std::io::{Read, Seek, SeekFrom};
+use std::io::{self, Read, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant, SystemTime};
 
@@ -74,6 +74,11 @@ impl Transcript {
         &self.facts
     }
 
+    pub fn read_now(&mut self) {
+        self.searched_at = None;
+        self.read();
+    }
+
     pub fn read(&mut self) {
         let Some(path) = self.found() else {
             return;
@@ -130,6 +135,9 @@ impl Transcript {
             return None;
         }
         self.searched_at = Some(Instant::now());
+        if !plain(&self.session_id) {
+            return None;
+        }
         let name = format!("{}.jsonl", self.session_id);
         self.path = fs::read_dir(&self.projects)
             .ok()?
@@ -229,6 +237,29 @@ impl Transcript {
             _ => {}
         }
     }
+}
+
+pub fn new_session_id() -> io::Result<String> {
+    let mut bytes = [0u8; 16];
+    File::open("/dev/urandom")?.read_exact(&mut bytes)?;
+    bytes[6] = bytes[6] & 0x0f | 0x40;
+    bytes[8] = bytes[8] & 0x3f | 0x80;
+    let hex: String = bytes.iter().map(|byte| format!("{byte:02x}")).collect();
+    Ok(format!(
+        "{}-{}-{}-{}-{}",
+        &hex[..8],
+        &hex[8..12],
+        &hex[12..16],
+        &hex[16..20],
+        &hex[20..]
+    ))
+}
+
+fn plain(id: &str) -> bool {
+    !id.is_empty()
+        && id
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
 }
 
 fn prompted(fields: &Map<String, Value>) -> bool {

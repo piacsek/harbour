@@ -20,6 +20,7 @@ fn a_session_file_is_read_by_pid_ignoring_unknown_fields() {
             waiting_for: None,
             status_since: Some(UNIX_EPOCH + Duration::from_millis(1788804089018)),
             session_id: Some("0f1e2d3c-4b5a-6978-8a9b-0c1d2e3f4a5b".to_string()),
+            cwd: Some(PathBuf::from("/home/acme/api")),
         })
     );
 }
@@ -80,6 +81,7 @@ fn a_waiting_for_that_is_not_text_keeps_the_status_and_drops_the_reason() {
             waiting_for: None,
             status_since: None,
             session_id: None,
+            cwd: None,
         })
     );
 }
@@ -227,6 +229,7 @@ fn busy() -> Record {
         waiting_for: None,
         status_since: Some(UNIX_EPOCH + Duration::from_millis(1788804089018)),
         session_id: Some("0f1e2d3c-4b5a-6978-8a9b-0c1d2e3f4a5b".to_string()),
+        cwd: None,
     }
 }
 
