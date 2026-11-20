@@ -5,8 +5,8 @@ factual; verify against the code before treating anything here as live state.
 
 ## What this is
 
-harbour: Harbour: where shipping begins. What it does is not defined yet: Phase 1 defines the product.
-Phase 1 gives it its first interface: with no argument on a terminal it opens a sidebar of agent
+harbour: Harbour: where shipping begins. It is a terminal workspace for agent work.
+Phase 1 gave it its first interface: with no argument on a terminal it opens a sidebar of agent
 sessions beside a live pane; it also answers `--help`, `-h`, `help`, `--version`, `-V`, `version`
 and `changelog`. Phase 0 scaffolded the guidelines, guardrails, CI and the automatic release
 from the `rust_tui` recipe, which descends from conveyor, an earlier project by the recipe's
@@ -89,7 +89,8 @@ tests/           outside-in: `tests/cli.rs` runs the real binary;
                  `tests/scripts/` runs the scripts in a scratch directory and repository, with `tests/fixtures/` standing in for `cargo`, `gh`, `curl` and the scripts they call;
                  `tests/e2e/` runs the real binary in a scratch tmux server (`#[ignore]`, see `tests/AGENTS.md`), with `HARBOUR_SESSION_COMMAND` pointing sessions at `tests/fixtures/agent.sh` (prints what it reads, a line at a time) or `tests/fixtures/raw-agent.sh` (asks for bracketed paste and the mouse, prints every byte it reads) instead of `claude`;
                  `tests/session.rs` and `tests/app/` run sessions in process, as `/bin/sh -c` scripts;
-                 `tests/mouse.rs` is the table of what a session receives for each mouse event, mode, gesture and modifier;
+                 `tests/keys.rs` is the table of the bytes each key sends, `tests/mouse.rs` the table of what a session receives for each mouse event, mode, gesture and modifier;
+                 `tests/tui.rs` covers leaving the terminal (mouse capture and bracketed paste off) and the panic hook;
                  `tests/readme.rs` pins the README shape (see "Documentation rule");
                  `tests/source_size.rs` fails while any Rust file under `src/` or `tests/` is longer than 700 lines, naming it;
                  `tests/toolchain.rs` fails while the `toolchain:` of `ci.yml` or `release.yml` differs from the channel of `rust-toolchain.toml`, or the `components:` of `ci.yml` or of the `build` job of `release.yml` from its `components`, or `rust-version` in `Cargo.toml` from its `major.minor`, or the `tag` job of `release.yml` loses `RUSTUP_TOOLCHAIN: stable`;

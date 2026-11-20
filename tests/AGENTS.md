@@ -1,8 +1,8 @@
 # tests
 
 What has gone wrong in the tests before, and how the suites are set up to avoid it. Rules and
-working agreements are in the root `AGENTS.md`. The traps below were hit in conveyor, where
-these suites come from.
+working agreements are in the root `AGENTS.md`. Most traps below were hit in conveyor, where
+these suites come from; the ones about sessions were hit in harbour.
 
 ## Testing traps hit so far
 
@@ -19,6 +19,12 @@ these suites come from.
   The end-to-end tests set it to `tests/fixtures/agent.sh` or `tests/fixtures/raw-agent.sh`;
   in-process tests hand `App::new` or `Session::start` a `/bin/sh -c` script, so no test writes
   an executable.
+
+- **dash is `/bin/sh` on Linux.** A session script's `read` returns non-zero when a trapped
+  signal (the window change of a resize) interrupts it, so a loop written `while read` ends on
+  Linux and not on macOS; write `while :; do read -r line || continue; ...; done`. A trap runs
+  only once the foreground command (`read`, `dd`) returns, so a test that needs the trap to run
+  sends the script a byte first.
 
 - **`awk` is not the same program everywhere.** macOS ships BSD awk, the ubuntu runner's `awk`
   is `mawk`, and either may be `gawk` where someone installed it; BSD awk (version 20200816)
