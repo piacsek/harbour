@@ -2,6 +2,8 @@
 # Usage: scripts/screenshots.sh [out-dir]   (needs tmux, freeze, Google Chrome, cargo build --release)
 set -euo pipefail
 
+command -v fzf >/dev/null || { echo "screenshots.sh: fzf is not on PATH; the picker shot needs it (brew install fzf)" >&2; exit 1; }
+
 out="${1:-docs}"
 root="$(cd "$(dirname "$0")/.." && pwd)"
 bin="$root/target/release/harbour"
@@ -13,7 +15,7 @@ for f in "$HOME/Library/Fonts/FiraCodeNerdFont-Regular.ttf" /usr/share/fonts/tru
 done
 
 sock="harbour-shots-$$"
-home="$(mktemp -d)"
+home="$(mktemp -d /tmp/harbour-shots.XXXXXX)"
 trap 'tmux -L "$sock" kill-server 2>/dev/null || true; rm -rf "$home"' EXIT
 t() { tmux -L "$sock" -f /dev/null "$@"; }
 
@@ -50,7 +52,7 @@ render() {
 shoot() {
   local name="$1" width="$2" height="$3" args="$4" keys="$5"
   t resize-window -t "$shot_window" -x "$width" -y "$height"
-  t respawn-pane -k -t "$shot_window" "cd $(printf %q "$home/acme-api") && env -u XDG_CONFIG_HOME -u XDG_STATE_HOME HOME=$(printf %q "$home") $(printf %q "$bin") $args; exec cat"
+  t respawn-pane -k -t "$shot_window" "cd $(printf %q "$home/acme-api") && env -u XDG_CONFIG_HOME -u XDG_STATE_HOME -u FZF_DEFAULT_OPTS -u FZF_DEFAULT_OPTS_FILE -u HARBOUR_DIR_PICKER -u HARBOUR_SESSION_COMMAND HOME=$(printf %q "$home") $(printf %q "$bin") $args; exec cat"
   sleep 1.5
   [ -n "$keys" ] && t send-keys -t "$shot_window" "$keys" && sleep 0.5
   t capture-pane -e -p -t "$shot_window" | python3 "$home/truecolor.py" >"$home/$name.ansi"
@@ -66,6 +68,8 @@ shoot keys 160 26 --demo "?"
 echo "wrote $out/keys.png"
 shoot question 160 26 --demo "x"
 echo "wrote $out/question.png"
+shoot picker 160 26 --demo "n"
+echo "wrote $out/picker.png"
 shoot narrow 56 26 --demo ""
 echo "wrote $out/narrow.png"
 shoot help 160 7 --help ""

@@ -27,7 +27,13 @@ fn the_panic_hook_is_silent_for_a_contained_panic_and_restores_for_another() {
     panic::set_hook(panic_hook(Box::new(|_| {
         RESTORED.fetch_add(1, Ordering::SeqCst);
     })));
-    let mut session = Session::start(&wide_at_the_edge(), 10, 160).unwrap();
+    let mut session = Session::start(
+        &wide_at_the_edge(),
+        &std::env::current_dir().unwrap(),
+        10,
+        160,
+    )
+    .unwrap();
     wait_for(&session, "ready");
     session.resize(10, 159);
     session.send(b"\r");

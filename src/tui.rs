@@ -10,15 +10,17 @@ use crossterm::execute;
 
 use crate::app::App;
 use crate::demo::Registry;
+use crate::picker::Picker;
 use crate::registry;
 use crate::session;
 
 type PanicHook = dyn Fn(&PanicHookInfo<'_>) + Send + Sync + 'static;
 
 pub const SESSION_COMMAND: &str = "HARBOUR_SESSION_COMMAND";
+pub const DIR_PICKER: &str = "HARBOUR_DIR_PICKER";
 
 pub fn run() -> io::Result<()> {
-    let app = App::new(session_command());
+    let app = App::new(session_command()).with_picker(dir_picker());
     show(match claude_sessions() {
         Some(dir) => app.with_registry(dir),
         None => app,
@@ -67,6 +69,17 @@ fn drive(terminal: &mut ratatui::DefaultTerminal, mut app: App) -> io::Result<()
         }
     }
     Ok(())
+}
+
+fn dir_picker() -> Picker {
+    match std::env::var(DIR_PICKER) {
+        Ok(program) if !program.is_empty() => Picker::Command(vec![program]),
+        _ => Picker::Fuzzy {
+            fzf: vec!["fzf".to_string()],
+            list: ["zoxide", "query", "--list"].map(String::from).to_vec(),
+            here_first: true,
+        },
+    }
 }
 
 fn session_command() -> Vec<String> {

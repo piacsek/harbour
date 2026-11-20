@@ -1,3 +1,4 @@
+use std::path::PathBuf;
 use std::process::Command;
 use std::sync::mpsc;
 use std::thread::{self, sleep};
@@ -20,18 +21,45 @@ fn the_pane_shows_what_the_command_prints() {
 }
 
 #[test]
-fn the_command_starts_in_the_working_directory_of_harbour() {
-    let here = std::env::current_dir().unwrap().canonicalize().unwrap();
-    let expected = format!("in:{}", here.display());
+fn the_command_starts_in_the_directory_it_is_given() {
+    let scratch = tempfile::tempdir().unwrap();
+    let directory = scratch.path().join("acme-web");
+    std::fs::create_dir(&directory).unwrap();
     let command = [
         "/bin/sh".to_string(),
         "-c".into(),
-        "echo \"in:$(pwd -P)\"; sleep 5".into(),
+        "echo \"in:${PWD##*/}\"; sleep 5".into(),
     ];
-    let width = u16::try_from(expected.chars().count().max(usize::from(COLS)) + 1).unwrap();
-    let session = Session::start(&command, ROWS, width).unwrap();
-    let screen = wait_for(&session, &expected);
-    assert!(screen.contains(&expected), "{screen}");
+    let session = Session::start(&command, &directory, ROWS, COLS).unwrap();
+    let screen = wait_for(&session, "in:acme-web");
+    assert!(screen.contains("in:acme-web"), "{screen}");
+}
+
+#[test]
+fn a_directory_that_is_gone_starts_nothing_and_is_named() {
+    let scratch = tempfile::tempdir().unwrap();
+    let directory = scratch.path().join("acme-gone");
+    let command = ["/bin/sh".to_string(), "-c".into(), "sleep 5".into()];
+
+    let refused = Session::start(&command, &directory, ROWS, COLS)
+        .err()
+        .unwrap();
+
+    assert_eq!(
+        refused.to_string(),
+        format!("Not a directory: {}", directory.display())
+    );
+}
+
+#[test]
+fn the_command_sees_its_directory_in_pwd() {
+    let scratch = tempfile::tempdir().unwrap();
+    let directory = scratch.path().join("acme-web");
+    std::fs::create_dir(&directory).unwrap();
+    let command = ["/usr/bin/printenv".to_string(), "PWD".into()];
+    let session = Session::start(&command, &directory, ROWS, COLS).unwrap();
+    let screen = wait_for(&session, "/acme-web");
+    assert!(screen.contains("/acme-web"), "{screen}");
 }
 
 #[test]
@@ -121,7 +149,7 @@ fn a_session_started_with_no_room_still_runs() {
         "-c".into(),
         "echo ready; sleep 5".into(),
     ];
-    let mut session = Session::start(&command, 0, 0).unwrap();
+    let mut session = Session::start(&command, &here(), 0, 0).unwrap();
 
     session.resize(ROWS, COLS);
 
@@ -136,7 +164,7 @@ fn a_session_started_one_row_high_survives_a_wrapped_line() {
         "-c".into(),
         "printf 'acme-api wraps'; echo; sleep 1; echo ready; sleep 5".into(),
     ];
-    let mut session = Session::start(&command, 1, 4).unwrap();
+    let mut session = Session::start(&command, &here(), 1, 4).unwrap();
     sleep(Duration::from_millis(300));
 
     session.resize(ROWS, COLS);
@@ -165,7 +193,7 @@ fn a_session_started_one_column_wide_survives_a_wide_character() {
         "-c".into(),
         "printf '\\344\\270\\226'; echo; sleep 1; echo ready; sleep 5".into(),
     ];
-    let mut session = Session::start(&command, 10, 1).unwrap();
+    let mut session = Session::start(&command, &here(), 10, 1).unwrap();
     sleep(Duration::from_millis(300));
 
     session.resize(ROWS, COLS);
@@ -189,7 +217,7 @@ fn a_session_resized_to_one_column_survives_a_wide_character() {
 
 #[test]
 fn a_session_survives_a_wide_character_cut_by_a_resize() {
-    let mut session = Session::start(&wide_at_the_edge(), ROWS, 160).unwrap();
+    let mut session = Session::start(&wide_at_the_edge(), &here(), ROWS, 160).unwrap();
     wait_for(&session, "ready");
     session.resize(ROWS, 159);
 
@@ -203,7 +231,7 @@ fn a_session_survives_a_wide_character_cut_by_a_resize() {
 
 #[test]
 fn a_session_whose_screen_was_reset_is_asked_to_repaint() {
-    let mut session = Session::start(&wide_at_the_edge(), ROWS, 160).unwrap();
+    let mut session = Session::start(&wide_at_the_edge(), &here(), ROWS, 160).unwrap();
     wait_for(&session, "ready");
     session.resize(ROWS, 159);
     wait_for(&session, "repainted");
@@ -219,7 +247,7 @@ fn a_session_whose_screen_was_reset_is_asked_to_repaint() {
 
 #[test]
 fn a_session_whose_screen_was_reset_keeps_the_modes_its_program_turned_on() {
-    let mut session = Session::start(&moded_wide_at_the_edge(), ROWS, 160).unwrap();
+    let mut session = Session::start(&moded_wide_at_the_edge(), &here(), ROWS, 160).unwrap();
     wait_for(&session, "ready");
     session.resize(ROWS, 159);
     session.send(b"x");
@@ -324,7 +352,7 @@ fn moded_wide_at_the_edge() -> [String; 3] {
 
 fn start(script: &str) -> Session {
     let command = ["/bin/sh".to_string(), "-c".into(), script.into()];
-    Session::start(&command, ROWS, COLS).unwrap()
+    Session::start(&command, &here(), ROWS, COLS).unwrap()
 }
 
 fn wait_for(session: &Session, text: &str) -> String {
@@ -376,4 +404,8 @@ fn still_alive_after_a_while(pid: &str) -> bool {
         sleep(Duration::from_millis(50));
     }
     alive(pid)
+}
+
+fn here() -> PathBuf {
+    std::env::current_dir().unwrap()
 }
