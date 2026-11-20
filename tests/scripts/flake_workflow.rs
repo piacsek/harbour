@@ -7,8 +7,13 @@ fn the_paths_job_decides_from_what_changed_since_the_base() {
 }
 
 #[test]
-fn the_flake_builds_on_linux_and_macos_from_a_nix_store_only_main_saves() {
-    assert!(ci().contains(FLAKE_JOB), "{}", ci());
+fn the_flake_builds_on_linux_and_macos_without_a_nix_store_cache() {
+    assert_eq!(job("flake").trim_end(), FLAKE_JOB.trim_end());
+}
+
+#[test]
+fn the_workflow_never_restores_a_nix_store_cache() {
+    assert!(!ci().contains("cache-nix-action"), "{}", ci());
 }
 
 #[test]
@@ -19,6 +24,17 @@ fn flake_ok_judges_the_paths_and_flake_jobs_whatever_they_ended_in() {
 #[test]
 fn the_workflow_starts_on_every_pull_request_and_every_push_to_main() {
     assert!(ci().starts_with(TRIGGERS), "{}", ci());
+}
+
+fn job(name: &str) -> String {
+    let ci = ci();
+    let start = ci.find(&format!("\n  {name}:\n")).unwrap() + 1;
+    let job = &ci[start..];
+    let end = job
+        .match_indices("\n  ")
+        .find(|(i, _)| !job[i + 3..].starts_with(' '))
+        .map_or(job.len(), |(i, _)| i + 1);
+    job[..end].to_string()
 }
 
 fn ci() -> String {
@@ -60,15 +76,6 @@ const FLAKE_JOB: &str = "  flake:
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
       - uses: cachix/install-nix-action@75c75c31ebece974e48ebc36b4ad125bd97bd97b # v31.11.3
-        with:
-          extra_nix_config: keep-outputs = true
-      - uses: nix-community/cache-nix-action@7df957e333c1e5da7721f60227dbba6d06080569 # v7.0.2
-        with:
-          primary-key: nix-${{ runner.os }}-${{ hashFiles('flake.lock', 'Cargo.lock') }}
-          restore-prefixes-first-match: nix-${{ runner.os }}-
-          save: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-          gc-max-store-size-linux: 3G
-          gc-max-store-size-macos: 5G
       - run: nix build
       - run: test \"$(./result/bin/harbour --version)\" = \"harbour $(grep -m1 '^version = ' Cargo.toml | cut -d'\"' -f2)\"
 ";
