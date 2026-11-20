@@ -70,6 +70,7 @@ fn dir_picker() -> Picker {
         _ => Picker::Fuzzy {
             fzf: vec!["fzf".to_string()],
             list: ["zoxide", "query", "--list"].map(String::from).to_vec(),
+            here_first: true,
         },
     }
 }

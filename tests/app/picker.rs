@@ -1,3 +1,5 @@
+use std::ffi::OsStr;
+use std::os::unix::ffi::OsStrExt;
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::thread::sleep;
@@ -5,7 +7,7 @@ use std::time::{Duration, Instant};
 
 use crossterm::event::{KeyCode, KeyModifiers, MouseButton, MouseEventKind};
 
-use harbour::picker::Picker;
+use harbour::picker::{Pick, Picker};
 
 use crate::{Screen, directory, reading_agent, script};
 
@@ -307,6 +309,40 @@ fn picking_the_root_names_the_session_after_the_path() {
     assert!(shown.contains(" / 1"), "{shown}");
 }
 
+#[test]
+fn a_directory_name_that_is_not_utf8_reaches_fzf_byte_for_byte() {
+    let scratch = tempfile::tempdir().unwrap();
+    let from = scratch.path().join(OsStr::from_bytes(b"acme-\xff"));
+    let _ = std::fs::create_dir(&from);
+    let picker = fuzzy(recording_fzf(scratch.path()), listing(""));
+    let mut pick = Pick::open(&picker, &from, 10, 80).unwrap().unwrap();
+
+    let deadline = Instant::now() + Duration::from_secs(5);
+    while pick.picked().is_none() && Instant::now() < deadline {
+        sleep(Duration::from_millis(20));
+    }
+
+    let listed = std::fs::read(scratch.path().join("listed")).unwrap();
+    let expected = [from.as_os_str().as_bytes(), b"\n"].concat();
+    assert_eq!(listed, expected);
+}
+
+#[test]
+fn a_picked_path_through_dot_dot_starts_in_the_directory_it_names() {
+    let scratch = tempfile::tempdir().unwrap();
+    let api = directory_in(scratch.path(), "acme-api");
+    directory_in(&api, "acme-web");
+    let printing = script(&format!("echo '{}/acme-web/..'", api.display()));
+    let mut screen = Screen::picking(placed_agent(), Picker::Command(printing));
+    widen(&mut screen);
+
+    screen.press('n');
+
+    let shown = screen.wait_for_all(&["acme-api 1", "acme agent in acme-api"]);
+    assert!(shown.contains(" acme-api 1"), "{shown}");
+    assert!(shown.contains("acme agent in acme-api"), "{shown}");
+}
+
 fn placed_agent() -> Vec<String> {
     script("echo \"acme agent in ${PWD##*/}\"; exec sleep 600")
 }
@@ -328,7 +364,11 @@ fn clickable_picker() -> Vec<String> {
 }
 
 fn fuzzy(fzf: Vec<String>, list: Vec<String>) -> Picker {
-    Picker::Fuzzy { fzf, list }
+    Picker::Fuzzy {
+        fzf,
+        list,
+        here_first: true,
+    }
 }
 
 fn listing(lines: &str) -> Vec<String> {

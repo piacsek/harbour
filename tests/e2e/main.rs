@@ -248,6 +248,41 @@ fn the_demo_shows_made_up_sessions_one_of_them_exited() {
 
 #[test]
 #[ignore]
+fn n_in_the_demo_without_fzf_starts_a_session_at_once() {
+    let home = tempfile::tempdir().unwrap();
+    let server = Server::start("demo-no-fzf", 160, 20);
+    server.run(home.path(), &[], &["--demo"]);
+    server.wait_for_screen("● acme-api 3");
+
+    server.send_keys(&["n"]);
+
+    let screen = server.wait_for_screen("acme-api 4");
+    assert!(screen.contains("acme-api 4"), "{screen}");
+    assert!(!screen.contains("Could not start"), "{screen}");
+}
+
+#[test]
+#[ignore]
+fn n_in_a_deleted_directory_says_the_directory_cannot_be_read() {
+    let home = tempfile::tempdir().unwrap();
+    let server = Server::start("deleted", 160, 20);
+    server.launch(
+        home.path(),
+        "rmdir \"$PWD\" &&",
+        &[(SESSION_COMMAND, AGENT)],
+        &[],
+    );
+    server.wait_for_screen("press n to start one");
+
+    server.send_keys(&["n"]);
+
+    let screen = server.wait_for_screen("Could not start");
+    assert!(screen.contains("could not read the working"), "{screen}");
+    assert!(screen.contains("No session yet"), "{screen}");
+}
+
+#[test]
+#[ignore]
 fn n_in_the_demo_lists_made_up_directories_in_fzf() {
     let home = tempfile::tempdir().unwrap();
     let server = Server::start("demo-picker", 160, 20);
@@ -355,12 +390,17 @@ impl Server {
     }
 
     fn run(&self, home: &Path, env: &[(&str, &str)], args: &[&str]) {
+        self.launch(home, "", env, args);
+    }
+
+    fn launch(&self, home: &Path, before: &str, env: &[(&str, &str)], args: &[&str]) {
         let directory = home.join("acme-api");
         std::fs::create_dir_all(&directory).unwrap();
         let mut words = vec![
             "cd".to_string(),
             quoted(&directory.display().to_string()),
             "&&".to_string(),
+            before.to_string(),
             "env".to_string(),
             "-u".to_string(),
             "XDG_CONFIG_HOME".to_string(),

@@ -69,9 +69,18 @@ pane takes the focus, so the user can type to it at once (added by the owner dur
   always works, however slow zoxide is; a timeout was rejected because it only narrows the
   class. Paths and the command reach the shell as positional arguments, never spliced into the
   script.
-- **The demo's picker is a script piping a fixed list of made-up `acme` directories into fzf**,
-  never zoxide and without harbour's directory, so `docs/picker.png` is the same on every run.
-  The screenshot script runs it with `FZF_DEFAULT_OPTS` unset.
+- **The demo's picker is fzf over a fixed list of made-up `acme` directories**, never zoxide and
+  without harbour's directory (`here_first: false`), so `docs/picker.png` is the same on every
+  run; without fzf the demo's `n` starts at once like the real one. The screenshot script runs it
+  with `FZF_DEFAULT_OPTS` unset and refuses to run without fzf.
+- **Paths stay bytes end to end** (review round 2): harbour's directory, the temporary paths and
+  the picked line reach the picker and come back as `OsString`, so a name that is not UTF-8
+  works on Linux.
+- **The picked directory is canonicalized** before the session is named and started, so
+  `x/acme-web/..` starts in `x` with that name and `PWD`; a path that cannot be canonicalized is
+  refused as "Not a directory".
+- **A working directory harbour cannot read** (deleted before it started) makes `n` say
+  `Could not start <command>: could not read the working directory: ...`, as `main` did.
 - **`tempfile` becomes a runtime dependency**: the FIFO fzf reads and the file the picker writes
   live in a private temporary directory removed when the pick ends. It is already locked as a
   dev-dependency, and no smaller way creates a unique private directory.

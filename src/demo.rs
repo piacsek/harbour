@@ -11,10 +11,14 @@ exec sleep 86400"#;
 const FAILED: &str = r#"printf 'acme agent: could not reach acme/web\n'
 exit 1"#;
 
-const PLACES: &str = r#"printf '%s\n' /home/acme/api /home/acme/web /home/acme/infra /home/acme/docs /home/acme/api/crates/retry | fzf"#;
+const PLACES: &str = r#"printf '%s\n' /home/acme/api /home/acme/web /home/acme/infra /home/acme/docs /home/acme/api/crates/retry"#;
 
 pub fn picker() -> Picker {
-    Picker::Command(script(PLACES))
+    Picker::Fuzzy {
+        fzf: vec!["fzf".to_string()],
+        list: script(PLACES),
+        here_first: false,
+    }
 }
 
 pub fn working() -> Vec<String> {

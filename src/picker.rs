@@ -1,5 +1,5 @@
 use std::env;
-use std::ffi::OsStr;
+use std::ffi::{OsStr, OsString};
 use std::fs;
 use std::io;
 use std::os::unix::ffi::OsStrExt;
@@ -16,7 +16,7 @@ listed="${out%/*}/listed"
 mkfifo "$listed" || exit 126
 (
   shift "$n"
-  printf '%s\n' "$here"
+  [ -z "$here" ] || printf '%s\n' "$here"
   "$@" </dev/null 2>/dev/null | grep -vxF -e "$here" -e ''
 ) >"$listed" &
 for argument do
@@ -28,7 +28,11 @@ done
 
 pub enum Picker {
     Command(Vec<String>),
-    Fuzzy { fzf: Vec<String>, list: Vec<String> },
+    Fuzzy {
+        fzf: Vec<String>,
+        list: Vec<String>,
+        here_first: bool,
+    },
 }
 
 impl Picker {
@@ -63,11 +67,20 @@ impl Pick {
                 startable(picker.program(), from)?;
                 wrapping(PRINTING_TO, &output, &[], command)
             }
-            Picker::Fuzzy { fzf, list } => {
+            Picker::Fuzzy {
+                fzf,
+                list,
+                here_first,
+            } => {
                 if startable(picker.program(), from).is_err() {
                     return Ok(None);
                 }
-                let before = [from.to_string_lossy().into_owned(), fzf.len().to_string()];
+                let here = if *here_first {
+                    from.as_os_str().to_owned()
+                } else {
+                    OsString::new()
+                };
+                let before = [here, fzf.len().to_string().into()];
                 let mut command = fzf.clone();
                 command.extend(list.iter().cloned());
                 wrapping(LISTING_INTO, &output, &before, &command)
@@ -110,28 +123,26 @@ impl Pick {
         if line.is_empty() {
             return Some(Picked::Cancelled);
         }
-        let chosen = self.from.join(OsStr::from_bytes(line));
-        if chosen.is_dir() {
-            Some(Picked::Chosen(chosen))
-        } else {
-            Some(Picked::Refused(format!(
+        match self.from.join(OsStr::from_bytes(line)).canonicalize() {
+            Ok(chosen) if chosen.is_dir() => Some(Picked::Chosen(chosen)),
+            _ => Some(Picked::Refused(format!(
                 "Not a directory: {}",
                 String::from_utf8_lossy(line)
-            )))
+            ))),
         }
     }
 }
 
-fn wrapping(script: &str, output: &Path, before: &[String], command: &[String]) -> Vec<String> {
-    let mut wrapped = vec![
-        "/bin/sh".to_string(),
-        "-c".to_string(),
-        script.to_string(),
-        "harbour-picker".to_string(),
-        output.to_string_lossy().into_owned(),
+fn wrapping(script: &str, output: &Path, before: &[OsString], command: &[String]) -> Vec<OsString> {
+    let mut wrapped: Vec<OsString> = vec![
+        "/bin/sh".into(),
+        "-c".into(),
+        script.into(),
+        "harbour-picker".into(),
+        output.as_os_str().to_owned(),
     ];
     wrapped.extend(before.iter().cloned());
-    wrapped.extend(command.iter().cloned());
+    wrapped.extend(command.iter().map(OsString::from));
     wrapped
 }
 

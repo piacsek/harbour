@@ -22,7 +22,7 @@ const HINT: &str = "No session yet: press n to start one.";
 
 pub struct App {
     command: Vec<String>,
-    home: PathBuf,
+    home: Result<PathBuf, String>,
     picker: Option<Picker>,
     picking: Option<Pick>,
     picking_area: Rect,
@@ -55,7 +55,8 @@ struct Entry {
 
 impl App {
     pub fn new(command: Vec<String>) -> App {
-        let home = std::env::current_dir().unwrap_or_default();
+        let home = std::env::current_dir()
+            .map_err(|error| format!("could not read the working directory: {error}"));
         App {
             command,
             home,
@@ -245,12 +246,12 @@ impl App {
     }
 
     fn pick_or_start(&mut self) {
-        let Some(picker) = &self.picker else {
+        let (Some(picker), Ok(home)) = (&self.picker, &self.home) else {
             self.start();
             return;
         };
         let popup = popup(self.screen);
-        match Pick::open(picker, &self.home, popup.height, popup.width) {
+        match Pick::open(picker, home, popup.height, popup.width) {
             Ok(Some(pick)) => {
                 self.gesture = Gesture::Idle;
                 self.picking = Some(pick);
@@ -286,7 +287,10 @@ impl App {
     }
 
     fn start_with(&mut self, command: &[String]) {
-        self.start_in(command, &self.home.clone());
+        match self.home.clone() {
+            Ok(home) => self.start_in(command, &home),
+            Err(reason) => self.failed = Some(format!("Could not start {}: {reason}", command[0])),
+        }
     }
 
     fn start_in(&mut self, command: &[String], directory: &Path) {

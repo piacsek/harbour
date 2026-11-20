@@ -1,4 +1,5 @@
 use std::cell::Cell;
+use std::ffi::OsStr;
 use std::io::{self, Read, Write};
 use std::panic::{self, AssertUnwindSafe};
 use std::path::Path;
@@ -32,8 +33,8 @@ pub struct Session {
 }
 
 impl Session {
-    pub fn start(
-        command: &[String],
+    pub fn start<S: AsRef<OsStr>>(
+        command: &[S],
         directory: &Path,
         rows: u16,
         cols: u16,
@@ -47,7 +48,7 @@ impl Session {
                 pixel_height: 0,
             })
             .map_err(|error| io::Error::other(format!("could not open a terminal: {error}")))?;
-        let mut builder = CommandBuilder::new(&command[0]);
+        let mut builder = CommandBuilder::new(command[0].as_ref());
         builder.args(&command[1..]);
         builder.cwd(directory);
         builder.env("PWD", directory);

@@ -2,6 +2,8 @@
 # Usage: scripts/screenshots.sh [out-dir]   (needs tmux, freeze, Google Chrome, cargo build --release)
 set -euo pipefail
 
+command -v fzf >/dev/null || { echo "screenshots.sh: fzf is not on PATH; the picker shot needs it (brew install fzf)" >&2; exit 1; }
+
 out="${1:-docs}"
 root="$(cd "$(dirname "$0")/.." && pwd)"
 bin="$root/target/release/harbour"
