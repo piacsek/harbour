@@ -20,6 +20,7 @@ mod moving;
 mod nearest;
 mod neovim;
 mod picker;
+mod real_neovim;
 mod reconciling;
 mod refusing;
 mod remembering;

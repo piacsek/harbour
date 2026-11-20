@@ -32,10 +32,10 @@ these suites come from; the ones about sessions were hit in harbour.
   to `tests/fixtures/picker.sh` to test the picker; in-process tests hand the builder `.with_picker` of `App` a `Picker` of `/bin/sh -c`
   scripts. A picker script draws on stderr: its stdout is the directory it picks.
 
-- **A real Neovim runs only in `tests/e2e/neovim.rs`, and only clean.** Each of its tests
-  looks for `nvim` on the `PATH` the tests run with; without one it prints why and passes, so
-  CI, which has no Neovim, runs them as no-ops. With one, it links it as `real-nvim` on the
-  scratch `PATH` (the one deliberate way that `PATH` finds it) and sets `HARBOUR_EDITOR` to
+- **A real Neovim runs only clean, in `tests/app/real_neovim.rs` and `tests/e2e/neovim.rs`.**
+  Each test looks for `nvim` on the `PATH` the tests run with; without one it prints why and
+  passes, so CI, which has no Neovim, runs them as no-ops. With one, it links it as `real-nvim`
+  on a scratch `PATH` (the one deliberate way that `PATH` finds it) and runs
   `tests/fixtures/nvim/nvim`, a wrapper named `nvim` (so harbour gives it `--listen`) that runs
   `real-nvim --clean`: no configuration or plugin is read, and with `HOME`, `TMPDIR` and
   `XDG_CONFIG_HOME`, `XDG_DATA_HOME`, `XDG_STATE_HOME` and `XDG_CACHE_HOME` under the scratch
@@ -43,9 +43,23 @@ these suites come from; the ones about sessions were hit in harbour.
   in that Neovim. Every other test uses `tests/fixtures/editor.sh` or a `/bin/sh -c` script.
   Neovim's TUI runs its server (`real-nvim --embed`) in a process group of its own: killing the
   tmux server does not end it, and one stuck at a swap prompt ignores SIGTERM and outlives the
-  run. Dropping a `Neovim` of `tests/e2e/neovim.rs` kills the tmux server, then SIGKILLs every
-  `real-nvim` whose command line names the test's scratch `HOME`, and fails the test while one
-  was still alive; a test that leaves one behind on purpose ends it with `end_every_neovim`.
+  run. Dropping a `Neovim` of either file ends what it started, then SIGKILLs every `real-nvim`
+  whose command line names the test's scratch `HOME`, and fails the test while one was still
+  alive; a test of `tests/e2e/neovim.rs` that leaves one behind on purpose ends it with
+  `end_every_neovim`.
+- **The Neovim contract tests run its TUI in a harbour `Session`, never headless.** A
+  `--headless` Neovim never reaches the prompt states (NVIM v0.12.6): a multi-line `:echo`
+  leaves mode `n`, a stale swap file opens without asking. So `tests/app/real_neovim.rs` starts
+  the wrapper through `Editor::start` (a PTY, no tmux, no harbour process), under
+  `/usr/bin/env -u NVIM -u NVIM_APPNAME -u VIMINIT` with the scratch variables, finds the
+  editor's private socket as the one `harbour-nvim*/socket` under the scratch `TMPDIR`, types
+  keys with `session.send`, and waits for each state over that socket (`nvim::mode`, or an
+  `nvim::eval` that returns 1) before it asserts on `wants_ctrl_h`, `changes` or `open`. There
+  the prompts show: press-enter is mode `r` blocking, the swap prompt `r?`, a pending `C-w`
+  mode `n` blocking. `Session::end` ends the embed server too, even at a swap prompt.
+  `tests/e2e/neovim.rs` keeps four smoke tests that the wiring through tmux and harbour still
+  holds (C-h to Claude Code, `x` over unsaved changes, `harbour edit` twice, and `harbour edit`
+  starting a Neovim stopped at a stale swap prompt, refused with exit 2).
 
 - **dash is `/bin/sh` on Linux.** A session script's `read` returns non-zero when a trapped
   signal (the window change of a resize) interrupts it, so a loop written `while read` ends on
@@ -82,8 +96,8 @@ these suites come from; the ones about sessions were hit in harbour.
 
 - **Keys sent to a program inside harbour are followed by a wait for their visible effect.**
   tmux delivers each `send_keys` at once, and harbour and the program take them in their own
-  time, so the next group can land before the last one was handled. In
-  `x_with_a_modified_acwrite_buffer_says_there_are_unsaved_changes`, under load, the sidebar
+  time, so the next group can land before the last one was handled. In the
+  end-to-end test of a modified acwrite buffer (since moved in process), under load, the sidebar
   click was lost and its `x` reached Neovim, whose buffer read `acxme`. After each group, wait
   for what it shows and assert on what the wait returned: the typed text, the mode
   (`-- INSERT --`), a pending key in Neovim's `showcmd`, a focused border (`┏ sessions`), or,
