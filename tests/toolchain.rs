@@ -36,6 +36,13 @@ fn the_flake_builds_with_the_toolchain_the_file_names() {
 }
 
 #[test]
+fn the_flake_leaves_out_the_components_the_build_never_runs() {
+    assert!(read("flake.nix").contains(
+        "(rust-bin.fromRustupToolchainFile ./rust-toolchain.toml).override { extensions = [ ]; }"
+    ));
+}
+
+#[test]
 fn the_flake_names_no_rust_version_of_its_own() {
     let literals = version_literals(&read("flake.nix"));
 
