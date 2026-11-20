@@ -16,6 +16,16 @@ fn the_audit_job_checks_the_lock_against_the_advisory_database() {
     assert!(ci().contains(AUDIT_JOB), "{}", ci());
 }
 
+#[test]
+fn the_workflow_grants_only_read_access_to_the_contents() {
+    assert_eq!(ci().matches("permissions:").count(), 1, "{}", ci());
+    assert!(
+        ci().contains("permissions:\n  contents: read\n\n"),
+        "{}",
+        ci()
+    );
+}
+
 fn ci() -> String {
     fs::read_to_string(Path::new(env!("CARGO_MANIFEST_DIR")).join(".github/workflows/ci.yml"))
         .unwrap()
