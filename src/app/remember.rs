@@ -113,6 +113,14 @@ impl App {
         }
         self.clear_refusal();
         if !self.transcript_exists(&id) {
+            let entry = &mut self.sessions[self.selected];
+            if entry.running() {
+                if let Some(memory) = &self.memory {
+                    leave(memory, entry);
+                }
+                self.failed = Some(GONE.to_string());
+                return true;
+            }
             self.sessions.remove(self.selected);
             self.selected = self.selected.min(self.sessions.len().saturating_sub(1));
             self.failed = Some(GONE.to_string());
@@ -244,14 +252,17 @@ impl App {
                 }
             }
         }
+        let reservation = (self.sessions[index].remembered.as_deref()
+            != Some(wanted.session_id.as_str()))
+        .then(|| memory.reserve(&wanted.session_id).ok().flatten());
         let kept = match &old {
             Some(old) => memory.replace(old, &wanted),
             None => memory.keep(&wanted),
         };
         if kept.is_ok() {
             let entry = &mut self.sessions[index];
-            if old.is_some() {
-                entry.reservation = None;
+            if let Some(reservation) = reservation {
+                entry.reservation = reservation;
             }
             entry.remembered = Some(wanted.session_id.clone());
             entry.kept = Some(wanted);

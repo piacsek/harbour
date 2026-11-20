@@ -9,7 +9,7 @@ use harbour::editor::Program;
 
 use crate::keeping::{remembered_soon, titled};
 use crate::remembering::{ID, OTHER_ID, Scratch, TITLE};
-use crate::{Screen, script};
+use crate::{Screen, below, script};
 
 const SECOND: &str = "The second one";
 
@@ -209,6 +209,78 @@ fn resuming_an_exited_card_shows_its_claude_code_pane() {
         shown.contains(&format!("acme agent resumed {ID}")),
         "{shown}"
     );
+}
+
+#[test]
+fn enter_on_a_gone_conversation_keeps_the_card_while_its_editor_runs() {
+    let scratch = Scratch::new();
+    scratch.transcript(ID, &titled(TITLE));
+    let mut screen = Screen::of(
+        App::new(stoppable(&scratch))
+            .with_registry(scratch.sessions())
+            .with_transcripts(scratch.dir.path().join("claude/projects"))
+            .with_memory(scratch.memory())
+            .with_editor(Program::new(
+                "acme-edit",
+                script("echo 'acme editor up'; exec sleep 600"),
+            )),
+    );
+    let first = started(&mut screen, &scratch, ID, TITLE);
+    screen.key(KeyCode::Enter, KeyModifiers::NONE);
+    screen.key(KeyCode::Char('l'), KeyModifiers::CONTROL);
+    screen.wait_for("acme editor up");
+    stop(&mut screen, &scratch, &first);
+    screen.mouse(MouseEventKind::Down(MouseButton::Left), 2, 2);
+    fs::remove_file(scratch.transcript_file(ID)).unwrap();
+
+    screen.key(KeyCode::Enter, KeyModifiers::NONE);
+
+    let shown = screen.wait_for("This conversation is gone");
+    assert!(shown.contains(TITLE), "{shown}");
+    assert_eq!(scratch.memory().recall(), Vec::new());
+    screen.key(KeyCode::Char('l'), KeyModifiers::CONTROL);
+    let editing = screen.wait_for("acme editor up");
+    assert!(editing.contains("acme editor up"), "{editing}");
+}
+
+#[test]
+fn a_fresh_session_is_open_elsewhere_in_a_second_harbour_without_its_registry_file() {
+    let scratch = Scratch::new();
+    scratch.transcript(ID, &titled(TITLE));
+    let mut first = scratch.watching(stoppable(&scratch));
+    let pid = started(&mut first, &scratch, ID, TITLE);
+    fs::remove_file(scratch.sessions().join(format!("{pid}.json"))).unwrap();
+    let mut second = scratch.watching(stoppable(&scratch));
+    let held = second.wait_for("open elsewhere");
+    assert_eq!(below(&held, TITLE), "open elsewhere");
+
+    second.key(KeyCode::Enter, KeyModifiers::NONE);
+
+    let shown = second.wait_for("is open elsewhere");
+    assert!(
+        shown.contains("This conversation is open elsewhere"),
+        "{shown}"
+    );
+    assert_eq!(pids(&scratch).len(), 1);
+}
+
+#[test]
+fn a_session_whose_id_changes_holds_only_its_new_conversation() {
+    let scratch = Scratch::new();
+    scratch.transcript(ID, &titled(TITLE));
+    scratch.transcript(OTHER_ID, &titled(SECOND));
+    let mut first = scratch.watching(stoppable(&scratch));
+    let pid = started(&mut first, &scratch, ID, TITLE);
+    register(&scratch, &pid, OTHER_ID);
+    remembered_soon(&mut first, &scratch.memory(), OTHER_ID, SECOND);
+    fs::remove_file(scratch.sessions().join(format!("{pid}.json"))).unwrap();
+
+    let mut second = scratch.watching(stoppable(&scratch));
+
+    let held = second.wait_for("open elsewhere");
+    assert_eq!(below(&held, SECOND), "open elsewhere");
+    assert!(!scratch.memory().reserved().contains(ID));
+    assert!(scratch.memory().reserved().contains(OTHER_ID));
 }
 
 #[test]

@@ -40,10 +40,18 @@ machine; no `claude` was started, and nothing below quotes a value.
 
 ## How harbour remembers
 
-- One file per conversation: `<state>/harbour/sessions/<sessionId>.json`, a JSON object
-  `{"version":1,"sessionId":…,"directory":…,"title":…,"position":…}`. The name is the id, so a
-  conversation is one file however many harbours saw it. No file names another: a file never
+- One file per conversation: `<state>/harbour/sessions/<configuration>/<sessionId>.json`, a JSON
+  object `{"version":1,"sessionId":…,"directory":…,"title":…,"position":…}`. The name is the id,
+  so a conversation is one file however many harbours saw it. No file names another: a file never
   causes another file to be removed.
+- `<configuration>` is one folder per Claude Code configuration: 16 hex digits of a stable hash
+  (FNV-1a, 64 bits) of the absolute path of its `projects/` folder (`$CLAUDE_CONFIG_DIR/projects`,
+  else `~/.claude/projects`). A conversation belongs to the configuration it was made under, so a
+  harbour recalls, resumes, reserves and prunes only its own configuration's files and never
+  touches another's, even when the two share an id. Files written flat in `sessions/` by earlier
+  builds of this branch are ignored: the feature has not shipped, so there is nothing to migrate.
+- `directory` is a JSON string when the path is valid UTF-8, else the array of its bytes, so a
+  directory whose name is not UTF-8 comes back byte for byte.
 - An id is accepted only in Claude Code's shape: lowercase hex in groups of 8, 4, 4, 4 and 12
   joined by hyphens. So no name can start with `-`, and `--resume <id>` never reads one as an
   option.
@@ -63,7 +71,13 @@ machine; no `claude` was started, and nothing below quotes a value.
   fresh `0600` temporary name in the folder and renamed over `<id>.json`, so a reader sees the old
   file or the new one, never half of one. A file of a newer version is never overwritten or
   removed.
-- Reservations: before resuming, harbour takes a non-blocking lock on a fresh
+- Reservations are the one signal that a harbour runs a conversation: every running session
+  with a remembered id holds one. It is taken when the id is first remembered (before resuming,
+  for a stopped card), and when the id changes the new one is taken before the old one is
+  released. When the new id is held elsewhere or the lock fails, the file is still written, with
+  no reservation, and harbour does not try again until the id changes. The registry stays the
+  signal for a Claude Code running outside any harbour.
+- Taking one: harbour takes a non-blocking lock on a fresh
   `<id>.<unique>.lock` file (`0600`) in the same folder and holds it while the session runs; a
   second harbour that finds the id locked says `open elsewhere`. Dead lock files are swept when
   the folder is listed. A lock is kept only while its file is still the one at its path (same
@@ -73,7 +87,9 @@ machine; no `claude` was started, and nothing below quotes a value.
   reservation is released when the session exits and at `x`.
 - Reading, once at start: every `<id>.json` whose name and `sessionId` agree, whose id has the
   shape above, whose `directory` is absolute and whose `version` is 1; each read is at most
-  64 KiB of a regular file, never through a symlink. Anything else is skipped and left on disk.
+  64 KiB of a regular file, never through a symlink. Anything else is skipped and left on disk,
+  except a staged `.<id>.<unique>.tmp` older than a minute: a regular file with harbour's own
+  naming, which the sweep removes (never through a symlink).
   The cards are ordered by `position`, then by id; at most the first 100 come back.
 - Pruning: a file whose transcript Claude Code no longer has is removed once it is older than
   30 days; a newer one is kept and hidden. The transcripts are found with one listing of every
@@ -85,32 +101,38 @@ machine; no `claude` was started, and nothing below quotes a value.
 Invariants:
 
 1. One conversation id is shown by at most one card in a harbour, and owned by at most one
-   running session across harbours.
+   running session across harbours: the reservation, held by every running session with a
+   remembered id, is the single truth for that.
 2. A conversation that was running or stopped when harbour last saw it comes back at the next
    start, unless the user forgot it or left it (`/clear` or `/resume` to another id, in any
    harbour).
 3. A forgotten or left conversation never comes back, unless it is resumed again.
-4. Nothing harbour writes can delete another conversation's file later.
+4. Nothing harbour writes can delete another conversation's file later, nor any file of another
+   Claude Code configuration.
 
 | Event | Files after | Cards after | Reservation | Next start shows | Test |
 | --- | --- | --- | --- | --- | --- |
-| a running session's transcript is first found | `<id>.json` written | the running card | none (a fresh session holds none) | a stopped card | `keeping::a_running_session_is_remembered_once_its_transcript_exists` |
-| its id changes to a new id | `<new>.json` written, then `<old>.json` removed | the same card, now the new id | released (it was for the old id) | one stopped card, the new id | `keeping::a_new_session_id_replaces_the_remembered_one`, `memory::keeping_a_replacement_forgets_the_old_file`, `memory::a_replacement_names_no_other_id` |
-| its id changes to one a stopped card holds | `<old>.json` removed, the stopped card's file rewritten by the running card | the stopped card removed, the selection kept on the card that stays | released | one stopped card | `reconciling::a_new_session_that_resumes_a_stopped_card_merges_the_two`, `switching::merging_away_the_selected_last_card_selects_the_one_that_stays` |
-| its id changes to one an exited card holds | as above | the exited card removed, the running one takes its place | released | one stopped card; the conversation it left comes back too once taken up again | `switching::a_session_that_resumes_an_exited_card_takes_its_place`, `switching::a_conversation_left_and_taken_up_again_comes_back_after_quitting` |
-| its id changes to one another running card holds | `<old>.json` removed; the other card's file untouched | both cards stay; the switching card remembers nothing until the other stops running, then adopts the id | released | one stopped card, the other card's | `switching::a_session_that_switches_to_a_conversation_another_card_runs_forgets_the_one_it_left` |
-| its id changes to one another harbour holds | `<new>.json` written, `<old>.json` removed | the same card, now the new id | released | one stopped card | `switching::a_session_that_switches_to_a_conversation_open_elsewhere_is_remembered_once` |
-| the session exits | a last read and write, then nothing more | an exited card | released | a stopped card | `reconciling::a_title_written_just_before_the_session_exits_is_remembered`, `switching::a_resumed_session_that_exits_releases_its_conversation` |
+| a running session's transcript is first found | `<id>.json` written | the running card | taken for `<id>` before the file is written | a stopped card | `keeping::a_running_session_is_remembered_once_its_transcript_exists`, `switching::a_fresh_session_is_open_elsewhere_in_a_second_harbour_without_its_registry_file` |
+| its id changes to a new id | `<new>.json` written, then `<old>.json` removed | the same card, now the new id | the new id taken, then the old one released | one stopped card, the new id | `switching::a_session_whose_id_changes_holds_only_its_new_conversation`, `keeping::a_new_session_id_replaces_the_remembered_one`, `memory::keeping_a_replacement_forgets_the_old_file`, `memory::a_replacement_names_no_other_id` |
+| its id changes to one a stopped card holds | `<old>.json` removed, the stopped card's file rewritten by the running card | the stopped card removed, the selection kept on the card that stays | the new id taken, then the old one released | one stopped card | `reconciling::a_new_session_that_resumes_a_stopped_card_merges_the_two`, `switching::merging_away_the_selected_last_card_selects_the_one_that_stays` |
+| its id changes to one an exited card holds | as above | the exited card removed, the running one takes its place | the new id taken, then the old one released | one stopped card; the conversation it left comes back too once taken up again | `switching::a_session_that_resumes_an_exited_card_takes_its_place`, `switching::a_conversation_left_and_taken_up_again_comes_back_after_quitting` |
+| its id changes to one another running card holds | `<old>.json` removed; the other card's file untouched | both cards stay; the switching card remembers nothing until the other stops running, then adopts the id | the old one released; the other card holds the new one | one stopped card, the other card's | `switching::a_session_that_switches_to_a_conversation_another_card_runs_forgets_the_one_it_left` |
+| its id changes to one another harbour holds | `<new>.json` written, `<old>.json` removed | the same card, now the new id | the old one released; none taken (held there), not tried again until the id changes | one stopped card | `switching::a_session_that_switches_to_a_conversation_open_elsewhere_is_remembered_once` |
+| the session exits | a last read and write, then nothing more | an exited card | released after the last write | a stopped card | `reconciling::a_title_written_just_before_the_session_exits_is_remembered`, `switching::a_resumed_session_that_exits_releases_its_conversation` |
 | harbour quits | a last read and write of every running session | none | released with the process | every running and stopped card, stopped | `reconciling::a_title_written_just_before_quitting_is_remembered`, `cards::a_session_comes_back_stopped_after_quitting_and_resumes_with_enter` |
 | `x` then `y` on a running card | kept | an exited card | released | a stopped card | `switching::ending_a_running_session_keeps_its_conversation` |
 | `x` on an exited card | removed | removed | released before forgetting | nothing | `keeping::x_on_an_exited_remembered_session_forgets_it` |
-| `x` on a stopped card | removed | removed | none | nothing | `remembering::x_forgets_a_stopped_card` |
+| `x` on a stopped card | removed | removed | none (a stopped card holds none) | nothing | `remembering::x_forgets_a_stopped_card` |
 | `x` on a card held elsewhere | kept (the holder owns it) | hidden here | none here | the card, if the holder is gone by then | `refusing::x_on_a_card_open_elsewhere_hides_it_and_keeps_its_file` |
 | Enter on a stopped card | unchanged | a running card on its Claude Code pane | taken; on an error, nothing starts and the footer says `Could not reserve this conversation` | a stopped card | `remembering::enter_resumes_a_stopped_card_in_its_directory`, `switching::resuming_an_exited_card_shows_its_claude_code_pane`, `switching::enter_refuses_when_the_conversation_cannot_be_reserved` |
-| harbour killed between any two writes | a staged temporary file, or both the new and the old id, or a lock file whose lock died | as before the kill | a dead lock, swept at the next listing | every good file; a left id as one more stopped card | `memory::a_file_naming_another_in_replaces_deletes_nothing`, `memory::a_leftover_temporary_file_is_ignored`, `memory::a_dead_reservation_is_swept_and_not_listed` |
+| harbour killed between any two writes | a staged temporary file, or both the new and the old id, or a lock file whose lock died | as before the kill | a dead lock, swept at the next listing | every good file; a left id as one more stopped card; a staged file is removed by the sweep once older than a minute | `memory::a_file_naming_another_in_replaces_deletes_nothing`, `memory::a_leftover_temporary_file_is_ignored`, `reserving::a_dead_reservation_is_swept_and_not_listed`, `reserving::a_staged_file_left_over_a_minute_is_swept`, `reserving::a_staged_file_being_written_is_not_swept`, `reserving::only_harbours_own_old_staged_files_are_swept` |
 | another harbour forgets the id meanwhile | removed; an exited or stopped card here never writes it back | an exited card stays for this run; a stopped one too | none | nothing | `switching::an_exited_card_forgotten_elsewhere_stays_forgotten`, `switching::a_stopped_card_forgotten_elsewhere_does_not_come_back` |
-| another harbour resumes the id meanwhile | unchanged | `open elsewhere` here; Enter starts nothing | held there; two harbours at the same instant never both hold it | the card | `reserving::a_conversation_resumed_in_one_harbour_is_open_elsewhere_in_another`, `memory::two_reservations_of_one_id_at_once_never_both_hold`, `memory::a_reservation_taken_while_another_harbour_sweeps_stays_listed` |
+| another harbour resumes the id meanwhile | unchanged | `open elsewhere` here; Enter starts nothing | held there; two harbours at the same instant never both hold it | the card | `reserving::a_conversation_resumed_in_one_harbour_is_open_elsewhere_in_another`, `reserving::two_reservations_of_one_id_at_once_never_both_hold`, `reserving::a_reservation_taken_while_another_harbour_sweeps_stays_listed` |
 | another harbour replaces the id meanwhile (its session left it) | removed there | a stopped card here stays for this run | none | nothing | `switching::a_stopped_card_forgotten_elsewhere_does_not_come_back` |
+| a session started in a directory whose name is not UTF-8 | `<id>.json` with the directory as an array of bytes | unchanged | as for any running session | a stopped card in that directory | `places::a_directory_that_is_not_utf8_comes_back_byte_for_byte`, `places::a_utf8_directory_is_written_as_text` |
+| the same id remembered under two Claude Code configurations | one file in each configuration's folder | each harbour shows only its own configuration's card | per configuration | under each configuration, only its own card | `places::one_id_in_two_configurations_is_two_conversations`, `places::each_claude_code_configuration_remembers_its_own_conversations`, `places::a_configuration_named_the_same_way_twice_is_one_folder`, `cards::a_conversation_comes_back_only_under_the_claude_code_configuration_it_was_made_in` |
+| a harbour starts under a configuration whose folder is gone | untouched, stale ones too | no stopped card | none | the cards, once the configuration is back | `refusing::a_stale_card_is_kept_while_its_claude_code_configuration_is_gone` |
+| Enter or Ctrl-l on an exited card whose transcript is gone while its editor runs | removed | the card and its editor stay; the footer says the conversation is gone | released already (at exit) | nothing | `switching::enter_on_a_gone_conversation_keeps_the_card_while_its_editor_runs` |
 | the file deleted from outside | a running card writes it again at its next read; an exited or stopped card does not | unchanged | unchanged | the card when it was running, else nothing | `reconciling::a_remembered_file_deleted_from_outside_is_written_again`, `switching::an_exited_card_forgotten_elsewhere_stays_forgotten` |
 
 ## States
@@ -129,8 +151,8 @@ Invariants:
 | the other harbour or terminal ends it | with the next registry read the card says `stopped` again and resumes | `refusing::a_card_open_elsewhere_says_stopped_once_the_other_one_ends`, `refusing::a_registry_file_of_an_ended_process_does_not_hold_a_card`, `reserving::a_conversation_ended_in_one_harbour_resumes_in_another` |
 | a registry file left by a crash whose pid now belongs to another process | the card says `open elsewhere` until that process ends, cannot be forgotten and returns at every start (known limit) | none, documented |
 | two harbours, same conversation | the one that resumes it holds the reservation; the other shows `open elsewhere` and Enter there starts no second copy | `reserving::a_conversation_resumed_in_one_harbour_is_open_elsewhere_in_another`, `reserving::enter_in_a_second_harbour_starts_no_second_copy` |
-| two harbours, different conversations | each resumes its own; neither holds the other | `reserving::two_harbours_resume_different_conversations`, `memory::another_id_is_reserved_on_its_own` |
-| a reservation left by a crash | its lock is gone with the process, so the next listing sweeps it and the id resumes | `memory::a_dead_reservation_is_swept_and_not_listed`, `memory::a_released_id_can_be_reserved_again` |
+| two harbours, different conversations | each resumes its own; neither holds the other | `reserving::two_harbours_resume_different_conversations`, `reserving::another_id_is_reserved_on_its_own` |
+| a reservation left by a crash | its lock is gone with the process, so the next listing sweeps it and the id resumes | `reserving::a_dead_reservation_is_swept_and_not_listed`, `reserving::a_released_id_can_be_reserved_again` |
 | a resumed session exits (by itself or `x` then `y`) | an exited card, resumable with Enter; `x` then forgets it | `remembering::a_resumed_session_that_exits_resumes_again_with_enter`, `keeping::a_remembered_session_that_exits_resumes_with_enter`, `keeping::x_on_an_exited_remembered_session_forgets_it` |
 | resumed twice | the second Enter on a running card focuses the pane; no second process | `remembering::enter_on_a_resumed_card_focuses_it_and_starts_no_second_copy` |
 | `/clear` or `/resume` inside the session (its id changes) | the file of the new id is written, the old one removed | `keeping::a_new_session_id_replaces_the_remembered_one`, `memory::a_replacement_names_no_other_id`, `memory::keeping_a_replacement_forgets_the_old_file` |
@@ -139,7 +161,7 @@ Invariants:
 | a title written just before the session exits, or just before quitting | the last title is kept | `reconciling::a_title_written_just_before_the_session_exits_is_remembered`, `reconciling::a_title_written_just_before_quitting_is_remembered` |
 | the remembered file deleted from outside while the session runs | written again with the next read | `reconciling::a_remembered_file_deleted_from_outside_is_written_again` |
 | harbour killed by a signal, or its tab closed | the files are as of the last read; the next start shows the cards; what changed since is lost (known limit) | `cards::a_session_comes_back_stopped_after_quitting_and_resumes_with_enter` |
-| a temporary file left by a crash between write and rename | ignored: not a `<id>.json` name | `memory::a_leftover_temporary_file_is_ignored`, `memory::a_reservation_is_not_recalled` |
+| a temporary file left by a crash between write and rename | ignored: not a `<id>.json` name | `memory::a_leftover_temporary_file_is_ignored`, `reserving::a_reservation_is_not_recalled` |
 | a file half written by a foreign tool, malformed JSON, a wrong field type, a relative directory, a name that disagrees with its `sessionId`, larger than 64 KiB, a symlink, a folder, unreadable | skipped, never removed; every good file still shows | `memory::malformed_files_are_skipped_and_kept`, `memory::a_wrong_field_type_is_skipped`, `memory::a_relative_directory_is_skipped`, `memory::a_file_whose_name_disagrees_with_its_id_is_skipped`, `memory::an_oversized_file_is_skipped`, `memory::a_symlinked_file_is_skipped`, `memory::a_folder_named_like_a_file_is_skipped`, `memory::an_unreadable_file_is_skipped` |
 | an id not in Claude Code's shape, or a file named like an option (`--help.json`) | never kept, never shown, never passed to the command | `memory::an_id_that_is_not_shaped_like_a_claude_code_session_id_is_skipped`, `memory::a_file_named_like_an_option_is_skipped`, `memory::an_id_shaped_like_an_option_is_not_kept`, `refusing::a_remembered_file_named_like_an_option_is_not_shown` |
 | a file from a newer harbour (`version` above 1) | skipped, never overwritten or removed | `memory::a_file_from_a_newer_harbour_is_skipped`, `memory::a_file_from_a_newer_harbour_is_never_overwritten`, `memory::a_file_from_a_newer_harbour_is_never_forgotten` |
@@ -158,7 +180,7 @@ Invariants:
 
 | Key | Running card | Exited card | Stopped card |
 | --- | --- | --- | --- |
-| Enter, `Ctrl-l` | focus the pane | resume it when remembered, else focus the pane | resume it (when its directory is gone or it is open elsewhere, the footer says why and nothing starts) |
+| Enter, `Ctrl-l` | focus the pane | resume it when remembered, else focus the pane (when its transcript is gone, the footer says so and the card goes, or stays while one of its editors runs) | resume it (when its directory is gone or it is open elsewhere, the footer says why and nothing starts) |
 | `x` | ask, then end it | remove it and forget it | forget it (only hide it when open elsewhere) |
 | `q` | ask, saying sessions come back | quit | quit |
 
@@ -216,6 +238,19 @@ Invariants:
   - When the id is held, the reservation retries once after 20 to 80 ms of jitter. Two harbours
     pressing Enter on one conversation at the same instant still both refuse about 2 times in
     100 (measured in process); pressing again resumes it (a known limit).
+- **Taken in review round 3, without the owner**:
+  - One folder of remembered files per Claude Code configuration, named by a stable hash of
+    the absolute path of its `projects/` folder. Old flat files are ignored, not migrated: the
+    feature has not shipped.
+  - Every running session with a remembered id holds its reservation, so the reservation alone
+    says a harbour runs a conversation; a new id is taken before the old one is released, and
+    an id held elsewhere is remembered without one, not retried until the id changes.
+  - Enter on a gone conversation never ends a running editor: the card stays with its editor
+    and only the remembered file goes.
+  - A directory that is not UTF-8 is stored as its bytes; staged files older than a minute are
+    swept like dead locks.
+  - Not fixed (minor): only the last folder of the state path is checked for being a symlink; a
+    symlink planted higher up in the user's own state directory is followed.
 
 ## Tasks
 
@@ -303,6 +338,12 @@ total tokens can be read.
   and only the settle notices an exit (the draw no longer marks it); the selection follows the
   card that stays after a merge; a resume opens on the Claude Code pane; a switch to an id
   another running card holds leaves the old id. Every row of the table names its tests.
+- Review round 3's fixes, shipped as one commit: one folder of remembered files per Claude Code
+  configuration, so a harbour under another `CLAUDE_CONFIG_DIR` neither shows nor prunes them; a
+  reservation held by every running session with a remembered id, taken when the id is first
+  known and moved when it changes; Enter on a gone conversation keeps a card whose editor still
+  runs; a directory that is not UTF-8 stored as bytes; staged files left by a kill swept after a
+  minute.
 
 ## Hurdles
 
@@ -325,3 +366,8 @@ total tokens can be read.
 - `review-loop` Round 2 found the selection lost after a merge, a resume opening on the editor, and a switch to an id another running card holds leaving two owners; each got a row and a test → code
 - `design` A second round of holes in the same mechanism (the remembered files) triggered "two strikes": a table of every event and its files, cards and reservation replaced patching, and the marker was dropped instead of hardened → code
 - `test-seam` Five tests of round 2 were green on their first run: two harbours reserving at once is a credit of the invariant, and the other four (a resumed exit releasing, a switch open elsewhere, ending keeps, a stopped card forgotten elsewhere) were proved by breaking the code they cover and seeing them red → none
+- `review-loop` Round 3 found that a harbour under another `CLAUDE_CONFIG_DIR` pruned the remembered files of the first one, whose transcripts it could not see; files now live in one folder per configuration → code
+- `review-loop` Round 3 found that only a resumed session held a reservation, so a fresh session whose registry file was gone could be resumed by a second harbour; every running session with a remembered id now holds one → code
+- `review-loop` Round 3 found that Enter on a gone conversation removed the card and killed its running editor without asking; the card now stays while an editor runs → code
+- `review-loop` Round 3 found that a directory whose name is not UTF-8 was never remembered, and that staged files left by a kill stayed forever; directories are stored as bytes and old staged files swept → code
+- `test-seam` Two tests of round 3 were green on their first run: the e2e configuration test (a card whose transcript is missing is hidden anyway, so it had to age the file and give the other configuration a `projects/` folder before it went red), and a configuration whose folder is gone, proved by breaking the recall and seeing it red → none

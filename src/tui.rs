@@ -129,7 +129,11 @@ fn claude_projects() -> Option<std::path::PathBuf> {
 }
 
 fn remembered() -> Option<Memory> {
-    summary::directory_from_env().map(|dir| Memory::new(&dir.with_file_name("sessions")))
+    let state = summary::directory_from_env()?;
+    Some(Memory::of(
+        &state.with_file_name("sessions"),
+        &claude_projects()?,
+    ))
 }
 
 fn published() -> Option<Summary> {

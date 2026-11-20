@@ -314,6 +314,29 @@ fn a_stale_card_whose_transcript_is_gone_is_forgotten() {
 }
 
 #[test]
+fn a_stale_card_is_kept_while_its_claude_code_configuration_is_gone() {
+    let scratch = Scratch::new();
+    scratch.remember(ID, TITLE, 0);
+    let file = scratch
+        .dir
+        .path()
+        .join(format!("state/harbour/sessions/{ID}.json"));
+    fs::File::options()
+        .write(true)
+        .open(&file)
+        .unwrap()
+        .set_modified(SystemTime::now() - Duration::from_secs(31 * 24 * 60 * 60))
+        .unwrap();
+    fs::remove_dir_all(scratch.dir.path().join("claude")).unwrap();
+    let mut screen = scratch.watching(resuming_agent());
+
+    let shown = screen.wait_for("No session yet");
+
+    assert!(!shown.contains(TITLE), "{shown}");
+    assert_eq!(scratch.memory().recall().len(), 1);
+}
+
+#[test]
 fn at_most_a_hundred_cards_come_back() {
     let scratch = Scratch::new();
     for n in 0..101 {

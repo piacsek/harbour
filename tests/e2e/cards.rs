@@ -1,3 +1,6 @@
+use std::path::{Path, PathBuf};
+use std::time::{Duration, SystemTime};
+
 use harbour::tui::SESSION_COMMAND;
 
 use super::{AGENT, Server};
@@ -97,6 +100,55 @@ fn a_session_comes_back_stopped_after_quitting_and_resumes_with_enter() {
 
 #[test]
 #[ignore]
+fn a_conversation_comes_back_only_under_the_claude_code_configuration_it_was_made_in() {
+    let home = tempfile::tempdir().unwrap();
+    let work = tempfile::tempdir().unwrap();
+    let personal = tempfile::tempdir().unwrap();
+    std::fs::create_dir_all(personal.path().join("projects")).unwrap();
+    let work_dir = work.path().display().to_string();
+    let personal_dir = personal.path().display().to_string();
+    let at_work = [
+        (SESSION_COMMAND, RESUMABLE_AGENT),
+        ("CLAUDE_CONFIG_DIR", work_dir.as_str()),
+    ];
+    let at_home = [
+        (SESSION_COMMAND, RESUMABLE_AGENT),
+        ("CLAUDE_CONFIG_DIR", personal_dir.as_str()),
+    ];
+    let server = Server::start("configurations", 160, 20);
+    server.run(home.path(), &at_work, &[]);
+    server.wait_for_screen("press n to start one");
+    server.send_keys(&["n"]);
+    server.wait_for_screen_all(&["acme agent started", "Fix the flaky login test"]);
+    server.send_keys(&["q"]);
+    server.wait_for_screen("Quit? y/n");
+    server.send_keys(&["y"]);
+    server.wait_for_screen("harbour exited 0");
+    let remembered = remembered_files(&home.path().join(".local/state/harbour/sessions"));
+    assert_eq!(remembered.len(), 1);
+    std::fs::File::options()
+        .write(true)
+        .open(&remembered[0])
+        .unwrap()
+        .set_modified(SystemTime::now() - Duration::from_secs(31 * 24 * 60 * 60))
+        .unwrap();
+
+    server.run(home.path(), &at_home, &[]);
+    let elsewhere = server.wait_for_screen("press n to start one");
+    assert!(
+        !elsewhere.contains("Fix the flaky login test"),
+        "{elsewhere}"
+    );
+    server.send_keys(&["q"]);
+    server.wait_for_screen("harbour exited 0");
+
+    server.run(home.path(), &at_work, &[]);
+    let back = server.wait_for_screen("Enter resumes it");
+    assert!(back.contains("Fix the flaky login test"), "{back}");
+}
+
+#[test]
+#[ignore]
 fn the_demo_shows_a_stopped_session_it_remembers() {
     let home = tempfile::tempdir().unwrap();
     let server = Server::start("demo-stopped", 160, 26);
@@ -114,4 +166,26 @@ fn the_demo_shows_a_stopped_session_it_remembers() {
     assert!(screen.contains(rows[1]), "{screen}");
     assert!(screen.contains(rows[2]), "{screen}");
     assert!(screen.contains(rows[3]), "{screen}");
+}
+
+fn remembered_files(dir: &Path) -> Vec<PathBuf> {
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return Vec::new();
+    };
+    entries
+        .flatten()
+        .flat_map(|entry| {
+            let path = entry.path();
+            if path.is_dir() {
+                remembered_files(&path)
+            } else if path
+                .extension()
+                .is_some_and(|extension| extension == "json")
+            {
+                vec![path]
+            } else {
+                Vec::new()
+            }
+        })
+        .collect()
 }

@@ -1,7 +1,8 @@
 use std::collections::HashSet;
-use std::ffi::OsStr;
+use std::ffi::{OsStr, OsString};
 use std::fs::{self, DirBuilder, File, OpenOptions, Permissions, TryLockError};
 use std::io::{self, Read, Write};
+use std::os::unix::ffi::{OsStrExt, OsStringExt};
 use std::os::unix::fs::{DirBuilderExt, MetadataExt, OpenOptionsExt, PermissionsExt};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -14,6 +15,7 @@ const VERSION: u64 = 1;
 const LONGEST: u64 = 64 * 1024;
 const STALE: Duration = Duration::from_secs(30 * 24 * 60 * 60);
 const ATTEMPTS: usize = 5;
+const LEFT_OVER: Duration = Duration::from_secs(60);
 
 static STAGED: AtomicU64 = AtomicU64::new(0);
 
@@ -30,9 +32,32 @@ pub struct Remembered {
 struct Saved {
     version: u64,
     session_id: String,
-    directory: String,
+    directory: Directory,
     title: String,
     position: usize,
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(untagged)]
+enum Directory {
+    Text(String),
+    Bytes(Vec<u8>),
+}
+
+impl Directory {
+    fn of(path: &Path) -> Directory {
+        match path.to_str() {
+            Some(text) => Directory::Text(text.to_string()),
+            None => Directory::Bytes(path.as_os_str().as_bytes().to_vec()),
+        }
+    }
+
+    fn path(self) -> PathBuf {
+        match self {
+            Directory::Text(text) => PathBuf::from(text),
+            Directory::Bytes(bytes) => PathBuf::from(OsString::from_vec(bytes)),
+        }
+    }
 }
 
 #[derive(Deserialize)]
@@ -63,6 +88,14 @@ impl Memory {
         }
     }
 
+    pub fn of(root: &Path, config: &Path) -> Memory {
+        let config = std::path::absolute(config).unwrap_or_else(|_| config.to_path_buf());
+        Memory::new(&root.join(format!(
+            "{:016x}",
+            fingerprint(config.as_os_str().as_bytes())
+        )))
+    }
+
     pub fn recall(&self) -> Vec<Remembered> {
         let Ok(entries) = fs::read_dir(&self.dir) else {
             return Vec::new();
@@ -74,15 +107,14 @@ impl Memory {
                 let id = name.to_str()?.strip_suffix(".json")?;
                 is_session_id(id).then_some(())?;
                 let saved: Saved = serde_json::from_slice(&read(&entry.path())?).ok()?;
-                (saved.version == VERSION
-                    && saved.session_id == id
-                    && Path::new(&saved.directory).is_absolute())
-                .then(|| Remembered {
-                    session_id: saved.session_id,
-                    directory: PathBuf::from(saved.directory),
-                    title: saved.title,
-                    position: saved.position,
-                })
+                let directory = saved.directory.path();
+                (saved.version == VERSION && saved.session_id == id && directory.is_absolute())
+                    .then_some(Remembered {
+                        session_id: saved.session_id,
+                        directory,
+                        title: saved.title,
+                        position: saved.position,
+                    })
             })
             .collect();
         recalled.sort_by(|a, b| (a.position, &a.session_id).cmp(&(b.position, &b.session_id)));
@@ -94,10 +126,6 @@ impl Memory {
         if !is_session_id(id) {
             return Err(io::ErrorKind::InvalidInput.into());
         }
-        let directory = remembered
-            .directory
-            .to_str()
-            .ok_or(io::ErrorKind::InvalidData)?;
         self.private_dir()?;
         let file = self.file(id);
         if self.newer(&file) {
@@ -106,7 +134,7 @@ impl Memory {
         let text = serde_json::to_vec(&Saved {
             version: VERSION,
             session_id: id.clone(),
-            directory: directory.to_string(),
+            directory: Directory::of(&remembered.directory),
             title: remembered.title.clone(),
             position: remembered.position,
         })?;
@@ -216,6 +244,10 @@ impl Memory {
             if Some(name.as_os_str()) == own {
                 continue;
             }
+            if is_staged(&name) {
+                remove_left_over(&entry);
+                continue;
+            }
             let Some(id) = name
                 .to_str()
                 .and_then(|name| name.strip_suffix(".lock"))
@@ -288,6 +320,34 @@ fn is_session_id(id: &str) -> bool {
                     .bytes()
                     .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
         })
+}
+
+fn is_staged(name: &OsStr) -> bool {
+    name.to_str()
+        .and_then(|name| name.strip_prefix('.'))
+        .and_then(|name| name.strip_suffix(".tmp"))
+        .and_then(|name| name.split_once('.'))
+        .is_some_and(|(id, _)| is_session_id(id))
+}
+
+fn remove_left_over(entry: &fs::DirEntry) {
+    let left_over = fs::symlink_metadata(entry.path()).is_ok_and(|meta| {
+        meta.is_file()
+            && meta
+                .modified()
+                .ok()
+                .and_then(|modified| SystemTime::now().duration_since(modified).ok())
+                .is_some_and(|age| age > LEFT_OVER)
+    });
+    if left_over {
+        let _ = fs::remove_file(entry.path());
+    }
+}
+
+fn fingerprint(bytes: &[u8]) -> u64 {
+    bytes.iter().fold(0xcbf2_9ce4_8422_2325, |hash, byte| {
+        (hash ^ u64::from(*byte)).wrapping_mul(0x0100_0000_01b3)
+    })
 }
 
 fn jitter() -> Duration {
