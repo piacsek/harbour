@@ -4,9 +4,10 @@ use std::time::{Duration, Instant};
 
 use crossterm::event::{KeyCode, KeyModifiers};
 use harbour::editor::Program;
+use harbour::picker::Picker;
 use ratatui::style::Modifier;
 
-use crate::{Screen, directory, reading_agent, region, script};
+use crate::{Screen, reading_agent, region, script};
 
 #[test]
 fn yes_to_ending_a_session_ends_its_editor_too() {
@@ -46,10 +47,7 @@ fn x_on_an_exited_session_whose_editor_runs_asks_first() {
 
     let shown = screen.draw();
     assert!(shown.contains("End? y/n"), "{shown}");
-    assert!(
-        shown.contains(&format!("{} 1 exited", directory())),
-        "{shown}"
-    );
+    assert!(shown.contains("acme-api 1 exited"), "{shown}");
 }
 
 #[test]
@@ -61,7 +59,7 @@ fn yes_on_an_exited_session_ends_its_editor_and_removes_the_row() {
     screen.press('y');
 
     let shown = screen.draw();
-    assert!(!shown.contains(&format!("{} 1", directory())), "{shown}");
+    assert!(!shown.contains("acme-api 1"), "{shown}");
     assert!(gone(&pid(scratch.path())));
 }
 
@@ -138,7 +136,11 @@ fn quitting_ends_editors_and_sessions_within_one_grace_period() {
 }
 
 fn editing(scratch: &Path, agent: Vec<String>, before: &str) -> Screen {
-    let mut screen = Screen::editing(agent, recording_editor(scratch, before));
+    let Screen { app, terminal } = Screen::editing(agent, recording_editor(scratch, before));
+    let mut screen = Screen {
+        app: app.with_picker(in_folder(scratch)),
+        terminal,
+    };
     screen.press('n');
     screen.wait_for("acme agent ready");
     screen.key(KeyCode::Enter, KeyModifiers::NONE);
@@ -159,7 +161,7 @@ fn with_exited_agent(scratch: &Path) -> Screen {
     let mut screen = editing(scratch, agent, "");
     screen.key(KeyCode::Char('h'), KeyModifiers::CONTROL);
     screen.key(KeyCode::Enter, KeyModifiers::NONE);
-    screen.wait_for(&format!("{} 1 exited", directory()));
+    screen.wait_for("acme-api 1 exited");
     screen.key(KeyCode::Char('h'), KeyModifiers::CONTROL);
     screen
 }
@@ -215,4 +217,10 @@ fn position_of(shown: &str, text: &str) -> (u16, u16) {
         .unwrap();
     let column = line[..line.find(text).unwrap()].chars().count();
     (u16::try_from(column).unwrap(), u16::try_from(row).unwrap())
+}
+
+fn in_folder(scratch: &Path) -> Picker {
+    let folder = scratch.join("acme-api");
+    std::fs::create_dir(&folder).unwrap();
+    Picker::Command(script(&format!("printf '%s\\n' '{}'", folder.display())))
 }

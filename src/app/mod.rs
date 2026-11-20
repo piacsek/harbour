@@ -59,7 +59,6 @@ enum Question {
 struct Entry {
     id: usize,
     name: String,
-    directory: PathBuf,
     session: Session,
     started_at: SystemTime,
     record: Option<Record>,
@@ -67,7 +66,8 @@ struct Entry {
     editors: Vec<Editor>,
     editor: Option<usize>,
     on_editor: bool,
-    known: Option<PathBuf>,
+    seen: PathBuf,
+    followed: bool,
 }
 
 impl Entry {
@@ -222,6 +222,7 @@ impl App {
             KeyCode::Char('q') => self.quit(),
             KeyCode::Char('n') => self.pick_or_start(),
             KeyCode::Char('x') => self.end_or_remove(),
+            KeyCode::Char('e') => self.next_editor(),
             KeyCode::Char('?') => self.helping = true,
             KeyCode::Char('j') => {
                 self.selected = (self.selected + 1).min(self.sessions.len().saturating_sub(1))
@@ -345,6 +346,21 @@ impl App {
             }
             Err(error) => self.failed = Some(refusal(program.name(), &error)),
         }
+    }
+
+    fn next_editor(&mut self) {
+        let Some(entry) = self.sessions.get_mut(self.selected) else {
+            return;
+        };
+        if entry.editors.is_empty() {
+            return;
+        }
+        let next = entry
+            .editor
+            .map_or(0, |shown| (shown + 1) % entry.editors.len());
+        entry.editor = Some(next);
+        entry.on_editor = true;
+        self.pane_focused = true;
     }
 
     fn finish_editors(&mut self) {
@@ -478,7 +494,6 @@ impl App {
                 self.sessions.push(Entry {
                     id: self.started,
                     name: format!("{} {}", folder_name(directory), self.named),
-                    directory: directory.to_path_buf(),
                     session,
                     started_at,
                     record: None,
@@ -486,7 +501,8 @@ impl App {
                     editors: Vec::new(),
                     editor: None,
                     on_editor: false,
-                    known: None,
+                    seen: directory.to_path_buf(),
+                    followed: false,
                 });
                 self.selected = self.sessions.len() - 1;
             }
@@ -531,21 +547,25 @@ fn where_claude_code_is(entry: &mut Entry, registry: Option<&Path>) -> PathBuf {
         .and_then(|(dir, pid)| registry::place(dir, pid, entry.started_at));
     let transcript = entry.transcript.as_ref();
     let (session_id, cwd) = place.map_or((None, None), |place| (place.session_id, place.cwd));
-    let current = match session_id {
-        Some(id) => transcript.and_then(|transcript| transcript.directory_of(&id)),
-        None => transcript.and_then(Transcript::directory),
+    let current = match (running, session_id) {
+        (false, _) => None,
+        (true, Some(id)) => transcript.and_then(|transcript| transcript.directory_of(&id)),
+        (true, None) => transcript.and_then(Transcript::directory),
     };
-    let own = || transcript.and_then(Transcript::directory);
-    let found = current
-        .clone()
-        .or_else(|| entry.known.clone())
-        .or_else(own)
-        .or(cwd)
-        .unwrap_or_else(|| entry.directory.clone());
-    if current.is_some() {
-        entry.known = current;
+    let found = match (current, entry.followed) {
+        (Some(directory), _) => Some(directory),
+        (None, false) => transcript.and_then(Transcript::directory),
+        (None, _) => None,
+    };
+    match (found, cwd) {
+        (Some(directory), _) => {
+            entry.seen = directory;
+            entry.followed = true;
+        }
+        (None, Some(cwd)) if !entry.followed => entry.seen = cwd,
+        _ => {}
     }
-    found
+    entry.seen.clone()
 }
 
 fn changes<'a>(editors: impl IntoIterator<Item = &'a Editor>) -> Changes {

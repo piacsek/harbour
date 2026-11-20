@@ -1,4 +1,4 @@
-pub const KEYS: [(&str, &str); 7] = [
+pub const KEYS: [(&str, &str); 8] = [
     ("j/k", "select the next / previous session"),
     ("n", "pick a directory and start a session there"),
     (
@@ -6,6 +6,7 @@ pub const KEYS: [(&str, &str); 7] = [
         "focus the pane; from Claude Code, C-l opens its editor",
     ),
     ("C-h", "focus the sidebar; from the editor, Claude Code"),
+    ("e", "show the session's next editor, one per directory"),
     (
         "x",
         "end the session and its editors, or remove it once it has exited",

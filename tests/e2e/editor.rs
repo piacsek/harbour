@@ -107,6 +107,38 @@ fn an_editor_whose_file_name_is_nvim_listens_on_a_socket() {
     assert!(screen.contains("first arg:[--listen]"), "{screen}");
 }
 
+#[test]
+#[ignore]
+fn nvim_starts_without_a_socket_once_its_temporary_directory_is_gone() {
+    let home = tempfile::tempdir().unwrap();
+    let elsewhere = home.path().join("acme-tools");
+    std::fs::create_dir(&elsewhere).unwrap();
+    let nvim = elsewhere.join("nvim");
+    std::os::unix::fs::symlink(FIXTURE_EDITOR, &nvim).unwrap();
+    let temporary = home.path().join("acme-tmp");
+    std::fs::create_dir(&temporary).unwrap();
+    let server = Server::start("nvim-no-tmp", 160, 20);
+    server.run(
+        home.path(),
+        &[
+            (SESSION_COMMAND, AGENT),
+            (EDITOR, nvim.to_str().unwrap()),
+            ("TMPDIR", temporary.to_str().unwrap()),
+        ],
+        &[],
+    );
+    server.wait_for_screen("press n to start one");
+    server.send_keys(&["n"]);
+    server.wait_for_screen("acme agent in acme-api");
+    std::fs::remove_dir_all(&temporary).unwrap();
+
+    server.send_keys(&["Enter", "C-l"]);
+
+    let screen = server.wait_for_screen("acme editor in acme-api");
+    assert!(screen.contains("first arg:[]"), "{screen}");
+    assert!(!screen.contains("Could not start"), "{screen}");
+}
+
 fn editing(server: &Server) -> String {
     server.wait_for_screen("press n to start one");
     server.send_keys(&["n"]);

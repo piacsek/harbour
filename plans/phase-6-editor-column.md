@@ -63,6 +63,7 @@ to another worktree, `Ctrl-l` opens a second editor there and the first keeps ru
 | Neovim not answering on its socket | `Ctrl-h` | Claude Code |
 | Another editor | `Ctrl-h` | Claude Code, always |
 | The editor | `Ctrl-l` | the editor |
+| Sidebar | `e` | the session's next editor, in the order they started, wrapping, focused; nothing without one |
 
 ## Neovim states
 
@@ -94,6 +95,26 @@ counts as unsaved when its `buftype` is empty (a file) or `acwrite` (written thr
 `BufWriteCmd` handler, as many plugins do): both are work the user would lose. A terminal,
 prompt, `nofile`, `nowrite`, help or quickfix buffer holds nothing to save and does not count.
 
+## Where Claude Code was last seen
+
+Each session holds one directory, the one Claude Code was last seen in, and `Ctrl-l` opens the
+editor at its repository root. It is updated at every `Ctrl-l`, and nothing older than what it
+holds can overwrite it:
+
+| Claude Code | What the sources say | The directory becomes |
+| --- | --- | --- |
+| Not looked up yet | | the start directory |
+| Running | the transcript of the registry's `sessionId` (a plain name) has a `cwd` | that `cwd` |
+| Running | no `sessionId` in the registry (or not a plain name); harbour's own `--session-id` transcript has a `cwd` | that `cwd` |
+| Running | the current id has no `cwd` (no transcript yet after `/clear`, the file gone, or no line with `cwd`), and a transcript directory was seen before | unchanged |
+| Running or exited | no transcript directory was ever seen; harbour's own transcript has a `cwd` | that `cwd`, the last Claude Code wrote before any change of id |
+| Running | no transcript directory was ever seen, none now; the registry has a `cwd` | the registry's `cwd` |
+| Exited | anything (the registry is skipped, its pid may be reused) | unchanged, but for the row above it |
+
+Editors are kept per directory, so one left behind when the directory moves keeps running
+hidden. The way back to each is `e` in the sidebar: it shows the session's editors one after the
+other, in the order they started, so no editor with unsaved buffers is ever out of reach.
+
 ## States
 
 | State | What the user sees |
@@ -102,9 +123,10 @@ prompt, `nofile`, `nowrite`, help or quickfix buffer holds nothing to save and d
 | `Ctrl-l` from Claude Code, editor starts | the pane shows the editor, focused; the border reads `claude \| nvim: <directory>` with the editor marked, the home directory shown as `~` |
 | Running, shown | keys, paste and the mouse go to the editor; `Ctrl-h` as in the keys table |
 | Running, hidden behind Claude Code | the border names its directory, Claude Code marked; the next `Ctrl-l` shows it again with its buffers when Claude Code is still in that directory |
-| Claude Code moved to another repository or worktree | `Ctrl-l` starts a second editor there; the first keeps running hidden; moving back and `Ctrl-l` shows the first again |
-| Claude Code changed session (`/clear`, `/resume`) | `Ctrl-l` reads the registry's `sessionId` and follows that transcript's `cwd` |
-| The registry's session has no transcript yet (after `/clear`, before the next prompt) | the directory last found for the session (an earlier `Ctrl-l`, or harbour's own `--session-id` transcript), else the registry's `cwd` |
+| Claude Code moved to another repository or worktree | `Ctrl-l` starts a second editor there; the first keeps running hidden; moving back and `Ctrl-l` shows the first again, and `e` in the sidebar shows each in turn |
+| Claude Code changed session (`/clear`, `/resume`) | `Ctrl-l` reads the registry's `sessionId` and follows that transcript's `cwd` (see Where Claude Code was last seen) |
+| The registry's session has no transcript yet (after `/clear`, before the next prompt), or its transcript is gone | the directory Claude Code was last seen in |
+| Claude Code exited after a change of session | the directory it was last seen in; its editors stay reachable |
 | The last 4 MiB of the transcript is one line with no complete `cwd` (a pasted image) | falls back as above until the next message writes a line with `cwd`; not fixed |
 | The registry's `sessionId` is not a plain name (letters, digits, `-`, `_`) | it is not looked up; the registry's `cwd` |
 | The registry and both transcripts cannot be read (not `claude`, no line with `cwd`, unreadable) | the editor opens at the root of the session's start directory |
@@ -114,7 +136,8 @@ prompt, `nofile`, `nowrite`, help or quickfix buffer holds nothing to save and d
 | The editor exits with 0 | the pane shows Claude Code, focused; no message; the next `Ctrl-l` starts a fresh editor |
 | The editor exits with an error or a signal | as with 0, and the sidebar says `nvim exited 1` (or `nvim exited (Killed: 9)` for a signal) until the next start; with the sidebar hidden, the bottom of the pane says it until the next key |
 | A hidden editor exits | it is forgotten; an error exit is named the same way |
-| Not answering on its socket (busy, or its socket could not be made) | `Ctrl-h` goes to Claude Code after at most the timeout; it is never stuck; `x` and `q` say `May have unsaved changes.` |
+| Not answering on its socket (busy) | `Ctrl-h` goes to Claude Code after at most the timeout; it is never stuck; `x` and `q` say `May have unsaved changes.` |
+| The socket's directory cannot be made (the temporary directory gone or not writable) | Neovim starts without `--listen`; `Ctrl-h` goes to Claude Code; `x` and `q` say `May have unsaved changes.` |
 | The temporary directory is too long for a socket path (macOS allows 103 bytes) | the socket goes under `/tmp` instead |
 | Switching the selected session with an editor open | the pane shows what the newly selected session last showed; the other session's editor keeps running hidden |
 | The session's Claude Code exits while its editor is open | the row says `exited`; the editor keeps running, not dimmed, and stays reachable until the row is ended; only Claude Code's own screen is dimmed |
@@ -138,21 +161,22 @@ prompt, `nofile`, `nowrite`, help or quickfix buffer holds nothing to save and d
 - **Only the default `claude` is started with `--session-id`.** A program named by
   `HARBOUR_SESSION_COMMAND` might not take the option, so its editor opens at the root of the
   session's start directory. The transcript is found by its file name under every project
-  directory, so harbour does not reproduce Claude Code's name for that directory. It is looked
-  up again at every `Ctrl-l`, from the freshest source that is right: the transcript of the
-  registry's `sessionId` (a plain name only, else harbour's own `--session-id`), then the
-  directory last found that way for the session (else the transcript of harbour's own
-  `--session-id`), then the registry's `cwd`, then the start directory. Round 3 put the last
-  directory found before the registry's `cwd`, which is the directory Claude Code started in:
-  after `/clear` the new id has no transcript until the next prompt. The registry is skipped once the
-  session has exited, since its pid may be reused.
+  directory, so harbour does not reproduce Claude Code's name for that directory.
+- **A session holds one directory Claude Code was last seen in** (see its table). Rounds 1 to 3
+  each found a hole in an order of sources looked up afresh at every `Ctrl-l`; round 4 replaced
+  the order with this one value, which only the current session id's transcript moves while
+  Claude Code runs, so an older source can never take it back.
+- **`e` in the sidebar shows the session's editors in turn**, so an editor left in a directory
+  Claude Code is no longer in stays reachable. The help view made room for its row by dropping
+  the blank line before the legend.
 - **The root is the nearest directory up from Claude Code's that holds `.git`** (a directory, or
   the file of a worktree or submodule), found without running git; none means the directory
   itself. A directory that is gone is not walked up, so `Session::start` refuses it by its own
   path rather than opening a parent repository.
 - **The socket lives in a private temporary directory** (0700), removed with the editor, named
   `harbour-nvim` and 6 random characters, under `/tmp` when the temporary directory would make
-  its path longer than the 103 bytes macOS allows. Each question opens a fresh connection, and
+  its path longer than the 103 bytes macOS allows. When that directory cannot be made, Neovim
+  starts without a socket and counts as one harbour cannot ask. Each question opens a fresh connection, and
   `nvim_get_mode` and `nvim_eval` share one 100 ms deadline, so an answer that arrives late
   never lands on the next question. The connect is non-blocking and bounded by the same deadline,
   so a Neovim that stopped accepting cannot hold the key thread; the reply is the response to the
@@ -237,6 +261,12 @@ One red-green-refactor cycle each, shipped with `scripts/ship.sh`.
   Neovim from `nt` too, checked against a real Neovim; after `/clear` the editor stays at the
   directory last found instead of the one Claude Code started in; the tab strip shows no names
   once the editor's name cannot show.
+- Review round 4 fixes: the directory lookup became one value per session, the directory Claude
+  Code was last seen in (its own table above), so an editor opened after `/resume` or `/clear`
+  stays the one `Ctrl-l` shows after Claude Code exits; `e` in the sidebar shows each of a
+  session's editors in turn; Neovim starts without a socket when its temporary directory cannot
+  be made; three tests that started in the checkout folder start in a scratch `acme-api`, and the
+  whole `app` target passed in a copy of the tree under a 60-character folder name.
 - When harbour is killed by a signal or its terminal window is closed, each editor's empty
   socket directory stays in the temp directory: declined, a known limit in `AGENTS.md`. A
   transcript whose last 4 MiB is one huge line falls back until the next message: declined.
@@ -267,3 +297,10 @@ One red-green-refactor cycle each, shipped with `scripts/ship.sh`.
   a `/tmp` tempdir, macOS gives the session's directory as `/private/tmp/...`, so the border
   showed the random path instead of `~/acme-api`; the script now resolves HOME with `pwd -P`.
   A user whose HOME goes through a symlink sees the full path too → none
+- `review-loop` Round 4 found a third hole in the same directory lookup (after an exit following
+  `/resume`, harbour's first transcript took back an older directory); two strikes, so the order
+  of sources became one value per session that only the current transcript moves, with its own
+  table in the plan → code
+- `test-seam` Three new tests started their session in the checkout folder and asserted its name
+  as drawn, so they failed in a worktree with a long folder name, against the rule in
+  `tests/AGENTS.md`; they now start in a scratch folder with a short invented name → code

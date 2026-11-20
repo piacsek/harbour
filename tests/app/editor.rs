@@ -1,21 +1,22 @@
 use crossterm::event::{KeyCode, KeyModifiers, MouseButton, MouseEventKind};
 use harbour::editor::Program;
+use harbour::picker::Picker;
 use ratatui::style::Modifier;
 
-use crate::{Screen, directory, reading_agent, script};
+use crate::{Screen, reading_agent, script};
 
 #[test]
 fn ctrl_l_in_claude_code_starts_the_editor_in_the_session_directory_and_shows_it() {
-    let mut screen = Screen::editing(reading_agent(), reading_editor());
+    let scratch = tempfile::tempdir().unwrap();
+    let mut screen = in_folder(scratch.path());
     screen.press('n');
     screen.wait_for("acme agent ready");
     screen.key(KeyCode::Enter, KeyModifiers::NONE);
 
     screen.key(KeyCode::Char('l'), KeyModifiers::CONTROL);
 
-    let expected = format!("acme editor in {}", directory());
-    let shown = screen.wait_for(&expected);
-    assert!(shown.contains(&expected), "{shown}");
+    let shown = screen.wait_for("acme editor in acme-api");
+    assert!(shown.contains("acme editor in acme-api"), "{shown}");
     assert!(!shown.contains("acme agent ready"), "{shown}");
 }
 
@@ -138,19 +139,47 @@ fn the_pane_border_marks_the_editor_while_it_is_shown() {
 
 #[test]
 fn opening_an_editor_does_not_skip_a_number_in_the_next_session_name() {
-    let mut screen = editor_open();
+    let scratch = tempfile::tempdir().unwrap();
+    let mut screen = in_folder(scratch.path());
+    screen.press('n');
+    screen.wait_for("acme agent ready");
+    screen.key(KeyCode::Enter, KeyModifiers::NONE);
+    screen.key(KeyCode::Char('l'), KeyModifiers::CONTROL);
+    screen.wait_for("acme editor in");
     screen.key(KeyCode::Char('h'), KeyModifiers::CONTROL);
     screen.key(KeyCode::Char('h'), KeyModifiers::CONTROL);
 
     screen.press('n');
 
-    let folder = std::path::Path::new(&directory())
-        .file_name()
-        .unwrap()
-        .to_string_lossy()
-        .into_owned();
-    let shown = screen.wait_for(&format!("{folder} 2"));
-    assert!(shown.contains(&format!("{folder} 2")), "{shown}");
+    let shown = screen.wait_for("acme-api 2");
+    assert!(shown.contains("acme-api 2"), "{shown}");
+}
+
+#[test]
+fn e_in_the_sidebar_does_nothing_while_the_session_has_no_editor() {
+    let mut screen = Screen::editing(reading_agent(), reading_editor());
+    screen.press('n');
+    screen.wait_for("acme agent ready");
+
+    screen.press('e');
+    screen.press('?');
+
+    let shown = screen.draw();
+    assert!(shown.contains(" help "), "{shown}");
+    assert!(!shown.contains("acme editor in"), "{shown}");
+}
+
+#[test]
+fn e_in_the_sidebar_shows_the_editor_and_focuses_it() {
+    let mut screen = editor_open();
+    screen.key(KeyCode::Char('h'), KeyModifiers::CONTROL);
+    screen.key(KeyCode::Char('h'), KeyModifiers::CONTROL);
+
+    screen.press('e');
+    screen.type_text("hello\r");
+
+    let shown = screen.wait_for("acme editor got: hello");
+    assert!(shown.contains("acme editor got: hello"), "{shown}");
 }
 
 pub(crate) fn reading_editor() -> Program {
@@ -196,4 +225,15 @@ fn tab_columns(shown: &str) -> (u16, u16) {
         u16::try_from(claude).unwrap(),
         u16::try_from(editor).unwrap(),
     )
+}
+
+fn in_folder(scratch: &std::path::Path) -> Screen {
+    let folder = scratch.join("acme-api");
+    std::fs::create_dir(&folder).unwrap();
+    let picker = Picker::Command(script(&format!("printf '%s\\n' '{}'", folder.display())));
+    let Screen { app, terminal } = Screen::editing(reading_agent(), reading_editor());
+    Screen {
+        app: app.with_picker(picker),
+        terminal,
+    }
 }

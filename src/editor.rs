@@ -85,19 +85,20 @@ impl Editor {
         cols: u16,
     ) -> io::Result<Editor> {
         let mut command = program.command.clone();
-        let socket = if program.neovim {
-            let private = tempfile::Builder::new()
+        let private = program.neovim.then(|| {
+            tempfile::Builder::new()
                 .prefix(SOCKET_PREFIX)
                 .rand_bytes(SOCKET_RANDOM)
                 .permissions(Permissions::from_mode(0o700))
-                .tempdir_in(socket_base(&std::env::temp_dir()))?;
+                .tempdir_in(socket_base(&std::env::temp_dir()))
+                .ok()
+        });
+        let socket = private.flatten().map(|private| {
             let path = private.path().join("socket");
             command.push("--listen".into());
             command.push(path.clone().into());
-            Some((path, private))
-        } else {
-            None
-        };
+            (path, private)
+        });
         let session = Session::start(&command, directory, rows, cols)?;
         Ok(Editor {
             id,

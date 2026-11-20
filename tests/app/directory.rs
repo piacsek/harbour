@@ -284,6 +284,125 @@ fn a_session_id_that_is_not_a_plain_name_is_not_looked_up() {
     assert!(shown.contains("acme editor at acme-one"), "{shown}");
 }
 
+#[test]
+fn after_claude_code_exits_the_editor_stays_at_the_directory_last_seen() {
+    let scratch = tempfile::tempdir().unwrap();
+    let one = repository(scratch.path(), "acme-one");
+    let two = repository(scratch.path(), "acme-two");
+    let start = repository(scratch.path(), "acme-start");
+    let mut screen = following(scratch.path(), &[&cwd(&one)]);
+    write_registry(scratch.path(), "acme-resumed", &start);
+    write_named_transcript(scratch.path(), "acme-resumed", &[&cwd(&two)]);
+    screen.key(KeyCode::Char('l'), KeyModifiers::CONTROL);
+    screen.wait_for("acme editor at acme-two");
+    screen.key(KeyCode::Char('h'), KeyModifiers::CONTROL);
+    end_agent(scratch.path());
+    screen.wait_for("exited");
+
+    screen.key(KeyCode::Char('l'), KeyModifiers::CONTROL);
+
+    let shown = screen.wait_for("acme editor at");
+    assert!(shown.contains("acme editor at acme-two"), "{shown}");
+    assert!(!shown.contains("acme editor at acme-one"), "{shown}");
+}
+
+#[test]
+fn a_transcript_that_disappears_leaves_the_directory_last_seen() {
+    let scratch = tempfile::tempdir().unwrap();
+    let one = repository(scratch.path(), "acme-one");
+    let two = repository(scratch.path(), "acme-two");
+    let start = repository(scratch.path(), "acme-start");
+    let mut screen = following(scratch.path(), &[&cwd(&one)]);
+    write_registry(scratch.path(), "acme-resumed", &start);
+    write_named_transcript(scratch.path(), "acme-resumed", &[&cwd(&two)]);
+    screen.key(KeyCode::Char('l'), KeyModifiers::CONTROL);
+    screen.wait_for("acme editor at acme-two");
+    screen.key(KeyCode::Char('h'), KeyModifiers::CONTROL);
+    fs::remove_file(
+        scratch
+            .path()
+            .join("projects/-acme-start/acme-resumed.jsonl"),
+    )
+    .unwrap();
+
+    screen.key(KeyCode::Char('l'), KeyModifiers::CONTROL);
+
+    let shown = screen.wait_for("acme editor at");
+    assert!(shown.contains("acme editor at acme-two"), "{shown}");
+    assert!(!shown.contains("acme editor at acme-one"), "{shown}");
+    assert!(!shown.contains("acme editor at acme-start"), "{shown}");
+}
+
+#[test]
+fn the_registry_directory_is_not_used_once_a_transcript_named_one() {
+    let scratch = tempfile::tempdir().unwrap();
+    let one = repository(scratch.path(), "acme-one");
+    let two = repository(scratch.path(), "acme-two");
+    let mut screen = following(scratch.path(), &[&cwd(&one)]);
+    screen.key(KeyCode::Char('l'), KeyModifiers::CONTROL);
+    screen.wait_for("acme editor at acme-one");
+    screen.key(KeyCode::Char('h'), KeyModifiers::CONTROL);
+    write_registry(scratch.path(), "acme-fresh", &two);
+
+    screen.key(KeyCode::Char('l'), KeyModifiers::CONTROL);
+
+    let shown = screen.wait_for("acme editor at");
+    assert!(shown.contains("acme editor at acme-one"), "{shown}");
+    assert!(!shown.contains("acme editor at acme-two"), "{shown}");
+}
+
+#[test]
+fn e_in_the_sidebar_shows_the_editor_of_a_directory_claude_code_left() {
+    let scratch = tempfile::tempdir().unwrap();
+    let one = repository(scratch.path(), "acme-one");
+    let two = repository(scratch.path(), "acme-two");
+    let start = repository(scratch.path(), "acme-start");
+    let mut screen = following(scratch.path(), &[&cwd(&one)]);
+    screen.key(KeyCode::Char('l'), KeyModifiers::CONTROL);
+    screen.wait_for("acme editor at acme-one");
+    screen.key(KeyCode::Char('h'), KeyModifiers::CONTROL);
+    write_registry(scratch.path(), "acme-resumed", &start);
+    write_named_transcript(scratch.path(), "acme-resumed", &[&cwd(&two)]);
+    screen.key(KeyCode::Char('l'), KeyModifiers::CONTROL);
+    screen.wait_for("acme editor at acme-two");
+    screen.key(KeyCode::Char('h'), KeyModifiers::CONTROL);
+    screen.key(KeyCode::Char('h'), KeyModifiers::CONTROL);
+
+    screen.press('e');
+
+    let shown = screen.wait_for("acme editor at acme-one");
+    assert!(shown.contains("acme editor at acme-one"), "{shown}");
+    assert!(!shown.contains("acme editor at acme-two"), "{shown}");
+}
+
+#[test]
+fn e_in_the_sidebar_comes_back_round_to_the_first_editor() {
+    let scratch = tempfile::tempdir().unwrap();
+    let one = repository(scratch.path(), "acme-one");
+    let two = repository(scratch.path(), "acme-two");
+    let start = repository(scratch.path(), "acme-start");
+    let mut screen = following(scratch.path(), &[&cwd(&one)]);
+    screen.key(KeyCode::Char('l'), KeyModifiers::CONTROL);
+    screen.wait_for("acme editor at acme-one");
+    screen.key(KeyCode::Char('h'), KeyModifiers::CONTROL);
+    write_registry(scratch.path(), "acme-resumed", &start);
+    write_named_transcript(scratch.path(), "acme-resumed", &[&cwd(&two)]);
+    screen.key(KeyCode::Char('l'), KeyModifiers::CONTROL);
+    screen.wait_for("acme editor at acme-two");
+    screen.key(KeyCode::Char('h'), KeyModifiers::CONTROL);
+    screen.key(KeyCode::Char('h'), KeyModifiers::CONTROL);
+    screen.press('e');
+    screen.wait_for("acme editor at acme-one");
+    screen.key(KeyCode::Char('h'), KeyModifiers::CONTROL);
+    screen.key(KeyCode::Char('h'), KeyModifiers::CONTROL);
+
+    screen.press('e');
+
+    let shown = screen.wait_for("acme editor at acme-two");
+    assert!(shown.contains("acme editor at acme-two"), "{shown}");
+    assert!(!shown.contains("acme editor at acme-one"), "{shown}");
+}
+
 fn started_in(directory: &Path, agent: Vec<String>) -> Screen {
     let mut screen = Screen {
         app: App::new(agent)
@@ -378,4 +497,13 @@ fn write_registry(scratch: &Path, id: &str, directory: &Path) {
         record,
     )
     .unwrap();
+}
+
+fn end_agent(scratch: &Path) {
+    let pid = fs::read_to_string(scratch.join("pid")).unwrap();
+    let status = std::process::Command::new("kill")
+        .arg(pid.trim())
+        .status()
+        .unwrap();
+    assert!(status.success());
 }

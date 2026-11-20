@@ -34,6 +34,10 @@ fn question_mark_shows_the_editor_keys() {
         "{shown}"
     );
     assert!(shown.contains("the session and its editors"), "{shown}");
+    assert!(
+        shown.contains("show the session's next editor, one per directory"),
+        "{shown}"
+    );
 }
 
 #[test]
