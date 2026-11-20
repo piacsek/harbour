@@ -47,6 +47,7 @@ pub fn demo() -> io::Result<()> {
 }
 
 fn show(app: App) -> io::Result<()> {
+    let app = app.with_mover(Box::new(|directory| std::env::set_current_dir(directory)));
     let mut terminal = ratatui::init();
     std::panic::set_hook(panic_hook(std::panic::take_hook()));
     let result = execute!(io::stdout(), EnableBracketedPaste, EnableMouseCapture)

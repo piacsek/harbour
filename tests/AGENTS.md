@@ -119,3 +119,10 @@ these suites come from; the ones about sessions were hit in harbour.
   so a wait used only to sync passes even when its text never shows. When a later assertion relies
   on that text having been on screen (the state before a change, a count before an exit), assert on
   what the wait returned.
+- **`#{pane_current_path}` is the directory of the pane's foreground process group leader.**
+  `Server::run` starts harbour under a non-interactive `sh -c`, which has no job control, so
+  harbour stays in the shell's process group and tmux reports the shell's directory, never
+  harbour's. A user's interactive shell gives harbour a group of its own. A test that reads the
+  pane's directory starts harbour with `Server::exec`, which makes it the pane's own process. No
+  in-process test really moves the process: `App::new` moves nothing, and `tests/app/moving.rs`
+  hands the app a recording mover.

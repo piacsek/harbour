@@ -7,6 +7,7 @@ use harbour::tui::{DIR_PICKER, EDITOR, SESSION_COMMAND};
 
 mod cards;
 mod editor;
+mod moving;
 mod neovim;
 mod picker;
 
@@ -492,42 +493,20 @@ impl Server {
     }
 
     fn launch(&self, home: &Path, before: &str, env: &[(&str, &str)], args: &[&str]) {
-        let directory = home.join("acme-api");
-        std::fs::create_dir_all(&directory).unwrap();
-        let mut words = vec![
-            "cd".to_string(),
-            quoted(&directory.display().to_string()),
-            "&&".to_string(),
-            before.to_string(),
-            "env".to_string(),
-            "-u".to_string(),
-            "XDG_CONFIG_HOME".to_string(),
-            "-u".to_string(),
-            "XDG_STATE_HOME".to_string(),
-            "-u".to_string(),
-            DIR_PICKER.to_string(),
-            "-u".to_string(),
-            SESSION_COMMAND.to_string(),
-            "-u".to_string(),
-            EDITOR.to_string(),
-            "-u".to_string(),
-            "CLAUDE_CONFIG_DIR".to_string(),
-            quoted(&format!("HOME={}", home.display())),
-            quoted(&format!("TMPDIR={}", scratch_tmp(home).display())),
-            quoted(&format!("PATH={}", tools(home))),
-        ];
-        words.extend(
-            env.iter()
-                .map(|(key, value)| quoted(&format!("{key}={value}"))),
-        );
-        words.push(quoted(env!("CARGO_BIN_EXE_harbour")));
-        words.extend(args.iter().map(|arg| quoted(arg)));
         let command = format!(
             "{}; echo \"harbour exited $?\"; exec sleep 600",
-            words.join(" ")
+            harbour_line(home, before, env, args)
         );
+        self.respawn(&command);
+    }
+
+    fn exec(&self, home: &Path, env: &[(&str, &str)]) {
+        self.respawn(&harbour_line(home, "exec", env, &[]));
+    }
+
+    fn respawn(&self, command: &str) {
         let status = self
-            .tmux(&["respawn-pane", "-k", "-t", "e2e", &command])
+            .tmux(&["respawn-pane", "-k", "-t", "e2e", command])
             .status()
             .unwrap();
         assert!(status.success(), "could not start harbour in the pane");
@@ -564,6 +543,21 @@ impl Server {
         self.wait_until(|screen| screen.contains(shown) && !screen.contains(gone))
     }
 
+    fn wait_for_path(&self, expected: &Path) -> std::path::PathBuf {
+        let deadline = Instant::now() + Duration::from_secs(10);
+        loop {
+            let output = self
+                .tmux(&["display-message", "-p", "-t", "e2e", "#{pane_current_path}"])
+                .output()
+                .unwrap();
+            let path = std::path::PathBuf::from(String::from_utf8_lossy(&output.stdout).trim_end());
+            if path == expected || Instant::now() > deadline {
+                return path;
+            }
+            sleep(Duration::from_millis(50));
+        }
+    }
+
     fn wait_until(&self, done: impl Fn(&str) -> bool) -> String {
         let deadline = Instant::now() + Duration::from_secs(10);
         let mut screen = self.screen();
@@ -579,6 +573,40 @@ impl Drop for Server {
     fn drop(&mut self) {
         let _ = self.tmux(&["kill-server"]).status();
     }
+}
+
+fn harbour_line(home: &Path, before: &str, env: &[(&str, &str)], args: &[&str]) -> String {
+    let directory = home.join("acme-api");
+    std::fs::create_dir_all(&directory).unwrap();
+    let mut words = vec![
+        "cd".to_string(),
+        quoted(&directory.display().to_string()),
+        "&&".to_string(),
+        before.to_string(),
+        "env".to_string(),
+        "-u".to_string(),
+        "XDG_CONFIG_HOME".to_string(),
+        "-u".to_string(),
+        "XDG_STATE_HOME".to_string(),
+        "-u".to_string(),
+        DIR_PICKER.to_string(),
+        "-u".to_string(),
+        SESSION_COMMAND.to_string(),
+        "-u".to_string(),
+        EDITOR.to_string(),
+        "-u".to_string(),
+        "CLAUDE_CONFIG_DIR".to_string(),
+        quoted(&format!("HOME={}", home.display())),
+        quoted(&format!("TMPDIR={}", scratch_tmp(home).display())),
+        quoted(&format!("PATH={}", tools(home))),
+    ];
+    words.extend(
+        env.iter()
+            .map(|(key, value)| quoted(&format!("{key}={value}"))),
+    );
+    words.push(quoted(env!("CARGO_BIN_EXE_harbour")));
+    words.extend(args.iter().map(|arg| quoted(arg)));
+    words.join(" ")
 }
 
 fn quoted(word: &str) -> String {
