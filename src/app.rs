@@ -2,8 +2,8 @@ use crossterm::event::{KeyCode, KeyEvent, KeyModifiers, MouseEvent, MouseEventKi
 use portable_pty::ExitStatus;
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Layout, Position, Rect};
-use ratatui::style::Modifier;
-use ratatui::text::Line;
+use ratatui::style::{Color, Modifier, Stylize};
+use ratatui::text::{Line, Span};
 use ratatui::widgets::{
     Block, BorderType, Clear, HighlightSpacing, List, ListState, Paragraph, Wrap,
 };
@@ -287,7 +287,10 @@ impl App {
             Some(shown) => {
                 let list = List::new(rows)
                     .block(sidebar_block)
-                    .highlight_symbol("› ")
+                    .highlight_symbol(Line::from(vec![
+                        Span::from("▌").fg(Color::Cyan),
+                        Span::from(" "),
+                    ]))
                     .highlight_spacing(HighlightSpacing::Always)
                     .highlight_style(Modifier::BOLD);
                 let mut state = ListState::default().with_selected(Some(self.selected));

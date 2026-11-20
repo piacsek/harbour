@@ -15,7 +15,7 @@ fn x_on_a_running_session_asks_before_ending_it() {
 
     let shown = screen.draw();
     assert!(shown.contains(" End? y/n "), "{shown}");
-    assert!(shown.contains("› ●"), "{shown}");
+    assert!(shown.contains("▌ ●"), "{shown}");
 }
 
 #[test]
@@ -60,7 +60,7 @@ fn x_on_an_exited_session_removes_its_row() {
 
     let shown = screen.draw();
     assert!(
-        shown.contains(&format!("› ○ {} 1 exited", directory())),
+        shown.contains(&format!("▌ ○ {} 1 exited", directory())),
         "{shown}"
     );
     assert!(!shown.contains(&format!("{} 2", directory())), "{shown}");

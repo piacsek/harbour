@@ -14,6 +14,7 @@ use crossterm::event::{KeyCode, KeyEvent, KeyModifiers, MouseEvent, MouseEventKi
 use harbour::app::App;
 use ratatui::Terminal;
 use ratatui::backend::TestBackend;
+use ratatui::buffer::Cell;
 
 struct Screen {
     app: App,
@@ -78,6 +79,10 @@ impl Screen {
             })
             .collect::<Vec<_>>()
             .join("\n")
+    }
+
+    fn cell(&self, x: u16, y: u16) -> Cell {
+        self.terminal.backend().buffer()[(x, y)].clone()
     }
 
     fn wait_for(&mut self, text: &str) -> String {
