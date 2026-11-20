@@ -276,7 +276,8 @@ fn wide_at_the_edge() -> [String; 3] {
                   cols=$(stty size | cut -d' ' -f2); \
                   printf '\\033[1;%dH\\343\\201\\202' $((cols-1)); \
                   printf '\\033[3;1Hready'; \
-                  while read -r line; do \
+                  while :; do \
+                  read -r line || continue; \
                   cols=$(stty size | cut -d' ' -f2); \
                   printf '\\033[1;1H%*s' \"$cols\" ''; \
                   printf '\\033[4;1Hredrew %s' \"$cols\"; \
