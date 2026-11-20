@@ -182,22 +182,27 @@ impl Transcript {
     }
 
     fn learn(&mut self, fields: &Map<String, Value>) {
-        let text = |key: &str| fields.get(key).and_then(Value::as_str).map(shown);
+        let text = |key: &str| {
+            fields
+                .get(key)
+                .and_then(Value::as_str)
+                .filter(|value| !value.trim().is_empty())
+        };
         if let Some(branch) = text("gitBranch") {
-            self.facts.branch = Some(branch);
+            self.facts.branch = Some(shown(branch));
         }
-        if let Some(directory) = fields.get("cwd").and_then(Value::as_str) {
+        if let Some(directory) = text("cwd") {
             self.facts.directory = Some(PathBuf::from(directory));
         }
         match fields.get("type").and_then(Value::as_str) {
             Some("ai-title") => {
                 if let Some(title) = text("aiTitle") {
-                    self.facts.title = Some(title);
+                    self.facts.title = Some(shown(title));
                 }
             }
             Some("last-prompt") => {
                 if let Some(prompt) = text("lastPrompt") {
-                    self.facts.prompt = Some(prompt);
+                    self.facts.prompt = Some(shown(prompt));
                 }
             }
             Some("pr-link") => {
@@ -206,12 +211,28 @@ impl Transcript {
                 }
             }
             Some("assistant") => {
-                if let Some(activity) = last_tool_call(fields).as_deref().map(shown) {
-                    self.facts.activity = Some(activity);
+                if let Some(activity) =
+                    last_tool_call(fields).filter(|call| !call.trim().is_empty())
+                {
+                    self.facts.activity = Some(shown(&activity));
                 }
             }
+            Some("user") if prompted(fields) => self.facts.activity = None,
             _ => {}
         }
+    }
+}
+
+fn prompted(fields: &Map<String, Value>) -> bool {
+    match fields
+        .get("message")
+        .and_then(|message| message.get("content"))
+    {
+        Some(Value::String(_)) => true,
+        Some(Value::Array(items)) => items
+            .iter()
+            .all(|item| item.get("type").and_then(Value::as_str) == Some("text")),
+        _ => false,
     }
 }
 

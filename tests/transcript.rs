@@ -115,6 +115,98 @@ fn a_tool_call_without_a_description_shows_its_command_then_its_file_then_its_na
 }
 
 #[test]
+fn a_new_prompt_clears_the_last_tool_call() {
+    let projects = tempfile::tempdir().unwrap();
+    let file = transcript_file(projects.path(), "-home-acme-api");
+    append(&file, &tool("Bash", r#"{"command":"cargo test"}"#));
+    append(
+        &file,
+        r#"{"type":"user","message":{"role":"user","content":"now fix the docs"}}"#,
+    );
+    let mut transcript = Transcript::new(projects.path(), ID);
+
+    transcript.read();
+
+    assert_eq!(transcript.facts().activity, None);
+}
+
+#[test]
+fn a_prompt_written_as_text_items_clears_the_last_tool_call_too() {
+    let projects = tempfile::tempdir().unwrap();
+    let file = transcript_file(projects.path(), "-home-acme-api");
+    append(&file, &tool("Bash", r#"{"command":"cargo test"}"#));
+    append(
+        &file,
+        r#"{"type":"user","message":{"role":"user","content":[{"type":"text","text":"now fix the docs"}]}}"#,
+    );
+    let mut transcript = Transcript::new(projects.path(), ID);
+
+    transcript.read();
+
+    assert_eq!(transcript.facts().activity, None);
+}
+
+#[test]
+fn a_tool_result_keeps_the_last_tool_call() {
+    let projects = tempfile::tempdir().unwrap();
+    let file = transcript_file(projects.path(), "-home-acme-api");
+    append(&file, &tool("Bash", r#"{"command":"cargo test"}"#));
+    append(
+        &file,
+        r#"{"type":"user","message":{"role":"user","content":[{"type":"tool_result","content":"ok"}]}}"#,
+    );
+    let mut transcript = Transcript::new(projects.path(), ID);
+
+    transcript.read();
+
+    assert_eq!(transcript.facts().activity.as_deref(), Some("cargo test"));
+}
+
+#[test]
+fn an_empty_branch_title_prompt_or_directory_keeps_the_last_real_one() {
+    let projects = tempfile::tempdir().unwrap();
+    let file = transcript_file(projects.path(), "-home-acme-api");
+    append(
+        &file,
+        r#"{"type":"user","gitBranch":"fix-login","cwd":"/home/acme/api","message":{}}"#,
+    );
+    append(&file, r#"{"type":"ai-title","aiTitle":"Fix the login"}"#);
+    append(
+        &file,
+        r#"{"type":"last-prompt","lastPrompt":"fix the login"}"#,
+    );
+    append(
+        &file,
+        r#"{"type":"user","gitBranch":"","cwd":" ","message":{}}"#,
+    );
+    append(&file, r#"{"type":"ai-title","aiTitle":"  "}"#);
+    append(&file, r#"{"type":"last-prompt","lastPrompt":""}"#);
+    let mut transcript = Transcript::new(projects.path(), ID);
+
+    transcript.read();
+
+    assert_eq!(transcript.facts().branch.as_deref(), Some("fix-login"));
+    assert_eq!(
+        transcript.facts().directory.as_deref(),
+        Some(Path::new("/home/acme/api"))
+    );
+    assert_eq!(transcript.facts().title.as_deref(), Some("Fix the login"));
+    assert_eq!(transcript.facts().prompt.as_deref(), Some("fix the login"));
+}
+
+#[test]
+fn an_empty_branch_alone_is_no_branch() {
+    let projects = tempfile::tempdir().unwrap();
+    let file = transcript_file(projects.path(), "-home-acme-api");
+    append(&file, r#"{"type":"user","gitBranch":"","message":{}}"#);
+    let mut transcript = Transcript::new(projects.path(), ID);
+
+    transcript.read();
+
+    assert_eq!(transcript.facts().branch, None);
+}
+
+#[test]
 fn only_what_was_appended_is_read_again() {
     let projects = tempfile::tempdir().unwrap();
     let file = transcript_file(projects.path(), "-home-acme-api");

@@ -31,7 +31,7 @@ fn the_selected_card_has_the_cyan_bar_on_all_three_lines() {
 #[test]
 fn a_blank_line_separates_one_card_from_the_next() {
     let scratch = tempfile::tempdir().unwrap();
-    let mut screen = Screen::wide(numbered_agent(scratch.path()));
+    let mut screen = Screen::new(numbered_agent(scratch.path()));
     screen.press('n');
     screen.wait_for("acme agent 1");
     screen.press('n');
@@ -52,7 +52,7 @@ fn a_blank_line_separates_one_card_from_the_next() {
 
 #[test]
 fn the_selected_card_is_bold_on_every_line() {
-    let mut screen = Screen::wide(script("exit 3"));
+    let mut screen = Screen::new(script("exit 3"));
     screen.press('n');
 
     screen.wait_for("exited 3");
@@ -63,7 +63,7 @@ fn the_selected_card_is_bold_on_every_line() {
 
 #[test]
 fn an_exited_session_says_so_on_the_second_line() {
-    let mut screen = Screen::wide(script("exit 3"));
+    let mut screen = Screen::new(script("exit 3"));
     screen.press('n');
 
     let shown = screen.wait_for("exited 3");
@@ -76,7 +76,7 @@ fn an_exited_session_says_so_on_the_second_line() {
 #[test]
 fn more_cards_than_fit_scroll_to_keep_the_selected_one_whole() {
     let scratch = tempfile::tempdir().unwrap();
-    let mut screen = Screen::wide(numbered_agent(scratch.path()));
+    let mut screen = Screen::new(numbered_agent(scratch.path()));
     for started in 1..=6 {
         screen.press('n');
         screen.wait_for(&format!("acme agent {started}"));
@@ -93,7 +93,7 @@ fn more_cards_than_fit_scroll_to_keep_the_selected_one_whole() {
 #[test]
 fn the_sidebar_scrolls_back_when_the_selection_moves_up() {
     let scratch = tempfile::tempdir().unwrap();
-    let mut screen = Screen::wide(numbered_agent(scratch.path()));
+    let mut screen = Screen::new(numbered_agent(scratch.path()));
     for started in 1..=6 {
         screen.press('n');
         screen.wait_for(&format!("acme agent {started}"));
@@ -114,7 +114,7 @@ fn the_sidebar_scrolls_back_when_the_selection_moves_up() {
 #[test]
 fn the_sidebar_moves_only_when_the_selection_would_leave_it() {
     let scratch = tempfile::tempdir().unwrap();
-    let mut screen = Screen::wide(numbered_agent(scratch.path()));
+    let mut screen = Screen::new(numbered_agent(scratch.path()));
     for started in 1..=6 {
         screen.press('n');
         screen.wait_for(&format!("acme agent {started}"));
@@ -130,7 +130,7 @@ fn the_sidebar_moves_only_when_the_selection_would_leave_it() {
 #[test]
 fn a_taller_terminal_shows_the_cards_scrolled_away_again() {
     let scratch = tempfile::tempdir().unwrap();
-    let mut screen = Screen::wide(numbered_agent(scratch.path()));
+    let mut screen = Screen::new(numbered_agent(scratch.path()));
     for started in 1..=6 {
         screen.press('n');
         screen.wait_for(&format!("acme agent {started}"));
@@ -148,7 +148,7 @@ fn a_taller_terminal_shows_the_cards_scrolled_away_again() {
 
 #[test]
 fn a_terminal_too_short_for_one_card_shows_the_top_of_the_selected_one() {
-    let mut screen = Screen::wide(script("exit 3"));
+    let mut screen = Screen::new(script("exit 3"));
     screen.press('n');
     screen.press('n');
     screen.wait_for(&format!("○ {} 2", directory()));

@@ -1,4 +1,7 @@
 use harbour::text::{clean, columns, fit, wrap};
+use ratatui::buffer::Buffer;
+use ratatui::layout::Rect;
+use ratatui::text::Line;
 use unicode_width::UnicodeWidthStr;
 
 #[test]
@@ -69,6 +72,16 @@ fn no_text_is_ever_cut_wider_than_the_room_it_is_given() {
 }
 
 #[test]
+fn text_is_measured_in_the_cells_ratatui_fills() {
+    assert_eq!(disagreements(), Vec::<(String, usize, usize)>::new());
+}
+
+#[test]
+fn a_halfwidth_sound_mark_takes_the_column_ratatui_draws_it_in() {
+    assert_eq!(columns("\u{ff76}\u{ff9e}"), filled("\u{ff76}\u{ff9e}"));
+}
+
+#[test]
 fn an_emoji_with_a_variation_selector_takes_two_columns() {
     assert_eq!(columns("⚠\u{fe0f}"), 2);
 }
@@ -136,6 +149,13 @@ fn a_long_text_is_cleaned_only_as_far_as_a_card_could_show() {
     assert_eq!(clean(&"a".repeat(1 << 20)).len(), 512);
 }
 
+#[test]
+fn a_letter_with_a_thousand_combining_marks_stays_inside_the_budget() {
+    let text = format!("acme {}", "a\u{301}".to_string() + &"\u{301}".repeat(1000));
+
+    assert_eq!(clean(&text), "acme");
+}
+
 const PIECES: &[&str] = &[
     "a",
     " ",
@@ -148,6 +168,12 @@ const PIECES: &[&str] = &[
     "🚀",
     "\u{fe0f}",
     "\u{200d}",
+    "\u{ff76}",
+    "\u{ff9e}",
+    "\u{ff9f}",
+    "\u{ff8a}\u{ff9f}",
+    "\u{301}",
+    "\u{3099}",
 ];
 
 fn overflows() -> Vec<(String, usize, String)> {
@@ -168,4 +194,32 @@ fn overflows() -> Vec<(String, usize, String)> {
         }
     }
     found
+}
+
+fn disagreements() -> Vec<(String, usize, usize)> {
+    let mut seed: u64 = 11;
+    let mut next = |below: usize| {
+        seed = seed
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
+        (seed >> 33) as usize % below
+    };
+    let mut found = Vec::new();
+    for _ in 0..4000 {
+        let text: String = (0..next(16)).map(|_| PIECES[next(PIECES.len())]).collect();
+        let width = next(20);
+        let cut = fit(&text, width);
+        for shown in [text, cut] {
+            if columns(&shown) != filled(&shown) {
+                found.push((shown.clone(), columns(&shown), filled(&shown)));
+            }
+        }
+    }
+    found
+}
+
+fn filled(text: &str) -> usize {
+    let mut buffer = Buffer::empty(Rect::new(0, 0, 200, 1));
+    let (x, _) = buffer.set_line(0, 0, &Line::from(text), 200);
+    usize::from(x)
 }

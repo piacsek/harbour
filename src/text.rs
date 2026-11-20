@@ -1,3 +1,4 @@
+use ratatui::buffer::CellWidth;
 use unicode_segmentation::UnicodeSegmentation;
 use unicode_width::UnicodeWidthStr;
 
@@ -6,8 +7,10 @@ const LONGEST: usize = 512;
 const JOINER: char = '\u{200d}';
 
 pub fn columns(text: &str) -> usize {
-    let drawn = text.graphemes(true).map(UnicodeWidthStr::width).sum();
-    text.width().max(drawn)
+    text.graphemes(true)
+        .filter(|grapheme| !grapheme.contains(char::is_control))
+        .map(|grapheme| usize::from(grapheme.cell_width()))
+        .sum()
 }
 
 pub fn fit(text: &str, width: usize) -> String {
@@ -60,16 +63,17 @@ pub fn clean(text: &str) -> String {
             gap = true;
             continue;
         }
-        if gap && count > 0 {
-            out.push(' ');
-            count += 1;
-        }
-        gap = false;
-        count += shown.chars().count();
-        out.push_str(&shown);
-        if count >= LONGEST {
+        let space = usize::from(gap && count > 0);
+        let length = shown.chars().count();
+        if count + space + length > LONGEST {
             break;
         }
+        if space > 0 {
+            out.push(' ');
+        }
+        gap = false;
+        count += space + length;
+        out.push_str(&shown);
     }
     out
 }

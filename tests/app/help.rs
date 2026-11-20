@@ -64,7 +64,7 @@ fn question_mark_names_the_setting_for_another_dir_picker() {
 
 #[test]
 fn the_next_key_hides_the_help_and_does_nothing_else() {
-    let mut screen = Screen::wide(reading_agent());
+    let mut screen = Screen::new(reading_agent());
     screen.press('?');
 
     screen.press('n');

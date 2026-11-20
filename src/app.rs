@@ -118,6 +118,11 @@ impl App {
         }
     }
 
+    pub fn with_home(mut self, home: PathBuf) -> App {
+        self.home = home;
+        self
+    }
+
     pub fn with_picker(mut self, picker: Picker) -> App {
         self.picker = Some(picker);
         self
@@ -140,10 +145,10 @@ impl App {
 
     pub fn demo(registry: PathBuf) -> App {
         let mut app = App::new(demo::fresh())
+            .with_home(demo::checkout(&registry, "acme-api", "main"))
             .with_registry(registry.clone())
             .with_transcripts(registry.join("projects"))
             .with_picker(demo::picker());
-        app.home = demo::checkout(&registry, "acme-api", "main");
         app.start_with(&demo::working(&registry));
         app.start_with(&demo::blocked(&registry));
         app.start_with(&demo::idle(&registry));

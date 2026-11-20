@@ -5,7 +5,7 @@ use crate::{Screen, below, directory, pane_corner, region, script};
 
 #[test]
 fn a_session_that_exited_with_zero_shows_a_hollow_dot_and_exited() {
-    let mut screen = Screen::wide(script("echo 'acme agent done'; exit 0"));
+    let mut screen = Screen::new(script("echo 'acme agent done'; exit 0"));
     screen.press('n');
 
     let shown = screen.wait_for("exited");
@@ -15,7 +15,7 @@ fn a_session_that_exited_with_zero_shows_a_hollow_dot_and_exited() {
 
 #[test]
 fn a_session_that_exited_with_a_code_shows_the_code() {
-    let mut screen = Screen::wide(script("exit 3"));
+    let mut screen = Screen::new(script("exit 3"));
     screen.press('n');
 
     let shown = screen.wait_for("exited 3");
@@ -25,7 +25,7 @@ fn a_session_that_exited_with_a_code_shows_the_code() {
 
 #[test]
 fn a_session_killed_by_a_signal_shows_the_signal() {
-    let mut screen = Screen::wide(script("kill -9 $$"));
+    let mut screen = Screen::new(script("kill -9 $$"));
     screen.press('n');
 
     let shown = screen.wait_for("Killed");
@@ -35,7 +35,7 @@ fn a_session_killed_by_a_signal_shows_the_signal() {
 
 #[test]
 fn an_exited_session_keeps_its_last_screen_dimmed() {
-    let mut screen = Screen::wide(script("echo 'acme agent done'; exit 0"));
+    let mut screen = Screen::new(script("echo 'acme agent done'; exit 0"));
     screen.press('n');
     let shown = screen.wait_for_all(&["exited", "acme agent done"]);
 
@@ -47,7 +47,7 @@ fn an_exited_session_keeps_its_last_screen_dimmed() {
 
 #[test]
 fn an_exited_session_keeps_the_cyan_border_undimmed_while_its_pane_has_focus() {
-    let mut screen = Screen::wide(script("read -r line; exit 0"));
+    let mut screen = Screen::new(script("read -r line; exit 0"));
     screen.press('n');
     screen.key(KeyCode::Enter, KeyModifiers::NONE);
 
@@ -62,7 +62,7 @@ fn an_exited_session_keeps_the_cyan_border_undimmed_while_its_pane_has_focus() {
 
 #[test]
 fn a_command_that_cannot_start_adds_no_row_and_names_the_command() {
-    let mut screen = Screen::wide(vec!["acme-agent-missing".to_string()]);
+    let mut screen = Screen::new(vec!["acme-agent-missing".to_string()]);
     screen.press('n');
 
     let shown = screen.draw();
@@ -79,7 +79,7 @@ fn a_command_that_cannot_start_is_named_while_other_sessions_run() {
     let scratch = tempfile::tempdir().unwrap();
     let agent = scratch.path().join("acme-agent");
     std::os::unix::fs::symlink("/bin/sh", &agent).unwrap();
-    let mut screen = Screen::wide(vec![agent.to_string_lossy().into_owned()]);
+    let mut screen = Screen::new(vec![agent.to_string_lossy().into_owned()]);
     screen.press('n');
     screen.wait_for(&format!("{} 1", directory()));
     std::fs::remove_file(&agent).unwrap();
@@ -105,7 +105,7 @@ fn a_command_that_cannot_start_is_named_on_a_narrow_terminal() {
 fn a_start_that_works_clears_the_failure() {
     let scratch = tempfile::tempdir().unwrap();
     let agent = scratch.path().join("acme-agent");
-    let mut screen = Screen::wide(vec![agent.to_string_lossy().into_owned()]);
+    let mut screen = Screen::new(vec![agent.to_string_lossy().into_owned()]);
     screen.press('n');
     std::os::unix::fs::symlink("/bin/sh", &agent).unwrap();
 
@@ -157,7 +157,7 @@ fn a_command_that_cannot_start_names_the_cause() {
 
 #[test]
 fn a_session_that_exits_while_its_pane_has_focus_still_lets_ctrl_h_back() {
-    let mut screen = Screen::wide(script("read -r line; exit 0"));
+    let mut screen = Screen::new(script("read -r line; exit 0"));
     screen.press('n');
     screen.key(KeyCode::Enter, KeyModifiers::NONE);
     screen.type_text("bye\r");

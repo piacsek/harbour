@@ -66,6 +66,45 @@ fn a_worktree_shows_the_main_repository_and_its_own_branch() {
 }
 
 #[test]
+fn a_branch_name_that_is_not_utf8_still_shows() {
+    let scratch = tempfile::tempdir().unwrap();
+    let repository = repository(scratch.path(), "acme-api", "");
+    fs::write(
+        repository.join(".git/HEAD"),
+        b"ref: refs/heads/fix-\xff-login\n",
+    )
+    .unwrap();
+
+    assert_eq!(
+        place(&repository).to_string(),
+        "acme-api \u{b7} fix-\u{fffd}-login"
+    );
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn a_worktree_whose_gitdir_path_is_not_utf8_still_shows_its_repository() {
+    use std::ffi::OsStr;
+    use std::io::Write;
+    use std::os::unix::ffi::OsStrExt;
+
+    let scratch = tempfile::tempdir().unwrap();
+    let latin = scratch.path().join(OsStr::from_bytes(b"caf\xe9"));
+    fs::create_dir_all(&latin).unwrap();
+    let main = repository(&latin, "acme-api", "ref: refs/heads/main\n");
+    let admin = folder(&main, ".git/worktrees/fix-login");
+    fs::write(admin.join("commondir"), "../..\n").unwrap();
+    fs::write(admin.join("HEAD"), "ref: refs/heads/fix-login\n").unwrap();
+    let worktree = folder(scratch.path(), "elsewhere/fix-login");
+    let mut file = fs::File::create(worktree.join(".git")).unwrap();
+    file.write_all(b"gitdir: ").unwrap();
+    file.write_all(admin.as_os_str().as_bytes()).unwrap();
+    file.write_all(b"\n").unwrap();
+
+    assert_eq!(place(&worktree).to_string(), "acme-api \u{b7} fix-login");
+}
+
+#[test]
 fn a_worktree_with_a_relative_gitdir_is_found_too() {
     let scratch = tempfile::tempdir().unwrap();
     let main = repository(scratch.path(), "acme-api", "ref: refs/heads/main\n");

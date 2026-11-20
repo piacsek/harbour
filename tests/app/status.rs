@@ -6,8 +6,6 @@ use std::time::{Duration, Instant};
 use harbour::app::App;
 use harbour::picker::Picker;
 use harbour::summary::Summary;
-use ratatui::Terminal;
-use ratatui::backend::TestBackend;
 use ratatui::buffer::Cell;
 use ratatui::style::{Color, Modifier};
 
@@ -392,13 +390,7 @@ pub(crate) fn watching(registry: &Path, command: Vec<String>) -> Screen {
 }
 
 pub(crate) fn showing(app: App) -> Screen {
-    let mut screen = Screen {
-        app,
-        terminal: Terminal::new(TestBackend::new(120, 20)).unwrap(),
-    };
-    let width = 3 * (directory().chars().count() + 32);
-    screen.resize(u16::try_from(width.max(120)).unwrap(), 20);
-    screen
+    Screen::of(app)
 }
 
 fn registered(registry: &Path, status: &str) -> Vec<String> {

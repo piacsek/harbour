@@ -67,6 +67,8 @@ What each source does to the card:
 | Situation | What the user sees |
 | --- | --- |
 | no title yet (no transcript, or no `ai-title` line) | line 1 shows the directory name and number, as today |
+| an empty or blank `gitBranch`, `cwd`, `aiTitle`, `lastPrompt` or tool call | ignored: the last real value stays, and git's branch fills in while none came |
+| a new prompt from the user (a `user` line whose content is text) | the last tool call is cleared until the next one; a tool result keeps it |
 | a title, then a transcript line that is not JSON, half written, or an `ai-title` whose `aiTitle` is not a string | the last good title stays; the same for every field |
 | a field of an unexpected type (`prNumber` a string, `input` not an object) | that field is left off, or keeps its last value; the card never shows an error |
 | a transcript line longer than 1 MiB, however its chunks arrive | skipped before it is parsed; the fields keep their last values |
@@ -87,6 +89,7 @@ What each source does to the card:
 | a worktree | line 3 shows the main repository's folder and the worktree's branch: `acme-api · fix-login` |
 | a submodule | line 3 shows the submodule's folder |
 | a bare repository, or a worktree of one | line 3 shows the bare repository's folder without `.git` |
+| a branch name or a `gitdir` path that is not UTF-8 | read as bytes; the path is followed as is, the name shown with `�` for the bytes it cannot show |
 | a detached HEAD | the branch reads `HEAD`, as Claude Code records it |
 | the branch from the transcript and from git differ | the transcript's `gitBranch` wins (the issue's source); git's `HEAD` fills in until a line has one |
 | the directory deleted | line 3 shows the nearest repository above it, else the folder name it had |
@@ -112,7 +115,7 @@ has no bar. The title counts, `harbour status`, the dot and its colours are unch
   current directory (the transcript's last `cwd`, else the directory it started in). It is not
   read once the session has exited.
 - **Git is read, never run**: `.git`, `gitdir`, `commondir` and `HEAD` are small files, read at
-  most every 500 ms per session. No subprocess is started from the draw thread.
+  most every 500 ms per session, as bytes: paths stay bytes, a name is converted only to be shown. No subprocess is started from the draw thread.
 - **What a tool call shows**: its description, else its command, else its file path, else the
   tool's name, so a working session never shows a blank line while the transcript has a call.
 - **Exited shows the time since harbour saw the exit**, measured from the read that found it.
@@ -123,14 +126,17 @@ has no bar. The title counts, `harbour status`, the dot and its colours are unch
   every 5 s. A slow or network file system stalls the interface for that long: a known limit.
 - **The transcripts are found under the same config directory as the registry**
   (`CLAUDE_CONFIG_DIR`, else `~/.claude`); in-process tests hand both to `App` in scratch
-  directories.
+  directories, and every `tests/app/` screen starts its sessions in a scratch folder named
+  `acme-home`, so no test reads the checkout's folder name.
 - **One module measures and cuts all text**: `src/text.rs` measures a string by grapheme in the
-  columns ratatui draws it in (the larger of the string's width and the sum of its graphemes'),
+  cells ratatui's `Buffer::set_line` fills (each grapheme's `cell_width`, a halfwidth sound mark
+  counted too, a grapheme holding a control character skipped), checked against a buffer by a
+  property test,
   cuts and wraps between graphemes, and every subtraction on widths saturates. The cards and the
   "Could not start" message use it; no other place cuts text.
 - **What cleaning drops**: control characters, bidi marks and isolates, U+061C and U+200B become a
   word gap; a joiner is kept only when a visible character follows it in its grapheme. Cleaning
-  stops at 512 characters, and the transcript keeps each shown field to its first 4 KiB.
+  stops before the grapheme that would pass 512 characters, and the transcript keeps each shown field to its first 4 KiB.
 - **The demo never shows the checkout it runs in**: every demo session starts in a made-up
   checkout (`acme-api`, `acme-web`, `acme-infra`) inside the demo's temporary registry.
 - **No new key and no click selection**: the help view, the README key table and the mouse stay
@@ -174,3 +180,4 @@ One red-green-refactor cycle each, shipped with `scripts/ship.sh`.
 - `tooling` The screenshots raced the first registry read (every card unknown) and fzf's first draw (an empty picker); the script now polls for the text each shot needs → code
 - `ci` A narrow-sidebar test cut the session's name, taken from the checkout's folder: the worktree's long name was cut locally, CI's `harbour` fitted, so `check` failed from task 4 on unnoticed until step 4; the test now names its own directory through the picker → code
 - `review-loop` Round 1 found that an emoji with a variation selector made the title wider than `fit` measured it, so the gap after it underflowed and harbour crashed; text is now measured and cut by grapheme in one module, with a property test over random emoji strings → code
+- `review-loop` Round 2 found tests that read the checkout's folder name a third time, so the in-process harness now starts every session in a scratch `acme-home` folder, proved by running the `app` tests from a copy in a 60-character folder → rule in `tests/AGENTS.md`
