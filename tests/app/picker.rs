@@ -1,3 +1,4 @@
+use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::thread::sleep;
 use std::time::{Duration, Instant};
@@ -223,6 +224,87 @@ fn a_click_in_the_popup_reaches_a_picker_that_asked_for_the_mouse() {
 
     let shown = screen.wait_for("acme picker got E[<0;");
     assert!(shown.contains("acme picker got E[<0;"), "{shown}");
+}
+
+#[test]
+fn a_slow_list_holds_up_neither_harbour_nor_the_picker() {
+    let slow = script("sleep 10; printf '/acme/web\\n'");
+    let mut screen = Screen::picking(placed_agent(), fuzzy(first_line_fzf(), slow));
+    widen(&mut screen);
+    let pressed = Instant::now();
+
+    screen.press('n');
+
+    assert!(pressed.elapsed() < Duration::from_secs(2));
+    screen.wait_for("acme picker");
+    screen.type_text("\r");
+    let row = format!("{} 1", directory());
+    let shown = screen.wait_for(&row);
+    assert!(shown.contains(&row), "{shown}");
+}
+
+#[test]
+fn a_confirmed_directory_that_cannot_start_leaves_the_focus_on_the_sidebar() {
+    let scratch = tempfile::tempdir().unwrap();
+    let locked = directory_in(scratch.path(), "acme-locked");
+    let mut screen = Screen::picking(reading_agent(), Picker::Command(typed_picker()));
+    screen.press('n');
+    screen.wait_for("acme picker");
+    screen.type_text(&format!("{}\r", here()));
+    screen.wait_for("acme agent ready");
+    screen.key(KeyCode::Char('h'), KeyModifiers::CONTROL);
+    std::fs::set_permissions(&locked, std::fs::Permissions::from_mode(0o000)).unwrap();
+    screen.press('n');
+    screen.wait_for("acme picker");
+
+    screen.type_text(&format!("{}\r", locked.display()));
+
+    let shown = screen.wait_for("Could not start");
+    std::fs::set_permissions(&locked, std::fs::Permissions::from_mode(0o755)).unwrap();
+    let top = shown.lines().next().unwrap();
+    assert!(shown.contains("Could not start"), "{shown}");
+    assert!(top.starts_with('┏'), "{shown}");
+}
+
+#[test]
+fn a_picker_whose_interpreter_is_missing_is_named_and_starts_nothing() {
+    let scratch = tempfile::tempdir().unwrap();
+    let broken = scratch.path().join("acme-broken-picker");
+    std::fs::write(&broken, "#!/acme/no-interpreter\n").unwrap();
+    std::fs::set_permissions(&broken, std::fs::Permissions::from_mode(0o755)).unwrap();
+    let picker = Picker::Command(vec![broken.display().to_string()]);
+    let mut screen = Screen::picking(placed_agent(), picker);
+    widen(&mut screen);
+
+    screen.press('n');
+
+    let shown = screen.wait_for("Could not start");
+    assert!(shown.contains("Could not start"), "{shown}");
+    assert!(shown.contains("acme-broken-picker"), "{shown}");
+    assert!(shown.contains("No session yet"), "{shown}");
+}
+
+#[test]
+fn bytes_after_the_first_line_do_not_matter() {
+    let scratch = tempfile::tempdir().unwrap();
+    let web = directory_in(scratch.path(), "acme-web");
+    let printing = script(&format!("printf '%s\\n\\377\\n' '{}'", web.display()));
+    let mut screen = Screen::picking(placed_agent(), Picker::Command(printing));
+
+    screen.press('n');
+
+    let shown = screen.wait_for("acme-web 1");
+    assert!(shown.contains("acme-web 1"), "{shown}");
+}
+
+#[test]
+fn picking_the_root_names_the_session_after_the_path() {
+    let mut screen = Screen::picking(placed_agent(), Picker::Command(script("echo /")));
+
+    screen.press('n');
+
+    let shown = screen.wait_for("/ 1");
+    assert!(shown.contains(" / 1"), "{shown}");
 }
 
 fn placed_agent() -> Vec<String> {

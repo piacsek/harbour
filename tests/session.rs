@@ -36,6 +36,17 @@ fn the_command_starts_in_the_directory_it_is_given() {
 }
 
 #[test]
+fn the_command_sees_its_directory_in_pwd() {
+    let scratch = tempfile::tempdir().unwrap();
+    let directory = scratch.path().join("acme-web");
+    std::fs::create_dir(&directory).unwrap();
+    let command = ["/usr/bin/printenv".to_string(), "PWD".into()];
+    let session = Session::start(&command, &directory, ROWS, COLS).unwrap();
+    let screen = wait_for(&session, "/acme-web");
+    assert!(screen.contains("/acme-web"), "{screen}");
+}
+
+#[test]
 fn the_command_is_told_it_runs_in_a_truecolor_xterm() {
     let session = start("echo \"term:$TERM/$COLORTERM\"; sleep 5");
     let expected = "term:xterm-256color/truecolor";

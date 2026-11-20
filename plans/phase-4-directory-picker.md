@@ -54,16 +54,25 @@ pane takes the focus, so the user can type to it at once (added by the owner dur
 
 - **`HARBOUR_DIR_PICKER` names one program, run without a shell and without arguments**, like
   `HARBOUR_SESSION_COMMAND`. A command line with arguments goes in a script.
-- **Only the first line the picker prints counts.** The rest is ignored.
+- **Only the first line the picker prints counts.** The rest is ignored, read as bytes, so a
+  path that is not UTF-8 keeps its bytes.
+- **A picker that exits with 126 or 127 could not start**, which the sidebar names; any other
+  failure is a cancel.
 - **Focus moves to the pane only when the picker confirmed a directory.** When fzf is missing and
   `n` starts the session at once, the sidebar keeps the focus, as before this phase: the owner's
   addition names the picker, and the end-to-end tests drive `n` twice in a row from the sidebar.
-- **harbour filters its own directory out of zoxide's list itself** rather than passing
-  `--exclude`, so any list command can stand in for zoxide in tests and in the demo.
-- **The demo's picker is fzf over a fixed list of made-up `acme` directories**, never zoxide. The
-  first line is harbour's directory, so the screenshot script runs the demo from a scratch
-  directory under `/tmp` and with `FZF_DEFAULT_OPTS` unset.
-- **`tempfile` becomes a runtime dependency**: the list fzf reads and the file the picker writes
+- **harbour's own directory is filtered out of zoxide's list** rather than passed as
+  `--exclude`, so any list command can stand in for zoxide in tests.
+- **The list is made inside the popup, never on harbour's thread** (review round 1). The popup's
+  shell starts the list command in the background, writing harbour's directory and then the
+  command's lines without it into a FIFO, and runs fzf on it. The popup opens at once and Esc
+  always works, however slow zoxide is; a timeout was rejected because it only narrows the
+  class. Paths and the command reach the shell as positional arguments, never spliced into the
+  script.
+- **The demo's picker is a script piping a fixed list of made-up `acme` directories into fzf**,
+  never zoxide and without harbour's directory, so `docs/picker.png` is the same on every run.
+  The screenshot script runs it with `FZF_DEFAULT_OPTS` unset.
+- **`tempfile` becomes a runtime dependency**: the FIFO fzf reads and the file the picker writes
   live in a private temporary directory removed when the pick ends. It is already locked as a
   dev-dependency, and no smaller way creates a unique private directory.
 
@@ -91,17 +100,21 @@ One red-green-refactor cycle each, shipped with `scripts/ship.sh`.
   --list` without it. Without zoxide the list is harbour's directory alone; without fzf, `n`
   starts at once in harbour's directory, as before this phase.
 - A session is named after the folder it starts in, so rows of one harbour can differ.
-- After a confirmed directory the pane has the focus; a cancel leaves it where it was.
-- `HARBOUR_DIR_PICKER` names another picker, run with no shell and no arguments.
-- The end-to-end tests run the binary on `PATH=/usr/bin:/bin`, so the real fzf never opens;
+- After a confirmed directory the pane has the focus; a cancel, or a directory a session could
+  not start in, leaves it where it was. A session's `PWD` is its directory.
+- `HARBOUR_DIR_PICKER` names another picker, run with no shell and no arguments; empty counts as
+  unset.
+- The end-to-end tests clear both settings and run the binary on a scratch `PATH` of links to
+  the tools the fixtures need, so the real fzf never opens;
   `tests/fixtures/picker.sh` stands in for a picker and `tests/fixtures/fzf/fzf` for fzf in the
   demo test.
-- The demo's picker is fzf over made-up `/home/acme/...` directories; `docs/picker.png` shows it.
-  Its first line is the screenshot script's scratch directory, `/tmp/harbour-shots.XXXXXX`,
-  whose random suffix changes the image on every run of the script.
+- The demo's picker is fzf over made-up `/home/acme/...` directories; `docs/picker.png` shows it,
+  byte-identical across runs of the screenshot script.
 
 ## Hurdles
 
 - `test-seam` A fixture picker that drew on stdout had its drawing taken as the directory it picked; picker fixtures draw on stderr → rule in `tests/AGENTS.md`
 - `test-seam` The end-to-end tests and the screenshot script ran the binary on the user's `PATH`, where `n` would now open the real fzf over the real zoxide database → rule in `tests/AGENTS.md`
 - `api-shape` `App` implements `Drop`, so `with_picker` could not be built with struct update syntax over `App::new` → none
+- `design` Review round 1 found zoxide run on harbour's thread with no bound, so a slow list froze the interface; the list moved into the popup's own shell → code
+- `tooling` On macOS `/bin/sh` exits 1, not 126 or 127, when `exec` of a script with a missing interpreter fails; the picker wrappers run the program without `exec` → code

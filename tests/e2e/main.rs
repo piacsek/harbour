@@ -8,10 +8,8 @@ use harbour::tui::{DIR_PICKER, SESSION_COMMAND};
 const AGENT: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/agent.sh");
 const RAW_AGENT: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/raw-agent.sh");
 const PICKER: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/picker.sh");
-const FAKE_FZF_PATH: &str = concat!(
-    env!("CARGO_MANIFEST_DIR"),
-    "/tests/fixtures/fzf:/usr/bin:/bin"
-);
+const FAKE_FZF: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/fzf");
+const TOOLS: [&str; 7] = ["cat", "dd", "grep", "mkfifo", "sleep", "stty", "tr"];
 
 #[test]
 #[ignore]
@@ -88,6 +86,24 @@ fn n_runs_the_dir_picker_and_starts_the_session_in_the_directory_it_prints() {
     let screen = server.wait_for_screen_all(&["acme agent in acme-web", "acme-web 1"]);
     assert!(screen.contains("acme agent in acme-web"), "{screen}");
     assert!(screen.contains("acme-web 1"), "{screen}");
+}
+
+#[test]
+#[ignore]
+fn an_empty_dir_picker_setting_counts_as_unset() {
+    let home = tempfile::tempdir().unwrap();
+    let server = Server::start("empty-picker", 160, 20);
+    server.run(
+        home.path(),
+        &[(SESSION_COMMAND, AGENT), (DIR_PICKER, "")],
+        &[],
+    );
+    server.wait_for_screen("press n to start one");
+
+    server.send_keys(&["n"]);
+
+    let screen = server.wait_for_screen_all(&["acme agent in acme-api", "acme-api 1"]);
+    assert!(screen.contains("acme-api 1"), "{screen}");
 }
 
 #[test]
@@ -235,13 +251,21 @@ fn the_demo_shows_made_up_sessions_one_of_them_exited() {
 fn n_in_the_demo_lists_made_up_directories_in_fzf() {
     let home = tempfile::tempdir().unwrap();
     let server = Server::start("demo-picker", 160, 20);
-    server.run(home.path(), &[("PATH", FAKE_FZF_PATH)], &["--demo"]);
+    let path = format!("{FAKE_FZF}:{}", tools(home.path()));
+    server.run(home.path(), &[("PATH", &path)], &["--demo"]);
     server.wait_for_screen("● acme-api 3");
     server.send_keys(&["n"]);
 
     let screen = server.wait_for_screen_all(&["acme fzf lists:", "/home/acme/web"]);
     assert!(screen.contains("acme fzf lists:"), "{screen}");
     assert!(screen.contains("/home/acme/web"), "{screen}");
+    let scratch = home
+        .path()
+        .file_name()
+        .unwrap()
+        .to_string_lossy()
+        .into_owned();
+    assert!(!screen.contains(&scratch), "{screen}");
 }
 
 struct Server {
@@ -342,8 +366,12 @@ impl Server {
             "XDG_CONFIG_HOME".to_string(),
             "-u".to_string(),
             "XDG_STATE_HOME".to_string(),
+            "-u".to_string(),
+            DIR_PICKER.to_string(),
+            "-u".to_string(),
+            SESSION_COMMAND.to_string(),
             quoted(&format!("HOME={}", home.display())),
-            "PATH=/usr/bin:/bin".to_string(),
+            quoted(&format!("PATH={}", tools(home))),
         ];
         words.extend(
             env.iter()
@@ -412,4 +440,21 @@ impl Drop for Server {
 
 fn quoted(word: &str) -> String {
     format!("'{}'", word.replace('\'', r"'\''"))
+}
+
+fn tools(home: &Path) -> String {
+    let bin = home.join("bin");
+    std::fs::create_dir_all(&bin).unwrap();
+    for tool in TOOLS {
+        let found = ["/bin", "/usr/bin"]
+            .iter()
+            .map(|directory| Path::new(directory).join(tool))
+            .find(|path| path.exists())
+            .unwrap();
+        let link = bin.join(tool);
+        if !link.exists() {
+            std::os::unix::fs::symlink(found, link).unwrap();
+        }
+    }
+    bin.display().to_string()
 }

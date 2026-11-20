@@ -1,16 +1,30 @@
 use std::env;
+use std::ffi::OsStr;
 use std::fs;
 use std::io;
+use std::os::unix::ffi::OsStrExt;
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
 
 use tempfile::TempDir;
 
 use crate::session::Session;
 
-const PRINTING_TO: &str = r#"out=$1; shift; exec "$@" >"$out""#;
-const READING_AND_PRINTING_TO: &str = r#"list=$1; out=$2; shift 2; exec "$@" <"$list" >"$out""#;
+const PRINTING_TO: &str = r#"out=$1; shift; "$@" >"$out""#;
+const LISTING_INTO: &str = r#"out=$1; here=$2; n=$3; shift 3
+listed="${out%/*}/listed"
+mkfifo "$listed" || exit 126
+(
+  shift "$n"
+  printf '%s\n' "$here"
+  "$@" </dev/null 2>/dev/null | grep -vxF -e "$here" -e ''
+) >"$listed" &
+for argument do
+  shift
+  [ "$n" -gt 0 ] && set -- "$@" "$argument"
+  n=$((n - 1))
+done
+"$@" <"$listed" >"$out""#;
 
 pub enum Picker {
     Command(Vec<String>),
@@ -28,6 +42,7 @@ impl Picker {
 
 pub struct Pick {
     session: Session,
+    program: String,
     output: PathBuf,
     from: PathBuf,
     _scratch: TempDir,
@@ -46,20 +61,22 @@ impl Pick {
         let wrapped = match picker {
             Picker::Command(command) => {
                 startable(picker.program(), from)?;
-                wrapping(PRINTING_TO, &[], &output, command)
+                wrapping(PRINTING_TO, &output, &[], command)
             }
             Picker::Fuzzy { fzf, list } => {
                 if startable(picker.program(), from).is_err() {
                     return Ok(None);
                 }
-                let listed = scratch.path().join("listed");
-                fs::write(&listed, listing(list, from))?;
-                wrapping(READING_AND_PRINTING_TO, &[&listed], &output, fzf)
+                let before = [from.to_string_lossy().into_owned(), fzf.len().to_string()];
+                let mut command = fzf.clone();
+                command.extend(list.iter().cloned());
+                wrapping(LISTING_INTO, &output, &before, &command)
             }
         };
         let session = Session::start(&wrapped, from, rows, cols)?;
         Ok(Some(Pick {
             session,
+            program: picker.program().to_string(),
             output,
             from: from.to_path_buf(),
             _scratch: scratch,
@@ -75,56 +92,47 @@ impl Pick {
     }
 
     pub fn picked(&mut self) -> Option<Picked> {
-        if !self.session.exit()?.success() {
+        let status = self.session.exit()?;
+        if let code @ (126 | 127) = status.exit_code() {
+            return Some(Picked::Refused(format!(
+                "Could not start {}: it exited with {code}",
+                self.program
+            )));
+        }
+        if !status.success() {
             return Some(Picked::Cancelled);
         }
-        let printed = fs::read_to_string(&self.output).unwrap_or_default();
-        match printed.lines().next() {
-            None | Some("") => Some(Picked::Cancelled),
-            Some(line) if self.from.join(line).is_dir() => {
-                Some(Picked::Chosen(self.from.join(line)))
-            }
-            Some(line) => Some(Picked::Refused(format!("Not a directory: {line}"))),
+        let printed = fs::read(&self.output).unwrap_or_default();
+        let line = printed
+            .split(|byte| *byte == b'\n')
+            .next()
+            .unwrap_or_default();
+        if line.is_empty() {
+            return Some(Picked::Cancelled);
+        }
+        let chosen = self.from.join(OsStr::from_bytes(line));
+        if chosen.is_dir() {
+            Some(Picked::Chosen(chosen))
+        } else {
+            Some(Picked::Refused(format!(
+                "Not a directory: {}",
+                String::from_utf8_lossy(line)
+            )))
         }
     }
 }
 
-fn wrapping(script: &str, before: &[&Path], output: &Path, command: &[String]) -> Vec<String> {
+fn wrapping(script: &str, output: &Path, before: &[String], command: &[String]) -> Vec<String> {
     let mut wrapped = vec![
         "/bin/sh".to_string(),
         "-c".to_string(),
         script.to_string(),
         "harbour-picker".to_string(),
+        output.to_string_lossy().into_owned(),
     ];
-    wrapped.extend(
-        before
-            .iter()
-            .map(|path| path.to_string_lossy().into_owned()),
-    );
-    wrapped.push(output.to_string_lossy().into_owned());
+    wrapped.extend(before.iter().cloned());
     wrapped.extend(command.iter().cloned());
     wrapped
-}
-
-fn listing(list: &[String], from: &Path) -> String {
-    let here = from.to_string_lossy();
-    let ranked = Command::new(&list[0])
-        .args(&list[1..])
-        .current_dir(from)
-        .stdin(Stdio::null())
-        .stderr(Stdio::null())
-        .output()
-        .map(|output| String::from_utf8_lossy(&output.stdout).into_owned())
-        .unwrap_or_default();
-    let mut listed = format!("{here}\n");
-    for line in ranked
-        .lines()
-        .filter(|line| !line.is_empty() && *line != here)
-    {
-        listed.push_str(line);
-        listed.push('\n');
-    }
-    listed
 }
 
 fn startable(program: &str, from: &Path) -> io::Result<()> {

@@ -272,8 +272,11 @@ impl App {
             Picked::Cancelled => {}
             Picked::Refused(refusal) => self.failed = Some(refusal),
             Picked::Chosen(directory) => {
+                let before = self.started;
                 self.start_in(&self.command.clone(), &directory);
-                self.pane_focused = !self.sessions.is_empty();
+                if self.started > before {
+                    self.pane_focused = true;
+                }
             }
         }
     }
@@ -473,7 +476,7 @@ fn is_yes(key: KeyEvent) -> bool {
 fn folder_name(path: &Path) -> String {
     path.file_name()
         .map(|name| name.to_string_lossy().into_owned())
-        .unwrap_or_default()
+        .unwrap_or_else(|| path.display().to_string())
 }
 
 fn popup(area: Rect) -> Rect {

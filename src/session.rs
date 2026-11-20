@@ -50,6 +50,7 @@ impl Session {
         let mut builder = CommandBuilder::new(&command[0]);
         builder.args(&command[1..]);
         builder.cwd(directory);
+        builder.env("PWD", directory);
         builder.env_remove("TMUX");
         builder.env_remove("TMUX_PANE");
         builder.env("TERM", "xterm-256color");

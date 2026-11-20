@@ -66,8 +66,8 @@ fn drive(terminal: &mut ratatui::DefaultTerminal, mut app: App) -> io::Result<()
 
 fn dir_picker() -> Picker {
     match std::env::var(DIR_PICKER) {
-        Ok(program) => Picker::Command(vec![program]),
-        Err(_) => Picker::Fuzzy {
+        Ok(program) if !program.is_empty() => Picker::Command(vec![program]),
+        _ => Picker::Fuzzy {
             fzf: vec!["fzf".to_string()],
             list: ["zoxide", "query", "--list"].map(String::from).to_vec(),
         },
