@@ -16,6 +16,7 @@ use crate::mouse::{self, Gesture, Target};
 use crate::picker::{Pick, Picked, Picker};
 use crate::registry::{self, Record};
 use crate::session::{self, Session};
+use crate::summary::Summary;
 use crate::transcript::Transcript;
 
 const NARROW: u16 = 60;
@@ -45,6 +46,7 @@ pub struct App {
     quitting: bool,
     registry: Option<PathBuf>,
     read_at: Option<Instant>,
+    summary: Option<Summary>,
 }
 
 #[derive(Clone, Copy, PartialEq)]
@@ -116,6 +118,7 @@ impl App {
             quitting: false,
             registry: None,
             read_at: None,
+            summary: None,
         }
     }
 
@@ -136,6 +139,11 @@ impl App {
 
     pub fn with_registry(mut self, dir: PathBuf) -> App {
         self.registry = Some(dir);
+        self
+    }
+
+    pub fn with_summary(mut self, summary: Summary) -> App {
+        self.summary = Some(summary);
         self
     }
 

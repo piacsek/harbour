@@ -45,6 +45,39 @@ impl State {
     }
 }
 
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct Counts {
+    pub blocked: usize,
+    pub working: usize,
+    pub idle: usize,
+    pub unknown: usize,
+}
+
+impl Counts {
+    pub fn plus(self, other: Counts) -> Counts {
+        Counts {
+            blocked: self.blocked.saturating_add(other.blocked),
+            working: self.working.saturating_add(other.working),
+            idle: self.idle.saturating_add(other.idle),
+            unknown: self.unknown.saturating_add(other.unknown),
+        }
+    }
+}
+
+pub fn status_line(counts: Counts) -> String {
+    [
+        (State::Blocked, "fg=red", counts.blocked),
+        (State::Working, "fg=yellow", counts.working),
+        (State::Idle, "dim", counts.idle),
+        (State::Unknown, "fg=brightblack", counts.unknown),
+    ]
+    .into_iter()
+    .filter(|(_, _, count)| *count > 0)
+    .map(|(state, style, count)| format!("#[{style}]{} {count}#[default]", state.glyph()))
+    .collect::<Vec<_>>()
+    .join(" ")
+}
+
 pub fn row(
     name: &str,
     exit_note: Option<String>,
@@ -95,19 +128,19 @@ fn shortened(name: &str, reason: &str, width: usize) -> String {
     format!("{kept}…")
 }
 
-pub fn title<'a>(
-    sessions: impl Iterator<Item = (bool, Option<&'a Record>)>,
-    width: usize,
-) -> Line<'static> {
-    let mut counts = [0; 4];
-    for (exited, record) in sessions {
-        counts[match State::of(exited, record) {
-            State::Working => 0,
-            State::Blocked => 1,
-            State::Idle | State::Exited => 2,
-            State::Unknown => 3,
-        }] += 1;
-    }
+pub fn counts<'a>(sessions: impl Iterator<Item = (bool, Option<&'a Record>)>) -> Counts {
+    sessions.fold(Counts::default(), |mut counts, (exited, record)| {
+        match State::of(exited, record) {
+            State::Working => counts.working += 1,
+            State::Blocked => counts.blocked += 1,
+            State::Idle | State::Exited => counts.idle += 1,
+            State::Unknown => counts.unknown += 1,
+        }
+        counts
+    })
+}
+
+pub fn title(counts: Counts, width: usize) -> Line<'static> {
     let full = counted(" sessions ", counts, " ");
     if full.width() <= width {
         full
@@ -116,13 +149,13 @@ pub fn title<'a>(
     }
 }
 
-fn counted(lead: &str, counts: [usize; 4], gap: &str) -> Line<'static> {
+fn counted(lead: &str, counts: Counts, gap: &str) -> Line<'static> {
     let mut spans = vec![Span::from(lead.to_string())];
     for (glyph, style, count) in [
-        ("●", State::Working.style(), counts[0]),
-        ("◉", State::Blocked.style(), counts[1]),
-        ("○", Style::default(), counts[2]),
-        ("·", Style::default(), counts[3]),
+        ("●", State::Working.style(), counts.working),
+        ("◉", State::Blocked.style(), counts.blocked),
+        ("○", Style::default(), counts.idle),
+        ("·", Style::default(), counts.unknown),
     ] {
         spans.push(Span::styled(glyph, style));
         spans.push(Span::from(format!("{gap}{count} ")));

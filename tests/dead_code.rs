@@ -4,6 +4,7 @@ const SEAMS: &[&str] = &[
     "check",
     "check_released",
     "SESSION_COMMAND",
+    "retrying_every",
     "with_patience",
 ];
 

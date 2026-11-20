@@ -2,13 +2,18 @@ use std::io::IsTerminal;
 use std::process::ExitCode;
 
 use harbour::changelog::CHANGELOG;
+use harbour::{state, summary};
 
 const USAGE: &str = "harbour: Harbour: where shipping begins
 
-usage: harbour [--demo | --help | --version | changelog]
+usage: harbour [--demo | --help | --version | changelog | status]
 
 With no argument on a terminal, harbour opens a sidebar of Claude Code sessions
-beside a live pane. --demo opens the same with made-up sessions: no claude needed.";
+beside a live pane. --demo opens the same with made-up sessions: no claude needed.
+status prints how many sessions of every running harbour are blocked, working,
+idle or unknown. For tmux, put #(harbour status) in your status-right, for example
+  set -g status-right '#(harbour status) %H:%M'
+and raise status-right-length if the counts are cut off.";
 
 fn main() -> ExitCode {
     let args: Vec<_> = std::env::args_os().skip(1).collect();
@@ -25,12 +30,26 @@ fn main() -> ExitCode {
             print!("{CHANGELOG}");
             ExitCode::SUCCESS
         }
+        [Some("status")] => {
+            print_status();
+            ExitCode::SUCCESS
+        }
         [] if on_a_terminal() => shown(harbour::tui::run()),
         [Some("--demo")] if on_a_terminal() => shown(harbour::tui::demo()),
         _ => {
             eprintln!("{USAGE}");
             ExitCode::FAILURE
         }
+    }
+}
+
+fn print_status() {
+    let Some(dir) = summary::directory_from_env() else {
+        return;
+    };
+    let line = state::status_line(summary::total(&dir));
+    if !line.is_empty() {
+        println!("{line}");
     }
 }
 

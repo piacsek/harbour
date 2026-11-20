@@ -11,6 +11,7 @@ mod picker;
 const AGENT: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/agent.sh");
 const ARGS_AGENT: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/args-agent.sh");
 const RAW_AGENT: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/raw-agent.sh");
+const WORKING: &str = "#[fg=yellow]● 1#[default]\n";
 const PICKER: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/picker.sh");
 const FAKE_FZF: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/fzf");
 const TOOLS: [&str; 8] = [
@@ -303,6 +304,36 @@ fn without_a_claude_config_dir_the_registry_is_read_under_home() {
 
 #[test]
 #[ignore]
+fn harbour_status_counts_the_sessions_of_a_running_harbour() {
+    let home = tempfile::tempdir().unwrap();
+    let server = Server::start("status", 160, 20);
+    server.run(home.path(), &[(SESSION_COMMAND, REGISTERED_AGENT)], &[]);
+    server.wait_for_screen("press n to start one");
+
+    server.send_keys(&["n"]);
+
+    let line = wait_for_status(home.path(), |line| line == WORKING);
+    assert_eq!(line, WORKING);
+}
+
+#[test]
+#[ignore]
+fn harbour_status_prints_nothing_once_harbour_quits() {
+    let home = tempfile::tempdir().unwrap();
+    let server = Server::start("status-quit", 160, 20);
+    server.run(home.path(), &[(SESSION_COMMAND, REGISTERED_AGENT)], &[]);
+    server.wait_for_screen("press n to start one");
+    server.send_keys(&["n"]);
+    wait_for_status(home.path(), |line| line == WORKING);
+
+    server.send_keys(&["q", "y"]);
+    server.wait_for_screen("harbour exited 0");
+
+    assert_eq!(wait_for_status(home.path(), str::is_empty), "");
+}
+
+#[test]
+#[ignore]
 fn the_demo_shows_a_made_up_session_in_each_state() {
     let home = tempfile::tempdir().unwrap();
     let server = Server::start("demo", 160, 20);
@@ -528,6 +559,23 @@ impl Drop for Server {
 
 fn quoted(word: &str) -> String {
     format!("'{}'", word.replace('\'', r"'\''"))
+}
+
+fn wait_for_status(home: &Path, done: impl Fn(&str) -> bool) -> String {
+    let deadline = Instant::now() + Duration::from_secs(10);
+    loop {
+        let output = Command::new(env!("CARGO_BIN_EXE_harbour"))
+            .arg("status")
+            .env("HOME", home)
+            .env_remove("XDG_STATE_HOME")
+            .output()
+            .unwrap();
+        let line = String::from_utf8_lossy(&output.stdout).into_owned();
+        if done(&line) || Instant::now() > deadline {
+            return line;
+        }
+        sleep(Duration::from_millis(50));
+    }
 }
 
 fn scratch_tmp(home: &Path) -> std::path::PathBuf {

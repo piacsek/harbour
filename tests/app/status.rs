@@ -3,7 +3,11 @@ use std::process::Command;
 use std::thread::sleep;
 use std::time::{Duration, Instant};
 
+use crossterm::event::{KeyCode, KeyModifiers};
 use harbour::app::App;
+use harbour::editor::Program;
+use harbour::picker::Picker;
+use harbour::summary::Summary;
 use ratatui::Terminal;
 use ratatui::backend::TestBackend;
 use ratatui::buffer::Cell;
@@ -322,9 +326,97 @@ fn with_no_session_the_title_counts_zero_of_each() {
     assert!(shown.contains(" sessions ● 0 ◉ 0 ○ 0 · 0 "), "{shown}");
 }
 
+#[test]
+fn a_running_harbour_publishes_the_counts_of_the_title() {
+    let registry = tempfile::tempdir().unwrap();
+    let state = tempfile::tempdir().unwrap();
+    let mut screen = showing(
+        App::new(registered(registry.path(), "busy"))
+            .with_registry(registry.path().to_path_buf())
+            .with_summary(Summary::new(state.path())),
+    );
+    screen.press('n');
+
+    screen.wait_for(&format!("● {} 1", directory()));
+
+    assert_eq!(
+        std::fs::read_to_string(counts_file(state.path())).unwrap(),
+        "0 1 0 0\n"
+    );
+}
+
+#[test]
+fn a_session_started_through_the_picker_is_published_like_any_other() {
+    let registry = tempfile::tempdir().unwrap();
+    let state = tempfile::tempdir().unwrap();
+    let scratch = tempfile::tempdir().unwrap();
+    let web = scratch.path().join("acme-web");
+    std::fs::create_dir(&web).unwrap();
+    let mut screen = showing(
+        App::new(registered(registry.path(), "busy"))
+            .with_picker(Picker::Command(script(
+                "echo 'acme picker' >&2; read -r line; printf '%s\\n' \"$line\"",
+            )))
+            .with_registry(registry.path().to_path_buf())
+            .with_summary(Summary::new(state.path())),
+    );
+    screen.press('n');
+    screen.wait_for("acme picker");
+    screen.type_text(&format!("{}\r", web.display()));
+
+    screen.wait_for("● acme-web 1");
+
+    assert_eq!(
+        std::fs::read_to_string(counts_file(state.path())).unwrap(),
+        "0 1 0 0\n"
+    );
+}
+
+#[test]
+fn a_session_with_its_editor_open_is_published_once() {
+    let registry = tempfile::tempdir().unwrap();
+    let state = tempfile::tempdir().unwrap();
+    let mut screen = showing(
+        App::new(registered(registry.path(), "busy"))
+            .with_editor(Program::new(
+                "acme-edit",
+                script("echo 'acme editor ready'; exec sleep 600"),
+            ))
+            .with_registry(registry.path().to_path_buf())
+            .with_summary(Summary::new(state.path())),
+    );
+    screen.press('n');
+    screen.wait_for(&format!("● {} 1", directory()));
+    screen.key(KeyCode::Enter, KeyModifiers::NONE);
+    screen.key(KeyCode::Char('l'), KeyModifiers::CONTROL);
+
+    screen.wait_for("acme editor ready");
+
+    assert_eq!(
+        std::fs::read_to_string(counts_file(state.path())).unwrap(),
+        "0 1 0 0\n"
+    );
+}
+
+#[test]
+fn a_harbour_that_quits_removes_its_counts() {
+    let state = tempfile::tempdir().unwrap();
+    let screen =
+        showing(App::new(script("exec sleep 600")).with_summary(Summary::new(state.path())));
+    counts_file(state.path());
+
+    drop(screen);
+
+    assert_eq!(std::fs::read_dir(state.path()).unwrap().count(), 0);
+}
+
 fn watching(registry: &Path, command: Vec<String>) -> Screen {
+    showing(App::new(command).with_registry(registry.to_path_buf()))
+}
+
+fn showing(app: App) -> Screen {
     let mut screen = Screen {
-        app: App::new(command).with_registry(registry.to_path_buf()),
+        app,
         terminal: Terminal::new(TestBackend::new(120, 20)).unwrap(),
     };
     let width = 3 * (directory().chars().count() + 32);
@@ -385,6 +477,21 @@ fn only_file(registry: &Path) -> PathBuf {
         .unwrap()
         .unwrap()
         .path()
+}
+
+fn counts_file(state: &Path) -> PathBuf {
+    let deadline = std::time::Instant::now() + Duration::from_secs(5);
+    loop {
+        let found = std::fs::read_dir(state)
+            .unwrap()
+            .map(|entry| entry.unwrap().path())
+            .find(|path| path.extension().is_some_and(|ext| ext == "counts"));
+        if let Some(path) = found {
+            return path;
+        }
+        assert!(std::time::Instant::now() < deadline, "no counts published");
+        std::thread::sleep(Duration::from_millis(20));
+    }
 }
 
 fn unblock_after(delay: Duration, fifo: PathBuf) {
