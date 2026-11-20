@@ -79,4 +79,22 @@ One red-green-refactor cycle each, shipped with `scripts/ship.sh`.
 
 ## Outcome
 
+- Shipped as planned in six tasks on PR #13: each sidebar row's dot follows Claude Code's own
+  session file (`src/registry.rs` reads it, `src/state.rs` turns it into a dot, a reason, the
+  title counts and the help legend), read at most every 500 ms from `draw`.
+- A session harbour cannot read (not Claude Code, no file yet, an unknown status, a malformed
+  file) shows a dark grey `○`, so every running row of a build without a registry moved from
+  `●` to that `○`, and the older tests moved with it.
+- The binary's wiring to `CLAUDE_CONFIG_DIR` and `HOME` landed with task 2 instead of task 5:
+  without a caller in `src/`, `with_registry` would have been test-only, and `tests/dead_code.rs`
+  refuses that. Task 5 kept the e2e tests and the help legend.
+- `serde` and `serde_json` are new dependencies, for the session file.
+- The demo shows a session in each state (working, blocked on a permission prompt, idle,
+  exited 1, unknown) by writing its own registry under the temp dir, removed when it ends; the
+  screenshots were rerun.
+
 ## Hurdles
+
+- `test-seam` The exited-dot test passed on its first run, since task 2 already dimmed an exited dot; as in phase 2, a test that is green at once proves nothing until the code is broken → none
+- `tooling` A `sed` that moved the demo's running rows from `●` to `○` also rewrote the new registry e2e tests, which then failed until restored by hand → none
+- `process` The dead-code rule pulled the binary's registry wiring from task 5 into task 2, so the plan's task order did not hold → none
