@@ -159,9 +159,11 @@ next to the code; read the one for a directory before changing anything in it.
 
 ## Known limits
 
-Accepted limits the orchestrator treats as decided when it rates review findings, one line each,
-with where they are written down. A limit joins it when a review finding is declined for good; a
-finding on one still counts as must when it shows new impact.
+Accepted limits any reviewer treats as decided (the orchestrator when it rates findings, the
+`/code-review` agent and the `adversarial-review` skill when they read this file), one line each,
+with where they are written down. Pointing reviewers here is not priming, since the list is in
+the repo. A limit joins it when a review finding is declined for good; a finding on one still
+counts as must when it shows new impact.
 
 - **The `version` check judges "feeds the binary" by path only**, can be pointed by cargo at
   manifests outside its copy, and refuses a fragment name git would quote
@@ -431,11 +433,14 @@ nearest the code the guideline is about.
   rates what holds by the severity definition below. The skill's conventions pass reads
   `CLAUDE.md` files; the root `CLAUDE.md` links to this file, so it reads the root rules of the
   checkout it runs in, but `tests/AGENTS.md` and `.github/AGENTS.md` have no such link, so each
-  round the orchestrator also checks the diff against the rules of every `AGENTS.md` (the fragment, the screenshot of a
-  visible change, TDD shown red, the public-repo rule, the README shape) and reports a break
-  as a finding like any other. No reviewer runs the gates: `scripts/ship.sh` runs them, the
-  scrub check included, before every push, and the required `check` job tests the pull
-  request. `gh pr ready` comes after the findings are addressed, not before.
+  round the orchestrator also checks the diff against the rules of every `AGENTS.md` (the
+  fragment, the screenshot of a visible change, TDD shown red, read from the builder's reports
+  since the red run is not in the diff, the public-repo rule, the README shape) and reports a
+  break as a finding like any other. No reviewer runs the gates: `scripts/ship.sh` runs them,
+  the scrub check included, before every push, and the required `check` job tests the pull
+  request. Before `gh pr ready` the orchestrator runs `scripts/scrub-check.sh` in the branch's
+  worktree at the PR head, since CI does not run the scrub and a commit pushed without
+  `ship.sh` would otherwise never meet it. `gh pr ready` comes after the findings are addressed, not before.
   - **Severity by reachability.** A finding is must or should only when the user hits it while
     using harbour, the release pipeline hits it in normal operation, or a pull request could
     execute code or reach a token or secret. A bypass that needs a deliberately forged file,
