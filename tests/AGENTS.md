@@ -68,7 +68,9 @@ these suites come from; the ones about sessions were hit in harbour.
   sockets or other system calls runs its tests in a Linux container before its first push, from
   a `rust:<channel>` image, the channel of `rust-toolchain.toml` (phase 6 used `rust:1.98.1`;
   phase 12 recorded no command). The end-to-end tests are `#[ignore]` and need tmux, which the
-  stock image lacks.
+  stock image lacks: covering them means installing tmux in the container and running
+  `cargo test -- --include-ignored`, as the `check` job of `ci.yml` does (it installs `tmux`
+  with `apt-get`, then runs `cargo test --locked -- --include-ignored`).
 
 - **A screen assertion waits for the text it asserts, never for a neighbouring signal.** A
   session's exit can be seen before its last output is parsed, and one write can reach the
