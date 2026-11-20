@@ -237,7 +237,7 @@ fn the_demo_shows_a_made_up_session_in_each_state() {
         "◉ acme-api 2 permission prompt",
         "○ acme-api 3",
         "○ acme-api 4 exited 1",
-        "○ acme-api 5",
+        "· acme-api 5",
         "fix the flaky retry test in acme/api",
     ];
     let screen = server.wait_for_screen_all(&rows);

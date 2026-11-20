@@ -1,5 +1,5 @@
 use std::path::PathBuf;
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime};
 
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers, MouseEvent, MouseEventKind};
 use portable_pty::ExitStatus;
@@ -52,6 +52,7 @@ struct Entry {
     id: usize,
     name: String,
     session: Session,
+    started_at: SystemTime,
     record: Option<Record>,
 }
 
@@ -233,6 +234,7 @@ impl App {
     }
 
     fn start_with(&mut self, command: &[String]) {
+        let started_at = SystemTime::now();
         match Session::start(command, self.pane.height, self.pane.width) {
             Ok(session) => {
                 self.failed = None;
@@ -241,6 +243,7 @@ impl App {
                     id: self.started,
                     name: format!("{} {}", self.directory, self.started),
                     session,
+                    started_at,
                     record: None,
                 });
                 self.selected = self.sessions.len() - 1;
@@ -263,7 +266,13 @@ impl App {
         }
         self.read_at = Some(Instant::now());
         for entry in &mut self.sessions {
-            entry.record = entry.session.pid().and_then(|pid| registry::read(dir, pid));
+            entry.record = match entry.session.exit() {
+                Some(_) => None,
+                None => entry
+                    .session
+                    .pid()
+                    .and_then(|pid| registry::read(dir, pid, entry.started_at)),
+            };
         }
     }
 
@@ -281,6 +290,7 @@ impl App {
                 .iter()
                 .zip(&notes)
                 .map(|(entry, note)| (note.is_some(), entry.record.as_ref())),
+            usize::from(sidebar.width.saturating_sub(2)),
         );
         let mut sidebar_block = bordered(!self.pane_focused).title(title);
         match self.asking {
@@ -303,7 +313,14 @@ impl App {
             .sessions
             .iter()
             .zip(notes)
-            .map(|(entry, note)| state::row(&entry.name, note, entry.record.as_ref()))
+            .map(|(entry, note)| {
+                state::row(
+                    &entry.name,
+                    note,
+                    entry.record.as_ref(),
+                    usize::from(below_rows.width.saturating_sub(2)),
+                )
+            })
             .collect();
         let exited = self
             .sessions

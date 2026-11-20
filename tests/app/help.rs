@@ -35,7 +35,7 @@ fn question_mark_explains_the_dots() {
     );
     assert!(shown.contains("○ idle, or exited"), "{shown}");
     assert!(
-        shown.contains("○ status unknown: not Claude Code, or not written yet"),
+        shown.contains("· status unknown: not Claude Code, or not written yet"),
         "{shown}"
     );
     let (x, y) = glyph_at(&shown, "◉ blocked");

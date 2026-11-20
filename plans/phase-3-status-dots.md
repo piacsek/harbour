@@ -40,9 +40,10 @@ What the user sees in a session's row, for every state the registry and the proc
 | running | `status` `waiting`, with `waitingFor` | `◉` | red | name, then what it waits for in red |
 | running | `status` `waiting`, no `waitingFor` | `◉` | red | name |
 | running | `status` `idle` | `○` | dim | name |
-| running | absent (not written yet, not Claude Code, removed) | `○` | dark grey | name |
-| running | unreadable, not JSON, `status` missing or a value not listed | `○` | dark grey | name |
-| running | no registry directory (no `CLAUDE_CONFIG_DIR` and no `HOME`) | `○` | dark grey | name |
+| running | absent (not written yet, not Claude Code, removed) | `·` | dark grey | name |
+| running | unreadable, not JSON, `status` missing or a value not listed | `·` | dark grey | name |
+| running | no registry directory (no `CLAUDE_CONFIG_DIR` and no `HOME`) | `·` | dark grey | name |
+| running | last written more than 2 s before the session started (left by an earlier process with the same pid) | `·` | dark grey | name |
 | exited | anything | `○` | dim | name, "exited" and the code, as today |
 
 The title counts the dots: ` sessions ● <working> ◉ <blocked> ○ <the rest> `, all three always
@@ -58,6 +59,16 @@ shown, zeros included. A change in the file shows within about 500 ms, the read 
 - **Only the dot and the waiting reason are coloured.** The name keeps its style (bold when
   selected), so cyan keeps meaning "where you are".
 - **The title always carries the three counts**, even with no session, so its shape never moves.
+  When ` sessions ● a ◉ b ○ c ` does not fit the sidebar (under about 72 columns), the word
+  `sessions` goes and the counts stay. `○` counts idle, exited and unknown alike.
+- **A waiting reason always shows, at least in part.** When the name and the reason do not fit,
+  the name is cut with `…` to what is left after the reason, but never below half the row, and
+  the reason is cut at the border. Other rows keep their full name; issue #9 redoes the card.
+- **Unknown has its own glyph, `·`,** so idle and unknown differ by shape, not by shade alone.
+- **A file last written more than 2 s before its session started is ignored**, as left by an
+  earlier process with the same pid; the 2 s allow for file systems with coarse timestamps.
+- **The registry is read on the draw thread.** The files are a few hundred bytes on local disk,
+  read at most every 500 ms; a slow config directory is a known limit in `AGENTS.md`.
 - **The demo writes its own registry** in a temporary directory: each made-up session writes its
   file the way Claude Code does, so the demo goes through the same code and never reads the
   user's real registry. The directory is removed when the demo ends.
@@ -83,8 +94,8 @@ One red-green-refactor cycle each, shipped with `scripts/ship.sh`.
   session file (`src/registry.rs` reads it, `src/state.rs` turns it into a dot, a reason, the
   title counts and the help legend), read at most every 500 ms from `draw`.
 - A session harbour cannot read (not Claude Code, no file yet, an unknown status, a malformed
-  file) shows a dark grey `○`, so every running row of a build without a registry moved from
-  `●` to that `○`, and the older tests moved with it.
+  file) shows a dark grey `·` (a `○` until review round 1), so every running row of a build
+  without a registry moved from `●` to that `·`, and the older tests moved with it.
 - The binary's wiring to `CLAUDE_CONFIG_DIR` and `HOME` landed with task 2 instead of task 5:
   without a caller in `src/`, `with_registry` would have been test-only, and `tests/dead_code.rs`
   refuses that. Task 5 kept the e2e tests and the help legend.
@@ -97,4 +108,6 @@ One red-green-refactor cycle each, shipped with `scripts/ship.sh`.
 
 - `test-seam` The exited-dot test passed on its first run, since task 2 already dimmed an exited dot; as in phase 2, a test that is green at once proves nothing until the code is broken → none
 - `tooling` A `sed` that moved the demo's running rows from `●` to `○` also rewrote the new registry e2e tests, which then failed until restored by hand → none
+- `review-loop` Round 1 found the title and the waiting reason cut off at the narrowest sidebars, which the plan's state table never covered by width → code
+- `test-seam` Two tests quoted `$$` in single quotes, so they wrote a literal `$$.json` and tested a missing file instead of the malformed and stale files they named → code
 - `process` The dead-code rule pulled the binary's registry wiring from task 5 into task 2, so the plan's task order did not hold → none

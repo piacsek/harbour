@@ -1,4 +1,5 @@
 use std::path::{Path, PathBuf};
+use std::process::Command;
 use std::thread::sleep;
 use std::time::{Duration, Instant};
 
@@ -48,7 +49,7 @@ fn an_idle_session_shows_a_dim_hollow_dot() {
 }
 
 #[test]
-fn a_session_without_a_registry_file_shows_a_dark_grey_hollow_dot() {
+fn a_session_without_a_registry_file_shows_a_dark_grey_middle_dot() {
     let registry = tempfile::tempdir().unwrap();
     let mut screen = watching(
         registry.path(),
@@ -59,12 +60,12 @@ fn a_session_without_a_registry_file_shows_a_dark_grey_hollow_dot() {
     screen.wait_for("acme shell ready");
     let dot = after_a_read(&mut screen);
 
-    assert_eq!(dot.symbol(), "○");
+    assert_eq!(dot.symbol(), "·");
     assert_eq!(dot.fg, Color::DarkGray);
 }
 
 #[test]
-fn an_unknown_status_shows_a_dark_grey_hollow_dot() {
+fn an_unknown_status_shows_a_dark_grey_middle_dot() {
     let registry = tempfile::tempdir().unwrap();
     let mut screen = watching(registry.path(), registered(registry.path(), "meditating"));
     screen.press('n');
@@ -72,18 +73,18 @@ fn an_unknown_status_shows_a_dark_grey_hollow_dot() {
     screen.wait_for("acme agent registered");
     let dot = after_a_read(&mut screen);
 
-    assert_eq!(dot.symbol(), "○");
+    assert_eq!(dot.symbol(), "·");
     assert_eq!(dot.fg, Color::DarkGray);
 }
 
 #[test]
-fn a_malformed_registry_file_shows_a_dark_grey_hollow_dot() {
+fn a_malformed_registry_file_shows_a_dark_grey_middle_dot() {
     let registry = tempfile::tempdir().unwrap();
-    let file = format!("{}/$$.json", registry.path().display());
+    let dir = registry.path().display();
     let mut screen = watching(
         registry.path(),
         script(&format!(
-            "printf '{{not json' > '{file}'; echo 'acme agent registered'; exec sleep 600"
+            "printf '{{not json' > '{dir}'/$$.json; echo 'acme agent registered'; exec sleep 600"
         )),
     );
     screen.press('n');
@@ -91,7 +92,7 @@ fn a_malformed_registry_file_shows_a_dark_grey_hollow_dot() {
     screen.wait_for("acme agent registered");
     let dot = after_a_read(&mut screen);
 
-    assert_eq!(dot.symbol(), "○");
+    assert_eq!(dot.symbol(), "·");
     assert_eq!(dot.fg, Color::DarkGray);
 }
 
@@ -149,11 +150,11 @@ fn a_session_waiting_without_a_reason_shows_the_red_target_alone() {
 #[test]
 fn an_exited_session_shows_a_dim_hollow_dot_whatever_its_file_says() {
     let registry = tempfile::tempdir().unwrap();
-    let file = format!("{}/$$.json", registry.path().display());
+    let dir = registry.path().display();
     let mut screen = watching(
         registry.path(),
         script(&format!(
-            "printf '{{\"status\":\"busy\"}}' > '{file}'; sleep 1; exit 3"
+            "printf '{{\"status\":\"busy\"}}' > '{dir}'/$$.json; sleep 1; exit 3"
         )),
     );
     screen.press('n');
@@ -164,6 +165,35 @@ fn an_exited_session_shows_a_dim_hollow_dot_whatever_its_file_says() {
     assert!(shown.contains(&row), "{shown}");
     assert!(screen.cell(3, 1).modifier.contains(Modifier::DIM));
     assert_eq!(screen.cell(3, 1).fg, Color::Reset);
+}
+
+#[test]
+fn the_file_of_an_exited_session_is_never_read() {
+    let registry = tempfile::tempdir().unwrap();
+    let scratch = tempfile::tempdir().unwrap();
+    let mut screen = watching(
+        registry.path(),
+        script(&format!(
+            "echo $$ > '{}/pid'; exit 3",
+            scratch.path().display()
+        )),
+    );
+    screen.press('n');
+    screen.wait_for(&format!("○ {} 1 exited 3", directory()));
+    let pid = std::fs::read_to_string(scratch.path().join("pid")).unwrap();
+    let fifo = registry.path().join(format!("{}.json", pid.trim()));
+    let made = Command::new("mkfifo").arg(&fifo).status().unwrap();
+    assert!(made.success());
+    unblock_after(Duration::from_secs(3), fifo);
+
+    let start = Instant::now();
+    after_a_read(&mut screen);
+
+    assert!(
+        start.elapsed() < Duration::from_secs(2),
+        "{:?}",
+        start.elapsed()
+    );
 }
 
 #[test]
@@ -182,6 +212,76 @@ fn the_sidebar_title_counts_the_sessions_by_dot() {
     assert!(shown.contains(" sessions ● 1 ◉ 1 ○ 2 "), "{shown}");
     assert_eq!(screen.cell(11, 0).fg, Color::Yellow);
     assert_eq!(screen.cell(15, 0).fg, Color::Red);
+}
+
+#[test]
+fn the_narrowest_sidebar_keeps_every_count_in_the_title_even_past_nine() {
+    let registry = tempfile::tempdir().unwrap();
+    let scratch = tempfile::tempdir().unwrap();
+    let mut screen = watching(registry.path(), chosen(registry.path(), scratch.path()));
+    screen.resize(60, 20);
+
+    for (started, status) in ["busy"; 10]
+        .into_iter()
+        .chain(["waiting", "idle"])
+        .enumerate()
+    {
+        std::fs::write(scratch.path().join("status"), status).unwrap();
+        screen.press('n');
+        wait_for_files(registry.path(), started + 1);
+    }
+
+    let shown = screen.wait_for("● 10 ◉ 1 ○ 1");
+    let title = shown.lines().next().unwrap();
+    assert!(title.contains(" ● 10 ◉ 1 ○ 1 "), "{shown}");
+}
+
+#[test]
+fn a_wide_sidebar_names_the_sessions_in_the_title() {
+    let registry = tempfile::tempdir().unwrap();
+    let mut screen = watching(registry.path(), registered(registry.path(), "busy"));
+    screen.resize(120, 20);
+
+    let shown = screen.draw();
+
+    assert!(shown.contains(" sessions ● 0 ◉ 0 ○ 0 "), "{shown}");
+}
+
+#[test]
+fn the_narrowest_sidebar_shortens_the_name_so_the_waiting_reason_shows() {
+    let registry = tempfile::tempdir().unwrap();
+    let mut screen = watching(
+        registry.path(),
+        written(
+            registry.path(),
+            r#"{"status":"waiting","waitingFor":"permission prompt"}"#,
+        ),
+    );
+    screen.resize(60, 20);
+    screen.press('n');
+
+    let row = wait_for_sidebar_row(&mut screen, " perm");
+
+    assert!(row.contains("◉ "), "{row}");
+    assert!(row.contains(" perm"), "{row}");
+}
+
+#[test]
+fn a_waiting_reason_that_fits_beside_the_name_is_not_shortened() {
+    let registry = tempfile::tempdir().unwrap();
+    let mut screen = watching(
+        registry.path(),
+        written(
+            registry.path(),
+            r#"{"status":"waiting","waitingFor":"input"}"#,
+        ),
+    );
+    screen.press('n');
+
+    let row = format!("◉ {} 1 input", directory());
+    let shown = screen.wait_for(&row);
+
+    assert!(shown.contains(&row), "{shown}");
 }
 
 #[test]
@@ -257,4 +357,32 @@ fn only_file(registry: &Path) -> PathBuf {
         .unwrap()
         .unwrap()
         .path()
+}
+
+fn unblock_after(delay: Duration, fifo: PathBuf) {
+    std::thread::spawn(move || {
+        sleep(delay);
+        loop {
+            drop(std::fs::OpenOptions::new().write(true).open(&fifo));
+        }
+    });
+}
+
+fn wait_for_sidebar_row(screen: &mut Screen, text: &str) -> String {
+    let deadline = Instant::now() + Duration::from_secs(5);
+    loop {
+        let shown = screen.draw();
+        let row: String = shown.lines().nth(1).unwrap().chars().take(20).collect();
+        if row.contains(text) || Instant::now() > deadline {
+            return row;
+        }
+        sleep(Duration::from_millis(20));
+    }
+}
+
+fn wait_for_files(registry: &Path, count: usize) {
+    let deadline = Instant::now() + Duration::from_secs(5);
+    while std::fs::read_dir(registry).unwrap().count() < count && Instant::now() < deadline {
+        sleep(Duration::from_millis(20));
+    }
 }

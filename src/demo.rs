@@ -1,4 +1,5 @@
-use std::path::Path;
+use std::io;
+use std::path::{Path, PathBuf};
 
 const WORKING: &str = r#"printf '\033[38;5;209m*\033[0m \033[1macme agent\033[0m in ~/%s\n\n' "${PWD##*/}"
 printf '\033[2m>\033[0m fix the flaky retry test in acme/api\n\n'
@@ -54,4 +55,23 @@ fn registered(registry: &Path, record: &str, text: &str) -> Vec<String> {
 
 fn script(text: &str) -> Vec<String> {
     vec!["/bin/sh".to_string(), "-c".to_string(), text.to_string()]
+}
+
+pub struct Registry(PathBuf);
+
+impl Registry {
+    pub fn create(path: PathBuf) -> io::Result<Registry> {
+        std::fs::create_dir_all(&path)?;
+        Ok(Registry(path))
+    }
+
+    pub fn path(&self) -> &Path {
+        &self.0
+    }
+}
+
+impl Drop for Registry {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_dir_all(&self.0);
+    }
 }

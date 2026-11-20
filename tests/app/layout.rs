@@ -45,7 +45,7 @@ fn a_narrow_terminal_shows_the_sidebar_alone_while_it_has_focus() {
     screen.resize(50, 16);
 
     let shown = screen.draw();
-    let row: String = format!("○ {}", directory()).chars().take(30).collect();
+    let row: String = format!("· {}", directory()).chars().take(30).collect();
     assert!(shown.contains(&row), "{shown}");
     assert!(!shown.contains("acme agent 1"), "{shown}");
 }

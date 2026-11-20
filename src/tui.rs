@@ -9,6 +9,7 @@ use crossterm::event::{
 use crossterm::execute;
 
 use crate::app::App;
+use crate::demo::Registry;
 use crate::registry;
 use crate::session;
 
@@ -25,11 +26,10 @@ pub fn run() -> io::Result<()> {
 }
 
 pub fn demo() -> io::Result<()> {
-    let registry = std::env::temp_dir().join(format!("harbour-demo-{}", std::process::id()));
-    std::fs::create_dir_all(&registry)?;
-    let result = show(App::demo(registry.clone()));
-    let _ = std::fs::remove_dir_all(&registry);
-    result
+    let registry = Registry::create(
+        std::env::temp_dir().join(format!("harbour-demo-{}", std::process::id())),
+    )?;
+    show(App::demo(registry.path().to_path_buf()))
 }
 
 fn show(app: App) -> io::Result<()> {

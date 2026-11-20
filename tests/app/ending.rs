@@ -15,7 +15,7 @@ fn x_on_a_running_session_asks_before_ending_it() {
 
     let shown = screen.draw();
     assert!(shown.contains(" End? y/n "), "{shown}");
-    assert!(shown.contains("▌ ○"), "{shown}");
+    assert!(shown.contains("▌ ·"), "{shown}");
 }
 
 #[test]
@@ -44,7 +44,7 @@ fn another_answer_to_the_question_keeps_the_session_running() {
 
     let shown = screen.draw();
     assert!(!shown.contains("y/n"), "{shown}");
-    assert!(shown.contains(&format!("○ {} 1", directory())), "{shown}");
+    assert!(shown.contains(&format!("· {} 1", directory())), "{shown}");
     assert!(!shown.contains("exited"), "{shown}");
     assert!(!shown.contains(&format!("{} 2", directory())), "{shown}");
 }
@@ -79,7 +79,7 @@ fn ctrl_y_to_the_question_keeps_the_session_running() {
 
     let shown = screen.draw();
     assert!(!shown.contains("y/n"), "{shown}");
-    assert!(shown.contains(&format!("○ {} 1", directory())), "{shown}");
+    assert!(shown.contains(&format!("· {} 1", directory())), "{shown}");
     assert!(!shown.contains("exited"), "{shown}");
 }
 

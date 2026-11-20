@@ -1,5 +1,6 @@
 use std::fs;
 use std::path::PathBuf;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use harbour::registry::{Record, Status, read, sessions_dir};
 
@@ -10,7 +11,7 @@ fn a_session_file_is_read_by_pid_ignoring_unknown_fields() {
     let dir = tempfile::tempdir().unwrap();
     fs::write(dir.path().join("27756.json"), SAMPLE).unwrap();
 
-    let record = read(dir.path(), 27756);
+    let record = read(dir.path(), 27756, UNIX_EPOCH);
 
     assert_eq!(
         record,
@@ -44,7 +45,7 @@ fn waiting_for_is_read_when_present() {
     )
     .unwrap();
 
-    let record = read(dir.path(), 1).unwrap();
+    let record = read(dir.path(), 1, UNIX_EPOCH).unwrap();
 
     assert_eq!(record.waiting_for.as_deref(), Some("permission prompt"));
 }
@@ -60,14 +61,69 @@ fn an_unknown_or_missing_status_reads_as_unknown() {
 }
 
 #[test]
+fn a_waiting_for_that_is_not_text_keeps_the_status_and_drops_the_reason() {
+    let dir = tempfile::tempdir().unwrap();
+    fs::write(
+        dir.path().join("1.json"),
+        r#"{"status":"waiting","waitingFor":{"kind":"permission"}}"#,
+    )
+    .unwrap();
+
+    let record = read(dir.path(), 1, UNIX_EPOCH);
+
+    assert_eq!(
+        record,
+        Some(Record {
+            status: Status::Waiting,
+            waiting_for: None,
+        })
+    );
+}
+
+#[test]
+fn a_status_that_is_not_text_reads_as_unknown() {
+    let dir = tempfile::tempdir().unwrap();
+    fs::write(dir.path().join("1.json"), r#"{"status":3}"#).unwrap();
+
+    assert_eq!(status(&dir, 1), Some(Status::Unknown));
+}
+
+#[test]
 fn a_missing_or_malformed_file_reads_as_nothing() {
     let dir = tempfile::tempdir().unwrap();
     fs::write(dir.path().join("1.json"), "{not json").unwrap();
     fs::write(dir.path().join("2.json.tmp"), SAMPLE).unwrap();
 
-    assert_eq!(read(dir.path(), 1), None);
-    assert_eq!(read(dir.path(), 2), None);
-    assert_eq!(read(dir.path(), 3), None);
+    assert_eq!(read(dir.path(), 1, UNIX_EPOCH), None);
+    assert_eq!(read(dir.path(), 2, UNIX_EPOCH), None);
+    assert_eq!(read(dir.path(), 3, UNIX_EPOCH), None);
+}
+
+#[test]
+fn a_file_last_written_well_before_the_session_started_is_left_from_another_process() {
+    let dir = tempfile::tempdir().unwrap();
+    fs::write(dir.path().join("1.json"), r#"{"status":"busy"}"#).unwrap();
+    let started = SystemTime::now();
+    fs::File::options()
+        .write(true)
+        .open(dir.path().join("1.json"))
+        .unwrap()
+        .set_modified(started - Duration::from_secs(3600))
+        .unwrap();
+
+    assert_eq!(read(dir.path(), 1, started), None);
+}
+
+#[test]
+fn a_file_written_around_the_start_of_the_session_is_read() {
+    let dir = tempfile::tempdir().unwrap();
+    fs::write(dir.path().join("1.json"), r#"{"status":"busy"}"#).unwrap();
+    let started = SystemTime::now() + Duration::from_secs(1);
+
+    assert_eq!(
+        read(dir.path(), 1, started).map(|record| record.status),
+        Some(Status::Busy)
+    );
 }
 
 #[test]
@@ -90,5 +146,5 @@ fn the_sessions_dir_honours_the_config_dir_and_defaults_to_home() {
 }
 
 fn status(dir: &tempfile::TempDir, pid: u32) -> Option<Status> {
-    read(dir.path(), pid).map(|record| record.status)
+    read(dir.path(), pid, UNIX_EPOCH).map(|record| record.status)
 }

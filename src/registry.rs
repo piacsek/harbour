@@ -1,7 +1,10 @@
-use std::fs;
+use std::fs::File;
+use std::io::Read;
 use std::path::{Path, PathBuf};
+use std::time::{Duration, SystemTime};
 
 use serde::Deserialize;
+use serde_json::{Map, Value};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -15,17 +18,33 @@ pub enum Status {
     Unknown,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Record {
-    #[serde(default)]
     pub status: Status,
     pub waiting_for: Option<String>,
 }
 
-pub fn read(dir: &Path, pid: u32) -> Option<Record> {
-    let text = fs::read_to_string(dir.join(format!("{pid}.json"))).ok()?;
-    serde_json::from_str(&text).ok()
+const CLOCK_SLACK: Duration = Duration::from_secs(2);
+
+pub fn read(dir: &Path, pid: u32, since: SystemTime) -> Option<Record> {
+    let mut file = File::open(dir.join(format!("{pid}.json"))).ok()?;
+    let modified = file.metadata().and_then(|meta| meta.modified()).ok();
+    if modified.is_some_and(|modified| modified + CLOCK_SLACK < since) {
+        return None;
+    }
+    let mut text = String::new();
+    file.read_to_string(&mut text).ok()?;
+    let fields: Map<String, Value> = serde_json::from_str(&text).ok()?;
+    Some(Record {
+        status: fields
+            .get("status")
+            .and_then(|status| Status::deserialize(status).ok())
+            .unwrap_or_default(),
+        waiting_for: fields
+            .get("waitingFor")
+            .and_then(Value::as_str)
+            .map(str::to_string),
+    })
 }
 
 pub fn sessions_dir(config_dir: Option<PathBuf>, home: Option<PathBuf>) -> Option<PathBuf> {

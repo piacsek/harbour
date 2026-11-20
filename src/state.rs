@@ -29,7 +29,8 @@ impl State {
         match self {
             State::Working => "●",
             State::Blocked => "◉",
-            State::Idle | State::Exited | State::Unknown => "○",
+            State::Idle | State::Exited => "○",
+            State::Unknown => "·",
         }
     }
 
@@ -43,18 +44,27 @@ impl State {
     }
 }
 
-pub fn row(name: &str, exit_note: Option<String>, record: Option<&Record>) -> Line<'static> {
+pub fn row(
+    name: &str,
+    exit_note: Option<String>,
+    record: Option<&Record>,
+    width: usize,
+) -> Line<'static> {
     let state = State::of(exit_note.is_some(), record);
+    let reason = record
+        .and_then(|record| record.waiting_for.as_ref())
+        .filter(|_| state == State::Blocked);
+    let name = match reason {
+        Some(reason) => shortened(name, reason, width),
+        None => name.to_string(),
+    };
     let mut spans = vec![
         Span::styled(state.glyph(), state.style()),
         Span::from(format!(" {name}")),
     ];
-    match (
-        exit_note,
-        record.and_then(|record| record.waiting_for.as_ref()),
-    ) {
+    match (exit_note, reason) {
         (Some(note), _) => spans.push(Span::from(format!(" exited{note}"))),
-        (None, Some(reason)) if state == State::Blocked => {
+        (None, Some(reason)) => {
             spans.push(Span::from(" "));
             spans.push(Span::styled(reason.clone(), state.style()));
         }
@@ -63,7 +73,25 @@ pub fn row(name: &str, exit_note: Option<String>, record: Option<&Record>) -> Li
     Line::from(spans)
 }
 
-pub fn title<'a>(sessions: impl Iterator<Item = (bool, Option<&'a Record>)>) -> Line<'static> {
+fn shortened(name: &str, reason: &str, width: usize) -> String {
+    let room = width.saturating_sub(2);
+    let length = name.chars().count();
+    let wanted = reason.chars().count() + 1;
+    if length + wanted <= room {
+        return name.to_string();
+    }
+    let budget = room.saturating_sub(wanted).max(room / 2);
+    if length <= budget {
+        return name.to_string();
+    }
+    let kept: String = name.chars().take(budget.saturating_sub(1)).collect();
+    format!("{kept}…")
+}
+
+pub fn title<'a>(
+    sessions: impl Iterator<Item = (bool, Option<&'a Record>)>,
+    width: usize,
+) -> Line<'static> {
     let mut counts = [0; 3];
     for (exited, record) in sessions {
         counts[match State::of(exited, record) {
@@ -72,15 +100,20 @@ pub fn title<'a>(sessions: impl Iterator<Item = (bool, Option<&'a Record>)>) -> 
             State::Idle | State::Exited | State::Unknown => 2,
         }] += 1;
     }
-    Line::from(vec![
-        Span::from(" sessions "),
+    let counts = vec![
         Span::styled("●", State::Working.style()),
         Span::from(format!(" {} ", counts[0])),
         Span::styled("◉", State::Blocked.style()),
         Span::from(format!(" {} ", counts[1])),
         Span::from("○"),
         Span::from(format!(" {} ", counts[2])),
-    ])
+    ];
+    let full = Line::from([vec![Span::from(" sessions ")], counts.clone()].concat());
+    if full.width() <= width {
+        full
+    } else {
+        Line::from([vec![Span::from(" ")], counts].concat())
+    }
 }
 
 pub fn legend() -> Vec<Line<'static>> {
