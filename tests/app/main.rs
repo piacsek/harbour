@@ -1,3 +1,5 @@
+mod ages;
+mod cards;
 mod ending;
 mod exits;
 mod focus;
@@ -7,8 +9,10 @@ mod layout;
 mod picker;
 mod selection;
 mod status;
+mod transcripts;
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
+use std::sync::OnceLock;
 use std::thread::sleep;
 use std::time::{Duration, Instant};
 
@@ -18,6 +22,9 @@ use harbour::picker::Picker;
 use ratatui::Terminal;
 use ratatui::backend::TestBackend;
 use ratatui::buffer::Cell;
+use tempfile::TempDir;
+
+const HOME: &str = "acme-home";
 
 struct Screen {
     app: App,
@@ -25,29 +32,21 @@ struct Screen {
 }
 
 impl Screen {
-    fn new(command: Vec<String>) -> Screen {
+    fn of(app: App) -> Screen {
         let mut screen = Screen {
-            app: App::new(command),
+            app: app.with_home(home()),
             terminal: Terminal::new(TestBackend::new(120, 20)).unwrap(),
         };
         screen.draw();
         screen
+    }
+
+    fn new(command: Vec<String>) -> Screen {
+        Screen::of(App::new(command))
     }
 
     fn picking(command: Vec<String>, picker: Picker) -> Screen {
-        let mut screen = Screen {
-            app: App::new(command).with_picker(picker),
-            terminal: Terminal::new(TestBackend::new(120, 20)).unwrap(),
-        };
-        screen.draw();
-        screen
-    }
-
-    fn wide(command: Vec<String>) -> Screen {
-        let mut screen = Screen::new(command);
-        let width = 3 * (directory().chars().count() + 32);
-        screen.resize(u16::try_from(width.max(120)).unwrap(), 20);
-        screen
+        Screen::of(App::new(command).with_picker(picker))
     }
 
     fn press(&mut self, c: char) {
@@ -151,12 +150,17 @@ fn raw_agent(request: &str, length: usize) -> Vec<String> {
 }
 
 fn directory() -> String {
-    std::env::current_dir()
-        .unwrap()
-        .file_name()
-        .unwrap()
-        .to_string_lossy()
-        .into_owned()
+    HOME.to_string()
+}
+
+fn home() -> PathBuf {
+    static SCRATCH: OnceLock<TempDir> = OnceLock::new();
+    let home = SCRATCH
+        .get_or_init(|| tempfile::tempdir().unwrap())
+        .path()
+        .join(HOME);
+    std::fs::create_dir_all(&home).unwrap();
+    home
 }
 
 fn numbered_agent(scratch: &Path) -> Vec<String> {
@@ -192,4 +196,17 @@ fn pane_corner(shown: &str) -> u16 {
         .position(|c| c == '┌' || c == '┏')
         .unwrap();
     u16::try_from(column + 1).unwrap()
+}
+
+fn below(shown: &str, text: &str) -> String {
+    let mut lines = shown.lines();
+    lines.find(|line| line.contains(text));
+    let next = lines.next().unwrap_or_default();
+    next.chars()
+        .skip(1)
+        .take_while(|c| !matches!(c, '│' | '┃'))
+        .collect::<String>()
+        .trim_start_matches(['▌', ' '])
+        .trim_end()
+        .to_string()
 }

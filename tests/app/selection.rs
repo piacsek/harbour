@@ -52,7 +52,7 @@ fn j_on_the_last_session_keeps_it_selected() {
 #[test]
 fn the_sidebar_marks_the_selected_session() {
     let scratch = tempfile::tempdir().unwrap();
-    let mut screen = Screen::wide(numbered_agent(scratch.path()));
+    let mut screen = Screen::new(numbered_agent(scratch.path()));
     screen.press('n');
     screen.wait_for("acme agent 1");
     screen.press('n');
@@ -81,5 +81,5 @@ fn the_selected_session_has_a_cyan_bar_on_its_left_edge() {
 
     assert_eq!(screen.cell(1, 1).symbol(), "▌");
     assert_eq!(screen.cell(1, 1).fg, Color::Cyan);
-    assert_eq!(screen.cell(1, 2).symbol(), " ");
+    assert_eq!(screen.cell(1, 5).symbol(), " ");
 }

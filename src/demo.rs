@@ -1,5 +1,7 @@
+use std::fs;
 use std::io;
-use std::path::Path;
+use std::path::{Path, PathBuf};
+use std::time::{Duration, SystemTime};
 
 use tempfile::TempDir;
 
@@ -38,20 +40,72 @@ pub fn picker() -> Picker {
 const UNKNOWN: &str = r#"printf 'acme shell in ~/%s\n' "${PWD##*/}"
 exec sleep 86400"#;
 
+pub fn fresh() -> Vec<String> {
+    script(WORKING)
+}
+
 pub fn working(registry: &Path) -> Vec<String> {
-    registered(registry, r#"{"status":"busy"}"#, WORKING)
+    carded(
+        registry,
+        Card {
+            id: "6f0c2a9e-31d4-4b7a-9e58-0d2c7f41a3b6",
+            checkout: "acme-api",
+            branch: "fix-retry",
+            record: r#""status":"busy""#,
+            minutes: 3,
+            transcript: &[
+                r#"{"type":"ai-title","aiTitle":"Fix the flaky retry test"}"#,
+                r#"{"type":"pr-link","prNumber":128}"#,
+                r#"{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Bash","input":{"command":"cargo test retry","description":"Run the retry tests"}}]}}"#,
+            ],
+            subagents: 2,
+        },
+        WORKING,
+    )
 }
 
 pub fn blocked(registry: &Path) -> Vec<String> {
-    registered(
+    carded(
         registry,
-        r#"{"status":"waiting","waitingFor":"permission prompt"}"#,
+        Card {
+            id: "b83e5d17-c0a2-4f69-8d14-7e9a2b6c05f1",
+            checkout: "acme-api",
+            branch: "release-0.4.1",
+            record: r#""status":"waiting","waitingFor":"permission prompt""#,
+            minutes: 1,
+            transcript: &[r#"{"type":"ai-title","aiTitle":"Publish the acme-api crate"}"#],
+            subagents: 0,
+        },
         BLOCKED,
     )
 }
 
 pub fn idle(registry: &Path) -> Vec<String> {
-    registered(registry, r#"{"status":"idle"}"#, IDLE)
+    carded(
+        registry,
+        Card {
+            id: "1d9f4c62-8e07-4a3b-b5c1-f2a6e8d03c97",
+            checkout: "acme-web",
+            branch: "main",
+            record: r#""status":"idle""#,
+            minutes: 12,
+            transcript: &[
+                r#"{"type":"ai-title","aiTitle":"Bump acme-web to the new client"}"#,
+                r#"{"type":"last-prompt","lastPrompt":"bump acme/web to the new api client"}"#,
+                r#"{"type":"pr-link","prNumber":131}"#,
+            ],
+            subagents: 0,
+        },
+        IDLE,
+    )
+}
+
+pub fn checkout(registry: &Path, name: &str, branch: &str) -> PathBuf {
+    let directory = registry.join(name);
+    let git = directory.join(".git");
+    let _ = fs::create_dir_all(&git)
+        .and_then(|()| fs::write(git.join("HEAD"), format!("ref: refs/heads/{branch}\n")));
+    directory
 }
 
 pub fn failed() -> Vec<String> {
@@ -62,9 +116,54 @@ pub fn unknown() -> Vec<String> {
     script(UNKNOWN)
 }
 
-fn registered(registry: &Path, record: &str, text: &str) -> Vec<String> {
+struct Card {
+    id: &'static str,
+    checkout: &'static str,
+    branch: &'static str,
+    record: &'static str,
+    minutes: u64,
+    transcript: &'static [&'static str],
+    subagents: usize,
+}
+
+fn carded(registry: &Path, card: Card, text: &str) -> Vec<String> {
     let dir = registry.display().to_string().replace('\'', r"'\''");
-    script(&format!("printf '%s' '{record}' > '{dir}'/$$.json\n{text}"))
+    let Card {
+        id,
+        checkout: name,
+        branch,
+        record,
+        minutes,
+        transcript,
+        subagents,
+    } = card;
+    let user = serde_json::json!({
+        "type": "user",
+        "cwd": checkout(registry, name, "main").display().to_string(),
+        "gitBranch": branch,
+        "message": {},
+    })
+    .to_string();
+    let lines = std::iter::once(user.as_str())
+        .chain(transcript.iter().copied())
+        .map(|line| format!("'{}'", line.replace('\'', r"'\''")))
+        .collect::<Vec<_>>()
+        .join(" ");
+    let mut setup = format!(
+        "mkdir -p '{dir}'/projects/demo/{id}/subagents\nprintf '%s\\n' {lines} > '{dir}'/projects/demo/{id}.jsonl\n"
+    );
+    for agent in 1..=subagents {
+        setup.push_str(&format!(
+            "printf '%s' '{{\"agentType\":\"Explore\"}}' > '{dir}'/projects/demo/{id}/subagents/agent-{agent}.meta.json\n"
+        ));
+    }
+    let since = SystemTime::now()
+        .checked_sub(Duration::from_secs(minutes * 60))
+        .and_then(|since| since.duration_since(SystemTime::UNIX_EPOCH).ok())
+        .map_or(0, |since| since.as_millis());
+    script(&format!(
+        "{setup}printf '%s' '{{{record},\"sessionId\":\"{id}\",\"statusUpdatedAt\":{since}}}' > '{dir}'/$$.json\n{text}"
+    ))
 }
 
 fn script(text: &str) -> Vec<String> {

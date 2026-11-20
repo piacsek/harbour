@@ -26,6 +26,10 @@ pub fn run() -> io::Result<()> {
         Some(dir) => app.with_registry(dir),
         None => app,
     };
+    let app = match claude_projects() {
+        Some(dir) => app.with_transcripts(dir),
+        None => app,
+    };
     show(match published() {
         Some(summary) => app.with_summary(summary),
         None => app,
@@ -93,6 +97,13 @@ fn session_command() -> Vec<String> {
 
 fn claude_sessions() -> Option<std::path::PathBuf> {
     registry::sessions_dir(
+        std::env::var_os("CLAUDE_CONFIG_DIR").map(Into::into),
+        std::env::var_os("HOME").map(Into::into),
+    )
+}
+
+fn claude_projects() -> Option<std::path::PathBuf> {
+    registry::projects_dir(
         std::env::var_os("CLAUDE_CONFIG_DIR").map(Into::into),
         std::env::var_os("HOME").map(Into::into),
     )

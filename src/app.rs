@@ -6,21 +6,23 @@ use crossterm::event::{KeyCode, KeyEvent, KeyModifiers, MouseEvent, MouseEventKi
 use portable_pty::ExitStatus;
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Layout, Position, Rect};
-use ratatui::style::{Color, Modifier, Stylize};
-use ratatui::text::{Line, Span};
-use ratatui::widgets::{
-    Block, BorderType, Clear, HighlightSpacing, List, ListState, Paragraph, Wrap,
-};
+use ratatui::style::{Color, Modifier};
+use ratatui::text::Line;
+use ratatui::widgets::{Block, BorderType, Clear, Paragraph, Wrap};
 
+use crate::card::{Card, Sidebar};
 use crate::demo;
 use crate::help;
 use crate::keys;
 use crate::mouse::{self, Gesture, Target};
 use crate::picker::{Pick, Picked, Picker};
 use crate::registry::{self, Record};
+use crate::repo::{self, Place};
 use crate::session::{self, Session};
 use crate::state;
 use crate::summary::Summary;
+use crate::text;
+use crate::transcript::Transcript;
 
 const NARROW: u16 = 60;
 const HINT: &str = "No session yet: press n to start one.";
@@ -39,6 +41,7 @@ pub struct App {
     pane: Rect,
     shown_pane: Rect,
     sidebar: Rect,
+    cards: Sidebar,
     pane_focused: bool,
     gesture: Gesture,
     failed: Option<String>,
@@ -46,6 +49,7 @@ pub struct App {
     helping: bool,
     quitting: bool,
     registry: Option<PathBuf>,
+    transcripts: Option<PathBuf>,
     read_at: Option<Instant>,
     summary: Option<Summary>,
 }
@@ -62,6 +66,23 @@ struct Entry {
     session: Session,
     started_at: SystemTime,
     record: Option<Record>,
+    directory: PathBuf,
+    place: Place,
+    exited_at: Option<Instant>,
+    transcript: Option<Transcript>,
+}
+
+impl Entry {
+    fn elapsed(&self) -> Option<Duration> {
+        match self.exited_at {
+            Some(at) => Some(at.elapsed()),
+            None => self
+                .record
+                .as_ref()
+                .and_then(|record| record.status_since)
+                .map(|since| SystemTime::now().duration_since(since).unwrap_or_default()),
+        }
+    }
 }
 
 impl App {
@@ -83,6 +104,7 @@ impl App {
             pane: Rect::new(0, 0, 80, 24),
             shown_pane: Rect::default(),
             sidebar: Rect::default(),
+            cards: Sidebar::default(),
             pane_focused: false,
             gesture: Gesture::Idle,
             failed: None,
@@ -90,9 +112,15 @@ impl App {
             helping: false,
             quitting: false,
             registry: None,
+            transcripts: None,
             read_at: None,
             summary: None,
         }
+    }
+
+    pub fn with_home(mut self, home: PathBuf) -> App {
+        self.home = home;
+        self
     }
 
     pub fn with_picker(mut self, picker: Picker) -> App {
@@ -105,20 +133,33 @@ impl App {
         self
     }
 
+    pub fn with_transcripts(mut self, projects: PathBuf) -> App {
+        self.transcripts = Some(projects);
+        self
+    }
+
     pub fn with_summary(mut self, summary: Summary) -> App {
         self.summary = Some(summary);
         self
     }
 
     pub fn demo(registry: PathBuf) -> App {
-        let mut app = App::new(demo::working(&registry))
+        let mut app = App::new(demo::fresh())
+            .with_home(demo::checkout(&registry, "acme-api", "main"))
             .with_registry(registry.clone())
+            .with_transcripts(registry.join("projects"))
             .with_picker(demo::picker());
-        app.start();
+        app.start_with(&demo::working(&registry));
         app.start_with(&demo::blocked(&registry));
         app.start_with(&demo::idle(&registry));
-        app.start_with(&demo::failed());
-        app.start_with(&demo::unknown());
+        app.start_in(
+            &demo::failed(),
+            &demo::checkout(&registry, "acme-web", "main"),
+        );
+        app.start_in(
+            &demo::unknown(),
+            &demo::checkout(&registry, "acme-infra", "tidy-dns"),
+        );
         app.selected = 0;
         app
     }
@@ -330,6 +371,10 @@ impl App {
                     session,
                     started_at,
                     record: None,
+                    directory: directory.to_path_buf(),
+                    place: repo::place(directory),
+                    exited_at: None,
+                    transcript: None,
                 });
                 self.selected = self.sessions.len() - 1;
             }
@@ -339,36 +384,60 @@ impl App {
         }
     }
 
-    fn read_registry(&mut self) {
-        let Some(dir) = &self.registry else {
-            return;
-        };
+    fn read_files(&mut self) {
         if self.read_at.is_some_and(|at| at.elapsed() < READ_EVERY) {
             return;
         }
         self.read_at = Some(Instant::now());
         for entry in &mut self.sessions {
             let last = entry.record.take();
-            entry.record = match entry.session.exit() {
-                Some(_) => None,
-                None => entry
-                    .session
-                    .pid()
-                    .and_then(|pid| registry::read(dir, pid, entry.started_at, last)),
-            };
+            if entry.session.exit().is_some() {
+                continue;
+            }
+            entry.record = self.registry.as_deref().and_then(|dir| {
+                let pid = entry.session.pid()?;
+                registry::read(dir, pid, entry.started_at, last)
+            });
+            let id = entry
+                .record
+                .as_ref()
+                .and_then(|record| record.session_id.as_deref());
+            if let (Some(id), Some(projects)) = (id, &self.transcripts)
+                && entry
+                    .transcript
+                    .as_ref()
+                    .is_none_or(|transcript| transcript.session_id() != id)
+            {
+                entry.transcript = Some(Transcript::new(projects, id).since(entry.started_at));
+            }
+            if let Some(transcript) = &mut entry.transcript {
+                transcript.read();
+            }
+            let directory = entry
+                .transcript
+                .as_ref()
+                .and_then(|transcript| transcript.facts().directory.as_deref())
+                .unwrap_or(&entry.directory);
+            entry.place = repo::place(directory);
         }
     }
 
     pub fn draw(&mut self, frame: &mut Frame) {
         self.finish_pick();
-        self.read_registry();
+        self.read_files();
         self.screen = frame.area();
         let (sidebar, pane) = self.areas(frame.area());
         self.sidebar = sidebar;
         let notes: Vec<Option<String>> = self
             .sessions
             .iter_mut()
-            .map(|entry| entry.session.exit().map(exit_note))
+            .map(|entry| {
+                let note = entry.session.exit().map(exit_note);
+                if note.is_some() {
+                    entry.exited_at.get_or_insert_with(Instant::now);
+                }
+                note
+            })
             .collect();
         let counts = state::counts(
             self.sessions
@@ -397,16 +466,18 @@ impl App {
         for entry in &mut self.sessions {
             entry.session.resize(self.pane.height, self.pane.width);
         }
-        let rows: Vec<Line> = self
+        let cards: Vec<Card> = self
             .sessions
             .iter()
             .zip(notes)
             .map(|(entry, note)| {
-                state::row(
+                Card::new(
                     &entry.name,
                     note,
                     entry.record.as_ref(),
-                    usize::from(below_rows.width.saturating_sub(2)),
+                    &entry.place,
+                    entry.elapsed(),
+                    entry.transcript.as_ref().map(Transcript::facts),
                 )
             })
             .collect();
@@ -431,16 +502,9 @@ impl App {
                 );
             }
             Some(shown) => {
-                let list = List::new(rows)
-                    .block(sidebar_block)
-                    .highlight_symbol(Line::from(vec![
-                        Span::from("▌").fg(Color::Cyan),
-                        Span::from(" "),
-                    ]))
-                    .highlight_spacing(HighlightSpacing::Always)
-                    .highlight_style(Modifier::BOLD);
-                let mut state = ListState::default().with_selected(Some(self.selected));
-                frame.render_stateful_widget(list, sidebar, &mut state);
+                frame.render_widget(sidebar_block, sidebar);
+                self.cards
+                    .draw(&cards, self.selected, below_rows, frame.buffer_mut());
                 if !pane.is_empty() {
                     frame.render_widget(pane_block, pane);
                     frame.render_widget(&shown.session, self.pane);
@@ -508,11 +572,9 @@ impl Drop for App {
 }
 
 fn draw_failure(frame: &mut Frame, failed: &str, area: Rect) {
-    let width = usize::from(area.width.max(1));
-    let chars: Vec<char> = failed.chars().collect();
-    let lines: Vec<Line> = chars
-        .chunks(width)
-        .map(|chunk| Line::from(chunk.iter().collect::<String>()))
+    let lines: Vec<Line> = text::wrap(failed, usize::from(area.width))
+        .into_iter()
+        .map(Line::from)
         .collect();
     let height = u16::try_from(lines.len())
         .unwrap_or(u16::MAX)

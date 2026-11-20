@@ -5,6 +5,7 @@ use std::time::{Duration, Instant};
 
 use harbour::tui::{DIR_PICKER, SESSION_COMMAND};
 
+mod cards;
 mod picker;
 
 const AGENT: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/agent.sh");
@@ -334,17 +335,28 @@ fn harbour_status_prints_nothing_once_harbour_quits() {
 #[ignore]
 fn the_demo_shows_a_made_up_session_in_each_state() {
     let home = tempfile::tempdir().unwrap();
-    let server = Server::start("demo", 160, 20);
+    let git = home.path().join("acme-api").join(".git");
+    std::fs::create_dir_all(&git).unwrap();
+    std::fs::write(git.join("HEAD"), "ref: refs/heads/acme-local-branch\n").unwrap();
+    let server = Server::start("demo", 160, 26);
 
     server.run(home.path(), &[], &["--demo"]);
 
     let rows = [
         " sessions ● 1 ◉ 1 ○ 2 · 1 ",
-        "● acme-api 1",
-        "◉ acme-api 2 permission prompt",
-        "○ acme-api 3",
-        "○ acme-api 4 exited 1",
-        "· acme-api 5",
+        "● Fix the flaky retry test",
+        "Run the retry tests",
+        "acme-api · fix-retry · #128 · 2 subagents",
+        "◉ Publish the acme-api crate",
+        "permission prompt",
+        "○ Bump acme-web to the new client",
+        "bump acme/web to the new api client",
+        "acme-web · main · #131",
+        "○ acme-web 4",
+        "exited 1",
+        "acme-web · main",
+        "· acme-infra 5",
+        "acme-infra · tidy-dns",
         "fix the flaky retry test in acme/api",
     ];
     let screen = server.wait_for_screen_all(&rows);
@@ -355,6 +367,15 @@ fn the_demo_shows_a_made_up_session_in_each_state() {
     assert!(screen.contains(rows[4]), "{screen}");
     assert!(screen.contains(rows[5]), "{screen}");
     assert!(screen.contains(rows[6]), "{screen}");
+    assert!(screen.contains(rows[7]), "{screen}");
+    assert!(screen.contains(rows[8]), "{screen}");
+    assert!(screen.contains(rows[9]), "{screen}");
+    assert!(screen.contains(rows[10]), "{screen}");
+    assert!(screen.contains(rows[11]), "{screen}");
+    assert!(screen.contains(rows[12]), "{screen}");
+    assert!(screen.contains(rows[13]), "{screen}");
+    assert!(screen.contains(rows[14]), "{screen}");
+    assert!(!screen.contains("acme-local-branch"), "{screen}");
 }
 
 #[test]
@@ -365,7 +386,7 @@ fn the_demo_removes_its_made_up_registry_when_it_ends() {
     let temp_dir = temp.path().display().to_string();
     let server = Server::start("demo-registry", 160, 20);
     server.run(home.path(), &[("TMPDIR", &temp_dir)], &["--demo"]);
-    server.wait_for_screen("◉ acme-api 2 permission prompt");
+    server.wait_for_screen("permission prompt");
     assert_eq!(std::fs::read_dir(temp.path()).unwrap().count(), 1);
 
     server.send_keys(&["q"]);

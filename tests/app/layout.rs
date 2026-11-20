@@ -3,10 +3,8 @@ use std::time::Duration;
 
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use harbour::app::App;
-use ratatui::Terminal;
-use ratatui::backend::TestBackend;
 
-use crate::{Screen, directory, numbered_agent, region, script, sized_agent};
+use crate::{Screen, directory, home, numbered_agent, region, script, sized_agent};
 
 #[test]
 fn the_hint_is_shown_whole_in_a_narrow_sidebar() {
@@ -16,6 +14,17 @@ fn the_hint_is_shown_whole_in_a_narrow_sidebar() {
 
     let sidebar = region(&screen.draw(), 1, 24);
     assert!(sidebar.contains("to start one."), "{sidebar}");
+}
+
+#[test]
+fn a_test_session_starts_in_a_scratch_folder_with_a_short_fixed_name() {
+    let mut screen = Screen::new(script("pwd; exec sleep 600"));
+    screen.press('n');
+
+    let shown = screen.wait_for("/acme-home");
+
+    assert!(shown.contains("· acme-home 1"), "{shown}");
+    assert!(shown.contains("/acme-home"), "{shown}");
 }
 
 #[test]
@@ -83,13 +92,11 @@ fn a_narrow_terminal_gives_a_session_the_whole_width() {
 fn a_session_started_before_the_first_draw_keeps_its_output() {
     let mut app = App::new(script(
         "echo 'acme agent: the retry now waits on its clock'; exec sleep 600",
-    ));
+    ))
+    .with_home(home());
     app.key(KeyEvent::new(KeyCode::Char('n'), KeyModifiers::NONE));
     sleep(Duration::from_millis(500));
-    let mut screen = Screen {
-        app,
-        terminal: Terminal::new(TestBackend::new(120, 20)).unwrap(),
-    };
+    let mut screen = Screen::of(app);
 
     let shown = screen.wait_for("acme agent: the retry now waits on its clock");
     assert!(
