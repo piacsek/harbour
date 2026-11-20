@@ -8,4 +8,5 @@ pub mod picker;
 pub mod registry;
 pub mod session;
 pub mod state;
+pub mod summary;
 pub mod tui;

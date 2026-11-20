@@ -13,6 +13,7 @@ use crate::demo::Registry;
 use crate::picker::Picker;
 use crate::registry;
 use crate::session;
+use crate::summary::{self, Summary};
 
 type PanicHook = dyn Fn(&PanicHookInfo<'_>) + Send + Sync + 'static;
 
@@ -21,8 +22,12 @@ pub const DIR_PICKER: &str = "HARBOUR_DIR_PICKER";
 
 pub fn run() -> io::Result<()> {
     let app = App::new(session_command()).with_picker(dir_picker());
-    show(match claude_sessions() {
+    let app = match claude_sessions() {
         Some(dir) => app.with_registry(dir),
+        None => app,
+    };
+    show(match published() {
+        Some(summary) => app.with_summary(summary),
         None => app,
     })
 }
@@ -91,4 +96,8 @@ fn claude_sessions() -> Option<std::path::PathBuf> {
         std::env::var_os("CLAUDE_CONFIG_DIR").map(Into::into),
         std::env::var_os("HOME").map(Into::into),
     )
+}
+
+fn published() -> Option<Summary> {
+    summary::directory_from_env().map(|dir| Summary::new(&dir))
 }
