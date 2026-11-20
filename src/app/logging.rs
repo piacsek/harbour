@@ -1,7 +1,8 @@
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
-use super::App;
+use super::{App, Entry};
 use crate::log::Log;
+use crate::session::Session;
 
 const BOUND: [char; 9] = ['q', 'n', 'x', 'e', '?', 'j', 'k', 'y', 'Y'];
 
@@ -10,10 +11,18 @@ pub(super) struct Logging {
     log: Log,
     started: bool,
     forwarded: bool,
-    selected: Option<usize>,
+    selected: Option<Selected>,
+    lives: Vec<(usize, bool)>,
+    editors: Vec<(usize, usize)>,
     focus: Option<Focus>,
     failed: Option<String>,
     quit: bool,
+}
+
+#[derive(PartialEq)]
+enum Selected {
+    Session(usize),
+    Stopped(Option<String>),
 }
 
 #[derive(Clone, Copy, PartialEq)]
@@ -95,14 +104,16 @@ impl App {
     }
 
     pub(super) fn log_changes(&mut self) {
-        let selected = self.sessions.get(self.selected).map(|entry| entry.id);
+        self.log_lives();
+        let entry = self.sessions.get(self.selected);
+        let selected = entry.map(selection);
         if selected != self.logging.selected {
             self.logging.selected = selected;
-            let entry = self.sessions.get(self.selected);
             self.logging.log.write(|| match entry {
                 Some(entry) => format!(
-                    "selected session={} directory={:?}",
-                    entry.id, entry.directory
+                    "selected {} directory={:?}",
+                    named_entry(entry),
+                    entry.directory
                 ),
                 None => "selected none".to_string(),
             });
@@ -134,6 +145,91 @@ impl App {
                 .log
                 .write(|| format!("quit sessions={sessions}"));
         }
+    }
+
+    fn log_lives(&mut self) {
+        let log = &self.logging.log;
+        let program = self.command.first().map_or("", String::as_str);
+        let editor_program = self.editor.as_ref().map_or("", |editor| editor.name());
+        let mut lives = Vec::new();
+        let mut editors = Vec::new();
+        for entry in &mut self.sessions {
+            if entry.session.is_none() {
+                continue;
+            }
+            let known = self
+                .logging
+                .lives
+                .iter()
+                .find(|(id, _)| *id == entry.id)
+                .copied();
+            if known.is_none() {
+                log.write(|| started(entry, program));
+            }
+            let exited = entry.exited_at.is_some();
+            if exited && known.is_none_or(|(_, was)| !was) {
+                let exit = entry.session.as_mut().and_then(Session::exit);
+                let status = exit.map_or(String::new(), |status| match status.signal() {
+                    Some(signal) => format!(" signal={signal:?}"),
+                    None => format!(" code={}", status.exit_code()),
+                });
+                log.write(|| format!("exited session={}{status}", entry.id));
+            }
+            lives.push((entry.id, exited));
+            for editor in &entry.editors {
+                if !self.logging.editors.contains(&(entry.id, editor.id)) {
+                    log.write(|| {
+                        format!(
+                            "editor started session={} editor={} program={editor_program:?} directory={:?}",
+                            entry.id, editor.id, editor.directory
+                        )
+                    });
+                }
+                editors.push((entry.id, editor.id));
+            }
+        }
+        for (session, editor) in &self.logging.editors {
+            if !editors.contains(&(*session, *editor)) {
+                log.write(|| format!("editor ended session={session} editor={editor}"));
+            }
+        }
+        self.logging.lives = lives;
+        self.logging.editors = editors;
+    }
+}
+
+fn started(entry: &Entry, program: &str) -> String {
+    match &entry.remembered {
+        Some(id) => format!(
+            "resumed session={} id={id:?} program={program:?} directory={:?}",
+            entry.id, entry.directory
+        ),
+        None => {
+            let id = entry
+                .transcript
+                .as_ref()
+                .map_or(String::new(), |transcript| {
+                    format!(" id={:?}", transcript.session_id())
+                });
+            format!(
+                "started session={} program={program:?}{id} directory={:?}",
+                entry.id, entry.directory
+            )
+        }
+    }
+}
+
+fn selection(entry: &Entry) -> Selected {
+    match entry.session {
+        Some(_) => Selected::Session(entry.id),
+        None => Selected::Stopped(entry.remembered.clone()),
+    }
+}
+
+fn named_entry(entry: &Entry) -> String {
+    match (&entry.session, &entry.remembered) {
+        (None, Some(id)) => format!("id={id:?}"),
+        _ => format!("session={}", entry.id),
     }
 }
 

@@ -224,7 +224,7 @@ fn q_with_no_session_logs_the_quit() {
     only(&read(&lines), " quit sessions=0\n");
 }
 
-fn focused(app: App) -> Screen {
+pub(crate) fn focused(app: App) -> Screen {
     let mut screen = Screen::of(app);
     screen.press('n');
     screen.wait_for("acme agent ready");
@@ -232,20 +232,20 @@ fn focused(app: App) -> Screen {
     screen
 }
 
-fn logged(app: App) -> (App, Receiver<String>) {
+pub(crate) fn logged(app: App) -> (App, Receiver<String>) {
     let (sender, lines) = mpsc::sync_channel(4096);
     (app.with_log(Log::sending(sender)), lines)
 }
 
-fn read(lines: &Receiver<String>) -> Vec<String> {
+pub(crate) fn read(lines: &Receiver<String>) -> Vec<String> {
     lines.try_iter().collect()
 }
 
-fn count(lines: &[String], event: &str) -> usize {
+pub(crate) fn count(lines: &[String], event: &str) -> usize {
     lines.iter().filter(|line| line.contains(event)).count()
 }
 
-fn only(lines: &[String], event: &str) -> String {
+pub(crate) fn only(lines: &[String], event: &str) -> String {
     let found: Vec<&String> = lines.iter().filter(|line| line.contains(event)).collect();
     assert_eq!(found.len(), 1, "{event:?} in {lines:#?}");
     found[0].clone()
