@@ -5,6 +5,7 @@ pub mod editor;
 pub mod help;
 pub mod keys;
 pub mod mouse;
+pub mod nvim;
 pub mod picker;
 pub mod registry;
 pub mod session;

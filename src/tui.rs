@@ -23,7 +23,7 @@ pub const DIR_PICKER: &str = "HARBOUR_DIR_PICKER";
 pub fn run() -> io::Result<()> {
     let app = App::new(session_command())
         .with_picker(dir_picker())
-        .with_editor(Program::new("nvim", vec!["nvim".to_string()]));
+        .with_editor(Program::neovim("nvim", vec!["nvim".to_string()]));
     show(match claude_sessions() {
         Some(dir) => app.with_registry(dir),
         None => app,

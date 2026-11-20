@@ -49,7 +49,8 @@ src/tui.rs                    the terminal: enters and restores it, reads its ev
 src/picker.rs                 the directory picker of `n`: a program run as a session in a popup, its standard output sent to a file in a temporary directory only its owner can open (0700), the first line it prints, as bytes, canonicalized (read from harbour's directory when relative), every path kept as bytes on the way into its arguments, exit statuses 126 and 127 (and 2 for fzf) named as "could not start"; fzf given `--no-expect --no-print-query --no-read0 --no-print0` after the user's `FZF_DEFAULT_OPTS`, so it prints one directory a line; for fzf the popup's own shell writes the list (harbour's directory first, then the list command's lines without it) into a FIFO fzf reads, so a slow list never holds up harbour, and a missing fzf means "start at once"
 src/app/mod.rs                the app: its state and what each key, paste and mouse event does
 src/app/draw.rs               what the app draws
-src/editor.rs                 an editor beside a session's Claude Code pane: the program it runs and the directory it belongs to
+src/editor.rs                 an editor beside a session's Claude Code pane: the program it runs and the directory it belongs to; Neovim listens on a socket in a private (0700) temporary directory removed with the editor
+src/nvim.rs                   `eval`: one msgpack-RPC `nvim_eval` over that socket, `None` for no answer within 100 ms
 src/tabs.rs                   `strip`, a pure function: the pane border's `claude | <editor>: <directory>`, fitted by display width (the directory loses its start first, then the editor's name, then `claude`)
 src/session.rs                a session: a command in a PTY, refused as `Not a directory: <path>` when its directory is not one, its output parsed into a screen that renders as a widget, its terminal queries answered, its exit status, its screen never under 2 rows or 2 columns (vt100 panics below that); every call into vt100 contained, so a panic gives that session a fresh screen with the modes its program had turned on and a repaint instead of taking harbour down, and the panic hook stays silent for it; writes go through a writer thread so a child that does not read never blocks the interface; ending it (or dropping it) hangs up its whole process group, then kills it, only while the child is unreaped; quitting hangs up every session first and waits once
 src/demo.rs                   the made-up sessions of `--demo` and its picker (fzf over made-up directories, without harbour's directory): `acme/*` scripts, never real data; the registry they write in the temp dir, removed when dropped
@@ -149,6 +150,9 @@ impact.
 - **`check` builds and tests on Linux only**: the tests never run on macOS, and a macOS-only
   break of the release build itself fails in the release run; the flake's macOS leg catches a
   plain macOS build break (`.github/AGENTS.md`).
+- **C-h over Neovim asks it a question on the key thread**: harbour waits up to 100 ms for
+  Neovim to say whether its leftmost window is in normal mode; a Neovim that never answers
+  costs that much per C-h, and the pane shows Claude Code (`src/nvim.rs`).
 - **A session that exited by itself leaves behind what ignores hangup**: once its command is
   reaped its pid can be reused, so harbour never signals its group again, and a background
   process that ignores hangup keeps running after its row is removed or harbour quits, as in any

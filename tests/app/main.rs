@@ -7,6 +7,7 @@ mod focus;
 mod help;
 mod input;
 mod layout;
+mod neovim;
 mod picker;
 mod selection;
 mod status;

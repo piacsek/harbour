@@ -158,7 +158,13 @@ impl App {
         }
         if self.pane_focused && is_ctrl(key, 'h') {
             match self.sessions.get_mut(self.selected) {
-                Some(entry) if entry.on_editor => entry.on_editor = false,
+                Some(entry) if entry.on_editor => {
+                    if entry.showing_editor().is_some_and(Editor::wants_ctrl_h) {
+                        entry.shown().send(&keys::encode(key, false));
+                    } else {
+                        entry.on_editor = false;
+                    }
+                }
                 _ => self.pane_focused = false,
             }
             return;
