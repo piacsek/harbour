@@ -46,6 +46,7 @@ fn the_demo_never_answers_harbour_edit() {
         String::from_utf8_lossy(&output.stderr),
         "harbour: no harbour is running\n"
     );
+    assert_eq!(output.status.code(), Some(3));
 }
 
 pub fn source_file(home: &Path, name: &str) -> PathBuf {

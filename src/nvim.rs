@@ -22,6 +22,12 @@ pub struct Mode {
     pub blocking: bool,
 }
 
+impl Mode {
+    pub fn waiting(&self) -> bool {
+        self.blocking || self.mode.starts_with(['c', 'r']) || self.mode.starts_with("no")
+    }
+}
+
 pub enum Edited {
     Done,
     Refused(String),
@@ -78,7 +84,7 @@ pub fn edit(socket: &Path, file: &Path, deadline: Instant) -> Option<Edited> {
             Reading::Pending if Instant::now() >= deadline => return None,
             Reading::Pending => {
                 let probe = deadline.min(Instant::now() + WATCH);
-                if mode(socket, probe).is_some_and(|mode| mode.blocking) {
+                if mode(socket, probe).is_some_and(|mode| mode.waiting()) {
                     return Some(Edited::Waiting);
                 }
             }

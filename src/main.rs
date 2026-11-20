@@ -17,8 +17,9 @@ and raise status-right-length if the counts are cut off.
 edit <file> opens the file in the Neovim editor of the harbour session whose
 repository or worktree holds it, selects that session and shows the editor.
 It exits 0 when harbour took the file, 3 when no harbour runs or answers, no
-session holds the file or the Neovim harbour started did not answer in time
-(open it yourself), 2 when harbour or Neovim refused it, and 1 on a usage error.
+session holds the file or the Neovim harbour started did not answer in time or
+exited (open it yourself), 2 when harbour or Neovim refused it or harbour went
+silent once it had the file (it may still open it), and 1 on a usage error.
 In tmux, splits and popups opened at #{pane_current_path} follow the selected
 session when harbour is typed at a shell prompt, or when a pane command or a
 wrapper script ends with exec harbour.";

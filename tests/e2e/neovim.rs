@@ -294,6 +294,7 @@ fn harbour_edit_while_neovim_shows_a_swap_prompt_is_refused_and_leaves_it_up() {
     let state = neovim.home.path().join("xdg/state");
     left_unsaved(&neovim, &first);
     let stalled = handed(neovim.home.path(), Some(state.to_str().unwrap()), &first);
+    assert_eq!(String::from_utf8_lossy(&stalled.stderr), WAITING);
     assert_eq!(stalled.status.code(), Some(2));
     neovim.shows("Found a swap file");
 

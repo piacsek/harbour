@@ -163,6 +163,7 @@ impl App {
                 entry.id = self.started;
                 entry.session = Some(session);
                 entry.started_at = started_at;
+                entry.used_at = started_at;
                 entry.record = None;
                 entry.exited_at = None;
                 entry.transcript = transcript;

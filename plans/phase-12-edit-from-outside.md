@@ -111,7 +111,8 @@ writes it, shuts its side, reads one reply line and closes.
 
 `harbour edit` exits 0 with no output only on success; every other row prints
 `harbour: <message>` on stderr and exits 3 when nobody took the file (a script opens it itself),
-2 when harbour or Neovim refused it, and 1 on a usage error.
+2 when harbour or Neovim refused it or a harbour went silent once it had the open (it may still
+open the file, so a script opening it too could open it twice), and 1 on a usage error.
 
 | State | In harbour | `harbour edit` prints | Exit |
 | --- | --- | --- | --- |
@@ -127,10 +128,13 @@ writes it, shuts its side, reads one reply line and closes.
 | Only a stopped card (a remembered session not resumed) holds it | unchanged, nothing resumed | `no harbour session holds <path>` | 3 |
 | A stopped card is selected and a running session also holds it | the running session gets it | nothing | 0 |
 | No harbour running (no folder, an empty one, only dead sockets) | (none) | `no harbour is running` | 3 |
-| `HARBOUR_EDITOR` is not Neovim | unchanged | `a file can only be handed to Neovim, and HARBOUR_EDITOR is <name>` | 2 |
+| `HARBOUR_EDITOR` is not Neovim | unchanged; it answers the `ask` with `none`, so another harbour with Neovim gets the file | `no harbour session holds <path>` when no other harbour holds it | 3 |
+| An `open` reaches a harbour whose `HARBOUR_EDITOR` is not Neovim | unchanged | `a file can only be handed to Neovim, and HARBOUR_EDITOR is <name>` | 2 |
 | Neovim is waiting for a key (`blocking`) | unchanged | `Neovim is waiting for a key; answer it and try again` | 2 |
 | Neovim does not answer (no socket, or no reply in 1 s) | unchanged | `Neovim did not answer` | 2 |
-| Neovim that harbour starts for the open stops at a prompt (a swap file left by a crashed Neovim), also when it first answered in normal mode before loading the file and `nvim_cmd` then waits behind the prompt (while `nvim_cmd` waits, harbour asks its mode every 50 ms and refuses as soon as it blocks) | unchanged; the started Neovim stays behind C-l | `Neovim is waiting for a key; answer it and try again` | 2 |
+| Neovim that harbour starts for the open stops at a prompt (a swap file left by a crashed Neovim), also when it first answered in normal mode before loading the file and `nvim_cmd` then waits behind the prompt (while `nvim_cmd` waits, harbour asks its mode every 50 ms and refuses as soon as it waits for a key, by the same rule as before the open) | unchanged; the started Neovim stays behind C-l | `Neovim is waiting for a key; answer it and try again` | 2 |
+| Neovim that harbour starts for the open exits before it takes the file | unchanged; harbour stops waiting at once | `Neovim exited before it took the file` | 3 |
+| A running Neovim raises a prompt on `nvim_cmd edit` (a stale swap file, mode `r?`, not `blocking`) | unchanged; the prompt stays up | `Neovim is waiting for a key; answer it and try again`, within 50 ms of the prompt | 2 |
 | Neovim that harbour starts for the open does not answer before the deadline | unchanged; harbour closes the Neovim it started, and C-l starts a new one | `Neovim did not start in time; harbour closed it` | 3 |
 | A running Neovim does not answer before the deadline, which ran out before its 1 s | unchanged | `harbour was busy and did not get to it in time` | 2 |
 | Neovim is on its command line (`c` modes), at a hit-enter or `-- More --` prompt (`r` modes) or waits for an operator's motion (`no` modes) | unchanged, nothing sent to it | `Neovim is waiting for a key; answer it and try again` | 2 |
@@ -144,6 +148,7 @@ writes it, shuts its side, reads one reply line and closes.
 | The request reaches the open past its deadline, or too close to it to reply in time | unchanged, no editor started | `harbour was busy and did not get to it in time` | 2 |
 | The help view is open | it closes, then as the first row | nothing | 0 |
 | Harbour busy past the deadline | the expired request is dropped, nothing opens | `no answer from harbour` | 2 |
+| A harbour answers the `ask`, then goes silent or quits before answering the `open` | the open may have been dispatched and may still open the file | `no answer from harbour` (2, not 3: a script that opened the file itself could open it twice) | 2 |
 | Harbours connected but none answered the `ask` in time | unchanged | `no harbour answered` | 3 |
 | A path climbing out of the root (`..`), a symlink in the root to a file outside it (dangling or not), a folder whose name only starts like the root | unchanged | `no harbour session holds <path>` | 3 |
 | A message holding control characters | (none) | the characters escaped (`\n`, `\u{1b}`) | as for that message |
@@ -232,6 +237,11 @@ Product decisions the issue did not settle, each taken the most conservative way
   (`untaken`, exit 3), `r` modes are refused, a request too close to its deadline gets "busy",
   and the listener sleeps in `poll` instead of waking every 5 ms. The help screenshot is sized
   to the text of `--help`.
+- Review round 4: the 50 ms check while `nvim_cmd` waits uses the one rule for "Neovim is
+  waiting" (`blocking`, or a `c`, `r` or `no` mode), so a swap prompt raised in a running Neovim
+  is refused at once; a harbour whose editor is not Neovim answers `none` to an ask; a started
+  Neovim that exits ends the wait at once; resuming a stopped card counts as its last use; the
+  usage says why a harbour silent after the `ask` exits 2.
 
 ## Hurdles
 
@@ -248,4 +258,5 @@ Product decisions the issue did not settle, each taken the most conservative way
 - `test-seam` The stale swap e2e test waited for the swap file, which Neovim writes on load before the change, so under a ship's load it killed Neovim before `preserve` and the unmodified swap was deleted; it waits for a file Neovim writes after `preserve` → code
 - `review-loop` Review round 3 found 3 should findings (the selected session at home took files from a repository session, a hit-enter prompt was not refused, and a Neovim harbour had just started got only 1 s) and 4 minor ones (`edit --help`, the listener polling every 5 ms, a busy harbour reported as a silent Neovim, the plan's promises); the holder is now the deepest root, `r` modes are refused, and a started Neovim gets the whole deadline or is closed → code
 - `test-seam` Running the real-Neovim tests 15 times under load showed two failures: `settled` took the screen as cleared while `:echo ''` was still typed on the command line, so `harbour edit` met mode `c` (it now waits until the command line is gone), and a Neovim harbour had just started answered `n` before loading its file, then raised the swap prompt with `nvim_cmd` waiting behind it, so the open was reported closed instead of waiting; a first fix asked the mode again 100 ms before the deadline, which CI's load ate, so harbour now asks its mode every 50 ms while `nvim_cmd` waits → code
+- `review-loop` Review round 4 found 1 should finding (the 50 ms check looked only at `blocking`, so a swap prompt `nvim_cmd` raised in a running Neovim, mode `r?`, ran the whole second and was reported silent; the e2e test asserted the status alone) and 4 minor ones (a non-Neovim harbour won the ask then refused, a started Neovim that exited cost the whole deadline, the usage hid why a silent harbour exits 2, a resume was not a use); the check shares `Mode::waiting`, and the e2e edit tests assert the message too → code
 - `test-seam` The real-Neovim prompt test ran at tmux's 24 rows, where the swap message filled the screen and Neovim showed `-- More --` (mode `rm`), so the `r` modes were never reached; the test now runs at 50 rows. The idle-listener test first read the wrong thread, since reader threads share the 15-character name; it runs in a binary of its own and retries until the thread is named → code

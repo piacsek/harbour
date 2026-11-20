@@ -288,6 +288,20 @@ fn open_with_an_editor_other_than_neovim_is_refused() {
 }
 
 #[test]
+fn ask_with_an_editor_other_than_neovim_holds_nothing() {
+    let scratch = tempfile::tempdir().unwrap();
+    let editor = Program::new("acme-edit", script("exec sleep 600"));
+    let mut screen = harbour_with(scratch.path(), editor);
+    start_in(&mut screen, scratch.path(), "acme-api", 1);
+
+    let reply = screen
+        .app
+        .hand(Verb::Ask, &file(scratch.path(), "acme-api"), soon());
+
+    assert_eq!(reply, Reply::None);
+}
+
+#[test]
 fn open_for_a_file_no_session_holds_is_refused() {
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = harbour(scratch.path());

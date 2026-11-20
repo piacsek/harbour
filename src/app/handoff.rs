@@ -10,6 +10,7 @@ const WAITING: &str = "harbour is waiting for an answer; try again after it";
 const BUSY: &str = "harbour was busy and did not get to it in time";
 const SILENT: &str = "Neovim did not answer";
 const CLOSED: &str = "Neovim did not start in time; harbour closed it";
+const EXITED: &str = "Neovim exited before it took the file";
 const OPEN_PATIENCE: Duration = Duration::from_secs(1);
 const REPLYING: Duration = Duration::from_millis(250);
 const SERVED_PER_FRAME: usize = 4;
@@ -21,6 +22,10 @@ impl App {
                 Verb::Ask => Reply::None,
                 Verb::Open => Reply::Refused(WAITING.to_string()),
             };
+        }
+        let neovim = self.editor.as_ref().is_none_or(Program::is_neovim);
+        if verb == Verb::Ask && !neovim {
+            return Reply::None;
         }
         if verb == Verb::Open {
             self.refresh_live();
@@ -171,8 +176,9 @@ impl App {
                     )
                     .map_err(Reply::Refused)?,
                 );
+                let newest = entry.editors.len() - 1;
                 if let Some((file, last)) = file
-                    && let Err(unopened) = entry.editors[entry.editors.len() - 1].open(file, last)
+                    && let Err(unopened) = entry.editors[newest].open(file, last)
                 {
                     if let Unopened::Silent = unopened {
                         entry.editors.pop();
@@ -181,7 +187,7 @@ impl App {
                     return Err(refused(unopened, SILENT));
                 }
                 self.failed = None;
-                entry.editors.len() - 1
+                newest
             }
         };
         entry.editor = Some(shown);
@@ -214,6 +220,7 @@ fn refused(unopened: Unopened, silent: &str) -> Reply {
     match unopened {
         Unopened::Refused(message) => Reply::Refused(message),
         Unopened::Silent => Reply::Refused(silent.to_string()),
+        Unopened::Exited => Reply::Untaken(EXITED.to_string()),
     }
 }
 

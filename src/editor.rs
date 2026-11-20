@@ -79,6 +79,7 @@ impl Program {
 pub enum Unopened {
     Refused(String),
     Silent,
+    Exited,
 }
 
 pub struct Editor {
@@ -141,16 +142,17 @@ impl Editor {
         }
     }
 
-    pub fn open(&self, file: &Path, deadline: Instant) -> Result<(), Unopened> {
+    pub fn open(&mut self, file: &Path, deadline: Instant) -> Result<(), Unopened> {
         let (socket, _) = self.socket.as_ref().ok_or(Unopened::Silent)?;
         let mode = loop {
             match nvim::mode(socket, deadline) {
                 Some(mode) => break mode,
+                None if self.session.exit().is_some() => return Err(Unopened::Exited),
                 None if Instant::now() + RETRY_OPEN < deadline => thread::sleep(RETRY_OPEN),
                 None => return Err(Unopened::Silent),
             }
         };
-        if waiting(&mode) {
+        if mode.waiting() {
             return Err(Unopened::Refused(WAITING.to_string()));
         }
         match nvim::edit(socket, file, deadline) {
@@ -225,8 +227,4 @@ fn label(directory: &Path) -> String {
         Some(below) => format!("~/{}", below.display()),
         None => directory.display().to_string(),
     }
-}
-
-fn waiting(mode: &nvim::Mode) -> bool {
-    mode.blocking || mode.mode.starts_with(['c', 'r']) || mode.mode.starts_with("no")
 }
