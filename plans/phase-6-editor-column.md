@@ -113,10 +113,31 @@ One red-green-refactor cycle each, shipped with `scripts/ship.sh`.
    editor per directory.
 7. `x` and `q` end the editors; the questions say when a Neovim has unsaved changes.
 8. The binary reads `HARBOUR_EDITOR`; the help view, its notes and the README.
-9. The demo's editor and the screenshots; end-to-end tests with the fixture editor and with a
-   real Neovim where one is installed.
+9. The demo's editor and the screenshots; end-to-end tests with the fixture editor. No test runs
+   a real Neovim: it would read the build machine's configuration and differ between machines,
+   and CI has none; the fake Neovim of `tests/app/neovim.rs` answers the same RPC instead.
 
 ## Outcome
+
+- Every row of the States table has a test: in process (`tests/app/editor*.rs`,
+  `tests/app/neovim.rs`, `tests/app/directory.rs`) with `/bin/sh` scripts standing in for the
+  editor, Neovim and `claude`, and end to end (`tests/e2e/editor.rs`) with
+  `tests/fixtures/editor.sh`, also linked as `nvim`, on the scratch `PATH`.
+- New modules: `src/editor.rs` (the program, the editor, its socket), `src/nvim.rs` (one
+  `nvim_eval` over msgpack-RPC, 100 ms), `src/transcript.rs` (Claude Code's `cwd` from its
+  transcript), `src/tabs.rs` (the border strip). `src/app.rs` became `src/app/mod.rs` and
+  `src/app/draw.rs` to stay under 700 lines.
+- Editors are not rows: a session with its editor open is counted once by the sidebar title
+  and by `harbour status`, and a test says so.
+- `main` was merged in after phase 5 shipped as v0.5.0; the counts are published at the top of
+  `App::draw` as on `main`.
+- `x` and `q` ask each Neovim they would end about unsaved changes on the key thread, up to
+  100 ms each; the known-limit line in `AGENTS.md` names it beside `C-h` and `C-l`.
+- The help view had no free row at 20 rows: the editor keys went into the `C-l/Enter` and `C-h`
+  rows and one note, and the picker note was shortened, so it still fits in 18 inner rows.
+- The demo has a made-up `nvim` (a script printing an `acme` file, no socket); `docs/details.png`
+  shows `claude | nvim` in the pane border and `docs/editor.png` shows the editor open.
+- Every Decision above was taken without the owner, as the most conservative reading of issue #4.
 
 ## Hurdles
 
@@ -129,3 +150,7 @@ One red-green-refactor cycle each, shipped with `scripts/ship.sh`.
   then ran out its 5 s `wait_for` before a picker or agent started, and `wait_for` returned
   quietly, so one failed later on a missing file with no screen shown; the helper that waits
   for the agent now asserts what it saw. The 5 s deadline itself was left as is → none
+- `tooling` The editor shot differed between two runs of `scripts/screenshots.sh`: its HOME was
+  a `/tmp` tempdir, macOS gives the session's directory as `/private/tmp/...`, so the border
+  showed the random path instead of `~/acme-api`; the script now resolves HOME with `pwd -P`.
+  A user whose HOME goes through a symlink sees the full path too → none

@@ -114,3 +114,18 @@ fn editing(server: &Server) -> String {
     server.send_keys(&["Enter", "C-l"]);
     server.wait_for_screen("acme editor in acme-api")
 }
+
+#[test]
+#[ignore]
+fn c_l_in_the_demo_opens_a_made_up_editor() {
+    let home = tempfile::tempdir().unwrap();
+    let server = Server::start("demo-editor", 160, 26);
+    server.run(home.path(), &[], &["--demo"]);
+    server.wait_for_screen("acme agent");
+
+    server.send_keys(&["Enter", "C-l"]);
+
+    let screen = server.wait_for_screen("src/retry.rs");
+    assert!(screen.contains("pub fn retry"), "{screen}");
+    assert!(screen.contains("claude | nvim: "), "{screen}");
+}

@@ -159,7 +159,8 @@ impl App {
     pub fn demo(registry: PathBuf) -> App {
         let mut app = App::new(demo::working(&registry))
             .with_registry(registry.clone())
-            .with_picker(demo::picker());
+            .with_picker(demo::picker())
+            .with_editor(demo::editor());
         app.start();
         app.start_with(&demo::blocked(&registry));
         app.start_with(&demo::idle(&registry));

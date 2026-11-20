@@ -15,7 +15,7 @@ for f in "$HOME/Library/Fonts/FiraCodeNerdFont-Regular.ttf" /usr/share/fonts/tru
 done
 
 sock="harbour-shots-$$"
-home="$(mktemp -d /tmp/harbour-shots.XXXXXX)"
+home="$(cd "$(mktemp -d /tmp/harbour-shots.XXXXXX)" && pwd -P)"
 trap 'tmux -L "$sock" kill-server 2>/dev/null || true; rm -rf "$home"' EXIT
 t() { tmux -L "$sock" -f /dev/null "$@"; }
 
@@ -54,7 +54,11 @@ shoot() {
   t resize-window -t "$shot_window" -x "$width" -y "$height"
   t respawn-pane -k -t "$shot_window" "cd $(printf %q "$home/acme-api") && env -u XDG_CONFIG_HOME -u XDG_STATE_HOME -u FZF_DEFAULT_OPTS -u FZF_DEFAULT_OPTS_FILE -u HARBOUR_DIR_PICKER -u HARBOUR_SESSION_COMMAND -u HARBOUR_EDITOR HOME=$(printf %q "$home") $(printf %q "$bin") $args; exec cat"
   sleep 1.5
-  [ -n "$keys" ] && t send-keys -t "$shot_window" "$keys" && sleep 0.5
+  local key
+  read -ra keys <<<"$keys"
+  for key in ${keys[@]+"${keys[@]}"}; do
+    t send-keys -t "$shot_window" "$key" && sleep 0.5
+  done
   t capture-pane -e -p -t "$shot_window" | python3 "$home/truecolor.py" >"$home/$name.ansi"
   render "$name" --padding 20,64,20,20 --window --language text
 }
@@ -70,6 +74,8 @@ shoot question 160 26 --demo "x"
 echo "wrote $out/question.png"
 shoot picker 160 26 --demo "n"
 echo "wrote $out/picker.png"
+shoot editor 160 26 --demo "Enter C-l"
+echo "wrote $out/editor.png"
 shoot narrow 56 26 --demo ""
 echo "wrote $out/narrow.png"
 shoot help 160 11 --help ""
