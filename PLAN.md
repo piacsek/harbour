@@ -21,6 +21,7 @@ file under `plans/`; its time and tokens are a row of [`plans/metrics.md`](plans
 | 11 | [tmux shortcuts that use the current directory follow the selected session](plans/phase-11-follow-selected-session.md) | [v0.8.0](https://github.com/piacsek/harbour/releases/tag/v0.8.0) |
 | 12 | [open a file in a session's editor from outside harbour](plans/phase-12-edit-from-outside.md) | [v0.10.0](https://github.com/piacsek/harbour/releases/tag/v0.10.0) |
 | 13 | [one review coordinator runs each pull request's review loop](plans/phase-13-review-coordinator.md) | |
+| 14 | [a log of what harbour saw and decided, turned on by `HARBOUR_LOG`](plans/phase-14-log.md) | |
 
 ## Backlog
 
