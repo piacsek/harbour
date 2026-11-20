@@ -17,6 +17,7 @@ mod input;
 mod keeping;
 mod layout;
 mod logging;
+mod logging_edits;
 mod logging_lives;
 mod moving;
 mod nearest;

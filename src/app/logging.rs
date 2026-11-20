@@ -1,6 +1,10 @@
+use std::path::Path;
+use std::time::Instant;
+
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
 use super::{App, Entry};
+use crate::handoff::{Reply, Verb};
 use crate::log::Log;
 use crate::session::Session;
 
@@ -45,6 +49,12 @@ impl Focus {
 pub(super) enum Input {
     Picker,
     Shown,
+}
+
+impl Logging {
+    pub(super) fn log(&self) -> &Log {
+        &self.log
+    }
 }
 
 impl App {
@@ -147,6 +157,33 @@ impl App {
         }
     }
 
+    pub(super) fn log_served(&self, verb: Verb, file: &Path, reply: &Reply, asked: Instant) {
+        self.logging.log.write(|| {
+            let reply = match reply {
+                Reply::Holds(claim) => format!(
+                    "holds depth={} selected={}",
+                    claim.depth,
+                    if claim.selected { "yes" } else { "no" }
+                ),
+                Reply::None => "none".to_string(),
+                Reply::Opened => "opened".to_string(),
+                Reply::Refused(message) => format!("refused message={message:?}"),
+                Reply::Untaken(message) => format!("untaken message={message:?}"),
+            };
+            format!(
+                "edit verb={} file={file:?} reply={reply} took={}ms",
+                verb_name(verb),
+                asked.elapsed().as_millis()
+            )
+        });
+    }
+
+    pub(super) fn log_expired(&self, verb: Verb, file: &Path) {
+        self.logging
+            .log
+            .write(|| format!("edit verb={} file={file:?} expired", verb_name(verb)));
+    }
+
     fn log_lives(&mut self) {
         let log = &self.logging.log;
         let program = self.command.first().map_or("", String::as_str);
@@ -216,6 +253,13 @@ fn started(entry: &Entry, program: &str) -> String {
                 entry.id, entry.directory
             )
         }
+    }
+}
+
+fn verb_name(verb: Verb) -> &'static str {
+    match verb {
+        Verb::Ask => "ask",
+        Verb::Open => "open",
     }
 }
 

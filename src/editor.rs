@@ -8,6 +8,7 @@ use std::time::{Duration, Instant};
 
 use tempfile::TempDir;
 
+use crate::log::Log;
 use crate::nvim;
 use crate::repo;
 use crate::session::Session;
@@ -89,6 +90,7 @@ pub struct Editor {
     pub session: Session,
     socket: Option<(PathBuf, TempDir)>,
     patience: Duration,
+    log: Log,
 }
 
 impl Editor {
@@ -128,7 +130,13 @@ impl Editor {
             session,
             socket,
             patience: program.patience,
+            log: Log::default(),
         })
+    }
+
+    pub fn with_log(mut self, log: Log) -> Editor {
+        self.log = log;
+        self
     }
 
     pub fn wants_ctrl_h(&self) -> bool {
@@ -136,7 +144,7 @@ impl Editor {
             Listening::Blocking => true,
             Listening::Ready(_, _, mode) if !NORMAL_MODES.contains(&mode.as_str()) => true,
             Listening::Ready(socket, deadline, _) => {
-                nvim::eval(socket, LEFTMOST, deadline) == Some(0)
+                self.evaluated(socket, LEFTMOST, deadline) == Some(0)
             }
             Listening::No => false,
         }
@@ -144,18 +152,26 @@ impl Editor {
 
     pub fn open(&mut self, file: &Path, deadline: Instant) -> Result<(), Unopened> {
         let (socket, _) = self.socket.as_ref().ok_or(Unopened::Silent)?;
+        let asked = Instant::now();
+        let mut tries = 0;
         let mode = loop {
+            tries += 1;
             match nvim::mode(socket, deadline) {
-                Some(mode) => break mode,
-                None if self.session.exit().is_some() => return Err(Unopened::Exited),
+                Some(mode) => break Ok(mode),
+                None if self.session.exit().is_some() => break Err(Unopened::Exited),
                 None if Instant::now() + RETRY_OPEN < deadline => thread::sleep(RETRY_OPEN),
-                None => return Err(Unopened::Silent),
+                None => break Err(Unopened::Silent),
             }
         };
+        called(&self.log, self.id, "mode", asked, mode.is_ok(), tries);
+        let mode = mode?;
         if mode.waiting() {
             return Err(Unopened::Refused(WAITING.to_string()));
         }
-        match nvim::edit(socket, file, deadline) {
+        let asked = Instant::now();
+        let edited = nvim::edit(socket, file, deadline);
+        called(&self.log, self.id, "edit", asked, edited.is_some(), 1);
+        match edited {
             Some(nvim::Edited::Done) => Ok(()),
             Some(nvim::Edited::Refused(error)) => {
                 Err(Unopened::Refused(format!("Neovim refused: {error}")))
@@ -169,7 +185,7 @@ impl Editor {
         let Listening::Ready(socket, deadline, _) = self.listening() else {
             return Changes::Unknown;
         };
-        match nvim::eval(socket, UNSAVED, deadline) {
+        match self.evaluated(socket, UNSAVED, deadline) {
             Some(0) => Changes::Saved,
             Some(_) => Changes::Unsaved,
             None => Changes::Unknown,
@@ -180,13 +196,38 @@ impl Editor {
         let Some((socket, _)) = &self.socket else {
             return Listening::No;
         };
-        let deadline = Instant::now() + self.patience;
-        match nvim::mode(socket, deadline) {
+        let asked = Instant::now();
+        let deadline = asked + self.patience;
+        let mode = nvim::mode(socket, deadline);
+        called(&self.log, self.id, "mode", asked, mode.is_some(), 1);
+        match mode {
             Some(mode) if mode.blocking => Listening::Blocking,
             Some(mode) => Listening::Ready(socket, deadline, mode.mode),
             None => Listening::No,
         }
     }
+
+    fn evaluated(&self, socket: &Path, expression: &str, deadline: Instant) -> Option<i64> {
+        let asked = Instant::now();
+        let value = nvim::eval(socket, expression, deadline);
+        called(&self.log, self.id, "eval", asked, value.is_some(), 1);
+        value
+    }
+}
+
+fn called(log: &Log, editor: usize, call: &str, asked: Instant, answered: bool, tries: usize) {
+    log.write(|| {
+        let tries = if tries > 1 {
+            format!(" tries={tries}")
+        } else {
+            String::new()
+        };
+        format!(
+            "neovim call={call} editor={editor} took={}ms answered={}{tries}",
+            asked.elapsed().as_millis(),
+            if answered { "yes" } else { "no" }
+        )
+    });
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
