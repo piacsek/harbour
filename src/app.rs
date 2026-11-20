@@ -85,7 +85,7 @@ impl App {
     }
 
     pub fn demo() -> App {
-        let mut app = App::new(demo::working());
+        let mut app = App::with_picker(demo::working(), demo::picker());
         app.start();
         app.start_with(&demo::failed());
         app.start();

@@ -8,6 +8,10 @@ use harbour::tui::{DIR_PICKER, SESSION_COMMAND};
 const AGENT: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/agent.sh");
 const RAW_AGENT: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/raw-agent.sh");
 const PICKER: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/picker.sh");
+const FAKE_FZF_PATH: &str = concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/tests/fixtures/fzf:/usr/bin:/bin"
+);
 
 #[test]
 #[ignore]
@@ -224,6 +228,20 @@ fn the_demo_shows_made_up_sessions_one_of_them_exited() {
         screen.contains("fix the flaky retry test in acme/api"),
         "{screen}"
     );
+}
+
+#[test]
+#[ignore]
+fn n_in_the_demo_lists_made_up_directories_in_fzf() {
+    let home = tempfile::tempdir().unwrap();
+    let server = Server::start("demo-picker", 160, 20);
+    server.run(home.path(), &[("PATH", FAKE_FZF_PATH)], &["--demo"]);
+    server.wait_for_screen("● acme-api 3");
+    server.send_keys(&["n"]);
+
+    let screen = server.wait_for_screen_all(&["acme fzf lists:", "/home/acme/web"]);
+    assert!(screen.contains("acme fzf lists:"), "{screen}");
+    assert!(screen.contains("/home/acme/web"), "{screen}");
 }
 
 struct Server {

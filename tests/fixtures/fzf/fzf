@@ -1,0 +1,4 @@
+#!/bin/sh
+echo 'acme fzf lists:' >&2
+cat >&2
+exec sleep 600
