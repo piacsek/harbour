@@ -14,6 +14,7 @@ use crate::demo;
 use crate::help;
 use crate::keys;
 use crate::mouse::{self, Gesture, Target};
+use crate::picker::{Pick, Picked, Picker};
 use crate::session::{self, Session};
 
 const NARROW: u16 = 60;
@@ -21,8 +22,10 @@ const HINT: &str = "No session yet: press n to start one.";
 
 pub struct App {
     command: Vec<String>,
-    directory: String,
     home: PathBuf,
+    picker: Option<Picker>,
+    picking: Option<Pick>,
+    screen: Rect,
     sessions: Vec<Entry>,
     selected: usize,
     started: usize,
@@ -54,8 +57,10 @@ impl App {
         let home = std::env::current_dir().unwrap_or_default();
         App {
             command,
-            directory: folder_name(&home),
             home,
+            picker: None,
+            picking: None,
+            screen: Rect::new(0, 0, 80, 24),
             sessions: Vec::new(),
             selected: 0,
             started: 0,
@@ -71,6 +76,12 @@ impl App {
         }
     }
 
+    pub fn with_picker(command: Vec<String>, picker: Picker) -> App {
+        let mut app = App::new(command);
+        app.picker = Some(picker);
+        app
+    }
+
     pub fn demo() -> App {
         let mut app = App::new(demo::working());
         app.start();
@@ -84,6 +95,11 @@ impl App {
     }
 
     pub fn key(&mut self, key: KeyEvent) {
+        if let Some(pick) = &self.picking {
+            let session = pick.session();
+            session.send(&keys::encode(key, session.application_cursor()));
+            return;
+        }
         if self.dismiss(is_yes(key)) {
             return;
         }
@@ -99,7 +115,7 @@ impl App {
             _ if is_ctrl(key, 'l') => self.pane_focused = !self.sessions.is_empty(),
             KeyCode::Enter => self.pane_focused = !self.sessions.is_empty(),
             KeyCode::Char('q') => self.quit(),
-            KeyCode::Char('n') => self.start(),
+            KeyCode::Char('n') => self.pick_or_start(),
             KeyCode::Char('x') => self.end_or_remove(),
             KeyCode::Char('?') => self.helping = true,
             KeyCode::Char('j') => {
@@ -207,18 +223,44 @@ impl App {
         }
     }
 
+    fn pick_or_start(&mut self) {
+        let Some(picker) = &self.picker else {
+            self.start();
+            return;
+        };
+        let popup = popup(self.screen);
+        match Pick::open(picker, &self.home, popup.height, popup.width) {
+            Ok(pick) => self.picking = Some(pick),
+            Err(error) => self.failed = Some(format!("Could not open the picker: {error}")),
+        }
+    }
+
+    fn finish_pick(&mut self) {
+        let Some(picked) = self.picking.as_mut().and_then(Pick::picked) else {
+            return;
+        };
+        self.picking = None;
+        match picked {
+            Picked::Chosen(directory) => self.start_in(&self.command.clone(), &directory),
+        }
+    }
+
     fn start(&mut self) {
         self.start_with(&self.command.clone());
     }
 
     fn start_with(&mut self, command: &[String]) {
-        match Session::start(command, &self.home, self.pane.height, self.pane.width) {
+        self.start_in(command, &self.home.clone());
+    }
+
+    fn start_in(&mut self, command: &[String], directory: &Path) {
+        match Session::start(command, directory, self.pane.height, self.pane.width) {
             Ok(session) => {
                 self.failed = None;
                 self.started += 1;
                 self.sessions.push(Entry {
                     id: self.started,
-                    name: format!("{} {}", self.directory, self.started),
+                    name: format!("{} {}", folder_name(directory), self.started),
                     session,
                 });
                 self.selected = self.sessions.len() - 1;
@@ -233,6 +275,8 @@ impl App {
     }
 
     pub fn draw(&mut self, frame: &mut Frame) {
+        self.finish_pick();
+        self.screen = frame.area();
         let (sidebar, pane) = self.areas(frame.area());
         self.sidebar = sidebar;
         let mut sidebar_block = bordered(!self.pane_focused).title(" sessions ");
@@ -305,6 +349,15 @@ impl App {
         }
         if self.helping {
             self.draw_help(frame);
+        }
+        if let Some(pick) = &mut self.picking {
+            let area = popup(frame.area());
+            let block = bordered(true).title(" directory ");
+            let inner = block.inner(area);
+            pick.resize(inner.height, inner.width);
+            frame.render_widget(Clear, area);
+            frame.render_widget(block, area);
+            frame.render_widget(pick.session(), inner);
         }
     }
 
@@ -387,4 +440,8 @@ fn folder_name(path: &Path) -> String {
     path.file_name()
         .map(|name| name.to_string_lossy().into_owned())
         .unwrap_or_default()
+}
+
+fn popup(area: Rect) -> Rect {
+    area.centered(Constraint::Percentage(80), Constraint::Percentage(80))
 }
