@@ -39,9 +39,9 @@ harbour status      # blocked, working and idle counts for the tmux status line
 |---|---|
 | `j/k` | select the next / previous session |
 | `n` | pick a directory and start a session there |
-| `C-l/Enter` | focus the pane |
+| `C-l/Enter` | focus the pane, or resume a stopped session |
 | `C-h` | focus the sidebar, from the pane |
-| `x` | end the session, or remove it once it has exited |
+| `x` | end the session; remove it once exited; forget a stopped one |
 | `?` | show or hide the help |
 | `q` | quit, after a yes while a session runs |
 

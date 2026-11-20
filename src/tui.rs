@@ -10,6 +10,7 @@ use crossterm::execute;
 
 use crate::app::App;
 use crate::demo::Registry;
+use crate::memory::Memory;
 use crate::picker::Picker;
 use crate::registry;
 use crate::session;
@@ -28,6 +29,10 @@ pub fn run() -> io::Result<()> {
     };
     let app = match claude_projects() {
         Some(dir) => app.with_transcripts(dir),
+        None => app,
+    };
+    let app = match remembered() {
+        Some(memory) => app.with_memory(memory),
         None => app,
     };
     show(match published() {
@@ -107,6 +112,10 @@ fn claude_projects() -> Option<std::path::PathBuf> {
         std::env::var_os("CLAUDE_CONFIG_DIR").map(Into::into),
         std::env::var_os("HOME").map(Into::into),
     )
+}
+
+fn remembered() -> Option<Memory> {
+    summary::directory_from_env().map(|dir| Memory::new(&dir.with_file_name("sessions")))
 }
 
 fn published() -> Option<Summary> {

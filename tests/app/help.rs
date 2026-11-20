@@ -12,9 +12,29 @@ fn question_mark_shows_the_keys_and_the_tmux_pattern() {
     let shown = screen.draw();
     assert!(shown.contains("j/k"), "{shown}");
     assert!(
-        shown.contains("end the session, or remove it once it has exited"),
+        shown.contains("end the session; remove it once exited"),
         "{shown}"
     );
+    assert!(shown.contains("vim-tmux-navigator"), "{shown}");
+}
+
+#[test]
+fn question_mark_says_how_to_resume_and_forget_a_stopped_session() {
+    let mut screen = Screen::new(reading_agent());
+    screen.resize(80, 24);
+
+    screen.press('?');
+
+    let shown = screen.draw();
+    assert!(
+        shown.contains("focus the pane, or resume a stopped session"),
+        "{shown}"
+    );
+    assert!(
+        shown.contains("end the session; remove it once exited; forget a stopped one"),
+        "{shown}"
+    );
+    assert!(shown.contains("○ idle, exited, or stopped"), "{shown}");
     assert!(shown.contains("vim-tmux-navigator"), "{shown}");
 }
 
@@ -33,7 +53,7 @@ fn question_mark_explains_the_dots() {
         shown.contains("◉ blocked, waiting on you: the card says what for"),
         "{shown}"
     );
-    assert!(shown.contains("○ idle, or exited"), "{shown}");
+    assert!(shown.contains("○ idle, exited, or stopped"), "{shown}");
     assert!(
         shown.contains("· status unknown: not Claude Code, or not written yet"),
         "{shown}"
