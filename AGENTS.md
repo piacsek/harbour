@@ -7,8 +7,9 @@ factual; verify against the code before treating anything here as live state.
 
 harbour: Harbour: where shipping begins. It is a terminal workspace for agent work.
 Phase 1 gave it its first interface: with no argument on a terminal it opens a sidebar of agent
-sessions beside a live pane; it also answers `--help`, `-h`, `help`, `--version`, `-V`, `version`
-and `changelog`. Phase 0 scaffolded the guidelines, guardrails, CI and the automatic release
+sessions beside a live pane; it also answers `--help`, `-h`, `help`, `--version`, `-V`, `version`,
+`changelog` and `status` (phase 5: the session counts of every running harbour, for the tmux
+status line). Phase 0 scaffolded the guidelines, guardrails, CI and the automatic release
 from the `rust_tui` recipe, which descends from conveyor, an earlier project by the recipe's
 author; the conveyor history below is that project's. `PLAN.md` is the index of phases and the
 backlog; each phase's plan, outcome and hurdles are in `plans/`.
@@ -43,7 +44,7 @@ The layout names what each file or directory is for; read its functions from the
 rules from the `AGENTS.md` of its directory.
 
 ```
-src/main.rs      the binary: `--version`/`-V`/`version`, `--help`/`-h`/`help`, `changelog`, the interface with no argument on a terminal, the same with made-up sessions for `--demo` on a terminal, the usage on anything else
+src/main.rs      the binary: `--version`/`-V`/`version`, `--help`/`-h`/`help`, `changelog`, `status` (the counts for the tmux status line), the interface with no argument on a terminal, the same with made-up sessions for `--demo` on a terminal, the usage on anything else
 src/lib.rs                    the library the binary and the tests share
 src/tui.rs                    the terminal: enters and restores it, reads its events, draws the app; the program a session runs (`claude`, or what `HARBOUR_SESSION_COMMAND` names); the directory picker (fzf over zoxide's list, or what `HARBOUR_DIR_PICKER` names)
 src/picker.rs                 the directory picker of `n`: a program run as a session in a popup, its standard output sent to a file in a temporary directory only its owner can open (0700), the first line it prints, as bytes, canonicalized (read from harbour's directory when relative), every path kept as bytes on the way into its arguments, exit statuses 126 and 127 (and 2 for fzf) named as "could not start"; fzf given `--no-expect --no-print-query --no-read0 --no-print0` after the user's `FZF_DEFAULT_OPTS`, so it prints one directory a line; for fzf the popup's own shell writes the list (harbour's directory first, then the list command's lines without it) into a FIFO fzf reads, so a slow list never holds up harbour, and a missing fzf means "start at once"
@@ -52,6 +53,7 @@ src/session.rs                a session: a command in a PTY, refused as `Not a d
 src/demo.rs                   the made-up sessions of `--demo` and its picker (fzf over made-up directories, without harbour's directory): `acme/*` scripts, never real data; the registry they write in the temp dir, removed when dropped
 src/registry.rs               Claude Code's session file for a pid (`<CLAUDE_CONFIG_DIR or ~/.claude>/sessions/<pid>.json`): its status and what it waits for, read leniently, ignored when written well before the session started
 src/state.rs                  a session's state from its exit and its file: the dot, the waiting reason, the title counts and the help legend, each fitted to the sidebar's width
+src/summary.rs                the counts a running harbour publishes for `harbour status` (one publication under a name of its own, pid, time and counter: `<name>.counts` beside a `<name>.lock` it holds, under `$XDG_STATE_HOME/harbour/status/`, else `~/.local/state/harbour/status/`, nowhere when neither is absolute, private, removed on quit, never waiting for a lock; a failed write or a missing file drops the whole publication, and a fresh one is made at most every `RETRY`, 5 s; making one removes every dead publication, a regular `<digits>-<digits>-<digits>.lock` other than its own that it can open for writing and no one holds, with its `.counts` and `.tmp`) and the reader that adds up the regular `.counts` files of that naming whose lock is still held, never following a symlink
 src/help.rs                   what the help view shows: `KEYS`, which the README key table mirrors, and `NOTES` (C-Backspace arriving as C-h, the tmux pattern, `HARBOUR_DIR_PICKER`)
 src/keys.rs                   the bytes a terminal sends for a key (legacy encoding), which a session receives
 src/mouse.rs                  `route`, a pure function: a gesture belongs to where its button went down and to the session shown then, and ends when another session is shown, and the selected session gets only what its mouse mode asked for (`?9` presses, `?1000` presses, releases and the wheel, `?1002` drags too, `?1003` moves too), with Shift, Alt and Ctrl, in its encoding (SGR, UTF-8 or the legacy bytes), clamped to the pane; an empty pane forwards nothing and ends the gesture
@@ -91,6 +93,7 @@ plans/metrics.md              time and tokens, one row per phase
 tests/           outside-in: `tests/cli.rs` runs the real binary;
                  `tests/scripts/` runs the scripts in a scratch directory and repository, with `tests/fixtures/` standing in for `cargo`, `gh`, `curl` and the scripts they call;
                  `tests/e2e/` runs the real binary in a scratch tmux server (`#[ignore]`, see `tests/AGENTS.md`), with `HARBOUR_SESSION_COMMAND` pointing sessions at `tests/fixtures/agent.sh` (prints what it reads, a line at a time) or `tests/fixtures/raw-agent.sh` (asks for bracketed paste and the mouse, prints every byte it reads) instead of `claude`, or at `tests/fixtures/registered-agent.sh` (writes a busy registry file under `CLAUDE_CONFIG_DIR`, else `HOME`, so it only runs with a scratch `HOME`), `HARBOUR_DIR_PICKER` at `tests/fixtures/picker.sh` (prints the line it reads), both cleared from the environment unless the test sets them, `CLAUDE_CONFIG_DIR` cleared, `TMPDIR` a directory under the scratch `HOME` (so a picker left open leaves nothing behind), and `PATH` a scratch directory of links to the few tools the fixtures run, so no fzf or zoxide is on it;
+                 `tests/status.rs` runs `harbour status` over summaries a test writes and locks itself, `tests/summary.rs` writes them with `Summary`;
                  `tests/session.rs` and `tests/app/` run sessions in process, as `/bin/sh -c` scripts;
                  `tests/keys.rs` is the table of the bytes each key sends, `tests/mouse.rs` the table of what a session receives for each mouse event, mode, gesture and modifier;
                  `tests/tui.rs` covers leaving the terminal (mouse capture and bracketed paste off) and the panic hook;
@@ -127,6 +130,10 @@ next to the code; read the one for a directory before changing anything in it.
   that no argument on a terminal opens the interface; `tests/cli.rs` pins it. The Homebrew
   formula's `test` block (`--version`, and `usage: harbour` on an unknown argument) and the `flake`
   and `stable-build` jobs (`--version`) rely on both.
+- **`status`** prints one line of tmux status-line text (the blocked, working, idle and unknown
+  counts of every running harbour) or nothing at all, and always exits 0, whatever it finds on
+  disk: tmux runs it from `status-right` every `status-interval` and shows whatever it prints.
+  `tests/status.rs` pins it.
 - **`changelog`** prints the bundled `CHANGELOG.md` to stdout and exits 0: the heading alone in a
   build from `main`, every release in a release build. `tests/changelog.rs` holds the rules a
   release entry must meet, and `the_changelog_has_a_real_entry_for_the_crate_version` checks that a
@@ -155,9 +162,12 @@ impact.
   `flake-ok`**: a Nix, nixpkgs or `cache.nixos.org` outage then holds them until the ruleset is
   disabled; requiring it is the owner's step by hand (`.github/AGENTS.md`, the flake build, has
   the command that shows whether it is required).
-- **The session registry is read on the draw thread**: a Claude config directory on slow storage
-  (a network home) delays keys by the time those reads take, at most every 500 ms
-  (`plans/phase-3-status-dots.md`).
+- **The session registry is read, and the counts for `harbour status` written, on the draw
+  thread**: a Claude config directory or a state directory on slow storage (a network home)
+  delays keys by the time those reads take, at most every 500 ms, by the time a write takes,
+  only when a count changed, and by two file checks or one fresh publication (with its sweep of
+  dead ones) at most every 5 s
+  (`plans/phase-3-status-dots.md`, `plans/phase-5-tmux-status-line.md`).
 - **The release attestation records the `main` commit that started the run, not the release
   commit the tag points at**: its subjects are the right tarballs, but the source commit it
   names is the merge (`.github/AGENTS.md`, "What the attestation proves").

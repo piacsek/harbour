@@ -137,10 +137,14 @@ fn changelog_writes_nothing_on_stderr() {
 
 const USAGE: &str = "harbour: Harbour: where shipping begins
 
-usage: harbour [--demo | --help | --version | changelog]
+usage: harbour [--demo | --help | --version | changelog | status]
 
 With no argument on a terminal, harbour opens a sidebar of Claude Code sessions
 beside a live pane. --demo opens the same with made-up sessions: no claude needed.
+status prints how many sessions of every running harbour are blocked, working,
+idle or unknown. For tmux, put #(harbour status) in your status-right, for example
+  set -g status-right '#(harbour status) %H:%M'
+and raise status-right-length if the counts are cut off.
 ";
 
 fn version_line() -> String {

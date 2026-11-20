@@ -70,6 +70,11 @@ fn the_readme_usage_shows_the_changelog_subcommand() {
 }
 
 #[test]
+fn the_readme_usage_shows_the_status_subcommand() {
+    assert!(README.contains("\nharbour status"));
+}
+
+#[test]
 fn the_readme_builds_from_source_at_the_newest_release() {
     assert!(README.contains(
         "\ncargo install --git https://github.com/piacsek/harbour --branch stable --locked\n"
