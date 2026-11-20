@@ -116,11 +116,16 @@ One red-green-refactor cycle each, shipped with `scripts/ship.sh`.
 ## Outcome
 
 - `n` opens a popup that runs the picker as a session of its own; its standard output goes to a
-  file in a private temporary directory, and the first line it prints is the directory. Keys,
+  file in a temporary directory only its owner can open (0700), and the first line it prints is
+  the directory. Keys,
   paste and the mouse go to the picker while the popup is open.
 - The default picker is fzf over harbour's directory (first, selected) and `zoxide query
   --list` without it. Without zoxide the list is harbour's directory alone; without fzf, `n`
-  starts at once in harbour's directory, as before this phase.
+  starts at once in harbour's directory, as before this phase. fzf is always given
+  `--no-expect --no-print-query --no-read0 --no-print0`, so `FZF_DEFAULT_OPTS` cannot change
+  what it prints; its exit status 2 is named as an error, 1 and 130 are a cancel.
+- One check refuses a directory that is gone: `Session::start`, which every start goes through,
+  says `Not a directory: <path>` and starts nothing.
 - A session is named after the folder it starts in, so rows of one harbour can differ.
 - After a confirmed directory the pane has the focus; a cancel, or a directory a session could
   not start in, leaves it where it was. A session's `PWD` is its directory.
@@ -132,6 +137,17 @@ One red-green-refactor cycle each, shipped with `scripts/ship.sh`.
   demo test.
 - The demo's picker is fzf over made-up `/home/acme/...` directories; `docs/picker.png` shows it,
   byte-identical across runs of the screenshot script.
+- Five review rounds, every one unprimed; the fifth was clean. Round 1 found zoxide run on
+  harbour's thread with no bound, the focus after a pick, picker errors and a picker shot that
+  changed between runs; the list moved into the popup's own shell. Round 2 found paths read as
+  UTF-8, the demo without fzf, an unreadable directory and a pick named before it was resolved.
+  Round 3 found the third state of a directory gone by the time a session starts; one check in
+  `Session::start` replaced the per-path checks. Round 4 found `FZF_DEFAULT_OPTS` changing what
+  fzf prints, a world-readable temporary directory, fzf's errors read as a cancel and
+  `harbour-pick*` directories left by the end-to-end tests.
+- Not fixed, listed in the PR body: an earlier error line stays under the popup and after a
+  cancel until the next start; after shrinking the terminal to a few cells and back with the
+  popup open, fzf's list can look stale until fzf redraws.
 
 ## Hurdles
 
@@ -141,3 +157,6 @@ One red-green-refactor cycle each, shipped with `scripts/ship.sh`.
 - `design` Review round 1 found zoxide run on harbour's thread with no bound, so a slow list froze the interface; the list moved into the popup's own shell → code
 - `tooling` On macOS `/bin/sh` exits 1, not 126 or 127, when `exec` of a script with a missing interpreter fails; the picker wrappers run the program without `exec` → code
 - `review-loop` Three review rounds in a row each found another state of a directory that is gone by the time a session starts (a race, deleted before launch, deleted after launch); one check in `Session::start` replaced the per-path checks → code
+- `review-loop` Round 4 found that fzf's output format and exit statuses were left to the user's `FZF_DEFAULT_OPTS`, which the plan's state table never listed → code
+- `test-seam` Every end-to-end run that ended with a picker open left a `harbour-pick*` directory in the real temporary directory; the tests now set `TMPDIR` under the scratch `HOME` → rule in `tests/AGENTS.md`
+- `test-seam` Moving `TMPDIR` into the launcher took `tests/e2e/main.rs` over 700 lines; the picker tests moved to `tests/e2e/picker.rs` → code
