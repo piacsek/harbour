@@ -6,6 +6,7 @@ mod input;
 mod layout;
 mod picker;
 mod selection;
+mod status;
 
 use std::path::Path;
 use std::thread::sleep;
@@ -35,7 +36,7 @@ impl Screen {
 
     fn picking(command: Vec<String>, picker: Picker) -> Screen {
         let mut screen = Screen {
-            app: App::with_picker(command, picker),
+            app: App::new(command).with_picker(picker),
             terminal: Terminal::new(TestBackend::new(120, 20)).unwrap(),
         };
         screen.draw();

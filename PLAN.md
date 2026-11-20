@@ -9,7 +9,8 @@ file under `plans/`; its time and tokens are a row of [`plans/metrics.md`](plans
 | --- | --- | --- |
 | 0 | [the foundations, scaffolded from the `rust_tui` recipe](plans/phase-0-foundations.md) | [v0.0.1](https://github.com/piacsek/harbour/releases/tag/v0.0.1) |
 | 1 | [agent sessions in a sidebar, each with a live Claude Code pane](plans/phase-1-session-pane.md) | [v0.1.0](https://github.com/piacsek/harbour/releases/tag/v0.1.0) |
-| 2 | [the selected session and the focused side in cyan](plans/phase-2-cyan-highlight.md) | |
+| 2 | [the selected session and the focused side in cyan](plans/phase-2-cyan-highlight.md) | [v0.2.0](https://github.com/piacsek/harbour/releases/tag/v0.2.0) |
+| 3 | [whether each agent is working, idle or waiting on you](plans/phase-3-status-dots.md) | |
 | 4 | [choose the directory a new session starts in, by fuzzy search](plans/phase-4-directory-picker.md) | |
 
 ## Backlog
@@ -23,8 +24,7 @@ In this order unless a retro says otherwise.
   Neovim can be asked over its `--listen` socket in about 0.1 ms.
 - One git worktree per session: harbour creates it, and the session and its editor both start in
   it.
-- What each session is doing, in the sidebar: busy, idle or waiting for the user, its current
-  step and its subagents.
+- What each session is doing, in the sidebar: its current step and its subagents.
 - Sessions that outlive harbour and are picked up again on the next start.
 
 ### Fixes to weigh

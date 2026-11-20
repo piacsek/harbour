@@ -16,7 +16,8 @@ these suites come from; the ones about sessions were hit in harbour.
 
 - **No test starts the real `claude`.** A session runs the program `HARBOUR_SESSION_COMMAND`
   names (`SESSION_COMMAND` in `src/tui.rs`, on the `SEAMS` list), `claude` when it is unset.
-  The end-to-end tests set it to `tests/fixtures/agent.sh` or `tests/fixtures/raw-agent.sh`;
+  The end-to-end tests set it to `tests/fixtures/agent.sh`, `tests/fixtures/raw-agent.sh` or
+  `tests/fixtures/registered-agent.sh` (which writes a registry file, so only under a scratch `HOME`);
   in-process tests hand `App::new` or `Session::start` a `/bin/sh -c` script; the one executable
   a test writes is a picker whose interpreter is missing.
 
@@ -26,7 +27,7 @@ these suites come from; the ones about sessions were hit in harbour.
   end-to-end tests clear `HARBOUR_DIR_PICKER` and `HARBOUR_SESSION_COMMAND` unless the test sets
   them, and run the binary on a `PATH` of links to the tools the fixtures need (`tools` in
   `tests/e2e/main.rs`), where neither is, so `n` starts at once; they set `HARBOUR_DIR_PICKER`
-  to `tests/fixtures/picker.sh` to test the picker; in-process tests hand `App::with_picker` a `Picker` of `/bin/sh -c`
+  to `tests/fixtures/picker.sh` to test the picker; in-process tests hand the builder `.with_picker` of `App` a `Picker` of `/bin/sh -c`
   scripts. A picker script draws on stderr: its stdout is the directory it picks.
 
 - **dash is `/bin/sh` on Linux.** A session script's `read` returns non-zero when a trapped

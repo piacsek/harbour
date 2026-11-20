@@ -9,7 +9,13 @@ const AGENT: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/agent.s
 const RAW_AGENT: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/raw-agent.sh");
 const PICKER: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/picker.sh");
 const FAKE_FZF: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/fzf");
-const TOOLS: [&str; 7] = ["cat", "dd", "grep", "mkfifo", "sleep", "stty", "tr"];
+const TOOLS: [&str; 8] = [
+    "cat", "dd", "grep", "mkdir", "mkfifo", "sleep", "stty", "tr",
+];
+const REGISTERED_AGENT: &str = concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/tests/fixtures/registered-agent.sh"
+);
 
 #[test]
 #[ignore]
@@ -228,22 +234,114 @@ fn q_with_a_running_session_asks_and_y_leaves() {
 
 #[test]
 #[ignore]
-fn the_demo_shows_made_up_sessions_one_of_them_exited() {
+fn a_session_started_from_the_picker_gets_its_dot_and_the_picked_name() {
+    let home = tempfile::tempdir().unwrap();
+    let web = home.path().join("acme-web");
+    std::fs::create_dir(&web).unwrap();
+    let config = tempfile::tempdir().unwrap();
+    let config_dir = config.path().display().to_string();
+    let server = Server::start("picked-registry", 160, 20);
+    server.run(
+        home.path(),
+        &[
+            (SESSION_COMMAND, REGISTERED_AGENT),
+            (DIR_PICKER, PICKER),
+            ("CLAUDE_CONFIG_DIR", &config_dir),
+        ],
+        &[],
+    );
+    server.wait_for_screen("press n to start one");
+    server.send_keys(&["n"]);
+    server.wait_for_screen("acme picker: type a directory");
+
+    server.send_keys(&["../acme-web", "Enter"]);
+
+    let screen = server.wait_for_screen("● acme-web 1");
+    assert!(screen.contains("● acme-web 1"), "{screen}");
+}
+
+#[test]
+#[ignore]
+fn a_session_dot_follows_its_file_in_the_claude_config_dir() {
+    let home = tempfile::tempdir().unwrap();
+    let config = tempfile::tempdir().unwrap();
+    let config_dir = config.path().display().to_string();
+    let server = Server::start("registry", 160, 20);
+    server.run(
+        home.path(),
+        &[
+            (SESSION_COMMAND, REGISTERED_AGENT),
+            ("CLAUDE_CONFIG_DIR", &config_dir),
+        ],
+        &[],
+    );
+    server.wait_for_screen("press n to start one");
+
+    server.send_keys(&["n"]);
+
+    let screen = server.wait_for_screen("● acme-api 1");
+    assert!(screen.contains("● acme-api 1"), "{screen}");
+}
+
+#[test]
+#[ignore]
+fn without_a_claude_config_dir_the_registry_is_read_under_home() {
+    let home = tempfile::tempdir().unwrap();
+    let server = Server::start("registry-home", 160, 20);
+    server.run(home.path(), &[(SESSION_COMMAND, REGISTERED_AGENT)], &[]);
+    server.wait_for_screen("press n to start one");
+
+    server.send_keys(&["n"]);
+
+    let screen = server.wait_for_screen("● acme-api 1");
+    assert!(screen.contains("● acme-api 1"), "{screen}");
+}
+
+#[test]
+#[ignore]
+fn the_demo_shows_a_made_up_session_in_each_state() {
     let home = tempfile::tempdir().unwrap();
     let server = Server::start("demo", 160, 20);
 
     server.run(home.path(), &[], &["--demo"]);
 
-    let screen =
-        server.wait_for_screen_all(&["● acme-api 1", "○ acme-api 2 exited 1", "● acme-api 3"]);
-    assert!(screen.contains("● acme-api 1"), "{screen}");
-    assert!(screen.contains("○ acme-api 2 exited 1"), "{screen}");
-    assert!(screen.contains("● acme-api 3"), "{screen}");
-    let screen = server.wait_for_screen("fix the flaky retry test in acme/api");
-    assert!(
-        screen.contains("fix the flaky retry test in acme/api"),
-        "{screen}"
-    );
+    let rows = [
+        " sessions ● 1 ◉ 1 ○ 2 · 1 ",
+        "● acme-api 1",
+        "◉ acme-api 2 permission prompt",
+        "○ acme-api 3",
+        "○ acme-api 4 exited 1",
+        "· acme-api 5",
+        "fix the flaky retry test in acme/api",
+    ];
+    let screen = server.wait_for_screen_all(&rows);
+    assert!(screen.contains(rows[0]), "{screen}");
+    assert!(screen.contains(rows[1]), "{screen}");
+    assert!(screen.contains(rows[2]), "{screen}");
+    assert!(screen.contains(rows[3]), "{screen}");
+    assert!(screen.contains(rows[4]), "{screen}");
+    assert!(screen.contains(rows[5]), "{screen}");
+    assert!(screen.contains(rows[6]), "{screen}");
+}
+
+#[test]
+#[ignore]
+fn the_demo_removes_its_made_up_registry_when_it_ends() {
+    let home = tempfile::tempdir().unwrap();
+    let temp = tempfile::tempdir().unwrap();
+    let temp_dir = temp.path().display().to_string();
+    let server = Server::start("demo-registry", 160, 20);
+    server.run(home.path(), &[("TMPDIR", &temp_dir)], &["--demo"]);
+    server.wait_for_screen("◉ acme-api 2 permission prompt");
+    assert_eq!(std::fs::read_dir(temp.path()).unwrap().count(), 1);
+
+    server.send_keys(&["q"]);
+    server.wait_for_screen("Quit? y/n");
+    server.send_keys(&["y"]);
+
+    let screen = server.wait_for_screen("harbour exited 0");
+    assert!(screen.contains("harbour exited 0"), "{screen}");
+    assert_eq!(std::fs::read_dir(temp.path()).unwrap().count(), 0);
 }
 
 #[test]
@@ -252,12 +350,12 @@ fn n_in_the_demo_without_fzf_starts_a_session_at_once() {
     let home = tempfile::tempdir().unwrap();
     let server = Server::start("demo-no-fzf", 160, 20);
     server.run(home.path(), &[], &["--demo"]);
-    server.wait_for_screen("● acme-api 3");
+    server.wait_for_screen("acme-api 5");
 
     server.send_keys(&["n"]);
 
-    let screen = server.wait_for_screen("acme-api 4");
-    assert!(screen.contains("acme-api 4"), "{screen}");
+    let screen = server.wait_for_screen("acme-api 6");
+    assert!(screen.contains("acme-api 6"), "{screen}");
     assert!(!screen.contains("Could not start"), "{screen}");
 }
 
@@ -288,7 +386,7 @@ fn n_in_the_demo_lists_made_up_directories_in_fzf() {
     let server = Server::start("demo-picker", 160, 20);
     let path = format!("{FAKE_FZF}:{}", tools(home.path()));
     server.run(home.path(), &[("PATH", &path)], &["--demo"]);
-    server.wait_for_screen("● acme-api 3");
+    server.wait_for_screen("acme-api 5");
     server.send_keys(&["n"]);
 
     let screen = server.wait_for_screen_all(&["acme fzf lists:", "/home/acme/web"]);
@@ -410,6 +508,8 @@ impl Server {
             DIR_PICKER.to_string(),
             "-u".to_string(),
             SESSION_COMMAND.to_string(),
+            "-u".to_string(),
+            "CLAUDE_CONFIG_DIR".to_string(),
             quoted(&format!("HOME={}", home.display())),
             quoted(&format!("PATH={}", tools(home))),
         ];

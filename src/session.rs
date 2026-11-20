@@ -131,6 +131,10 @@ impl Session {
         self.exit.as_ref()
     }
 
+    pub fn pid(&self) -> Option<u32> {
+        self.child.process_id()
+    }
+
     pub fn end(&mut self) {
         end_all([self]);
     }

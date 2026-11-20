@@ -9,7 +9,9 @@ use crossterm::event::{
 use crossterm::execute;
 
 use crate::app::App;
+use crate::demo::Registry;
 use crate::picker::Picker;
+use crate::registry;
 use crate::session;
 
 type PanicHook = dyn Fn(&PanicHookInfo<'_>) + Send + Sync + 'static;
@@ -18,11 +20,16 @@ pub const SESSION_COMMAND: &str = "HARBOUR_SESSION_COMMAND";
 pub const DIR_PICKER: &str = "HARBOUR_DIR_PICKER";
 
 pub fn run() -> io::Result<()> {
-    show(App::with_picker(session_command(), dir_picker()))
+    let app = App::new(session_command()).with_picker(dir_picker());
+    show(match claude_sessions() {
+        Some(dir) => app.with_registry(dir),
+        None => app,
+    })
 }
 
 pub fn demo() -> io::Result<()> {
-    show(App::demo())
+    let registry = Registry::create_in(&std::env::temp_dir())?;
+    show(App::demo(registry.path().to_path_buf()))
 }
 
 fn show(app: App) -> io::Result<()> {
@@ -77,4 +84,11 @@ fn dir_picker() -> Picker {
 
 fn session_command() -> Vec<String> {
     vec![std::env::var(SESSION_COMMAND).unwrap_or_else(|_| "claude".to_string())]
+}
+
+fn claude_sessions() -> Option<std::path::PathBuf> {
+    registry::sessions_dir(
+        std::env::var_os("CLAUDE_CONFIG_DIR").map(Into::into),
+        std::env::var_os("HOME").map(Into::into),
+    )
 }
