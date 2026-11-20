@@ -321,7 +321,8 @@ nearest the code the guideline is about.
      its fragment `changes/<branch>.md` is on it (no version bump, no `CHANGELOG.md` edit). Re-read
      the PR title and body, fix what went stale, read the owner's messages (see "Merging and
      releasing"), `gh pr ready`, wait for CI green.
-  5. Read the owner's messages again, then squash-merge, the only method `main` allows. Watch the `release` run the merge starts to
+  5. Read the owner's messages again and scrub the PR title and commit messages (see "Review
+     before ready"), then squash-merge, the only method `main` allows. Watch the `release` run the merge starts to
      green; with a fragment, check the release holds the six assets and the tap formula names
      the new version (see "Releasing"). Never tag by hand.
   6. Remove the worktree and report what shipped, with the release link and the times the
@@ -443,28 +444,35 @@ nearest the code the guideline is about.
   since the red run is not in the diff, the public-repo rule, the README shape) and reports a
   break as a finding like any other. No reviewer runs the gates: `scripts/ship.sh` runs them,
   the scrub check included, before every push, and the required `check` job tests the pull
-  request. The loop ends on a round with no must or should finding. It also ends without
-  another round when a round's only must or should finding is a failing required check and
-  its fix changes no code (a rerun, a fragment added, a doc changed, a file removed), once that
-  check passes on the fixed head; a fix that changes anything under `src/`, `tests/`,
-  `scripts/` or `.github/` gets another round like any other. `gh pr ready` comes after the
-  findings are addressed, not before.
+  request. The loop ends on a round with no must or should finding. When a round's only must
+  or should finding is a failing required check, it also ends without another round once that
+  check passes, but only if the fix added nothing a reviewer has not seen: a rerun of the
+  check, taking a change back out of the pull request, or adding the fragment the `version`
+  check asked for. Any other fix, whatever file it touches, gets another round. `gh pr ready`
+  comes after the findings are addressed, not before.
   - **Scrub before ready and before the merge.** CI does not run the scrub, and a commit
     pushed without `ship.sh` would otherwise never meet it. Before `gh pr ready` the
     orchestrator runs `scripts/scrub-check.sh` in the branch's worktree at the PR head; without
     an argument it reads the contents and paths of the index and the working tree, not commit
     messages, the branch name or the PR title. Right before the merge it puts the PR title,
     which becomes the squash commit's subject, and the commit messages, which its body carries,
-    through the same list with the same `grep -iF -f`:
+    through the same list with the same `grep -iF -f`, run in the branch's worktree:
 
     ```bash
-    { gh pr view <N> --json title --jq .title; gh api --paginate repos/piacsek/harbour/pulls/<N>/commits --jq '.[].commit.message'; } | grep -inF -f "${HARBOUR_DENYLIST:-$HOME/.config/harbour-dev/denylist}"
+    out=$(mktemp)
+    if gh pr view <N> --json title --jq .title > "$out" && gh api --paginate 'repos/{owner}/{repo}/pulls/<N>/commits' --jq '.[].commit.message' >> "$out"; then
+      grep -inF -f "${HARBOUR_DENYLIST:-$HOME/.config/harbour-dev/denylist}" "$out"
+      case $? in 0) echo "scrub: match, fix it" ;; 1) echo "scrub: clean" ;; *) echo "scrub: list unreadable, not clean" ;; esac
+    else
+      echo "scrub: could not read the pull request, not clean"
+    fi
+    rm -f "$out"
     ```
 
-    No output and exit 1 is clean; a printed line is a match to fix; exit 2 means the list
-    could not be read. The commits come from `gh api`, since `gh pr view` cuts a long subject in
-    two. It does not read the PR body, and unlike the script it does not refuse
-    an empty list.
+    Only `scrub: clean` is a clean result; a failed `gh` call is not one, and nothing is grepped
+    unless both calls succeeded. The commits come from `gh api`, since `gh pr view` cuts a long
+    subject in two. It does not read the PR body, and unlike the script it does not refuse an
+    empty list.
   - **Severity by reachability.** A finding is must or should only when the user hits it while
     using harbour, the release pipeline hits it in normal operation, or a pull request could
     execute code or reach a token or secret. A bypass that needs a deliberately forged file,
