@@ -62,6 +62,10 @@ impl Transcript {
         &self.session_id
     }
 
+    pub fn exists(projects: &Path, session_id: &str) -> bool {
+        Transcript::new(projects, session_id).found().is_some()
+    }
+
     pub fn is_found(&self) -> bool {
         self.path.is_some()
     }

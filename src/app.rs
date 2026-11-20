@@ -56,6 +56,7 @@ pub struct App {
     read_at: Option<Instant>,
     summary: Option<Summary>,
     memory: Option<Memory>,
+    recalled: bool,
 }
 
 #[derive(Clone, Copy, PartialEq)]
@@ -76,6 +77,7 @@ struct Entry {
     transcript: Option<Transcript>,
     remembered: Option<String>,
     kept: Option<Remembered>,
+    why: &'static str,
 }
 
 impl Entry {
@@ -122,6 +124,7 @@ impl App {
             read_at: None,
             summary: None,
             memory: None,
+            recalled: false,
         }
     }
 
@@ -307,7 +310,7 @@ impl App {
             .is_none_or(|session| session.exit().is_some())
         {
             let removed = self.sessions.remove(self.selected);
-            self.forget(removed.remembered);
+            self.forget(&removed);
             self.selected = self.selected.min(self.sessions.len().saturating_sub(1));
         } else {
             self.asking = Some(Question::End);
@@ -403,6 +406,7 @@ impl App {
                     transcript: None,
                     remembered: None,
                     kept: None,
+                    why: remember::STOPPED,
                 });
                 self.selected = self.sessions.len() - 1;
             }
@@ -465,7 +469,7 @@ impl App {
             .iter_mut()
             .map(|entry| {
                 let ended = match &mut entry.session {
-                    None => Some(Ended::Stopped(remember::STOPPED)),
+                    None => Some(Ended::Stopped(entry.why)),
                     Some(session) => session
                         .exit()
                         .map(|status| Ended::Exited(exit_note(status))),

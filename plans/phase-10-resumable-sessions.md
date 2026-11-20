@@ -63,7 +63,7 @@ machine; no `claude` was started, and nothing below quotes a value.
 | no state folder, or no file | nothing new: the sidebar starts empty, the hint shows | app |
 | one file, everything in place | a stopped card at its position: `○`, its title, `stopped` on line 2 in dim, its repository and branch on line 3; the pane says Enter resumes it; nothing is started | app |
 | Enter or `Ctrl-l` on a stopped card | `<command> --resume <id>` starts in its directory, the pane takes focus, the card runs like any other | app, e2e |
-| its directory is gone | line 2 says `directory gone`; Enter does nothing; `x` forgets it | app |
+| its directory is gone | line 2 says `directory gone`; Enter starts nothing and the footer says `Not a directory`; `x` forgets it | app |
 | the transcript is gone (Claude Code no longer has it) | the card is not shown; its file stays on disk, so a harbour pointed at another `CLAUDE_CONFIG_DIR` cannot wipe it; the same check runs at Enter, which then drops the card | app |
 | the id is running elsewhere: a registry file whose pid is alive names it (another harbour, a plain terminal, or another card of this harbour) | line 2 says `open elsewhere`; Enter starts no second copy; `x` hides the card in this harbour and keeps the file the running one owns; checked at start, with every registry read, and again at Enter | app |
 | the other harbour quits | with the next registry read the card says `stopped` again and resumes | app |
@@ -93,7 +93,7 @@ machine; no `claude` was started, and nothing below quotes a value.
 
 | Key | Running card | Exited card | Stopped card |
 | --- | --- | --- | --- |
-| Enter, `Ctrl-l` | focus the pane | resume it when remembered, else focus the pane | resume it (nothing when its directory is gone or it is open elsewhere) |
+| Enter, `Ctrl-l` | focus the pane | resume it when remembered, else focus the pane | resume it (when its directory is gone or it is open elsewhere, the footer says why and nothing starts) |
 | `x` | ask, then end it | remove it and forget it | forget it (only hide it when open elsewhere) |
 | `q` | ask, saying sessions come back | quit | quit |
 

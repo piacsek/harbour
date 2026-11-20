@@ -198,11 +198,14 @@ impl Scratch {
         self.dir.path().join("claude/sessions")
     }
 
-    pub(crate) fn transcript(&self, id: &str, line: &str) {
-        let file = self
-            .dir
+    pub(crate) fn transcript_file(&self, id: &str) -> PathBuf {
+        self.dir
             .path()
-            .join(format!("claude/projects/-home-acme/{id}.jsonl"));
+            .join(format!("claude/projects/-home-acme/{id}.jsonl"))
+    }
+
+    pub(crate) fn transcript(&self, id: &str, line: &str) {
+        let file = self.transcript_file(id);
         let mut text = fs::read_to_string(&file).unwrap_or_default();
         text.push_str(line);
         text.push('\n');
