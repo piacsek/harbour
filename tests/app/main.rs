@@ -1,3 +1,4 @@
+mod editor;
 mod ending;
 mod exits;
 mod focus;
@@ -14,6 +15,7 @@ use std::time::{Duration, Instant};
 
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers, MouseEvent, MouseEventKind};
 use harbour::app::App;
+use harbour::editor::Program;
 use harbour::picker::Picker;
 use ratatui::Terminal;
 use ratatui::backend::TestBackend;
@@ -37,6 +39,15 @@ impl Screen {
     fn picking(command: Vec<String>, picker: Picker) -> Screen {
         let mut screen = Screen {
             app: App::new(command).with_picker(picker),
+            terminal: Terminal::new(TestBackend::new(120, 20)).unwrap(),
+        };
+        screen.draw();
+        screen
+    }
+
+    fn editing(command: Vec<String>, editor: Program) -> Screen {
+        let mut screen = Screen {
+            app: App::new(command).with_editor(editor),
             terminal: Terminal::new(TestBackend::new(120, 20)).unwrap(),
         };
         screen.draw();

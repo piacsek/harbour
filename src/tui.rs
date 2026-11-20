@@ -10,6 +10,7 @@ use crossterm::execute;
 
 use crate::app::App;
 use crate::demo::Registry;
+use crate::editor::Program;
 use crate::picker::Picker;
 use crate::registry;
 use crate::session;
@@ -20,7 +21,9 @@ pub const SESSION_COMMAND: &str = "HARBOUR_SESSION_COMMAND";
 pub const DIR_PICKER: &str = "HARBOUR_DIR_PICKER";
 
 pub fn run() -> io::Result<()> {
-    let app = App::new(session_command()).with_picker(dir_picker());
+    let app = App::new(session_command())
+        .with_picker(dir_picker())
+        .with_editor(Program::new("nvim", vec!["nvim".to_string()]));
     show(match claude_sessions() {
         Some(dir) => app.with_registry(dir),
         None => app,

@@ -1,6 +1,7 @@
 pub mod app;
 pub mod changelog;
 pub mod demo;
+pub mod editor;
 pub mod help;
 pub mod keys;
 pub mod mouse;

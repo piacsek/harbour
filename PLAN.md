@@ -11,7 +11,8 @@ file under `plans/`; its time and tokens are a row of [`plans/metrics.md`](plans
 | 1 | [agent sessions in a sidebar, each with a live Claude Code pane](plans/phase-1-session-pane.md) | [v0.1.0](https://github.com/piacsek/harbour/releases/tag/v0.1.0) |
 | 2 | [the selected session and the focused side in cyan](plans/phase-2-cyan-highlight.md) | [v0.2.0](https://github.com/piacsek/harbour/releases/tag/v0.2.0) |
 | 3 | [whether each agent is working, idle or waiting on you](plans/phase-3-status-dots.md) | |
-| 4 | [choose the directory a new session starts in, by fuzzy search](plans/phase-4-directory-picker.md) | |
+| 4 | [choose the directory a new session starts in, by fuzzy search](plans/phase-4-directory-picker.md) | [v0.4.0](https://github.com/piacsek/harbour/releases/tag/v0.4.0) |
+| 6 | [an editor beside each session's Claude Code pane](plans/phase-6-editor-column.md) | |
 
 ## Backlog
 
@@ -19,9 +20,6 @@ file under `plans/`; its time and tokens are a row of [`plans/metrics.md`](plans
 
 In this order unless a retro says otherwise.
 
-- An editor tab beside the Claude Code tab of each session, running Neovim, with `Ctrl-h` moving
-  between its splits and leaving for the sidebar only from the leftmost one. A spike showed
-  Neovim can be asked over its `--listen` socket in about 0.1 ms.
 - One git worktree per session: harbour creates it, and the session and its editor both start in
   it.
 - What each session is doing, in the sidebar: its current step and its subagents.

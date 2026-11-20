@@ -13,6 +13,7 @@ use ratatui::widgets::{
 };
 
 use crate::demo;
+use crate::editor::{Editor, Program};
 use crate::help;
 use crate::keys;
 use crate::mouse::{self, Gesture, Target};
@@ -29,6 +30,7 @@ pub struct App {
     command: Vec<String>,
     home: PathBuf,
     picker: Option<Picker>,
+    editor: Option<Program>,
     picking: Option<Pick>,
     picking_area: Rect,
     screen: Rect,
@@ -57,9 +59,21 @@ enum Question {
 struct Entry {
     id: usize,
     name: String,
+    directory: PathBuf,
     session: Session,
     started_at: SystemTime,
     record: Option<Record>,
+    editors: Vec<Editor>,
+    shown: Option<usize>,
+}
+
+impl Entry {
+    fn shown(&self) -> &Session {
+        match self.shown.and_then(|index| self.editors.get(index)) {
+            Some(editor) => &editor.session,
+            None => &self.session,
+        }
+    }
 }
 
 impl App {
@@ -72,6 +86,7 @@ impl App {
             command,
             home,
             picker: None,
+            editor: None,
             picking: None,
             picking_area: Rect::default(),
             screen: Rect::new(0, 0, 80, 24),
@@ -94,6 +109,11 @@ impl App {
 
     pub fn with_picker(mut self, picker: Picker) -> App {
         self.picker = Some(picker);
+        self
+    }
+
+    pub fn with_editor(mut self, editor: Program) -> App {
+        self.editor = Some(editor);
         self
     }
 
@@ -130,6 +150,10 @@ impl App {
         }
         if self.pane_focused && is_ctrl(key, 'h') {
             self.pane_focused = false;
+            return;
+        }
+        if self.pane_focused && is_ctrl(key, 'l') {
+            self.open_editor();
             return;
         }
         if let Some(session) = self.focused() {
@@ -229,7 +253,31 @@ impl App {
         self.sessions
             .get(self.selected)
             .filter(|_| self.pane_focused)
-            .map(|entry| &entry.session)
+            .map(Entry::shown)
+    }
+
+    fn open_editor(&mut self) {
+        let Some(program) = &self.editor else {
+            return;
+        };
+        let Some(entry) = self.sessions.get_mut(self.selected) else {
+            return;
+        };
+        self.started += 1;
+        match Editor::start(
+            program,
+            &entry.directory,
+            self.started,
+            self.pane.height,
+            self.pane.width,
+        ) {
+            Ok(editor) => {
+                self.failed = None;
+                entry.editors.push(editor);
+                entry.shown = Some(entry.editors.len() - 1);
+            }
+            Err(error) => self.failed = Some(refusal(program.name(), &error)),
+        }
     }
 
     fn end_or_remove(&mut self) {
@@ -319,9 +367,12 @@ impl App {
                 self.sessions.push(Entry {
                     id: self.started,
                     name: format!("{} {}", folder_name(directory), self.started),
+                    directory: directory.to_path_buf(),
                     session,
                     started_at,
                     record: None,
+                    editors: Vec::new(),
+                    shown: None,
                 });
                 self.selected = self.sessions.len() - 1;
             }
@@ -385,6 +436,9 @@ impl App {
         };
         for entry in &mut self.sessions {
             entry.session.resize(self.pane.height, self.pane.width);
+            for editor in &mut entry.editors {
+                editor.session.resize(self.pane.height, self.pane.width);
+            }
         }
         let rows: Vec<Line> = self
             .sessions
@@ -432,7 +486,7 @@ impl App {
                 frame.render_stateful_widget(list, sidebar, &mut state);
                 if !pane.is_empty() {
                     frame.render_widget(pane_block, pane);
-                    frame.render_widget(&shown.session, self.pane);
+                    frame.render_widget(shown.shown(), self.pane);
                     if exited {
                         frame.buffer_mut().set_style(self.pane, Modifier::DIM);
                     }
