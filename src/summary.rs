@@ -22,7 +22,10 @@ pub fn directory_from_env() -> Option<PathBuf> {
 fn directory(state_home: Option<PathBuf>, home: Option<PathBuf>) -> Option<PathBuf> {
     state_home
         .filter(|dir| dir.is_absolute())
-        .or_else(|| home.map(|home| home.join(".local/state")))
+        .or_else(|| {
+            home.filter(|home| home.is_absolute())
+                .map(|home| home.join(".local/state"))
+        })
         .map(|dir| dir.join("harbour/status"))
 }
 

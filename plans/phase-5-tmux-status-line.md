@@ -131,8 +131,9 @@ followed by a newline; when nothing is counted, nothing at all is printed.
 - **The status folder is private**: harbour sets `harbour/status` itself to `0700`, whether it
   created it or found it, and creates its files `0600`; it publishes nothing when that folder is
   a symlink or not a directory. Folders above it that already exist keep their modes; missing
-  ones are created `0700`. An `XDG_STATE_HOME`
-  that is empty or relative counts as unset, as the XDG spec says.
+  ones are created `0700`. An `XDG_STATE_HOME` that is empty or relative counts as unset, as
+  the XDG spec says; so does such a `HOME`, so without an absolute base harbour publishes and
+  reads nothing.
 - **`harbour status` takes no option** and always exits 0, so a status line never shows an
   error; the tmux line to add goes into `--help`.
 
@@ -190,7 +191,7 @@ call a trend in tokens. Codex and orchestrator usage remain unknown in every row
   so the phase 4 branch, which edits both, merges with little to resolve.
 - `state::counts` counts once for the sidebar title and the summary, so the two never disagree.
 - The App wiring moved from task 5 into task 4: the dead-code rule fails a `pub` writer nothing
-  calls. Task 5 kept the e2e tests and the taller help shot (9 rows for the 8-line usage). This
+  calls. Task 5 kept the e2e tests and the taller help shot (now 11 rows for the 10-line usage). This
   is the second time (sweep finding 7), so the next sweep may turn that decline into a rule.
 - Every Decision above was taken without the owner, as the most conservative reading of issue #8.
 - Review round 1 (no must): the lock is now taken without waiting, a failed write stops the old
@@ -213,6 +214,13 @@ call a trend in tokens. Codex and orchestrator usage remain unknown in every row
   appended counts were cut off entirely (seen in a scratch tmux server). The sweep opens each
   lock for writing, as NFS needs for an exclusive lock, and skips the publication's own name; the
   reader counts only harbour's own names and regular files, never a symlink.
+- Review round 4 (no must): `set -ga` appended the counts again on every reload of the tmux
+  configuration, and a fixed `status-right-length` lowered a theme's larger value. The third
+  version of that advice changes nothing in the user's bar: the usage says to put
+  `#(harbour status)` in `status-right`, gives one example that sets the whole option, so a
+  reload leaves it as it was (checked in a scratch tmux server), and says to raise
+  `status-right-length` if the counts are cut off. An empty or relative `HOME` now counts as
+  unset, like `XDG_STATE_HOME`.
 
 ## Hurdles
 
@@ -223,3 +231,4 @@ call a trend in tokens. Codex and orchestrator usage remain unknown in every row
 - `design` Round 2 found four more holes in the same recovery mechanism (re-locking an old handle under a pid name); per "Two strikes, then redesign" it was replaced by one publication per instance with a unique name, dropped on any failure and made again at most every 5 s → code
 - `design` The redesign's unique names left nothing to reuse a killed harbour's pair, so the folder grew without bound until the orchestrator caught it before round 3; a harbour now sweeps dead publications when it makes one → code
 - `review-loop` Round 3 found that the advised tmux line replaced the user's `status-right`; the suggested append was cut off by tmux's default `status-right-length`, which only rendering it in a scratch tmux server showed → code
+- `review-loop` Round 4 found that the appended line doubled on every reload of the tmux configuration; after three versions of a command that edits the user's bar, the usage now gives one example to adapt instead → code

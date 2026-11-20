@@ -230,6 +230,38 @@ fn without_home_or_xdg_state_home_status_prints_nothing() {
     assert_eq!(stdout(&output), "");
 }
 
+#[test]
+fn a_relative_home_without_xdg_state_home_prints_nothing() {
+    let cwd = tempfile::tempdir().unwrap();
+    let _harbour = running(&cwd.path().join("acme-home/.local/state"), 101, "0 1 0 0");
+
+    let output = Command::new(env!("CARGO_BIN_EXE_harbour"))
+        .arg("status")
+        .env_remove("XDG_STATE_HOME")
+        .env("HOME", "acme-home")
+        .current_dir(cwd.path())
+        .output()
+        .unwrap();
+
+    assert_eq!(stdout(&output), "");
+}
+
+#[test]
+fn an_empty_home_without_xdg_state_home_prints_nothing() {
+    let cwd = tempfile::tempdir().unwrap();
+    let _harbour = running(&cwd.path().join(".local/state"), 101, "0 1 0 0");
+
+    let output = Command::new(env!("CARGO_BIN_EXE_harbour"))
+        .arg("status")
+        .env_remove("XDG_STATE_HOME")
+        .env("HOME", "")
+        .current_dir(cwd.path())
+        .output()
+        .unwrap();
+
+    assert_eq!(stdout(&output), "");
+}
+
 fn status(state: &Path) -> Output {
     Command::new(env!("CARGO_BIN_EXE_harbour"))
         .arg("status")
