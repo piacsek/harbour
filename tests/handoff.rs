@@ -1,0 +1,255 @@
+use std::fs;
+use std::io::{Read, Write};
+use std::net::Shutdown;
+use std::os::unix::fs::{MetadataExt, PermissionsExt};
+use std::os::unix::net::{UnixListener, UnixStream};
+use std::path::{Path, PathBuf};
+use std::thread::sleep;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
+
+use harbour::handoff::{Listener, Reply, Verb};
+
+#[test]
+fn the_listener_makes_a_private_folder_and_socket() {
+    let scratch = tempfile::tempdir().unwrap();
+    let dir = scratch.path().join("edit");
+    let mut listener = Listener::new(&dir);
+
+    assert!(listener.incoming().is_none());
+
+    assert_eq!(fs::metadata(&dir).unwrap().mode() & 0o777, 0o700);
+    assert_eq!(socket_files(&dir).len(), 1);
+    assert_eq!(
+        fs::symlink_metadata(&socket_files(&dir)[0]).unwrap().mode() & 0o777,
+        0o600
+    );
+}
+
+#[test]
+fn a_folder_left_open_to_others_is_made_private_again() {
+    let scratch = tempfile::tempdir().unwrap();
+    let dir = scratch.path().join("edit");
+    fs::create_dir(&dir).unwrap();
+    fs::set_permissions(&dir, fs::Permissions::from_mode(0o755)).unwrap();
+
+    Listener::new(&dir).incoming();
+
+    assert_eq!(fs::metadata(&dir).unwrap().mode() & 0o777, 0o700);
+}
+
+#[test]
+fn a_request_is_read_with_its_verb_and_file() {
+    let scratch = tempfile::tempdir().unwrap();
+    let dir = scratch.path().join("edit");
+    let mut listener = Listener::new(&dir);
+    listener.incoming();
+    let mut stream = sent(&socket_files(&dir)[0], "open", later(), b"/acme/main.rs");
+
+    let request = arrived(&mut listener);
+
+    assert_eq!(request.verb, Verb::Open);
+    assert_eq!(request.file, PathBuf::from("/acme/main.rs"));
+    request.answer(Reply::Opened);
+    assert_eq!(reply(&mut stream), "opened\n");
+}
+
+#[test]
+fn an_expired_request_is_dropped_unanswered() {
+    let scratch = tempfile::tempdir().unwrap();
+    let dir = scratch.path().join("edit");
+    let mut listener = Listener::new(&dir);
+    listener.incoming();
+    let mut stream = sent(&socket_files(&dir)[0], "open", earlier(), b"/acme/main.rs");
+    sleep(Duration::from_millis(50));
+
+    assert!(listener.incoming().is_none());
+    assert_eq!(reply(&mut stream), "");
+}
+
+#[test]
+fn a_relative_path_is_dropped_unanswered() {
+    let scratch = tempfile::tempdir().unwrap();
+    let dir = scratch.path().join("edit");
+    let mut listener = Listener::new(&dir);
+    listener.incoming();
+    let mut stream = sent(&socket_files(&dir)[0], "open", later(), b"acme/main.rs");
+    sleep(Duration::from_millis(50));
+
+    assert!(listener.incoming().is_none());
+    assert_eq!(reply(&mut stream), "");
+}
+
+#[test]
+fn an_unknown_verb_is_dropped_unanswered() {
+    let scratch = tempfile::tempdir().unwrap();
+    let dir = scratch.path().join("edit");
+    let mut listener = Listener::new(&dir);
+    listener.incoming();
+    let mut stream = sent(&socket_files(&dir)[0], "run", later(), b"/acme/main.rs");
+    sleep(Duration::from_millis(50));
+
+    assert!(listener.incoming().is_none());
+    assert_eq!(reply(&mut stream), "");
+}
+
+#[test]
+fn a_refusal_spanning_lines_is_answered_on_one() {
+    let scratch = tempfile::tempdir().unwrap();
+    let dir = scratch.path().join("edit");
+    let mut listener = Listener::new(&dir);
+    listener.incoming();
+    let mut stream = sent(&socket_files(&dir)[0], "open", later(), b"/acme/main.rs");
+
+    arrived(&mut listener).answer(Reply::Refused("acme\nrefusal".to_string()));
+
+    assert_eq!(reply(&mut stream), "refused acme refusal\n");
+}
+
+#[test]
+fn a_dead_harbours_socket_is_swept() {
+    let scratch = tempfile::tempdir().unwrap();
+    let dir = private_folder(scratch.path());
+    let dead = dir.join("99999-0.sock");
+    drop(UnixListener::bind(&dead).unwrap());
+
+    Listener::new(&dir).incoming();
+
+    assert!(fs::symlink_metadata(&dead).is_err());
+}
+
+#[test]
+fn a_dead_socket_of_another_naming_is_left_alone() {
+    let scratch = tempfile::tempdir().unwrap();
+    let dir = private_folder(scratch.path());
+    let other = dir.join("acme.sock");
+    drop(UnixListener::bind(&other).unwrap());
+
+    Listener::new(&dir).incoming();
+
+    assert!(fs::symlink_metadata(&other).is_ok());
+}
+
+#[test]
+fn a_regular_file_of_harbours_naming_is_left_alone() {
+    let scratch = tempfile::tempdir().unwrap();
+    let dir = private_folder(scratch.path());
+    let planted = dir.join("99999-0.sock");
+    fs::write(&planted, "acme").unwrap();
+
+    Listener::new(&dir).incoming();
+
+    assert_eq!(fs::read_to_string(&planted).unwrap(), "acme");
+}
+
+#[test]
+fn a_live_harbours_socket_is_left_alone() {
+    let scratch = tempfile::tempdir().unwrap();
+    let dir = scratch.path().join("edit");
+    let mut first = Listener::new(&dir);
+    first.incoming();
+
+    let mut second = Listener::new(&dir);
+    second.incoming();
+
+    assert_eq!(socket_files(&dir).len(), 2);
+    drop(second);
+    drop(first);
+}
+
+#[test]
+fn a_removed_socket_is_bound_again_at_the_next_check() {
+    let scratch = tempfile::tempdir().unwrap();
+    let dir = scratch.path().join("edit");
+    let mut listener = Listener::new(&dir).retrying_every(Duration::ZERO);
+    listener.incoming();
+    fs::remove_file(&socket_files(&dir)[0]).unwrap();
+
+    assert!(listener.incoming().is_none());
+
+    assert_eq!(socket_files(&dir).len(), 1);
+}
+
+#[test]
+fn dropping_the_listener_removes_its_socket() {
+    let scratch = tempfile::tempdir().unwrap();
+    let dir = scratch.path().join("edit");
+    let mut listener = Listener::new(&dir);
+    listener.incoming();
+
+    drop(listener);
+
+    assert_eq!(socket_files(&dir).len(), 0);
+}
+
+#[test]
+fn a_folder_that_is_a_symlink_is_never_listened_in() {
+    let scratch = tempfile::tempdir().unwrap();
+    let elsewhere = private_folder(scratch.path());
+    let dir = scratch.path().join("edit");
+    std::os::unix::fs::symlink(&elsewhere, &dir).unwrap();
+
+    let mut listener = Listener::new(&dir);
+    listener.incoming();
+
+    assert_eq!(socket_files(&elsewhere).len(), 0);
+}
+
+fn arrived(listener: &mut Listener) -> harbour::handoff::Request {
+    for _ in 0..200 {
+        if let Some(request) = listener.incoming() {
+            return request;
+        }
+        sleep(Duration::from_millis(5));
+    }
+    panic!("no request arrived");
+}
+
+fn sent(socket: &Path, verb: &str, expires: u128, file: &[u8]) -> UnixStream {
+    let mut stream = UnixStream::connect(socket).unwrap();
+    stream
+        .set_read_timeout(Some(Duration::from_secs(2)))
+        .unwrap();
+    let mut request = format!("{verb} {expires}\0").into_bytes();
+    request.extend_from_slice(file);
+    stream.write_all(&request).unwrap();
+    stream.shutdown(Shutdown::Write).unwrap();
+    stream
+}
+
+fn reply(stream: &mut UnixStream) -> String {
+    let mut text = String::new();
+    stream.read_to_string(&mut text).unwrap();
+    text
+}
+
+fn later() -> u128 {
+    millis(SystemTime::now() + Duration::from_secs(5))
+}
+
+fn earlier() -> u128 {
+    millis(SystemTime::now() - Duration::from_secs(5))
+}
+
+fn millis(at: SystemTime) -> u128 {
+    at.duration_since(UNIX_EPOCH).unwrap().as_millis()
+}
+
+fn private_folder(scratch: &Path) -> PathBuf {
+    let dir = scratch.join("elsewhere");
+    fs::create_dir(&dir).unwrap();
+    fs::set_permissions(&dir, fs::Permissions::from_mode(0o700)).unwrap();
+    dir
+}
+
+fn socket_files(dir: &Path) -> Vec<PathBuf> {
+    let mut found: Vec<PathBuf> = fs::read_dir(dir)
+        .unwrap()
+        .map(|entry| entry.unwrap().path())
+        .filter(|path| {
+            path.extension()
+                .is_some_and(|extension| extension == "sock")
+        })
+        .collect();
+    found.sort();
+    found
+}

@@ -115,7 +115,7 @@ writes it, shuts its side, reads one reply line and closes.
 | Harbour busy past the deadline | the expired request is dropped, nothing opens | `no answer from harbour` | 1 |
 | The path is a directory | (no request) | `<path> is a directory` | 1 |
 | Its folder does not exist | (no request) | `<path>: No such file or directory` | 1 |
-| Path longer than 4096 bytes | (no request) | `<path> is too long` | 1 |
+| Path longer than 4096 bytes | (no request) | `the path is longer than 4096 bytes` | 1 |
 | The state folder is not private (symlink, other owner, group or other bits) | (no request) | `<folder> is not private; refusing to use it` | 1 |
 | The socket path would not fit an `AF_UNIX` address | harbour does not listen | `no harbour is running` (Known limits line) | 1 |
 | No `XDG_STATE_HOME` or `HOME` | harbour does not listen | `no harbour is running` | 1 |
