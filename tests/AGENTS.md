@@ -9,8 +9,9 @@ these suites come from; the ones about sessions were hit in harbour.
 - **tmux is a test harness, not a dependency.** Only the `#[ignore]` tests of `tests/e2e/` use
   it: they run the real binary in a scratch tmux server of their own (`-L harbour-e2e-<name>-<pid>`,
   `-f /dev/null`, killed when the test's `Server` drops), never the user's server. They panic
-  with an install hint when tmux is missing; `gates.sh` runs them with `--include-ignored` when
-  tmux is installed and says it skipped them otherwise; the `check` job installs it. A pane whose
+  with an install hint when tmux is missing; `gates.sh` runs them with `--include-ignored` and
+  `--test-threads=2`, after every other target, when tmux is installed and says it skipped them
+  otherwise; the `check` job installs it. A pane whose
   command exits at once loses its output before `capture-pane` reads it, even with
   `remain-on-exit`, so the pane command ends in `echo "harbour exited $?"; exec sleep 600`.
 
