@@ -2,11 +2,9 @@ use crossterm::event::{KeyCode, KeyModifiers, MouseButton, MouseEventKind};
 use harbour::app::App;
 use harbour::editor::Program;
 use harbour::picker::Picker;
-use ratatui::Terminal;
-use ratatui::backend::TestBackend;
 
 use crate::editor::{editor_open, reading_editor};
-use crate::{Screen, raw_agent, reading_agent, script};
+use crate::{Screen, home, raw_agent, reading_agent, script};
 
 #[test]
 fn a_paste_reaches_the_shown_editor_and_not_claude_code() {
@@ -130,15 +128,13 @@ fn opened(agent: Vec<String>, editor: Program, ready: &str) -> Screen {
 
 fn picking_over_the_editor() -> Screen {
     let picker = script("echo 'acme picker' >&2; read -r line; printf '%s\\n' \"$line\"");
-    let mut screen = Screen {
-        app: App::new(reading_agent())
+    let mut screen = Screen::wide(
+        App::new(reading_agent())
             .with_editor(reading_editor())
             .with_picker(Picker::Command(picker)),
-        terminal: Terminal::new(TestBackend::new(200, 20)).unwrap(),
-    };
-    screen.draw();
+    );
     screen.press('n');
-    screen.type_text(&format!("{}\r", std::env::current_dir().unwrap().display()));
+    screen.type_text(&format!("{}\r", home().display()));
     screen.wait_for("acme agent ready");
     screen.key(KeyCode::Char('l'), KeyModifiers::CONTROL);
     screen.wait_for("acme editor in");
