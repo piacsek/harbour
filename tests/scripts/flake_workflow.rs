@@ -8,7 +8,12 @@ fn the_paths_job_decides_from_what_changed_since_the_base() {
 
 #[test]
 fn the_flake_builds_on_linux_and_macos_without_a_nix_store_cache() {
-    assert!(ci().contains(FLAKE_JOB), "{}", ci());
+    assert_eq!(job("flake").trim_end(), FLAKE_JOB.trim_end());
+}
+
+#[test]
+fn the_workflow_never_restores_a_nix_store_cache() {
+    assert!(!ci().contains("cache-nix-action"), "{}", ci());
 }
 
 #[test]
@@ -19,6 +24,17 @@ fn flake_ok_judges_the_paths_and_flake_jobs_whatever_they_ended_in() {
 #[test]
 fn the_workflow_starts_on_every_pull_request_and_every_push_to_main() {
     assert!(ci().starts_with(TRIGGERS), "{}", ci());
+}
+
+fn job(name: &str) -> String {
+    let ci = ci();
+    let start = ci.find(&format!("\n  {name}:\n")).unwrap() + 1;
+    let job = &ci[start..];
+    let end = job
+        .match_indices("\n  ")
+        .find(|(i, _)| !job[i + 3..].starts_with(' '))
+        .map_or(job.len(), |(i, _)| i + 1);
+    job[..end].to_string()
 }
 
 fn ci() -> String {
