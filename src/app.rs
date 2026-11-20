@@ -231,7 +231,9 @@ impl App {
         let popup = popup(self.screen);
         match Pick::open(picker, &self.home, popup.height, popup.width) {
             Ok(pick) => self.picking = Some(pick),
-            Err(error) => self.failed = Some(format!("Could not open the picker: {error}")),
+            Err(error) => {
+                self.failed = Some(format!("Could not start {}: {error}", picker.program()))
+            }
         }
     }
 
@@ -242,6 +244,7 @@ impl App {
         self.picking = None;
         match picked {
             Picked::Cancelled => {}
+            Picked::Refused(refusal) => self.failed = Some(refusal),
             Picked::Chosen(directory) => self.start_in(&self.command.clone(), &directory),
         }
     }

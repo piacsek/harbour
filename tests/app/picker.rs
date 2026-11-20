@@ -64,6 +64,48 @@ fn a_picker_that_exits_with_an_error_starts_nothing() {
     assert!(!shown.contains(" directory "), "{shown}");
 }
 
+#[test]
+fn a_path_that_is_not_a_directory_is_named_and_starts_nothing() {
+    let picker = script("echo 'acme picker' >&2; read -r line; echo /acme/gone");
+    let mut screen = Screen::picking(placed_agent(), Picker::Command(picker));
+    screen.press('n');
+    screen.wait_for("acme picker");
+
+    screen.type_text("\r");
+
+    let shown = screen.wait_for_all(&["Not a directory: /acme/gone", "No session yet"]);
+    assert!(shown.contains("Not a directory: /acme/gone"), "{shown}");
+    assert!(shown.contains("No session yet"), "{shown}");
+    assert!(!shown.contains(" directory "), "{shown}");
+}
+
+#[test]
+fn a_relative_path_is_read_from_the_directory_of_harbour() {
+    let picker = script("echo 'acme picker' >&2; read -r line; echo src");
+    let mut screen = Screen::picking(placed_agent(), Picker::Command(picker));
+    screen.press('n');
+    screen.wait_for("acme picker");
+
+    screen.type_text("\r");
+
+    let shown = screen.wait_for_all(&["src 1", "acme agent in src"]);
+    assert!(shown.contains("src 1"), "{shown}");
+    assert!(shown.contains("acme agent in src"), "{shown}");
+}
+
+#[test]
+fn a_picker_that_cannot_start_is_named_and_starts_nothing() {
+    let picker = vec!["acme-nopicker".to_string()];
+    let mut screen = Screen::picking(placed_agent(), Picker::Command(picker));
+
+    screen.press('n');
+
+    let shown = screen.wait_for_all(&["Could not start acme-nopicker", "No session yet"]);
+    assert!(shown.contains("Could not start acme-nopicker"), "{shown}");
+    assert!(shown.contains("No session yet"), "{shown}");
+    assert!(!shown.contains(" directory "), "{shown}");
+}
+
 fn placed_agent() -> Vec<String> {
     script("echo \"acme agent in ${PWD##*/}\"; exec sleep 600")
 }
