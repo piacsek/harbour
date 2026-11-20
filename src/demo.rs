@@ -6,6 +6,7 @@ use std::time::{Duration, SystemTime};
 use tempfile::TempDir;
 
 use crate::editor::Program;
+use crate::memory::{Memory, Remembered};
 use crate::picker::Picker;
 
 const WORKING: &str = r#"printf '\033[38;5;209m*\033[0m \033[1macme agent\033[0m in ~/%s\n\n' "${PWD##*/}"
@@ -118,6 +119,26 @@ pub fn idle(registry: &Path) -> Vec<String> {
         },
         IDLE,
     )
+}
+
+const STOPPED: &str = "e47b9c05-2d81-4f36-a0c9-5b13d8e6f27a";
+
+pub fn stopped(registry: &Path) -> Memory {
+    let memory = Memory::new(&registry.join("sessions"));
+    let projects = registry.join("projects").join("demo");
+    let title = "Tidy the acme-docs links";
+    let line = serde_json::json!({"type": "ai-title", "aiTitle": title}).to_string();
+    let _ = fs::create_dir_all(&projects)
+        .and_then(|()| fs::write(projects.join(format!("{STOPPED}.jsonl")), line + "\n"))
+        .and_then(|()| {
+            memory.keep(&Remembered {
+                session_id: STOPPED.to_string(),
+                directory: checkout(registry, "acme-docs", "main"),
+                title: title.to_string(),
+                position: 5,
+            })
+        });
+    memory
 }
 
 pub fn checkout(registry: &Path, name: &str, branch: &str) -> PathBuf {

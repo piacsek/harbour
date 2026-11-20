@@ -1,8 +1,12 @@
-use std::fs::File;
+use std::collections::HashSet;
+use std::fs::{self, File};
 use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
+use nix::errno::Errno;
+use nix::sys::signal::kill;
+use nix::unistd::Pid;
 use serde::Deserialize;
 use serde_json::{Map, Value};
 
@@ -28,6 +32,7 @@ pub struct Record {
 }
 
 const CLOCK_SLACK: Duration = Duration::from_secs(2);
+const LONGEST: u64 = 64 * 1024;
 
 pub fn read(dir: &Path, pid: u32, since: SystemTime, last: Option<Record>) -> Option<Record> {
     let Some(fields) = fields(dir, pid, since)? else {
@@ -87,4 +92,32 @@ fn claude_dir(config_dir: Option<PathBuf>, home: Option<PathBuf>) -> Option<Path
     config_dir
         .filter(|dir| !dir.as_os_str().is_empty())
         .or_else(|| home.map(|home| home.join(".claude")))
+}
+
+pub fn open_ids(dir: &Path) -> HashSet<String> {
+    let Ok(entries) = fs::read_dir(dir) else {
+        return HashSet::new();
+    };
+    entries
+        .flatten()
+        .filter_map(|entry| {
+            let name = entry.file_name();
+            let pid: i32 = name.to_str()?.strip_suffix(".json")?.parse().ok()?;
+            if pid <= 0 || !alive(pid) || !entry.file_type().ok()?.is_file() {
+                return None;
+            }
+            let mut text = String::new();
+            File::open(entry.path())
+                .ok()?
+                .take(LONGEST)
+                .read_to_string(&mut text)
+                .ok()?;
+            let fields: Map<String, Value> = serde_json::from_str(&text).ok()?;
+            fields.get("sessionId")?.as_str().map(str::to_string)
+        })
+        .collect()
+}
+
+fn alive(pid: i32) -> bool {
+    matches!(kill(Pid::from_raw(pid), None), Ok(()) | Err(Errno::EPERM))
 }

@@ -12,6 +12,7 @@ use crate::app::App;
 use crate::demo::Registry;
 use crate::editor::Program;
 use crate::handoff::{self, Listener};
+use crate::memory::Memory;
 use crate::picker::Picker;
 use crate::registry;
 use crate::session;
@@ -38,6 +39,9 @@ pub fn run() -> io::Result<()> {
     }
     if let Some(summary) = published() {
         app = app.with_summary(summary);
+    }
+    if let Some(memory) = remembered() {
+        app = app.with_memory(memory);
     }
     if let Some(dir) = handoff::directory_from_env() {
         app = app.with_handoff(Listener::new(&dir));
@@ -126,6 +130,14 @@ fn claude_projects() -> Option<std::path::PathBuf> {
         std::env::var_os("HOME").map(Into::into),
     )
     .and_then(|dir| std::path::absolute(dir).ok())
+}
+
+fn remembered() -> Option<Memory> {
+    let state = summary::directory_from_env()?;
+    Some(Memory::of(
+        &state.with_file_name("sessions"),
+        &claude_projects()?,
+    ))
 }
 
 fn published() -> Option<Summary> {

@@ -12,11 +12,13 @@ use crossterm::event::{KeyCode, KeyModifiers};
 use harbour::app::App;
 use harbour::editor::Program;
 use harbour::handoff::{self, Listener, Reply, Verb};
+use harbour::memory::{Memory, Remembered};
 use harbour::picker::Picker;
 use ratatui::Terminal;
 use ratatui::backend::TestBackend;
 use rmpv::Value;
 
+use crate::remembering::{ID, TITLE};
 use crate::{Screen, numbered_agent, script};
 
 #[test]
@@ -371,6 +373,39 @@ fn open_with_a_neovim_that_cannot_start_names_why() {
 }
 
 #[test]
+fn a_stopped_card_holds_no_file() {
+    let scratch = tempfile::tempdir().unwrap();
+    let mut screen = remembering(scratch.path());
+    let shown = screen.wait_for(TITLE);
+    assert!(shown.contains(TITLE), "{shown}");
+
+    let reply = screen
+        .app
+        .hand(Verb::Ask, &file(scratch.path(), "acme-api"));
+
+    assert_eq!(reply, Reply::None);
+}
+
+#[test]
+fn open_passes_over_a_selected_stopped_card_to_the_live_holder() {
+    let scratch = tempfile::tempdir().unwrap();
+    let mut screen = remembering(scratch.path());
+    start_in(&mut screen, scratch.path(), "acme-api", 1);
+    screen.press('k');
+
+    let reply = screen
+        .app
+        .hand(Verb::Open, &file(scratch.path(), "acme-api"));
+
+    assert_eq!(reply, Reply::Opened);
+    let shown = screen.wait_for("acme nvim ready");
+    assert!(shown.contains("acme nvim ready"), "{shown}");
+    screen.key(KeyCode::Char('h'), KeyModifiers::CONTROL);
+    let shown = screen.wait_for("acme agent 1");
+    assert!(shown.contains("acme agent 1"), "{shown}");
+}
+
+#[test]
 fn harbour_edit_reaching_a_listening_harbour_opens_the_file_there() {
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = listening(scratch.path());
@@ -424,6 +459,20 @@ fn app_with(scratch: &Path, editor: Program) -> App {
     App::new(numbered_agent(scratch))
         .with_picker(Picker::Command(picker))
         .with_editor(editor)
+}
+
+fn remembering(scratch: &Path) -> Screen {
+    let memory = Memory::new(&scratch.join("state/harbour/sessions"));
+    let app = app_with(scratch, recording_neovim(scratch));
+    memory
+        .keep(&Remembered {
+            session_id: ID.to_string(),
+            directory: scratch.join("acme-api"),
+            title: TITLE.to_string(),
+            position: 0,
+        })
+        .unwrap();
+    Screen::of(app.with_memory(memory))
 }
 
 fn at_home(app: App) -> Screen {

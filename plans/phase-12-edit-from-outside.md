@@ -106,6 +106,8 @@ writes it, shuts its side, reads one reply line and closes.
 | Two sessions hold it, neither selected | the one used last gets it | nothing | 0 |
 | Two harbours hold it | the harbour whose holder was used last gets it; the other is unchanged | nothing | 0 |
 | No session holds it | unchanged | `no harbour session holds <path>` | 1 |
+| Only a stopped card (a remembered session not resumed) holds it | unchanged, nothing resumed | `no harbour session holds <path>` | 1 |
+| A stopped card is selected and a running session also holds it | the running session gets it | nothing | 0 |
 | No harbour running (no folder, an empty one, only dead sockets) | (none) | `no harbour is running` | 1 |
 | `HARBOUR_EDITOR` is not Neovim | unchanged | `a file can only be handed to Neovim, and HARBOUR_EDITOR is <name>` | 1 |
 | Neovim is waiting for a key (`blocking`) | unchanged | `Neovim is waiting for a key; answer it and try again` | 1 |
@@ -136,6 +138,9 @@ Product decisions the issue did not settle, each taken the most conservative way
 - Exited sessions still count as holding their directory; the editor opens beside them as
   Ctrl-l does.
 - The demo never listens, so `harbour edit` never reaches made-up sessions.
+- A stopped card (phase 10's remembered session, no process) never holds a file: `harbour edit`
+  never resumes a conversation, since that starts Claude Code, which is the user's call. It
+  passes over the card to a running holder, else says no session holds the file.
 - Peer uid checked on every connection though the folder is private: cheap, and it makes the
   socket safe even if the folder's mode is changed by hand.
 
@@ -171,6 +176,8 @@ Product decisions the issue did not settle, each taken the most conservative way
 - A session holds only paths inside its root; the editor used is the one running at that root,
   else a new one, as with Ctrl-l (older editors at other roots are not chosen).
 - The fixture editor `tests/fixtures/editor.sh` now prints its last argument too.
+- Merged with phase 10 (v0.9.0): stopped cards never hold a file; the channel's folder,
+  `harbour/edit/`, stays apart from phase 10's `harbour/sessions/`.
 
 ## Hurdles
 

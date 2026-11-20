@@ -1,7 +1,8 @@
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 
-use super::{App, read_entry, refusal, user_home};
+use super::read::{self, Reading};
+use super::{App, refusal, user_home};
 use crate::editor::{self, Editor, Program};
 use crate::handoff::{Listener, Reply, Verb};
 
@@ -51,6 +52,9 @@ impl App {
     fn holder(&self, file: &Path) -> Option<usize> {
         let home = user_home();
         let holds = |index: &usize| {
+            if self.sessions[*index].session.is_none() {
+                return false;
+            }
             let root = editor::root(&self.sessions[*index].seen, home.as_deref());
             file.starts_with(canonical(&root))
         };
@@ -89,11 +93,11 @@ impl App {
             return Ok(());
         };
         let entry = &mut self.sessions[index];
-        read_entry(
+        read::read_entry(
             entry,
             self.registry.as_deref(),
             self.transcripts.as_deref(),
-            true,
+            Reading::Now,
         );
         let directory = editor::root(&entry.seen, user_home().as_deref());
         let shown = match entry
