@@ -14,7 +14,7 @@ use crate::card::{Card, Ended, Sidebar};
 use crate::demo;
 use crate::help;
 use crate::keys;
-use crate::memory::Memory;
+use crate::memory::{Memory, Remembered};
 use crate::mouse::{self, Gesture, Target};
 use crate::picker::{Pick, Picked, Picker};
 use crate::registry::{self, Record};
@@ -75,6 +75,7 @@ struct Entry {
     exited_at: Option<Instant>,
     transcript: Option<Transcript>,
     remembered: Option<String>,
+    kept: Option<Remembered>,
 }
 
 impl Entry {
@@ -401,6 +402,7 @@ impl App {
                     exited_at: None,
                     transcript: None,
                     remembered: None,
+                    kept: None,
                 });
                 self.selected = self.sessions.len() - 1;
             }
@@ -449,6 +451,7 @@ impl App {
                 .unwrap_or(&entry.directory);
             entry.place = repo::place(directory);
         }
+        self.follow();
     }
 
     pub fn draw(&mut self, frame: &mut Frame) {

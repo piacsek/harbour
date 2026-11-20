@@ -9,9 +9,9 @@ use tempfile::TempDir;
 
 use crate::{Screen, below, script};
 
-const ID: &str = "0f1e2d3c-4b5a-6978-8a9b-0c1d2e3f4a5b";
-const OTHER_ID: &str = "9a8b7c6d-5e4f-4a3b-2c1d-0e9f8a7b6c5d";
-const TITLE: &str = "Fix the flaky login test";
+pub(crate) const ID: &str = "0f1e2d3c-4b5a-6978-8a9b-0c1d2e3f4a5b";
+pub(crate) const OTHER_ID: &str = "9a8b7c6d-5e4f-4a3b-2c1d-0e9f8a7b6c5d";
+pub(crate) const TITLE: &str = "Fix the flaky login test";
 
 #[test]
 fn a_remembered_session_comes_back_as_a_stopped_card() {
@@ -181,26 +181,52 @@ fn n_still_starts_a_new_session_beside_stopped_cards() {
     assert!(shown.contains(TITLE), "{shown}");
 }
 
-struct Scratch {
-    dir: TempDir,
+pub(crate) struct Scratch {
+    pub(crate) dir: TempDir,
 }
 
 impl Scratch {
-    fn new() -> Scratch {
+    pub(crate) fn new() -> Scratch {
         let dir = tempfile::tempdir().unwrap();
         fs::create_dir_all(dir.path().join("acme-api")).unwrap();
+        fs::create_dir_all(dir.path().join("claude/sessions")).unwrap();
+        fs::create_dir_all(dir.path().join("claude/projects/-home-acme")).unwrap();
         Scratch { dir }
     }
 
-    fn memory(&self) -> Memory {
+    pub(crate) fn sessions(&self) -> PathBuf {
+        self.dir.path().join("claude/sessions")
+    }
+
+    pub(crate) fn transcript(&self, id: &str, line: &str) {
+        let file = self
+            .dir
+            .path()
+            .join(format!("claude/projects/-home-acme/{id}.jsonl"));
+        let mut text = fs::read_to_string(&file).unwrap_or_default();
+        text.push_str(line);
+        text.push('\n');
+        fs::write(file, text).unwrap();
+    }
+
+    pub(crate) fn watching(&self, command: Vec<String>) -> Screen {
+        Screen::of(
+            App::new(command)
+                .with_registry(self.sessions())
+                .with_transcripts(self.dir.path().join("claude/projects"))
+                .with_memory(self.memory()),
+        )
+    }
+
+    pub(crate) fn memory(&self) -> Memory {
         Memory::new(&self.dir.path().join("state/harbour/sessions"))
     }
 
-    fn checkout(&self) -> PathBuf {
+    pub(crate) fn checkout(&self) -> PathBuf {
         self.dir.path().join("acme-api")
     }
 
-    fn remember(&self, id: &str, title: &str, position: usize) {
+    pub(crate) fn remember(&self, id: &str, title: &str, position: usize) {
         self.memory()
             .keep(&Remembered {
                 session_id: id.to_string(),

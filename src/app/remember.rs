@@ -1,7 +1,7 @@
 use std::time::SystemTime;
 
 use super::{App, Entry, refusal};
-use crate::memory::Memory;
+use crate::memory::{Memory, Remembered};
 use crate::repo;
 use crate::session::Session;
 
@@ -22,6 +22,7 @@ impl App {
                 exited_at: None,
                 transcript: None,
                 remembered: Some(remembered.session_id),
+                kept: None,
             });
         }
         self.memory = Some(memory);
@@ -67,6 +68,47 @@ impl App {
             }
         }
         true
+    }
+
+    pub(super) fn follow(&mut self) {
+        let Some(memory) = &self.memory else {
+            return;
+        };
+        for (position, entry) in self.sessions.iter_mut().enumerate() {
+            if entry
+                .session
+                .as_mut()
+                .is_none_or(|session| session.exit().is_some())
+            {
+                continue;
+            }
+            let Some(transcript) = entry.transcript.as_ref().filter(|found| found.is_found())
+            else {
+                continue;
+            };
+            let wanted = Remembered {
+                session_id: transcript.session_id().to_string(),
+                directory: entry.directory.clone(),
+                title: transcript
+                    .facts()
+                    .title
+                    .clone()
+                    .unwrap_or_else(|| entry.name.clone()),
+                position,
+            };
+            if entry.kept.as_ref() == Some(&wanted) || memory.keep(&wanted).is_err() {
+                continue;
+            }
+            if let Some(old) = entry
+                .remembered
+                .as_ref()
+                .filter(|old| **old != wanted.session_id)
+            {
+                memory.forget(old);
+            }
+            entry.remembered = Some(wanted.session_id.clone());
+            entry.kept = Some(wanted);
+        }
     }
 
     pub(super) fn forget(&self, remembered: Option<String>) {

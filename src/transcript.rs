@@ -62,6 +62,10 @@ impl Transcript {
         &self.session_id
     }
 
+    pub fn is_found(&self) -> bool {
+        self.path.is_some()
+    }
+
     pub fn facts(&self) -> &Facts {
         &self.facts
     }
