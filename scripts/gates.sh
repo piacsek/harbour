@@ -12,9 +12,9 @@ step() {
 step scripts/scrub-check.sh
 step cargo fmt --check
 step cargo clippy --all-targets -- -D warnings
-ignored=()
+separate=scripts
 if command -v tmux >/dev/null; then
-  ignored=(-- --include-ignored)
+  separate=e2e
 fi
 if [ -z "${CI:-}" ] && reason="$(scripts/script-tests-skippable.sh)"; then
   targets=()
@@ -23,14 +23,20 @@ if [ -z "${CI:-}" ] && reason="$(scripts/script-tests-skippable.sh)"; then
     name="${file#tests/}"
     name="${name%/main.rs}"
     name="${name%.rs}"
-    [ "$name" = scripts ] || targets+=(--test "$name")
+    case "$name" in
+      scripts | "$separate") ;;
+      *) targets+=(--test "$name") ;;
+    esac
   done
   echo "==> skipping the script tests: $reason; CI runs them" >&2
-  step cargo test --lib --bins ${targets[@]+"${targets[@]}"} ${ignored[@]+"${ignored[@]}"}
-  step cargo test --doc ${ignored[@]+"${ignored[@]}"}
+  step cargo test --lib --bins ${targets[@]+"${targets[@]}"}
+  step cargo test --doc
 else
-  step cargo test ${ignored[@]+"${ignored[@]}"}
+  step cargo test
 fi
-command -v tmux >/dev/null ||
+if [ "$separate" = e2e ]; then
+  step cargo test --test e2e -- --include-ignored --test-threads=2
+else
   echo "==> skipping the ignored e2e tests: tmux is not installed (brew install tmux); CI runs them" >&2
+fi
 echo "gates passed"

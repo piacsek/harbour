@@ -27,7 +27,10 @@ speed-up, when its pipeline went from about 3 min 20 s to 37 s:
   `release.yml` is what proves the release profile.
 - **One test invocation.** `cargo test -- --include-ignored` runs every suite, the tmux e2e
   tests included, in one pass; two invocations rebuild the
-  test harness twice for nothing.
+  test harness twice for nothing. The local gates split the end-to-end target out at two
+  threads on purpose, for the machine load of development (`tests/AGENTS.md`); `check` keeps
+  one pass because none of the last 30 CI runs read in November 2026 failed that way. Revisit
+  this when a `check` run fails on a screen wait that timed out.
 - **The floor is setup.** Job setup, checkout, toolchain and the `Swatinem/rust-cache` restore
   take most of `check`; fmt, clippy and tests are seconds. Shaving further means caching a
   container image, not touching cargo.

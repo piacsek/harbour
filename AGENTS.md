@@ -577,11 +577,15 @@ base with `origin/main` and the working tree, untracked files included, under `s
 `tests/scripts/`, `tests/fixtures/`, `.github/`, `changes/`, or in `Cargo.toml`, `Cargo.lock`,
 `CHANGELOG.md` or `flake.nix`: the paths those tests read from this repository. It then runs
 `cargo test --lib --bins` with a `--test` for every other target it finds as `tests/*.rs` or
-`tests/*/main.rs`, then `cargo test --doc`, and prints `==> skipping the script tests: <reason>; CI runs them`. No
+`tests/*/main.rs` (but `e2e` when tmux is installed, since its own step runs it), then `cargo test --doc`, and prints `==> skipping the script tests: <reason>; CI runs them`. No
 repository, no `origin/main` or no merge base runs everything. The skip is safe because the
 `check` job of `ci.yml` calls `cargo test --locked` itself, not `gates.sh`, and `check` is
 required to merge into `main`. A script test that starts reading another path of this
 repository puts that path on the list in the script.
+With tmux installed, `gates.sh` then runs the `#[ignore]` end-to-end tests last, in a run of
+their own: `cargo test --test e2e -- --include-ignored --test-threads=2`. At one thread per core
+they lost a timing race in 6 runs of 10 beside other load on the build machine; at 2 threads
+they passed every run (`tests/AGENTS.md`).
 `tests/scripts/` runs the scripts themselves in a scratch directory and a scratch git
 repository, with `cargo`, `gh` and the scripts they call replaced by symlinks to
 `tests/fixtures/record-call.sh`, which appends its name and argv to `$CALLS_LOG` and exits 1 for
