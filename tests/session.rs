@@ -21,9 +21,15 @@ fn the_pane_shows_what_the_command_prints() {
 
 #[test]
 fn the_command_starts_in_the_working_directory_of_harbour() {
-    let session = start("echo \"in:$(pwd -P)\"; sleep 5");
     let here = std::env::current_dir().unwrap().canonicalize().unwrap();
     let expected = format!("in:{}", here.display());
+    let command = [
+        "/bin/sh".to_string(),
+        "-c".into(),
+        "echo \"in:$(pwd -P)\"; sleep 5".into(),
+    ];
+    let width = u16::try_from(expected.chars().count().max(usize::from(COLS)) + 1).unwrap();
+    let session = Session::start(&command, ROWS, width).unwrap();
     let screen = wait_for(&session, &expected);
     assert!(screen.contains(&expected), "{screen}");
 }

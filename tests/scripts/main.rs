@@ -22,6 +22,7 @@ mod scrub_check;
 mod ship;
 mod stable_version;
 mod sweep;
+mod truecolor;
 mod version_check;
 mod version_check_cargo;
 mod version_check_head;

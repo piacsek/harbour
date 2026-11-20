@@ -29,7 +29,7 @@ fn question_mark_says_that_ctrl_backspace_focuses_the_sidebar() {
 
 #[test]
 fn the_next_key_hides_the_help_and_does_nothing_else() {
-    let mut screen = Screen::new(reading_agent());
+    let mut screen = Screen::wide(reading_agent());
     screen.press('?');
 
     screen.press('n');

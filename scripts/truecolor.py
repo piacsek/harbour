@@ -51,5 +51,6 @@ def apply(text):
         i += 1
     return style()
 
-text = sys.stdin.read()
-sys.stdout.write(re.sub(r"\033\[([0-9;]*)m", lambda m: apply(m.group(1)), text))
+for n, line in enumerate(sys.stdin.read().split("\n")):
+    prefix = "\n" + (style() if line else "") if n else ""
+    sys.stdout.write(prefix + re.sub(r"\033\[([0-9;]*)m", lambda m: apply(m.group(1)), line))

@@ -14,6 +14,7 @@ use crossterm::event::{KeyCode, KeyEvent, KeyModifiers, MouseEvent, MouseEventKi
 use harbour::app::App;
 use ratatui::Terminal;
 use ratatui::backend::TestBackend;
+use ratatui::buffer::Cell;
 
 struct Screen {
     app: App,
@@ -27,6 +28,13 @@ impl Screen {
             terminal: Terminal::new(TestBackend::new(120, 20)).unwrap(),
         };
         screen.draw();
+        screen
+    }
+
+    fn wide(command: Vec<String>) -> Screen {
+        let mut screen = Screen::new(command);
+        let width = 3 * (directory().chars().count() + 32);
+        screen.resize(u16::try_from(width.max(120)).unwrap(), 20);
         screen
     }
 
@@ -78,6 +86,10 @@ impl Screen {
             })
             .collect::<Vec<_>>()
             .join("\n")
+    }
+
+    fn cell(&self, x: u16, y: u16) -> Cell {
+        self.terminal.backend().buffer()[(x, y)].clone()
     }
 
     fn wait_for(&mut self, text: &str) -> String {
@@ -158,4 +170,14 @@ fn region(shown: &str, from: usize, width: usize) -> String {
         })
         .collect::<Vec<_>>()
         .join("\n")
+}
+
+fn pane_corner(shown: &str) -> u16 {
+    let top = shown.lines().next().unwrap();
+    let column = top
+        .chars()
+        .skip(1)
+        .position(|c| c == '┌' || c == '┏')
+        .unwrap();
+    u16::try_from(column + 1).unwrap()
 }

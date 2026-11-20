@@ -60,6 +60,8 @@ shoot() {
 mkdir -p "$home/acme-api"
 shoot details 160 26 --demo ""
 echo "wrote $out/details.png"
+shoot pane 160 26 --demo "Enter"
+echo "wrote $out/pane.png"
 shoot keys 160 26 --demo "?"
 echo "wrote $out/keys.png"
 shoot question 160 26 --demo "x"
