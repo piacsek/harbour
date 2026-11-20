@@ -72,6 +72,10 @@ impl Entry {
         self.editor().filter(|_| self.on_editor)
     }
 
+    fn shown_id(&self) -> usize {
+        self.showing_editor().map_or(self.id, |editor| editor.id)
+    }
+
     fn shown(&self) -> &Session {
         match self.showing_editor() {
             Some(editor) => &editor.session,
@@ -234,9 +238,9 @@ impl App {
         }
         let entry = self.sessions.get(self.selected);
         let target = entry.map(|entry| {
-            let (mode, encoding) = entry.session.mouse_protocol();
+            let (mode, encoding) = entry.shown().mouse_protocol();
             Target {
-                session: entry.id,
+                session: entry.shown_id(),
                 mode,
                 encoding,
             }
@@ -244,7 +248,7 @@ impl App {
         let (gesture, bytes) = mouse::route(self.gesture, event, self.shown_pane, target);
         self.gesture = gesture;
         if let (Some(entry), Some(bytes)) = (entry, bytes) {
-            entry.session.send(&bytes);
+            entry.shown().send(&bytes);
         }
     }
 
