@@ -134,4 +134,22 @@ Metrics (from `plans/metrics.md`): review rounds 6, 3, 3 for phases 1 to 3; star
 notices per phase 12, 4, 4. Three comparable rows are too few to call a trend in tokens; rounds
 dropped from 6 to 3 and held. Codex and orchestrator usage remain unknown in every row.
 
+### Build
+
+- `harbour status` prints the summed counts of every running harbour in the issue's format and
+  exits 0 in every state of the table; each row has a test against the real binary
+  (`tests/status.rs`), the writer has its own (`tests/summary.rs`), and two e2e tests read a
+  harbour in a scratch tmux server, then see nothing once it quits.
+- `src/summary.rs` is a new module; `src/app.rs` and `src/tui.rs` changed by a few lines each,
+  so the phase 4 branch, which edits both, merges with little to resolve.
+- `state::counts` counts once for the sidebar title and the summary, so the two never disagree.
+- The App wiring moved from task 5 into task 4: the dead-code rule fails a `pub` writer nothing
+  calls. Task 5 kept the e2e tests and the taller help shot (9 rows for the 8-line usage). This
+  is the second time (sweep finding 7), so the next sweep may turn that decline into a rule.
+- Every Decision above was taken without the owner, as the most conservative reading of issue #8.
+
 ## Hurdles
+
+- `process` The dead-code rule pulled the App wiring from task 5 into task 4, as in phase 3 → none
+- `test-seam` Tests green on their first run (the quit e2e test, Summary removal, the reader's liveness) were proved by breaking the code by hand, as in phases 1 to 3 → none
+- `test-seam` The first e2e status test raced the registry read: it saw `·` (unknown) before `●` and asserted on any non-empty line; it now waits for the line it asserts, as `tests/AGENTS.md` says → none
