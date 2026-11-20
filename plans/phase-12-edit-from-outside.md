@@ -78,17 +78,18 @@ writes it, shuts its side, reads one reply line and closes.
 
 ## Which session gets the file
 
-- A session holds a path when the path is inside one of its directories: the root of its
-  repository or worktree (`editor::root` of where it works, as Ctrl-l opens), or the directory
-  of one of its editors. All compared after resolving symlinks, on both sides.
+- A session holds a path when the path is inside the root of its repository or worktree
+  (`editor::root` of where it works, the folder Ctrl-l opens Neovim in), compared after
+  resolving symlinks on both sides: `harbour edit` sends the resolved path, harbour resolves the
+  root.
 - In one harbour: the selected session when it holds the path, else the holder used last. A
   session's last use is the last key, paste or mouse event harbour handled while it was
   selected; it starts at its start. Exited sessions count.
 - Across harbours: each answers `ask` with its own pick and that pick's last use; the latest
   wins. A tie goes to the first answer.
-- In the session: the editor whose directory is the deepest that holds the path; when none
-  does, the editor at the session's root, started (Neovim with `--listen` and `-- <path>`) when
-  not running, exactly as Ctrl-l would.
+- In the session: the editor running at the session's root, started (Neovim with `--listen`
+  and `-- <path>`) when not running, exactly as Ctrl-l would. An editor left at an earlier root
+  after the session moved is not chosen, as Ctrl-l does not choose it either.
 
 ## States and what the user sees
 
@@ -109,7 +110,7 @@ writes it, shuts its side, reads one reply line and closes.
 | Neovim is waiting for a key (`blocking`) | unchanged | `Neovim is waiting for a key; answer it and try again` | 1 |
 | Neovim does not answer (no socket, or no reply in 1 s) | unchanged | `Neovim did not answer` | 1 |
 | Neovim refuses (E37 with `hidden` off, a swap file) | unchanged; Neovim shows nothing new | `Neovim refused: <its error>` | 1 |
-| Neovim cannot start | the pane names the failure as Ctrl-l does | `could not start <name>: <error>` | 1 |
+| Neovim cannot start | the pane names the failure as Ctrl-l does | `Could not start <name>: <error>` | 1 |
 | A question (End?/Quit?) or the directory picker is open | unchanged | `harbour is waiting for an answer; try again after it` | 1 |
 | The help view is open | it closes, then as the first row | nothing | 0 |
 | Harbour busy past the deadline | the expired request is dropped, nothing opens | `no answer from harbour` | 1 |

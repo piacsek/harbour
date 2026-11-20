@@ -242,6 +242,7 @@ pub enum Verb {
     Open,
 }
 
+#[derive(Debug, PartialEq, Eq)]
 pub enum Reply {
     Holds(SystemTime),
     None,

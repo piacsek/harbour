@@ -66,6 +66,10 @@ impl Program {
     pub fn name(&self) -> &str {
         &self.name
     }
+
+    pub fn is_neovim(&self) -> bool {
+        self.neovim
+    }
 }
 
 pub struct Editor {

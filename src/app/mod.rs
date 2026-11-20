@@ -6,12 +6,13 @@ use crossterm::event::{KeyCode, KeyEvent, KeyModifiers, MouseEvent, MouseEventKi
 use ratatui::layout::{Position, Rect};
 
 mod draw;
+mod handoff;
 
 use draw::exit_note;
 
 use crate::card::Sidebar;
 use crate::demo;
-use crate::editor::{self, Changes, Editor, Program};
+use crate::editor::{Changes, Editor, Program};
 use crate::follow::{self, Follow, Mover};
 use crate::keys;
 use crate::mouse::{self, Gesture, Target};
@@ -68,6 +69,7 @@ struct Entry {
     name: String,
     session: Session,
     started_at: SystemTime,
+    used_at: SystemTime,
     record: Option<Record>,
     place: Place,
     exited_at: Option<Instant>,
@@ -225,6 +227,7 @@ impl App {
     }
 
     pub fn key(&mut self, key: KeyEvent) {
+        self.touch();
         if let Some(pick) = &self.picking {
             let session = pick.session();
             session.send(&keys::encode(key, session.application_cursor()));
@@ -280,6 +283,7 @@ impl App {
     }
 
     pub fn paste(&mut self, text: &str) {
+        self.touch();
         if let Some(pick) = &self.picking {
             pick.session().paste(text);
             return;
@@ -293,6 +297,7 @@ impl App {
     }
 
     pub fn mouse(&mut self, event: MouseEvent) {
+        self.touch();
         if let Some(pick) = &self.picking {
             let (mode, encoding) = pick.session().mouse_protocol();
             let target = Target {
@@ -358,48 +363,6 @@ impl App {
             .get(self.selected)
             .filter(|_| self.pane_focused)
             .map(Entry::shown)
-    }
-
-    fn open_editor(&mut self) {
-        let Some(program) = &self.editor else {
-            return;
-        };
-        let Some(entry) = self.sessions.get_mut(self.selected) else {
-            return;
-        };
-        read_entry(
-            entry,
-            self.registry.as_deref(),
-            self.transcripts.as_deref(),
-            true,
-        );
-        let directory = editor::root(&entry.seen, user_home().as_deref());
-        if let Some(index) = entry
-            .editors
-            .iter()
-            .position(|editor| editor.directory == directory)
-        {
-            entry.editor = Some(index);
-            entry.on_editor = true;
-            return;
-        }
-        self.started += 1;
-        match Editor::start(
-            program,
-            &directory,
-            &self.temporary,
-            self.started,
-            self.pane.height,
-            self.pane.width,
-        ) {
-            Ok(editor) => {
-                self.failed = None;
-                entry.editors.push(editor);
-                entry.editor = Some(entry.editors.len() - 1);
-                entry.on_editor = true;
-            }
-            Err(error) => self.failed = Some(refusal(program.name(), &error)),
-        }
     }
 
     fn next_editor(&mut self) {
@@ -563,6 +526,7 @@ impl App {
                     name: format!("{} {}", folder_name(directory), self.named),
                     session,
                     started_at,
+                    used_at: started_at,
                     record: None,
                     place: repo::place(directory, user_home().as_deref()),
                     exited_at: None,

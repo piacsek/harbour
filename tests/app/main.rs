@@ -9,6 +9,7 @@ mod ending;
 mod exits;
 mod focus;
 mod following;
+mod handoff;
 mod help;
 mod input;
 mod layout;
