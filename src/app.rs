@@ -158,6 +158,7 @@ impl App {
             .with_home(demo::checkout(&registry, "acme-api", "main"))
             .with_registry(registry.clone())
             .with_transcripts(registry.join("projects"))
+            .with_memory(demo::stopped(&registry))
             .with_picker(demo::picker());
         app.start_with(&demo::working(&registry));
         app.start_with(&demo::blocked(&registry));

@@ -73,3 +73,24 @@ fn a_session_comes_back_stopped_after_quitting_and_resumes_with_enter() {
         "{resumed}"
     );
 }
+
+#[test]
+#[ignore]
+fn the_demo_shows_a_stopped_session_it_remembers() {
+    let home = tempfile::tempdir().unwrap();
+    let server = Server::start("demo-stopped", 160, 26);
+
+    server.run(home.path(), &[], &["--demo"]);
+
+    let rows = [
+        "○ Tidy the acme-docs links",
+        "stopped",
+        "acme-docs · main",
+        " sessions ● 1 ◉ 1 ○ 2 · 1 ",
+    ];
+    let screen = server.wait_for_screen_all(&rows);
+    assert!(screen.contains(rows[0]), "{screen}");
+    assert!(screen.contains(rows[1]), "{screen}");
+    assert!(screen.contains(rows[2]), "{screen}");
+    assert!(screen.contains(rows[3]), "{screen}");
+}
