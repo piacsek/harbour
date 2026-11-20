@@ -246,7 +246,10 @@ impl App {
         match picked {
             Picked::Cancelled => {}
             Picked::Refused(refusal) => self.failed = Some(refusal),
-            Picked::Chosen(directory) => self.start_in(&self.command.clone(), &directory),
+            Picked::Chosen(directory) => {
+                self.start_in(&self.command.clone(), &directory);
+                self.pane_focused = !self.sessions.is_empty();
+            }
         }
     }
 

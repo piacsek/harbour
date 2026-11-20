@@ -6,7 +6,7 @@ use crossterm::event::{KeyCode, KeyModifiers};
 
 use harbour::picker::Picker;
 
-use crate::{Screen, directory, script};
+use crate::{Screen, directory, reading_agent, script};
 
 #[test]
 fn a_directory_the_picker_prints_starts_a_session_there_named_after_it() {
@@ -166,6 +166,38 @@ fn without_fzf_n_starts_the_session_where_harbour_was_opened_at_once() {
     assert!(!shown.contains(" directory "), "{shown}");
 }
 
+#[test]
+fn a_confirmed_directory_gives_its_session_the_focus() {
+    let mut screen = Screen::picking(reading_agent(), Picker::Command(typed_picker()));
+    screen.press('n');
+    screen.wait_for("acme picker");
+    screen.type_text(&format!("{}\r", here()));
+    screen.wait_for("acme agent ready");
+
+    screen.type_text("hello\r");
+
+    let shown = screen.wait_for("acme agent got: hello");
+    assert!(shown.contains("acme agent got: hello"), "{shown}");
+}
+
+#[test]
+fn a_cancelled_picker_leaves_the_focus_on_the_sidebar() {
+    let mut screen = Screen::picking(reading_agent(), Picker::Command(typed_picker()));
+    screen.press('n');
+    screen.wait_for("acme picker");
+    screen.type_text(&format!("{}\r", here()));
+    screen.wait_for("acme agent ready");
+    screen.key(KeyCode::Char('h'), KeyModifiers::CONTROL);
+    screen.press('n');
+    screen.wait_for("acme picker");
+
+    screen.type_text("\r");
+
+    let shown = popup_closed(&mut screen);
+    let top = shown.lines().next().unwrap();
+    assert!(top.starts_with('┏'), "{shown}");
+}
+
 fn placed_agent() -> Vec<String> {
     script("echo \"acme agent in ${PWD##*/}\"; exec sleep 600")
 }
@@ -205,11 +237,16 @@ fn widen(screen: &mut Screen) {
 }
 
 fn closed(screen: &mut Screen) -> String {
+    popup_closed(screen);
+    screen.wait_for("No session yet")
+}
+
+fn popup_closed(screen: &mut Screen) -> String {
     let deadline = Instant::now() + Duration::from_secs(5);
     loop {
         let shown = screen.draw();
         if !shown.contains(" directory ") || Instant::now() > deadline {
-            return screen.wait_for("No session yet");
+            return shown;
         }
         sleep(Duration::from_millis(20));
     }
