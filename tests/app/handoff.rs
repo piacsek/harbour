@@ -1,15 +1,17 @@
 use std::fs;
+use std::io::{ErrorKind, Read, Write};
+use std::net::Shutdown;
 use std::os::unix::ffi::OsStrExt;
-use std::os::unix::net::UnixListener;
+use std::os::unix::net::{UnixListener, UnixStream};
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::{self, Receiver};
 use std::thread::{self, sleep};
-use std::time::{Duration, SystemTime};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use crossterm::event::{KeyCode, KeyModifiers};
 use harbour::app::App;
 use harbour::editor::Program;
-use harbour::handoff::{Reply, Verb};
+use harbour::handoff::{self, Listener, Reply, Verb};
 use harbour::picker::Picker;
 use ratatui::Terminal;
 use ratatui::backend::TestBackend;
@@ -368,6 +370,34 @@ fn open_with_a_neovim_that_cannot_start_names_why() {
     assert!(shown.contains("Could not start nvim"), "{shown}");
 }
 
+#[test]
+fn harbour_edit_reaching_a_listening_harbour_opens_the_file_there() {
+    let scratch = tempfile::tempdir().unwrap();
+    let mut screen = listening(scratch.path());
+    start_in(&mut screen, scratch.path(), "acme-api", 1);
+    let dir = scratch.path().join("edit");
+    let file = file(scratch.path(), "acme-api");
+
+    let sent = thread::spawn(move || handoff::send(Some(&dir), &file));
+
+    let shown = screen.wait_for("acme nvim ready");
+    assert!(shown.contains("acme nvim ready"), "{shown}");
+    assert_eq!(sent.join().unwrap(), Ok(()));
+}
+
+#[test]
+fn one_frame_answers_at_most_four_requests() {
+    let scratch = tempfile::tempdir().unwrap();
+    let mut screen = listening(scratch.path());
+    let socket = socket_in(&scratch.path().join("edit"));
+    let mut streams: Vec<UnixStream> = (0..5).map(|_| asked(&socket)).collect();
+
+    screen.draw();
+
+    let answered = streams.iter_mut().filter_map(answer).count();
+    assert_eq!(answered, 4);
+}
+
 const WAITING: &str = "harbour is waiting for an answer; try again after it";
 
 fn harbour(scratch: &Path) -> Screen {
@@ -375,6 +405,15 @@ fn harbour(scratch: &Path) -> Screen {
 }
 
 fn harbour_with(scratch: &Path, editor: Program) -> Screen {
+    Screen::of(app_with(scratch, editor))
+}
+
+fn listening(scratch: &Path) -> Screen {
+    let listener = Listener::new(&scratch.join("edit"));
+    Screen::of(app_with(scratch, recording_neovim(scratch)).with_handoff(listener))
+}
+
+fn app_with(scratch: &Path, editor: Program) -> App {
     fs::create_dir_all(scratch.join("acme-api/src")).unwrap();
     fs::create_dir_all(scratch.join("acme-web")).unwrap();
     let next = scratch.join("next").display().to_string();
@@ -382,11 +421,9 @@ fn harbour_with(scratch: &Path, editor: Program) -> Screen {
         "d=$(cat '{next}' 2>/dev/null); rm -f '{next}'; \
          if [ -n \"$d\" ]; then printf '%s\\n' \"$d\"; else exec sleep 600; fi"
     ));
-    Screen::of(
-        App::new(numbered_agent(scratch))
-            .with_picker(Picker::Command(picker))
-            .with_editor(editor),
-    )
+    App::new(numbered_agent(scratch))
+        .with_picker(Picker::Command(picker))
+        .with_editor(editor)
 }
 
 fn at_home(app: App) -> Screen {
@@ -526,4 +563,42 @@ fn file(scratch: &Path, folder: &str) -> PathBuf {
         .unwrap()
         .join(folder)
         .join("src/main.rs")
+}
+
+fn socket_in(dir: &Path) -> PathBuf {
+    fs::read_dir(dir)
+        .unwrap()
+        .map(|entry| entry.unwrap().path())
+        .find(|path| {
+            path.extension()
+                .is_some_and(|extension| extension == "sock")
+        })
+        .unwrap()
+}
+
+fn asked(socket: &Path) -> UnixStream {
+    let mut stream = UnixStream::connect(socket).unwrap();
+    let expires = (SystemTime::now() + Duration::from_secs(5))
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_millis();
+    stream
+        .write_all(format!("ask {expires}\0/acme/src/main.rs").as_bytes())
+        .unwrap();
+    stream.shutdown(Shutdown::Write).unwrap();
+    stream
+        .set_read_timeout(Some(Duration::from_millis(300)))
+        .unwrap();
+    stream
+}
+
+fn answer(stream: &mut UnixStream) -> Option<String> {
+    let mut text = String::new();
+    match stream.read_to_string(&mut text) {
+        Err(error) if matches!(error.kind(), ErrorKind::WouldBlock | ErrorKind::TimedOut) => None,
+        result => {
+            result.unwrap();
+            Some(text)
+        }
+    }
 }

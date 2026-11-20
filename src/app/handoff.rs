@@ -3,9 +3,10 @@ use std::time::SystemTime;
 
 use super::{App, read_entry, refusal, user_home};
 use crate::editor::{self, Editor, Program};
-use crate::handoff::{Reply, Verb};
+use crate::handoff::{Listener, Reply, Verb};
 
 const WAITING: &str = "harbour is waiting for an answer; try again after it";
+const SERVED_PER_FRAME: usize = 4;
 
 impl App {
     pub fn hand(&mut self, verb: Verb, file: &Path) -> Reply {
@@ -19,6 +20,16 @@ impl App {
             (Verb::Open, None) => {
                 Reply::Refused(format!("no harbour session holds {}", file.display()))
             }
+        }
+    }
+
+    pub(super) fn serve(&mut self) {
+        for _ in 0..SERVED_PER_FRAME {
+            let Some(request) = self.handoff.as_mut().and_then(Listener::incoming) else {
+                return;
+            };
+            let reply = self.hand(request.verb, &request.file);
+            request.answer(reply);
         }
     }
 

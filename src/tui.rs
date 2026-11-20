@@ -11,6 +11,7 @@ use crossterm::execute;
 use crate::app::App;
 use crate::demo::Registry;
 use crate::editor::Program;
+use crate::handoff::{self, Listener};
 use crate::picker::Picker;
 use crate::registry;
 use crate::session;
@@ -37,6 +38,9 @@ pub fn run() -> io::Result<()> {
     }
     if let Some(summary) = published() {
         app = app.with_summary(summary);
+    }
+    if let Some(dir) = handoff::directory_from_env() {
+        app = app.with_handoff(Listener::new(&dir));
     }
     show(app)
 }

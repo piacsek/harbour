@@ -28,6 +28,7 @@ impl App {
 
     pub fn draw(&mut self, frame: &mut Frame) {
         self.finish_pick();
+        self.serve();
         self.finish_editors();
         self.read_files();
         self.follow_selected();

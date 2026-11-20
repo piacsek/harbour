@@ -3,6 +3,7 @@ use std::path::{Path, PathBuf};
 use harbour::tui::{EDITOR, SESSION_COMMAND};
 use tempfile::TempDir;
 
+use super::edit::{handed, source_file};
 use super::{AGENT, Server, tools};
 
 const CLEAN_NVIM: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/nvim/nvim");
@@ -188,9 +189,29 @@ fn x_with_nothing_modified_asks_the_plain_question() {
     assert!(!screen.contains("nsaved changes"), "{screen}");
 }
 
+#[test]
+#[ignore]
+fn harbour_edit_opens_a_name_full_of_ex_specials_in_the_running_neovim() {
+    let Some(neovim) = Neovim::start("nvim-edit") else {
+        return;
+    };
+    let file = source_file(neovim.home.path(), "acme %b#c|d e.rs");
+    let state = neovim.home.path().join("xdg/state");
+
+    let output = handed(neovim.home.path(), Some(state.to_str().unwrap()), &file);
+
+    assert_eq!(String::from_utf8_lossy(&output.stderr), "");
+    assert_eq!(output.status.code(), Some(0));
+    neovim.shows("acme handed line");
+    neovim
+        .server
+        .send_keys(&[":echo 'acme-name-' . expand('%:t')", "Enter"]);
+    neovim.shows("acme-name-acme %b#c|d e.rs");
+}
+
 struct Neovim {
     server: Server,
-    _home: TempDir,
+    home: TempDir,
 }
 
 impl Neovim {
@@ -228,10 +249,7 @@ impl Neovim {
         server.send_keys(&["C-l"]);
         let editing = server.wait_for_screen("claude | nvim: ");
         assert!(editing.contains("claude | nvim: "), "{editing}");
-        let neovim = Neovim {
-            server,
-            _home: home,
-        };
+        let neovim = Neovim { server, home };
         neovim.assert_in_neovim();
         Some(neovim)
     }

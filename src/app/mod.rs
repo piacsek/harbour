@@ -14,6 +14,7 @@ use crate::card::Sidebar;
 use crate::demo;
 use crate::editor::{Changes, Editor, Program};
 use crate::follow::{self, Follow, Mover};
+use crate::handoff::Listener;
 use crate::keys;
 use crate::mouse::{self, Gesture, Target};
 use crate::picker::{Pick, Picked, Picker};
@@ -55,6 +56,7 @@ pub struct App {
     read_at: Option<Instant>,
     summary: Option<Summary>,
     follow: Option<Follow>,
+    handoff: Option<Listener>,
     temporary: PathBuf,
 }
 
@@ -156,6 +158,7 @@ impl App {
             read_at: None,
             summary: None,
             follow: None,
+            handoff: None,
             temporary: follow::temporary(),
         }
     }
@@ -192,6 +195,11 @@ impl App {
 
     pub fn with_summary(mut self, summary: Summary) -> App {
         self.summary = Some(summary);
+        self
+    }
+
+    pub fn with_handoff(mut self, listener: Listener) -> App {
+        self.handoff = Some(listener);
         self
     }
 
