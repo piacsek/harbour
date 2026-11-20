@@ -7,7 +7,8 @@ fn the_paths_job_decides_from_what_changed_since_the_base() {
 }
 
 #[test]
-fn the_flake_builds_on_linux_and_macos_unless_the_paths_job_said_false() {
+fn the_flake_builds_on_linux_and_macos_with_the_nix_store_main_saved_unless_the_paths_job_said_false()
+ {
     assert!(ci().contains(FLAKE_JOB), "{}", ci());
 }
 
@@ -60,6 +61,15 @@ const FLAKE_JOB: &str = "  flake:
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
       - uses: cachix/install-nix-action@75c75c31ebece974e48ebc36b4ad125bd97bd97b # v31.11.3
+        with:
+          extra_nix_config: keep-outputs = true
+      - uses: nix-community/cache-nix-action@7df957e333c1e5da7721f60227dbba6d06080569 # v7.0.2
+        with:
+          primary-key: nix-${{ runner.os }}-${{ hashFiles('flake.lock', 'Cargo.lock') }}
+          restore-prefixes-first-match: nix-${{ runner.os }}-
+          save: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+          gc-max-store-size-linux: 3G
+          gc-max-store-size-macos: 5G
       - run: nix build
       - run: test \"$(./result/bin/harbour --version)\" = \"harbour $(grep -m1 '^version = ' Cargo.toml | cut -d'\"' -f2)\"
 ";
