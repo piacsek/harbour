@@ -135,7 +135,7 @@ speed-up, when its pipeline went from about 3 min 20 s to 37 s:
   `pull_request`, because that event runs the workflow as it is on `main`: a pull request that
   edits `version.yml` or `scripts/version-check.sh` is still judged by the `main` copies, so it
   cannot weaken the check that judges it (proven in conveyor: a pull request that bumped the
-  version and rewrote the script to `exit 0` stayed red). The flip side: a change to the check is
+  version and rewrote the script to `exit 0` stayed red). The same holds for `scripts/feeds-binary.sh`, which the script calls: a pull request is judged by `main`'s list, so a path that list starts to leave out lands in a later pull request, once the change is on `main`. The flip side: a change to the check is
   exercised only after it merges, and the pull request that adds the workflow is not checked at
   all. That is this repository's phase 0 pull request: `main` holds neither the workflow nor the
   script before it merges, so its proof is `scripts/version-check.sh origin/main HEAD` run locally

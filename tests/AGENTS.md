@@ -52,6 +52,15 @@ these suites come from; the ones about sessions were hit in harbour.
   only once the foreground command (`read`, `dd`) returns, so a test that needs the trap to run
   sends the script a byte first.
 
+- **System calls differ between macOS and Linux, and `check` runs on Linux only.** Development
+  is on macOS. In phase 12 `nix::unistd::getpeereid` did not exist on Linux, so `check` failed to
+  build a branch that passed on macOS, and a connection the listener closed without reading its
+  request was reset on Linux (`ECONNRESET`) where macOS gives an empty read. A phase that touches
+  sockets or other system calls runs its tests in a Linux container before its first push, from
+  a `rust:<channel>` image, the channel of `rust-toolchain.toml` (phase 6 used `rust:1.98.1`;
+  phase 12 recorded no command). The end-to-end tests are `#[ignore]` and need tmux, which the
+  stock image lacks.
+
 - **A screen assertion waits for the text it asserts, never for a neighbouring signal.** A
   session's exit can be seen before its last output is parsed, and one write can reach the
   screen in two reads. `an_exited_session_keeps_its_last_screen_dimmed` waited for the sidebar

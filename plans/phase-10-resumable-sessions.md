@@ -300,20 +300,21 @@ One red-green-refactor cycle each, shipped with `scripts/ship.sh`.
 
 Range: phases 6 to 9, read from `scripts/sweep-report.sh 6` and each plan's `## Outcome` and
 `## Hurdles`; all four are on `main` (phase 6 merged during this phase, so its hurdles are final).
-The builder ran this sweep without the owner: every line is a **proposal awaiting the owner's
-yes**, and no `AGENTS.md` changed for it. The report counted 31 hurdles: `review-loop` 11,
+The builder ran this sweep without the owner, so no `AGENTS.md` changed for it when it was
+written; the owner decided every row on 2026-11-20 (the last column, and "Decided 2026-11-20"
+below). The report counted 31 hurdles: `review-loop` 11,
 `test-seam` 9, `tooling` 5, `process` 3, `ci` 3; eight went `→ none` (phase 6: 4, phase 7: 2,
 phase 8: 2).
 
-| # | Finding | Phases | Proposal (awaiting the owner) | Where |
-| --- | --- | --- | --- | --- |
-| 1 | A test green on its first run, proved only by breaking the code by hand (`wait_for` returns after 5 s without failing; the tui wiring), each `→ none` | 8, and 1 to 3 before | Phase 5's proposal 1 came back: take it. A green first run is not red: break the code it covers, show the red run, restore, say so | root `AGENTS.md`, "TDD is never skipped" |
-| 2 | Waits in tests that time out without failing: phase 8 made it a rule that every `wait_for` asserts on what it returned; phase 6 still hit a wait that timed out under load (`→ none`) | 8, 6 | Issue: make `wait_for` and `wait_for_all` fail on timeout, naming the text they waited for, so the rule is enforced by the harness, not by review | issue |
-| 3 | Tests that depend on the checkout's folder name: phase 2, phase 8 round 2 (became a rule in `tests/AGENTS.md`), phase 6 again despite the rule | 2, 8, 6 | Issue: a test (like `tests/source_size.rs`) that runs the in-process and e2e suites from a checkout whose folder name differs, or a gate that greps tests for `current_dir`/`CARGO_MANIFEST_DIR` folder names; the rule alone did not hold | issue |
-| 4 | Review rounds that found states of an outside program the plan's table missed: fzf and directories (phase 4), locks and hosts (phase 5), Neovim's states over three of phase 6's rounds | 4, 5, 6 | Phase 5's proposal 8 came back, a third time: take it. A plan's state table lists, for each thing read from outside harbour, what the user sees when it is missing, changed in between, or shared | root `AGENTS.md`, "Plan before code" |
-| 5 | Width arithmetic in more than one place (phase 8 round 1's emoji, phases 1 and 3 before) | 1, 3, 8 | Phase 5's proposal 4 is now mostly done by code: `src/text.rs` is the one place widths are measured and cut. Narrow the rule to "a plan that draws text adds the narrowest sidebar and a CJK name to its state table"; decline the rest | root `AGENTS.md`, "Plan before code" |
-| 6 | `main` moved mid-phase and conflicted in `PLAN.md` and `plans/metrics.md`; a brief named a wrong test file | 7 | Decline: one occurrence each, and the merge rule already covers catching up | none |
-| 7 | Prose through a shell argument blocked by the em dash hook | 2 | Phase 5's proposal 2 did not come back in phases 6 to 9: decline it unless it recurs | none |
+| # | Finding | Phases | Proposal | Where | Decided 2026-11-20 |
+| --- | --- | --- | --- | --- | --- |
+| 1 | A test green on its first run, proved only by breaking the code by hand (`wait_for` returns after 5 s without failing; the tui wiring), each `→ none` | 8, and 1 to 3 before | Phase 5's proposal 1 came back: take it. A green first run is not red: break the code it covers, show the red run, restore, say so | root `AGENTS.md`, "TDD is never skipped" | Taken: root `AGENTS.md`, "TDD is never skipped" |
+| 2 | Waits in tests that time out without failing: phase 8 made it a rule that every `wait_for` asserts on what it returned; phase 6 still hit a wait that timed out under load (`→ none`) | 8, 6 | Issue: make `wait_for` and `wait_for_all` fail on timeout, naming the text they waited for, so the rule is enforced by the harness, not by review | issue | Filed as issue #46 |
+| 3 | Tests that depend on the checkout's folder name: phase 2, phase 8 round 2 (became a rule in `tests/AGENTS.md`), phase 6 again despite the rule | 2, 8, 6 | Issue: a test (like `tests/source_size.rs`) that runs the in-process and e2e suites from a checkout whose folder name differs, or a gate that greps tests for `current_dir`/`CARGO_MANIFEST_DIR` folder names; the rule alone did not hold | issue | Filed as issue #48 |
+| 4 | Review rounds that found states of an outside program the plan's table missed: fzf and directories (phase 4), locks and hosts (phase 5), Neovim's states over three of phase 6's rounds | 4, 5, 6 | Phase 5's proposal 8 came back, a third time: take it. A plan's state table lists, for each thing read from outside harbour, what the user sees when it is missing, changed in between, or shared | root `AGENTS.md`, "Plan before code" | Taken: root `AGENTS.md`, "Plan before code" |
+| 5 | Width arithmetic in more than one place (phase 8 round 1's emoji, phases 1 and 3 before) | 1, 3, 8 | Phase 5's proposal 4 is now mostly done by code: `src/text.rs` is the one place widths are measured and cut. Narrow the rule to "a plan that draws text adds the narrowest sidebar and a CJK name to its state table"; decline the rest | root `AGENTS.md`, "Plan before code" | Taken as narrowed: root `AGENTS.md`, "Plan before code" |
+| 6 | `main` moved mid-phase and conflicted in `PLAN.md` and `plans/metrics.md`; a brief named a wrong test file | 7 | Decline: one occurrence each, and the merge rule already covers catching up | none | Declined, as proposed |
+| 7 | Prose through a shell argument blocked by the em dash hook | 2 | Phase 5's proposal 2 did not come back in phases 6 to 9: decline it unless it recurs | none | Declined: not seen since phase 2 |
 
 Metrics (from `plans/metrics.md`): review rounds 5, 6, 2, 4, 1 for phases 5 to 9; start to
 release 1 h 50 min (phase 5), 4 h 43 min (phase 6, read from GitHub in this phase), 56 min
@@ -322,6 +323,20 @@ reviewer tokens per round stay between 97k and 164k (phase 6 round 4: 163360), w
 rising over its rounds (136k, 98k, 154k, 158k); builder notices per phase 10, 11, 3, 7, 2. The rounds track the size of the
 change, not a drift; Codex and orchestrator usage are still unknown in every row, so no trend in
 total tokens can be read.
+
+**Decided 2026-11-20.** The owner decided this sweep and phase 5's together with the hurdles of
+phases 11 to 13, read from `scripts/sweep-report.sh` (which starts after this phase). Two
+findings there are new: builds and tests that differed on Linux (phase 12) became a rule in
+`tests/AGENTS.md`, a phase that touches sockets or other system calls runs its tests in a Linux
+container before its first push; tests that time out or race under a ship's full load (phases
+1, 6, 12) became issue #47. The rest repeat rows above: a test green on its first run (phase
+12, row 1), states the plan's table missed (phases 11 and 12, row 4), a wait that returns at
+its timeout (phase 12, row 2). Declined: putting a sweep to the owner before its phase goes
+ready; Codex without network (phase 13; the Codex reviewer was removed in PR #45); a reviewer
+running one read-only command in the branch's worktree (phase 13, once); one-off tooling dead
+ends. The phase 15 sweep's report will list phases 11 to 13 again; their hurdles named here
+are already decided, so that sweep reads this paragraph and does not propose them a second
+time.
 
 ### Built
 
