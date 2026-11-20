@@ -147,6 +147,38 @@ fn a_prompt_written_as_text_items_clears_the_last_tool_call_too() {
 }
 
 #[test]
+fn a_prompt_with_text_and_an_image_clears_the_last_tool_call() {
+    let projects = tempfile::tempdir().unwrap();
+    let file = transcript_file(projects.path(), "-home-acme-api");
+    append(&file, &tool("Bash", r#"{"command":"cargo test"}"#));
+    append(
+        &file,
+        r#"{"type":"user","message":{"role":"user","content":[{"type":"text","text":"why is this red"},{"type":"image","source":{"type":"base64","media_type":"image/png","data":"iVBORw0K"}}]}}"#,
+    );
+    let mut transcript = Transcript::new(projects.path(), ID);
+
+    transcript.read();
+
+    assert_eq!(transcript.facts().activity, None);
+}
+
+#[test]
+fn a_prompt_of_an_image_alone_clears_the_last_tool_call() {
+    let projects = tempfile::tempdir().unwrap();
+    let file = transcript_file(projects.path(), "-home-acme-api");
+    append(&file, &tool("Bash", r#"{"command":"cargo test"}"#));
+    append(
+        &file,
+        r#"{"type":"user","message":{"role":"user","content":[{"type":"image","source":{"type":"base64","media_type":"image/png","data":"iVBORw0K"}}]}}"#,
+    );
+    let mut transcript = Transcript::new(projects.path(), ID);
+
+    transcript.read();
+
+    assert_eq!(transcript.facts().activity, None);
+}
+
+#[test]
 fn a_tool_result_keeps_the_last_tool_call() {
     let projects = tempfile::tempdir().unwrap();
     let file = transcript_file(projects.path(), "-home-acme-api");

@@ -75,6 +75,26 @@ fn a_pipe_into_a_grep_with_a_long_option_that_stops_early_is_found() {
 }
 
 #[test]
+fn a_pipe_into_grep_q_in_an_until_condition_is_found() {
+    assert_eq!(
+        early_readers(
+            "wait_for() {\n  local tries=0\n  until t capture-pane -p -t \"$w\" | grep -qF \"$1\" || [ \"$tries\" -ge 40 ]; do\n    tries=$((tries + 1))\n  done\n}\n"
+        ),
+        ["3: a pipe into grep -qF"]
+    );
+}
+
+#[test]
+fn a_quote_inside_a_parameter_expansion_does_not_hide_what_follows() {
+    assert_eq!(
+        early_readers(
+            "freeze ${font[@]+\"${font[@]}\"} --font.family \"Fira\"\nprintf a | grep -qF b\n"
+        ),
+        ["2: a pipe into grep -qF"]
+    );
+}
+
+#[test]
 fn a_grep_that_reads_to_the_end_is_not_found() {
     assert_eq!(
         early_readers("printf '%s\\n' \"$a\" | grep -vxF b | sed -n 1p\n"),
@@ -356,12 +376,7 @@ fn word(bytes: &[u8], start: usize, tokens: &mut Vec<Token>, heredocs: &mut Vec<
             b'$' | b'<' | b'>' if bytes.get(at + 1) == Some(&b'(') => {
                 at = substituted(bytes, at + 1, tokens)
             }
-            b'$' if bytes.get(at + 1) == Some(&b'{') => {
-                at = bytes[at..]
-                    .iter()
-                    .position(|&c| c == b'}')
-                    .map_or(bytes.len(), |length| at + length + 1)
-            }
+            b'$' if bytes.get(at + 1) == Some(&b'{') => at = braced(bytes, at + 2, tokens),
             _ => at += 1,
         }
     }
@@ -380,6 +395,27 @@ fn double_quoted(bytes: &[u8], mut at: usize, tokens: &mut Vec<Token>) -> usize 
             b'"' => return at + 1,
             b'\\' => at += 2,
             b'$' if bytes.get(at + 1) == Some(&b'(') => at = substituted(bytes, at + 1, tokens),
+            b'$' if bytes.get(at + 1) == Some(&b'{') => at = braced(bytes, at + 2, tokens),
+            _ => at += 1,
+        }
+    }
+    bytes.len()
+}
+
+fn braced(bytes: &[u8], mut at: usize, tokens: &mut Vec<Token>) -> usize {
+    while at < bytes.len() {
+        match bytes[at] {
+            b'}' => return at + 1,
+            b'"' => at = double_quoted(bytes, at + 1, tokens),
+            b'\'' => {
+                at = bytes[at + 1..]
+                    .iter()
+                    .position(|&c| c == b'\'')
+                    .map_or(bytes.len(), |length| at + length + 2)
+            }
+            b'\\' => at += 2,
+            b'$' if bytes.get(at + 1) == Some(&b'(') => at = substituted(bytes, at + 1, tokens),
+            b'$' if bytes.get(at + 1) == Some(&b'{') => at = braced(bytes, at + 2, tokens),
             _ => at += 1,
         }
     }

@@ -191,7 +191,8 @@ fn the_third_line_follows_a_branch_switch() {
     let scratch = tempfile::tempdir().unwrap();
     let repository = repository(scratch.path(), "acme-api", "main");
     let mut screen = picked_in(&repository, "sleep 600");
-    screen.wait_for("acme-api · main");
+    let before = screen.wait_for("acme-api · main");
+    assert!(before.contains("acme-api · main"), "{before}");
 
     fs::write(repository.join(".git/HEAD"), "ref: refs/heads/fix-login\n").unwrap();
 
@@ -204,8 +205,9 @@ fn an_exited_session_keeps_the_place_it_last_ran_in() {
     let scratch = tempfile::tempdir().unwrap();
     let repository = repository(scratch.path(), "acme-api", "main");
     let mut screen = picked_in(&repository, "exit 3");
-    screen.wait_for("exited 3");
-    screen.wait_for("acme-api · main");
+    let before = screen.wait_for_all(&["exited 3", "acme-api · main"]);
+    assert!(before.contains("exited 3"), "{before}");
+    assert!(before.contains("acme-api · main"), "{before}");
 
     fs::write(repository.join(".git/HEAD"), "ref: refs/heads/fix-login\n").unwrap();
     sleep(Duration::from_millis(700));

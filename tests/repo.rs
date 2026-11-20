@@ -194,6 +194,14 @@ fn an_unreadable_head_leaves_the_branch_out() {
 }
 
 #[test]
+fn a_reftable_repository_s_placeholder_head_leaves_the_branch_out() {
+    let scratch = tempfile::tempdir().unwrap();
+    let repository = repository(scratch.path(), "acme-api", "ref: refs/heads/.invalid\n");
+
+    assert_eq!(place(&repository).to_string(), "acme-api");
+}
+
+#[test]
 fn a_gitdir_file_that_points_nowhere_shows_the_folder() {
     let scratch = tempfile::tempdir().unwrap();
     let broken = folder(scratch.path(), "acme-broken");

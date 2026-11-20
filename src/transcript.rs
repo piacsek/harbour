@@ -229,9 +229,12 @@ fn prompted(fields: &Map<String, Value>) -> bool {
         .and_then(|message| message.get("content"))
     {
         Some(Value::String(_)) => true,
-        Some(Value::Array(items)) => items
-            .iter()
-            .all(|item| item.get("type").and_then(Value::as_str) == Some("text")),
+        Some(Value::Array(items)) => {
+            !items.is_empty()
+                && !items
+                    .iter()
+                    .any(|item| item.get("type").and_then(Value::as_str) == Some("tool_result"))
+        }
         _ => false,
     }
 }

@@ -49,11 +49,12 @@ pub fn working(registry: &Path) -> Vec<String> {
         registry,
         Card {
             id: "6f0c2a9e-31d4-4b7a-9e58-0d2c7f41a3b6",
+            checkout: "acme-api",
+            branch: "fix-retry",
             record: r#""status":"busy""#,
             minutes: 3,
             transcript: &[
                 r#"{"type":"ai-title","aiTitle":"Fix the flaky retry test"}"#,
-                r#"{"type":"user","cwd":"/home/acme/acme-api","gitBranch":"fix-retry","message":{}}"#,
                 r#"{"type":"pr-link","prNumber":128}"#,
                 r#"{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Bash","input":{"command":"cargo test retry","description":"Run the retry tests"}}]}}"#,
             ],
@@ -68,12 +69,11 @@ pub fn blocked(registry: &Path) -> Vec<String> {
         registry,
         Card {
             id: "b83e5d17-c0a2-4f69-8d14-7e9a2b6c05f1",
+            checkout: "acme-api",
+            branch: "release-0.4.1",
             record: r#""status":"waiting","waitingFor":"permission prompt""#,
             minutes: 1,
-            transcript: &[
-                r#"{"type":"ai-title","aiTitle":"Publish the acme-api crate"}"#,
-                r#"{"type":"user","cwd":"/home/acme/acme-api","gitBranch":"release-0.4.1","message":{}}"#,
-            ],
+            transcript: &[r#"{"type":"ai-title","aiTitle":"Publish the acme-api crate"}"#],
             subagents: 0,
         },
         BLOCKED,
@@ -85,11 +85,12 @@ pub fn idle(registry: &Path) -> Vec<String> {
         registry,
         Card {
             id: "1d9f4c62-8e07-4a3b-b5c1-f2a6e8d03c97",
+            checkout: "acme-web",
+            branch: "main",
             record: r#""status":"idle""#,
             minutes: 12,
             transcript: &[
                 r#"{"type":"ai-title","aiTitle":"Bump acme-web to the new client"}"#,
-                r#"{"type":"user","cwd":"/home/acme/acme-web","gitBranch":"main","message":{}}"#,
                 r#"{"type":"last-prompt","lastPrompt":"bump acme/web to the new api client"}"#,
                 r#"{"type":"pr-link","prNumber":131}"#,
             ],
@@ -117,6 +118,8 @@ pub fn unknown() -> Vec<String> {
 
 struct Card {
     id: &'static str,
+    checkout: &'static str,
+    branch: &'static str,
     record: &'static str,
     minutes: u64,
     transcript: &'static [&'static str],
@@ -127,14 +130,23 @@ fn carded(registry: &Path, card: Card, text: &str) -> Vec<String> {
     let dir = registry.display().to_string().replace('\'', r"'\''");
     let Card {
         id,
+        checkout: name,
+        branch,
         record,
         minutes,
         transcript,
         subagents,
     } = card;
-    let lines = transcript
-        .iter()
-        .map(|line| format!("'{line}'"))
+    let user = serde_json::json!({
+        "type": "user",
+        "cwd": checkout(registry, name, "main").display().to_string(),
+        "gitBranch": branch,
+        "message": {},
+    })
+    .to_string();
+    let lines = std::iter::once(user.as_str())
+        .chain(transcript.iter().copied())
+        .map(|line| format!("'{}'", line.replace('\'', r"'\''")))
         .collect::<Vec<_>>()
         .join(" ");
     let mut setup = format!(

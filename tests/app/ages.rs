@@ -44,7 +44,8 @@ fn a_session_without_a_registry_file_shows_no_age() {
         script("echo 'acme shell ready'; exec sleep 600"),
     );
     screen.press('n');
-    screen.wait_for("acme shell ready");
+    let before = screen.wait_for("acme shell ready");
+    assert!(before.contains("acme shell ready"), "{before}");
     sleep(Duration::from_millis(600));
 
     let shown = screen.draw();

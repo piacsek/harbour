@@ -105,7 +105,8 @@ fn a_new_session_id_forgets_the_old_transcript() {
     );
     let mut screen = claude.screen_with(&format!(r#"{{"status":"idle","sessionId":"{ID}"}}"#));
     screen.press('n');
-    screen.wait_for("The first conversation");
+    let before = screen.wait_for("The first conversation");
+    assert!(before.contains("The first conversation"), "{before}");
 
     claude.register(&format!(r#"{{"status":"idle","sessionId":"{OTHER_ID}"}}"#));
 
@@ -119,7 +120,8 @@ fn a_title_appended_later_replaces_the_one_shown() {
     claude.transcript(ID, r#"{"type":"ai-title","aiTitle":"A first guess"}"#);
     let mut screen = claude.screen("busy", ID);
     screen.press('n');
-    screen.wait_for("A first guess");
+    let before = screen.wait_for("A first guess");
+    assert!(before.contains("A first guess"), "{before}");
 
     claude.transcript(ID, r#"{"type":"ai-title","aiTitle":"A better title"}"#);
 
@@ -136,7 +138,8 @@ fn an_exited_session_keeps_its_title() {
         claude.sessions().display()
     ));
     screen.press('n');
-    screen.wait_for("Short lived");
+    let before = screen.wait_for("Short lived");
+    assert!(before.contains("Short lived"), "{before}");
 
     let shown = screen.wait_for("exited 3");
     sleep(Duration::from_millis(600));
@@ -160,7 +163,8 @@ fn the_third_line_counts_the_subagents_still_running() {
     claude.subagent(ID, "agent-a1", r#"{"agentType":"Explore"}"#);
     let mut screen = claude.screen("busy", ID);
     screen.press('n');
-    screen.wait_for("acme-api · main · 1 subagent");
+    let before = screen.wait_for("acme-api · main · 1 subagent");
+    assert!(before.contains("acme-api · main · 1 subagent"), "{before}");
 
     claude.subagent(ID, "agent-a2", r#"{"agentType":"Plan"}"#);
 
@@ -178,7 +182,8 @@ fn an_exited_session_counts_no_subagent() {
         claude.sessions().display()
     ));
     screen.press('n');
-    screen.wait_for("1 subagent");
+    let before = screen.wait_for("1 subagent");
+    assert!(before.contains("1 subagent"), "{before}");
 
     let shown = screen.wait_for("exited 3");
 

@@ -90,7 +90,7 @@ fn branch(git_dir: &Path) -> Option<String> {
     if let Some(reference) = head.strip_prefix(b"ref:") {
         let reference = reference.trim_ascii();
         let name = reference.strip_prefix(b"refs/heads/").unwrap_or(reference);
-        return Some(String::from_utf8_lossy(name).into_owned());
+        return (name != b".invalid").then(|| String::from_utf8_lossy(name).into_owned());
     }
     (head.len() >= 40 && head.iter().all(u8::is_ascii_hexdigit)).then(|| "HEAD".to_string())
 }

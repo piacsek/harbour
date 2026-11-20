@@ -51,7 +51,7 @@ render() {
 
 wait_for() {
   local tries=0
-  until t capture-pane -p -t "$shot_window" | grep -qF "$1" || [ "$tries" -ge 40 ]; do
+  until t capture-pane -p -t "$shot_window" | grep -F "$1" >/dev/null || [ "$tries" -ge 40 ]; do
     sleep 0.25
     tries=$((tries + 1))
   done

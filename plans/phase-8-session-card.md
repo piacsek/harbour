@@ -68,7 +68,7 @@ What each source does to the card:
 | --- | --- |
 | no title yet (no transcript, or no `ai-title` line) | line 1 shows the directory name and number, as today |
 | an empty or blank `gitBranch`, `cwd`, `aiTitle`, `lastPrompt` or tool call | ignored: the last real value stays, and git's branch fills in while none came |
-| a new prompt from the user (a `user` line whose content is text) | the last tool call is cleared until the next one; a tool result keeps it |
+| a new prompt from the user (a `user` line that is not a tool result: text, an image, or both) | the last tool call is cleared until the next one; a tool result keeps it |
 | a title, then a transcript line that is not JSON, half written, or an `ai-title` whose `aiTitle` is not a string | the last good title stays; the same for every field |
 | a field of an unexpected type (`prNumber` a string, `input` not an object) | that field is left off, or keeps its last value; the card never shows an error |
 | a transcript line longer than 1 MiB, however its chunks arrive | skipped before it is parsed; the fields keep their last values |
@@ -90,11 +90,13 @@ What each source does to the card:
 | a submodule | line 3 shows the submodule's folder |
 | a bare repository, or a worktree of one | line 3 shows the bare repository's folder without `.git` |
 | a branch name or a `gitdir` path that is not UTF-8 | read as bytes; the path is followed as is, the name shown with `�` for the bytes it cannot show |
+| a reftable repository (its `HEAD` a stub naming `refs/heads/.invalid`) | no branch from git; the transcript's `gitBranch` still shows |
 | a detached HEAD | the branch reads `HEAD`, as Claude Code records it |
 | the branch from the transcript and from git differ | the transcript's `gitBranch` wins (the issue's source); git's `HEAD` fills in until a line has one |
 | the directory deleted | line 3 shows the nearest repository above it, else the folder name it had |
 | no pull request, no subagent running | that part is left out, with its separator |
 | one subagent running | `1 subagent`; more read `<n> subagents` |
+| a subagent whose meta file never gets `"finished": true` (one interrupted inside a live session, unverified: no real `~/.claude` file was read) | it counts as running until the session exits: a known limit, listed in the PR |
 | a subagent meta file older than the session, unreadable, or not an object | not counted |
 | a session that exited | its card keeps the last title and line 3; nothing is read for it again |
 | the narrowest sidebar (a 60-column terminal: 16 columns inside the bar) | each line is cut with `…`; line 1 keeps the dot and the age while the title has at least one column |
@@ -138,7 +140,8 @@ has no bar. The title counts, `harbour status`, the dot and its colours are unch
   word gap; a joiner is kept only when a visible character follows it in its grapheme. Cleaning
   stops before the grapheme that would pass 512 characters, and the transcript keeps each shown field to its first 4 KiB.
 - **The demo never shows the checkout it runs in**: every demo session starts in a made-up
-  checkout (`acme-api`, `acme-web`, `acme-infra`) inside the demo's temporary registry.
+  checkout (`acme-api`, `acme-web`, `acme-infra`) inside the demo's temporary registry, and each
+  demo transcript's `cwd` names one of them, so the demo reads no folder outside its scratch directory.
 - **No new key and no click selection**: the help view, the README key table and the mouse stay
   as they are; the help legend says the card, not the row, says what a blocked session waits for.
 
@@ -181,3 +184,5 @@ One red-green-refactor cycle each, shipped with `scripts/ship.sh`.
 - `ci` A narrow-sidebar test cut the session's name, taken from the checkout's folder: the worktree's long name was cut locally, CI's `harbour` fitted, so `check` failed from task 4 on unnoticed until step 4; the test now names its own directory through the picker → code
 - `review-loop` Round 1 found that an emoji with a variation selector made the title wider than `fit` measured it, so the gap after it underflowed and harbour crashed; text is now measured and cut by grapheme in one module, with a property test over random emoji strings → code
 - `review-loop` Round 2 found tests that read the checkout's folder name a third time, so the in-process harness now starts every session in a scratch `acme-home` folder, proved by running the `app` tests from a copy in a 60-character folder → rule in `tests/AGENTS.md`
+- `review-loop` Round 3 found a pipe into `grep -qF` in `scripts/screenshots.sh` that `tests/scripts/pipe_readers.rs` missed: a `"` inside `${font[@]+"${font[@]}"}` ended the expansion early and turned the rest of the file into a quoted string; the scanner now matches nested braces and quotes, with a case seen red, and the script reads to the end → code
+- `test-seam` Round 3 found waits whose result no assertion read, so a state the test relied on could time out unseen; each such wait in this PR now asserts what it returned → rule in `tests/AGENTS.md`

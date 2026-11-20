@@ -95,3 +95,7 @@ these suites come from; the ones about sessions were hit in harbour.
   named `acme-home` (`home()`, `directory()` in `tests/app/main.rs`), so a row reads `acme-home 1`
   wherever the tests run. A test that builds an `App` and starts a session before `Screen::of`
   gives it `.with_home(home())` itself; a relative path is read from `home()`, not the checkout.
+- **`wait_for` returns after its timeout without failing.** It hands back the last screen it drew,
+  so a wait used only to sync passes even when its text never shows. When a later assertion relies
+  on that text having been on screen (the state before a change, a count before an exit), assert on
+  what the wait returned.

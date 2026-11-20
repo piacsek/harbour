@@ -161,6 +161,8 @@ impact.
   reaped its pid can be reused, so harbour never signals its group again, and a background
   process that ignores hangup keeps running after its row is removed or harbour quits, as in any
   terminal (`src/session.rs`).
+- **A subagent whose meta file never says `"finished": true` counts as running** until its session
+  exits, as one interrupted inside a live session may (unverified) (`plans/phase-8-session-card.md`).
 - **No tag ruleset guards `v*` tags**: the owner can still push or delete one by hand
   (`.github/AGENTS.md`).
 - **A Nix outage blocks merges that touch the flake's inputs once the ruleset requires
