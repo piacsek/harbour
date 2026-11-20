@@ -12,13 +12,13 @@ with "no release" for a branch that feeds nothing into the binary.
 The Orchestrator column holds the main session's context at the phase's start and at the end of
 its clean review, measured from its transcript (see "Time and tokens" in `AGENTS.md`); its token
 use stays `unknown`. Phases 1 to 12 shared one orchestrator session, so their context counts
-every phase that ran beside them. From phase 13, one review coordinator runs each pull request's
-review loop (see "Review before ready" in `AGENTS.md`): the reviewers' figures and the builder's
-fix rounds come from its final report, and its own figure is in the Notes cell. From phase 14,
-one reviewer runs Claude Code's `/code-review` each round and no Codex reviewer runs, so the
-Codex reviewer cell reads `none`. Rounds and the
-growth of the orchestrator's context from start to clean review, before and after phase 13, show
-whether that helped.
+every phase that ran beside them. Phase 13 was reviewed by a review coordinator, whose final
+report carried the reviewers' figures and the builder's fix rounds, its own figure in the Notes
+cell. From phase 14 the orchestrator runs Claude Code's `/code-review` itself each round (see
+"Review before ready" in `AGENTS.md`): the Claude reviewer cell holds the skill's figures, and
+the Codex reviewer cell reads `none`. Rounds and the growth of the orchestrator's context from
+start to clean review, before, during and after phase 13, show whether dropping the coordinator
+costs context.
 
 | Phase | PR | Start | Draft PR | Clean review | Ready | Merged | Released | Start → end | Rounds | Builder | Claude reviewer | Codex reviewer | Orchestrator | Notes |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
