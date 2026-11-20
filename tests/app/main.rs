@@ -53,9 +53,17 @@ struct Screen {
 
 impl Screen {
     fn of(app: App) -> Screen {
+        Screen::at(app, home(), 120)
+    }
+
+    fn wide(app: App) -> Screen {
+        Screen::at(app, home(), 200)
+    }
+
+    fn at(app: App, home: PathBuf, width: u16) -> Screen {
         let mut screen = Screen {
-            app: app.with_home(home()),
-            terminal: Terminal::new(TestBackend::new(120, 20)).unwrap(),
+            app: app.with_home(home),
+            terminal: Terminal::new(TestBackend::new(width, 20)).unwrap(),
         };
         screen.draw();
         screen

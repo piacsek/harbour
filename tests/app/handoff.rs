@@ -10,8 +10,6 @@ use harbour::editor::Program;
 use harbour::handoff::{self, Claim, Listener, Reply, Verb};
 use harbour::memory::{Memory, Remembered};
 use harbour::picker::Picker;
-use ratatui::Terminal;
-use ratatui::backend::TestBackend;
 use rmpv::Value;
 
 use crate::handing::{Edit, answering, called, neovim_at};
@@ -61,7 +59,7 @@ fn a_session_started_through_a_symlink_holds_the_files_behind_it() {
     fs::create_dir_all(scratch.path().join("acme-api/src")).unwrap();
     let link = scratch.path().join("acme-link");
     std::os::unix::fs::symlink(scratch.path().join("acme-api"), &link).unwrap();
-    let mut screen = at_home(App::new(numbered_agent(scratch.path())).with_home(link));
+    let mut screen = Screen::at(App::new(numbered_agent(scratch.path())), link, 120);
     screen.press('n');
     screen.wait_for("acme agent 1");
 
@@ -481,15 +479,6 @@ fn remembering(scratch: &Path) -> Screen {
         })
         .unwrap();
     Screen::of(app.with_memory(memory))
-}
-
-fn at_home(app: App) -> Screen {
-    let mut screen = Screen {
-        app,
-        terminal: Terminal::new(TestBackend::new(120, 20)).unwrap(),
-    };
-    screen.draw();
-    screen
 }
 
 pub(crate) fn start_in(screen: &mut Screen, scratch: &Path, folder: &str, number: usize) {
