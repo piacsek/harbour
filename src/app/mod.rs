@@ -7,6 +7,7 @@ use ratatui::layout::{Position, Rect};
 
 mod draw;
 mod handoff;
+mod logging;
 mod read;
 mod remember;
 
@@ -63,6 +64,7 @@ pub struct App {
     follow: Option<Follow>,
     handoff: Option<Listener>,
     temporary: PathBuf,
+    logging: logging::Logging,
 }
 
 #[derive(Clone, Copy, PartialEq)]
@@ -177,6 +179,7 @@ impl App {
             follow: None,
             handoff: None,
             temporary: follow::temporary(),
+            logging: logging::Logging::default(),
         }
     }
 

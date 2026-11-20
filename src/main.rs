@@ -2,7 +2,7 @@ use std::io::IsTerminal;
 use std::process::ExitCode;
 
 use harbour::changelog::CHANGELOG;
-use harbour::{handoff, state, summary};
+use harbour::{handoff, log, state, summary};
 
 const USAGE: &str = "harbour: Harbour: where shipping begins
 
@@ -43,6 +43,7 @@ fn main() -> ExitCode {
             print_status();
             ExitCode::SUCCESS
         }
+        [Some("log")] => print_log(),
         [Some("edit"), Some("--"), file] if file != Some("") => edit(&args[2]),
         [Some("edit"), file] if !matches!(file, Some("--" | "")) => edit(&args[1]),
         [] if on_a_terminal() => shown(harbour::tui::run()),
@@ -61,6 +62,16 @@ fn print_status() {
     let line = state::status_line(summary::total(&dir));
     if !line.is_empty() {
         println!("{line}");
+    }
+}
+
+fn print_log() -> ExitCode {
+    match log::directory_from_env().and_then(|dir| log::newest(&dir)) {
+        Some(path) => {
+            println!("{}", path.display());
+            ExitCode::SUCCESS
+        }
+        None => ExitCode::FAILURE,
     }
 }
 

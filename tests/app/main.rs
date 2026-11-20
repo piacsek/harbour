@@ -16,6 +16,7 @@ mod help;
 mod input;
 mod keeping;
 mod layout;
+mod logging;
 mod moving;
 mod nearest;
 mod neovim;

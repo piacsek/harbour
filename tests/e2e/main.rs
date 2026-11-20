@@ -8,6 +8,7 @@ use harbour::tui::{DIR_PICKER, EDITOR, SESSION_COMMAND};
 mod cards;
 mod edit;
 mod editor;
+mod log;
 mod moving;
 mod neovim;
 mod picker;
