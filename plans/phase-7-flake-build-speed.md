@@ -144,6 +144,16 @@ One red-green-refactor cycle each, shipped with `scripts/ship.sh`.
   purge; a test name read badly. Round 2's minors, all in the docs and this plan: a restored
   store is trusted by who writes it, not re-hashed; the failure rows of the states table; the
   file named in task 2; the row for two merges in quick succession.
+- Follow-up, after the merge (v0.5.1): the first `push` run on `main` saved both caches, and
+  the first two pull request runs that hit them (44697819759 and 44697589406) took 100 s and
+  61 s to restore on macOS, while `nix build` saved 41 to 53 s (70 s and 60 s against the 111
+  to 113 s of the same toolchain without a hit, runs 44690818423 and 44699317602). In the better
+  sample a 61 s restore bought about 50 s, and the macOS leg was 9 to 13 s slower than 149 to
+  153 s; Linux moved by a few seconds either way. These are two samples, and neither pull
+  request changed only `src/`: 44697589406 hit the exact key, as a `src/`-only one would, and
+  44697819759 restored an older key after a `Cargo.lock` change. As the issue said, the cache
+  was dropped and the toolchain change kept; the numbers are in `.github/AGENTS.md`, "No Nix
+  store cache".
 
 ## Hurdles
 
@@ -157,3 +167,5 @@ One red-green-refactor cycle each, shipped with `scripts/ship.sh`.
   rule in `AGENTS.md`
 - `review-loop` the docs claimed Nix re-checks a restored store against hashes, which it does
   not; round 2 caught it → code
+- `ci` restoring the Nix store took 61 to 100 s on macOS, more than the 41 to 53 s it saved in
+  `nix build`, so the cache was dropped after the merge → code

@@ -57,21 +57,33 @@ speed-up, when its pipeline went from about 3 min 20 s to 37 s:
   the owner's step (see the ruleset bullet). The cost once it is: a Nix, nixpkgs or
   `cache.nixos.org` outage, or a stalled macOS runner, blocks every pull request that touches the
   flake's inputs; the way out is the one the ruleset bullet gives.
-- **The flake job caches the Nix store, saved only from `main`.** Most of `nix build` fetched
-  and unpacked what stays the same until a lockfile changes (nixpkgs' source, clang, llvm, the
-  toolchain and the crate tarballs), so `nix-community/cache-nix-action` restores `/nix` under
-  `nix-<OS>-<hash of flake.lock and Cargo.lock>`, falling back to the newest `nix-<OS>-` key, and
-  saves only on a `push` to `main`: a pull request, a fork's included, restores `main`'s cache and
-  never writes one, so none can put a path into the store a later `main` build reads. That is
-  the guarantee: Nix does not re-hash a restored path (the action merges the cached store
-  database, so its paths count as registered), it only checks against the declared hash what it
-  downloads itself. A miss (no key yet, every key
-  evicted, the cache service down) is as slow as before the cache, never wrong. On a save after a
-  lockfile change it collects garbage down to 3 GiB on Linux and 5 GiB on macOS, with
-  `keep-outputs = true` so the build's own closure stays. No purge: GitHub's eviction (7 days
-  unused, least recently used above 10 GB) removes old keys, and without it no job needs
-  `actions: write`. A change to `flake.nix` alone hits the old key and builds the difference, on
-  every run until a lockfile changes, since the action saves only on a miss of the primary key.
+- **No Nix store cache.** Phase 7 tried `nix-community/cache-nix-action`, restoring `/nix` saved
+  only from `main`, and dropped it: on macOS the restore took longer than it saved in
+  `nix build`, so the leg got slower. Job times are `startedAt` to `completedAt`, step times
+  from `gh run view <id> --json jobs`; every run after the first has the toolchain without
+  clippy and rustfmt:
+
+  | Run | Leg | Whole job | Cache restore | `nix build` |
+  | --- | --- | --- | --- | --- |
+  | 44682655741, before phase 7 | macOS | 142 s | none | 105 s |
+  | 44690818423, cache miss | macOS | 153 s | miss | 113 s |
+  | 44699317602, no cache action | macOS | 149 s | none | 111 s |
+  | 44697819759, cache hit | macOS | 215 s | 100 s | 70 s |
+  | 44697589406, cache hit | macOS | 162 s | 61 s | 60 s |
+  | 44682655741, before phase 7 | Linux | 63 s | none | 55 s |
+  | 44690818423, cache miss | Linux | 61 s | miss | 52 s |
+  | 44699317602, no cache action | Linux | 72 s | none | 65 s |
+  | 44697819759, cache hit | Linux | 71 s | 18 s | 40 s |
+  | 44697589406, cache hit | Linux | 55 s | 17 s | 27 s |
+
+  With the same toolchain, `nix build` on macOS took 111 to 113 s without a hit, so a hit saved
+  41 to 53 s. In the better sample a 61 s restore bought about 50 s, and the leg was 9 to 13 s
+  slower than the 149 to 153 s of the runs without a hit; on Linux the net was a few seconds
+  either way. These are two samples, and neither pull request changed only `src/`: 44697589406
+  hit the exact key, as a `src/`-only pull request would, and 44697819759 restored an older key
+  after a `Cargo.lock` change. From them, a cache would pay off only with a macOS restore much
+  faster than about 40 s; that threshold is an estimate, not a measured limit. The saved keys
+  were left to GitHub's eviction (7 days unused).
 - **The flake builds with the Rust of `rust-toolchain.toml`**, through the locked
   `rust-overlay`, in the file's `minimal` profile but without the `components` it lists
   (`.override { extensions = [ ]; }`): rustfmt and clippy are for the gates, and the build never
