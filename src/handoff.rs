@@ -13,7 +13,7 @@ use std::time::{Duration, Instant, SystemTime};
 
 use nix::errno::Errno;
 use nix::sys::socket::{AddressFamily, SockFlag, SockType, UnixAddr};
-use nix::unistd::{Uid, getpeereid};
+use nix::unistd::Uid;
 
 const LONGEST_PATH: usize = 4096;
 const LONGEST_REQUEST: usize = LONGEST_PATH + 64;
@@ -313,8 +313,7 @@ impl Listener {
 }
 
 fn received(stream: UnixStream) -> Option<Request> {
-    let (uid, _) = getpeereid(&stream).ok()?;
-    if uid != Uid::current() {
+    if peer(&stream)? != Uid::current() {
         return None;
     }
     stream.set_nonblocking(false).ok()?;
@@ -339,6 +338,18 @@ fn received(stream: UnixStream) -> Option<Request> {
         file: PathBuf::from(OsString::from_vec(file.to_vec())),
         stream,
     })
+}
+
+#[cfg(target_os = "linux")]
+fn peer(stream: &UnixStream) -> Option<Uid> {
+    let credentials =
+        nix::sys::socket::getsockopt(stream, nix::sys::socket::sockopt::PeerCredentials).ok()?;
+    Some(Uid::from_raw(credentials.uid()))
+}
+
+#[cfg(not(target_os = "linux"))]
+fn peer(stream: &UnixStream) -> Option<Uid> {
+    nix::unistd::getpeereid(stream).ok().map(|(uid, _)| uid)
 }
 
 struct Bound {

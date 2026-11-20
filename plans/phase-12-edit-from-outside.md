@@ -38,7 +38,8 @@ Unix sockets in a scratch `mktemp -d`.
   `tempfile::tempdir()` home plus `.local/state/harbour/edit/` is about 86 bytes before the
   socket's name: names must stay short.
 - `nix` 0.28 has `getuid` and `getpeereid` behind its `user` feature; harbour enables `signal`
-  and `socket` only, so this phase adds `user` (no new crate).
+  and `socket` only, so this phase adds `user` (no new crate). `getpeereid` exists only on
+  macOS and the BSDs; Linux reads the peer through `getsockopt` with `PeerCredentials`.
 
 ## How `harbour edit` reaches a running harbour
 
@@ -148,12 +149,34 @@ Product decisions the issue did not settle, each taken the most conservative way
    sender's `ask` and `open` with their deadlines, the expiry, the peer check.
 4. The app answers `ask` and `open`: which session holds the file, last use, refusals.
 5. Neovim gets the file: `nvim_cmd` with `magic` off to a running one, `-- <path>` to a new one;
-   refusals from Neovim; the fixture Neovim in-process, a real `nvim --clean` end to end.
+   refusals from Neovim; the fixture Neovim in-process.
 6. The terminal interface listens; end-to-end tests run `harbour edit` against harbour in a
-   scratch tmux server.
+   scratch tmux server, with the fixture editor and with a real `nvim --clean` (moved here from
+   task 5: a real Neovim runs only in the tmux tests).
 7. Guidelines: the layout lines and Known limits in `AGENTS.md`, the README checked, the
    screenshots.
 
 ## Outcome
 
+- `harbour edit <file>` shipped: the file made absolute, every running harbour asked over a
+  socket in its private state folder which session holds it, the one used last told to open
+  it; harbour selects that session and shows its Neovim with the file, starting one at the
+  session's root when none runs there.
+- The channel is one Unix socket per harbour (`<pid>-<n>.sock`, 0600, in a 0700 folder),
+  a request read only from the same user, within 100 ms, before its expiry; replies are one
+  line. Neovim gets the file after `--` when it starts, else through `nvim_cmd` `edit` with the
+  path as bytes and `magic` off, which a real clean Neovim confirmed for `acme %b#c|d e.rs`.
+- The app answers up to 4 requests a frame on the draw thread; an open into a running Neovim
+  waits at most 1 s for it. Both are in "Known limits".
+- A session holds only paths inside its root; the editor used is the one running at that root,
+  else a new one, as with Ctrl-l (older editors at other roots are not chosen).
+- The fixture editor `tests/fixtures/editor.sh` now prints its last argument too.
+
 ## Hurdles
+
+- `tooling` On macOS, `setsockopt` read and write timeouts fail with EINVAL once the peer has closed, so a reply to a sender that already left errored before the write; timeouts are now set before writing and their errors ignored → code
+- `test-seam` A temporary `Listener` in a test was dropped at the end of its statement, taking its socket with it, and the test failed for that reason alone; the tests keep a binding → none
+- `test-seam` The symlink case first went through the picker, which canonicalizes the directory it prints, so the test could not go red; it starts the session through `with_home` of a symlinked folder instead → code
+- `tooling` `moving::claude_code_moving_into_a_worktree_moves_harbour_to_the_worktree_root` timed out once under the full load of a ship (passes alone and in full runs); the ship passed on retry → none
+- `ci` `nix::unistd::getpeereid` does not exist on Linux, so `check` and the Linux `flake` failed to build a branch that built and passed on macOS; the peer check reads `SO_PEERCRED` on Linux, verified in a Linux container before the push → code
+- `process` Early in the phase some production code was written before its test had been run red, against the TDD rule; later tasks kept red first and broke by hand every test that passed at once → none
