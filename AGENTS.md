@@ -304,12 +304,12 @@ nearest the code the guideline is about.
      `plans/metrics.md` (see "Time and tokens").
   2. `/my-tdd autonomous`: one task per red-green-refactor cycle, each shipped with
      `scripts/ship.sh` (gates, dev install, commit, push, draft PR on the first push).
-  3. Hand the PR to a review coordinator, which runs the `/pr-review` loop and reports once
+  3. Hand the PR to a review coordinator, which runs the `/code-review` loop and reports once
      (see "Review before ready": who it is, what it is given, what it escalates, what counts as
      must or should, when to redesign, where the reviewer runs the gates, who fixes). Every
      must and should finding is fixed, TDD like any change, one ship per round, and reviewed
      again. Minor findings are fixed when cheap, else listed in the PR body. The loop ends only
-     on a round with no must/should findings, and that round is **unprimed**: the reviewers get
+     on a round with no must/should findings, and that round is **unprimed**: the reviewer gets
      the PR, the repo and this file, never the list of earlier findings or what was decided
      about them. Never post the review on the PR.
   4. The plan file's `## Outcome` and `## Hurdles` are filled, its `plans/metrics.md` row
@@ -352,20 +352,20 @@ nearest the code the guideline is about.
   so it is on the branch before `gh pr ready`; its Notes cell carries what a number needs to be
   read right (a session shared between phases, a running total). The orchestrator (the main
   session) owns the numbers and hands them to the builder to write: the builder cannot see the
-  reviewers' usage. It records only what is known by then:
+  reviewer's usage. It records only what is known by then:
   - Time: build start (the worktree's creation, the oldest entry of `git reflog show
     --date=iso <branch>`, its last line), draft PR opened, the end of the clean review
     round, the wall time from start to that end, and the number of review rounds. Absolute
     times with a timezone (`2026-11-17 04:56Z`), never "about an hour".
-  - Tokens: one figure per agent (builder, each reviewer, the coordinator, the orchestrator),
+  - Tokens: one figure per agent (builder, the reviewer, the coordinator, the orchestrator),
     each marked measured or estimated with its source; what nobody can read is `unknown`, never
     a guess. A sub-agent's completion notice carries `subagent_tokens`, which is not a running
     total across resumes (in an earlier project a resumed builder's second notice was lower than
     its first; whether cached input counts like fresh input is not known), so every figure of
-    every notice is copied. The reviewers' figures, and the builder's fix-round notices the
+    every notice is copied. The reviewer's figures, and the builder's fix-round notices the
     coordinator received, come from its final report; the orchestrator adds every builder
     notice it received itself (forwarded ones included, each counted once) and the
-    coordinator's own, which goes in the Notes cell. The Codex reviewer reports none.
+    coordinator's own, which goes in the Notes cell.
   - The orchestrator's context: its token use is `unknown`, but its transcript
     (`~/.claude/projects/<project>/<session>.jsonl`) records the context of each of its turns.
     The Orchestrator cell holds it at the phase's start and at the end of the clean round, each
@@ -416,23 +416,22 @@ nearest the code the guideline is about.
   shape of the change: the modules and what moved between them, or the steps of the flow and
   who calls whom. For a reorganization, a before and an after. Keep each diagram small enough
   to read without scrolling, and leave it out when the change has no structure to draw.
-- **Review before ready.** Marking a PR ready for review means running the
-  [`/pr-review`](https://github.com/piacsek/dotfiles/blob/main/.claude/skills/pr-review/SKILL.md)
-  skill on the PR first, and acting on what it finds. It runs a Claude and a Codex reviewer
-  over the diff and merges their findings. Give both reviewers the intent of the change, point
-  them at this file and tell them to read its "Known limits" before reporting, have the Claude
-  reviewer run `scripts/gates.sh` itself rather than trust the claim that the gates pass, and
-  forbid edits, commits, and any write to GitHub. When the skill asks whether to post the
-  review on the PR, answer no. `gh pr ready` comes after the findings are addressed, not
-  before.
+- **Review before ready.** Marking a PR ready for review means running Claude Code's built-in
+  `/code-review` skill on the PR first, at the `high` level, and acting on what it finds. One
+  reviewer runs it: a fresh sub-agent each round, with no second model beside it. Give the
+  reviewer the intent of the change, point it at this file and tell it to read its "Known
+  limits" before reporting, have it run `scripts/gates.sh` itself rather than trust the claim
+  that the gates pass, and forbid edits, commits, and any write to GitHub: the skill is never
+  given `--fix` or `--comment`, and the review is never posted on the PR. `gh pr ready` comes
+  after the findings are addressed, not before.
   - **One review coordinator per pull request.** The orchestrator does not run the rounds
     itself: it spawns one sub-agent (latest Opus) per PR that runs the whole loop and reports
     once. It is given the PR, the repository and the branch's worktree, the intent of the
     change, the builder's agent id, and this file, whose severity definition below it hands to
-    both reviewers. Each round it starts a fresh Claude reviewer with the Agent tool and Codex
-    from its own Bash with the skill's command: the skill's "from the main loop" does not bind
-    a coordinator, since a sub-agent can do both (`plans/phase-13-review-coordinator.md`). It
-    merges and rates the findings, sends the fixes to the builder with `SendMessage` to its
+    the reviewer. Each round it starts one fresh reviewer with the Agent tool, which runs
+    `/code-review` on the PR (`plans/phase-13-review-coordinator.md` showed a sub-agent can
+    start another). It checks each finding's premise in the repository, rates what holds, sends
+    the fixes to the builder with `SendMessage` to its
     agent id, and takes the round as shipped once `gh pr view <N> --json headRefOid` moves past
     the sha it reviewed, not from the builder's reply, which may reach the orchestrator
     instead; the orchestrator forwards any builder notice it gets during the review to the
@@ -443,18 +442,18 @@ nearest the code the guideline is about.
     with the answer, when a finding needs a product decision or a redesign changes behaviour.
     Its one final report carries the number of rounds, the end of the clean round, the
     findings fixed (one line each), the minors left, any redesign call, and every
-    `subagent_tokens` figure it received, per agent and round, plus the number of Codex runs.
+    `subagent_tokens` figure it received, per agent and round.
   - **Severity by reachability.** A finding is must or should only when the user hits it while
     using harbour, the release pipeline hits it in normal operation, or a pull request could
     execute code or reach a token or secret. A bypass that needs a deliberately forged file,
     which the owner would still have to merge, is minor: fixed when cheap, else listed in the
-    PR body. The reviewers are given this definition.
+    PR body. The reviewer is given this definition.
   - **Two strikes, then redesign.** When a second round finds another hole in the same
     mechanism, stop patching it: step back and pick a simpler design that removes the class of
     finding, and ask the user when that changes behaviour. In conveyor, one pull request took
     five rounds of patches to the `version` check and converged only once the check asked cargo
     instead of parsing lines.
-  - **The gates run beside the branch, not in it.** The Claude reviewer runs
+  - **The gates run beside the branch, not in it.** The reviewer runs
     `scripts/gates.sh` in its own detached worktree of the PR head (`git worktree add --detach
     <path> <sha>`, removed afterwards), never in the branch's worktree, so fixes do not wait
     for its run.
