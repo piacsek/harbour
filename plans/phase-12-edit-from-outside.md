@@ -61,8 +61,15 @@ writes it, shuts its side, reads one reply line and closes.
   and gives each connection 100 ms to arrive whole, else drops it unanswered.
 - **The replies.** To `ask`: `holds <millis>` (the last use of the session that would get the
   file) or `none`. To `open`: `opened` or `refused <message>`. One line each.
-- **The sender** resolves the path (relative to its own directory, symlinks resolved; a missing
-  file is allowed when its folder exists; a directory is refused), checks the folder, sends
+- **The listener** runs on a thread of its own: it accepts without blocking, checks the peer,
+  and reads each connection on a short thread of its own, at most 16 in flight (a 17th is
+  closed at once). It resolves the path again itself (`..`, symlinks, a dangling symlink
+  followed), answers `none` to an `ask` and a refusal to an `open` that does not resolve, and
+  hands the rest to the draw loop over a channel with a deadline: the request's expiry, 5 s at
+  most. The draw loop takes up to 4 a frame without blocking and drops one past its deadline.
+- **The sender** resolves the path (relative to its own directory, symlinks resolved, a
+  dangling symlink followed to where it points, at most 40 links; a missing file is allowed when
+  its folder exists; a directory is refused), checks the folder, sends
   `ask` to every socket of harbour's naming in it at once with one 2 s deadline, picks the
   harbour whose answer is the latest `holds`, sends it `open` with a 5 s deadline, and exits 0
   on `opened`. Everything else prints one line to stderr and exits 1.
@@ -71,11 +78,12 @@ writes it, shuts its side, reads one reply line and closes.
 | --- | --- |
 | Private | The folder is created 0700 and set to 0700, checked with `symlink_metadata` to be a real directory owned by the user (`getuid`); the socket is 0600. The sender refuses a folder that is a symlink, not owned by the user, or open to group or others, and connects only to entries whose own type is a socket. Never in `/tmp` or another world-writable place: when the state folder is missing there is no channel. |
 | Only harbour's naming | Harbour sweeps and the sender connects only to `<digits>-<digits>.sock` (and harbour to `.new`) entries; anything else in the folder is never read, connected to or removed. Harbour removes only its own file on exit, and others' only after a refused connect. |
-| No other user, no planted file | Only the user can create entries in a 0700 folder they own; on each accepted connection harbour also checks `getpeereid` and drops a peer of another uid unanswered. A planted regular file or symlink is not a socket and is skipped. |
+| No other user, no planted file | Only the user can create entries in a 0700 folder they own; on each accepted connection harbour also checks the peer's uid (`getpeereid` on macOS, `SO_PEERCRED` on Linux) and drops a peer of another uid unanswered. A planted regular file or symlink is not a socket and is skipped. |
 | Data, never code | The path travels as bytes after a NUL, at most 4096 bytes, never decoded as UTF-8. Harbour sends it to Neovim as a msgpack binary in `nvim_cmd({cmd = "edit", args = [path], magic = {file = false, bar = false}}, {})`: no command string is built, `%` and `#` are not expanded (`magic.file`), `\|` does not end the command (`magic.bar`), a space, quote or newline is part of the name (one argument), and a leading `+` or `-` cannot occur because the path is absolute. A Neovim harbour starts gets it after `--` on its command line, also as one argument. |
 | The sender never hangs | Non-blocking connects; one deadline for all the `ask`s (2 s) and one for the `open` (5 s), covering connect, write and read. On a deadline: a message and exit 1. |
 | Stale requests swept, never replayed | A request lives only in its connection: nothing is written to disk, so nothing is left to replay when a sender dies. The expiry in the request is the sender's deadline: harbour answers an expired request with nothing and does not act on it, so a sender that gave up never has its file opened later. Dead harbours' sockets are swept as above. |
-| The draw and key thread | Harbour accepts without blocking at each frame, at most 4 connections a frame, with 100 ms each to read. An `open` to a running Neovim makes two RPC calls (`nvim_get_mode`, `nvim_cmd`) under one 1 s deadline on that thread. Both are Known limits lines. |
+| The draw and key thread | The listener's threads accept, check and read; a flood of silent connections never reaches the draw thread. The draw loop answers at most 4 requests a frame. An `open` to a running Neovim makes its RPC calls (`nvim_get_mode`, retried every 10 ms while the socket is not up, then `nvim_cmd`) on that thread under the request's deadline and 1 s at most: a Known limits line. |
+| One deadline to the end | The request's deadline reaches the last step: an open past it starts no editor and sends Neovim nothing. Once `nvim_cmd` has been sent, its outcome may still land after the sender gave up (a swap prompt answered after "Neovim did not answer" still switches the buffer): a Known limits line. |
 
 ## Which session gets the file
 
@@ -113,16 +121,23 @@ writes it, shuts its side, reads one reply line and closes.
 | Neovim is waiting for a key (`blocking`) | unchanged | `Neovim is waiting for a key; answer it and try again` | 1 |
 | Neovim does not answer (no socket, or no reply in 1 s) | unchanged | `Neovim did not answer` | 1 |
 | Neovim refuses (E37 with `hidden` off, a swap file) | unchanged; Neovim shows nothing new | `Neovim refused: <its error>` | 1 |
-| Neovim cannot start | the pane names the failure as Ctrl-l does | `Could not start <name>: <error>` | 1 |
-| A question (End?/Quit?) or the directory picker is open | unchanged | `harbour is waiting for an answer; try again after it` | 1 |
+| Neovim cannot start | unchanged | `Could not start <name>: <error>` | 1 |
+| Neovim's socket not up yet (two opens back to back) | the second waits for it, up to the deadline, then as the first row | nothing | 0 |
+| A question (End?/Quit?) or the directory picker is open | unchanged; it answers the `ask` `none` | `no harbour session holds <path>` (another harbour that holds it gets it) | 1 |
+| A question or the picker opens between the `ask` and the `open` | unchanged | `harbour is waiting for an answer; try again after it` | 1 |
+| The request reaches the open past its deadline | unchanged, no editor started | `harbour took too long` | 1 |
 | The help view is open | it closes, then as the first row | nothing | 0 |
 | Harbour busy past the deadline | the expired request is dropped, nothing opens | `no answer from harbour` | 1 |
+| Harbours connected but none answered the `ask` in time | unchanged | `no harbour answered` | 1 |
+| A path climbing out of the root (`..`), a symlink in the root to a file outside it (dangling or not), a folder whose name only starts like the root | unchanged | `no harbour session holds <path>` | 1 |
+| A message holding control characters | (none) | the characters escaped (`\n`, `\u{1b}`) | 1 |
 | The path is a directory | (no request) | `<path> is a directory` | 1 |
 | Its folder does not exist | (no request) | `<path>: No such file or directory` | 1 |
 | Path longer than 4096 bytes | (no request) | `the path is longer than 4096 bytes` | 1 |
 | The state folder is not private (symlink, other owner, group or other bits) | (no request) | `<folder> is not private; refusing to use it` | 1 |
 | The socket path would not fit an `AF_UNIX` address | harbour does not listen | `no harbour is running` (Known limits line) | 1 |
 | No `XDG_STATE_HOME` or `HOME` | harbour does not listen | `no harbour is running` | 1 |
+| `harbour edit -- <file>` | as `harbour edit <file>`, for a file whose name starts with `-` | as for that file | as for it |
 | `harbour edit` with no file or more than one | (no request) | the usage | 1 |
 | `harbour --demo` | never listens | `no harbour is running` when it is the only one | 1 |
 
@@ -141,6 +156,13 @@ Product decisions the issue did not settle, each taken the most conservative way
 - A stopped card (phase 10's remembered session, no process) never holds a file: `harbour edit`
   never resumes a conversation, since that starts Claude Code, which is the user's call. It
   passes over the card to a running holder, else says no session holds the file.
+- While a question or the picker is open, an `ask` is answered `none` instead of a refusal, so
+  another harbour that holds the file can take it; an `open` is still refused.
+- Where each session works is read again before an `open` only, not before an `ask`: an `ask`
+  stays cheap for every harbour, and the harbour that gets the `open` picks the holder and the
+  root from the same fresh reading.
+- A refused open leaves harbour's screen as it was: the reason goes to the caller only, since the
+  user is in another window.
 - Peer uid checked on every connection though the folder is private: cheap, and it makes the
   socket safe even if the folder's mode is changed by hand.
 
@@ -176,6 +198,14 @@ Product decisions the issue did not settle, each taken the most conservative way
 - A session holds only paths inside its root; the editor used is the one running at that root,
   else a new one, as with Ctrl-l (older editors at other roots are not chosen).
 - The fixture editor `tests/fixtures/editor.sh` now prints its last argument too.
+- Review round 1 moved the socket off the draw thread (a listener thread, a reader thread per
+  connection, at most 16 in flight, a channel to the draw loop), had the receiver resolve and
+  check the path itself, followed dangling symlinks on both sides, made a second open wait for a
+  Neovim whose socket is not up yet, carried one deadline to the last step, refreshed where each
+  session works before an open, and left the screen alone on a refusal. The prefix look-alike
+  finding was a false premise (`Path::starts_with` compares whole components); its test stays.
+  The moving tests' waits went from 5 s to 12 s (`wait_until_at`, `wait_until_moved` in
+  `tests/app/moving.rs`); the 600 ms `settled` wait asserts that nothing moves and stays.
 - Merged with phase 10 (v0.9.0): stopped cards never hold a file; the channel's folder,
   `harbour/edit/`, stays apart from phase 10's `harbour/sessions/`.
 
@@ -187,3 +217,5 @@ Product decisions the issue did not settle, each taken the most conservative way
 - `tooling` `moving::claude_code_moving_into_a_worktree_moves_harbour_to_the_worktree_root` timed out once under the full load of a ship (passes alone and in full runs); the ship passed on retry → none
 - `ci` `nix::unistd::getpeereid` does not exist on Linux, so `check` and the Linux `flake` failed to build a branch that built and passed on macOS; the peer check reads `SO_PEERCRED` on Linux, verified in a Linux container before the push → code
 - `process` Early in the phase some production code was written before its test had been run red, against the TDD rule; later tasks kept red first and broke by hand every test that passed at once → none
+- `review-loop` Review round 1 found 7 should findings in the channel and the open (socket I/O on the draw thread, the receiver trusting the sender's path, dangling symlinks, back-to-back opens, a refusal changing the screen, the deadline not reaching the last step, a stale root) → code
+- `design` Reading sockets on the draw thread let a flood of silent connections freeze the keys for seconds; the listener became a thread of its own with a reader per connection and a channel, and only the Neovim RPC stays on the draw thread → rule in `AGENTS.md`

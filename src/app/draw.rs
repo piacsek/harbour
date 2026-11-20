@@ -27,10 +27,10 @@ impl App {
 
     pub fn draw(&mut self, frame: &mut Frame) {
         self.finish_pick();
-        self.serve();
         self.finish_editors();
         self.read_files();
         self.settle_exited();
+        self.serve();
         self.follow_selected();
         self.screen = frame.area();
         let (sidebar, pane) = self.areas(frame.area());

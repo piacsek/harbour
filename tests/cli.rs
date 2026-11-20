@@ -138,6 +138,49 @@ fn edit_with_two_files_exits_one() {
 }
 
 #[test]
+fn edit_takes_the_file_after_a_leading_double_dash() {
+    let scratch = tempfile::tempdir().unwrap();
+
+    let output = launch_at_home(scratch.path(), &["edit", "--", "acme-missing/main.rs"]);
+
+    assert_eq!(
+        stderr(&output),
+        "harbour: acme-missing/main.rs: No such file or directory\n"
+    );
+}
+
+#[test]
+fn edit_takes_a_file_named_like_a_flag_after_a_double_dash() {
+    let scratch = tempfile::tempdir().unwrap();
+
+    let output = launch_at_home(scratch.path(), &["edit", "--", "--help/main.rs"]);
+
+    assert_eq!(
+        stderr(&output),
+        "harbour: --help/main.rs: No such file or directory\n"
+    );
+}
+
+#[test]
+fn edit_with_only_a_double_dash_prints_the_usage_on_stderr() {
+    let scratch = tempfile::tempdir().unwrap();
+
+    assert_eq!(
+        stderr(&launch_at_home(scratch.path(), &["edit", "--"])),
+        USAGE
+    );
+}
+
+#[test]
+fn edit_with_a_double_dash_and_two_files_prints_the_usage_on_stderr() {
+    let scratch = tempfile::tempdir().unwrap();
+
+    let output = launch_at_home(scratch.path(), &["edit", "--", "a.rs", "b.rs"]);
+
+    assert_eq!(stderr(&output), USAGE);
+}
+
+#[test]
 fn changelog_prints_the_bundled_changelog_on_stdout() {
     assert_eq!(
         stdout(&launch(&["changelog"])),
@@ -157,7 +200,7 @@ fn changelog_writes_nothing_on_stderr() {
 
 const USAGE: &str = "harbour: Harbour: where shipping begins
 
-usage: harbour [--demo | --help | --version | changelog | status | edit <file>]
+usage: harbour [--demo | --help | --version | changelog | status | edit [--] <file>]
 
 With no argument on a terminal, harbour opens a sidebar of Claude Code sessions
 beside a live pane. --demo opens the same with made-up sessions: no claude needed.
@@ -179,6 +222,16 @@ fn version_line() -> String {
 fn launch(args: &[&str]) -> Output {
     Command::new(env!("CARGO_BIN_EXE_harbour"))
         .args(args)
+        .output()
+        .unwrap()
+}
+
+fn launch_at_home(home: &std::path::Path, args: &[&str]) -> Output {
+    Command::new(env!("CARGO_BIN_EXE_harbour"))
+        .args(args)
+        .env("HOME", home)
+        .env("XDG_STATE_HOME", home.join("state"))
+        .current_dir(home)
         .output()
         .unwrap()
 }

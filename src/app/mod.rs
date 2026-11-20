@@ -253,7 +253,11 @@ impl App {
     }
 
     pub fn key(&mut self, key: KeyEvent) {
+        self.key_handled(key);
         self.touch();
+    }
+
+    fn key_handled(&mut self, key: KeyEvent) {
         if let Some(pick) = &self.picking {
             let session = pick.session();
             session.send(&keys::encode(key, session.application_cursor()));
@@ -311,7 +315,11 @@ impl App {
     }
 
     pub fn paste(&mut self, text: &str) {
+        self.paste_handled(text);
         self.touch();
+    }
+
+    fn paste_handled(&mut self, text: &str) {
         if let Some(pick) = &self.picking {
             pick.session().paste(text);
             return;
@@ -325,7 +333,11 @@ impl App {
     }
 
     pub fn mouse(&mut self, event: MouseEvent) {
+        self.mouse_handled(event);
         self.touch();
+    }
+
+    fn mouse_handled(&mut self, event: MouseEvent) {
         if let Some(pick) = &self.picking {
             let (mode, encoding) = pick.session().mouse_protocol();
             let target = Target {

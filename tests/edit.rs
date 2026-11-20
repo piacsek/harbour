@@ -254,7 +254,7 @@ fn the_socket_of_a_harbour_that_died_counts_as_no_harbour() {
 }
 
 #[test]
-fn a_socket_that_never_answers_counts_as_no_harbour_within_seconds() {
+fn a_socket_that_never_answers_says_no_harbour_answered_within_seconds() {
     let scratch = tempfile::tempdir().unwrap();
     existing(scratch.path(), "main.rs");
     let _silent = UnixListener::bind(folder(scratch.path()).join("99999-0.sock")).unwrap();
@@ -262,12 +262,93 @@ fn a_socket_that_never_answers_counts_as_no_harbour_within_seconds() {
 
     let output = edit(scratch.path(), "main.rs");
 
-    assert_eq!(stderr(&output), "harbour: no harbour is running\n");
+    assert_eq!(stderr(&output), "harbour: no harbour answered\n");
     assert!(
         started.elapsed() < Duration::from_secs(4),
         "{:?}",
         started.elapsed()
     );
+}
+
+#[test]
+fn a_socket_that_never_answers_exits_one() {
+    let scratch = tempfile::tempdir().unwrap();
+    existing(scratch.path(), "main.rs");
+    let _silent = UnixListener::bind(folder(scratch.path()).join("99999-0.sock")).unwrap();
+
+    assert_eq!(edit(scratch.path(), "main.rs").status.code(), Some(1));
+}
+
+#[test]
+fn a_dangling_symlink_is_sent_as_the_path_it_points_to() {
+    let scratch = tempfile::tempdir().unwrap();
+    let folder = scratch.path().canonicalize().unwrap().join("acme-away");
+    fs::create_dir(&folder).unwrap();
+    let away = folder.join("new.rs");
+    symlink(&away, scratch.path().join("main.rs")).unwrap();
+
+    let (_, heard) = served(
+        scratch.path(),
+        "main.rs",
+        vec![harbour(scratch.path(), |_| Reply::None)],
+    );
+
+    assert_eq!(heard[0], vec![(Verb::Ask, away)]);
+}
+
+#[test]
+fn a_dangling_relative_symlink_is_sent_as_the_path_it_points_to() {
+    let scratch = tempfile::tempdir().unwrap();
+    let folder = scratch.path().canonicalize().unwrap();
+    fs::create_dir(folder.join("acme-away")).unwrap();
+    symlink("acme-away/new.rs", scratch.path().join("main.rs")).unwrap();
+
+    let (_, heard) = served(
+        scratch.path(),
+        "main.rs",
+        vec![harbour(scratch.path(), |_| Reply::None)],
+    );
+
+    assert_eq!(heard[0], vec![(Verb::Ask, folder.join("acme-away/new.rs"))]);
+}
+
+#[test]
+fn a_symlink_that_loops_is_refused() {
+    let scratch = tempfile::tempdir().unwrap();
+    symlink("main.rs", scratch.path().join("main.rs")).unwrap();
+
+    let output = edit(scratch.path(), "main.rs");
+
+    assert_eq!(output.status.code(), Some(1));
+    assert!(
+        stderr(&output).starts_with("harbour: main.rs: "),
+        "{}",
+        stderr(&output)
+    );
+}
+
+#[test]
+fn control_characters_in_a_message_are_printed_escaped() {
+    let scratch = tempfile::tempdir().unwrap();
+    fs::create_dir(scratch.path().join("acme\u{1b}[31m")).unwrap();
+
+    let output = edit(scratch.path(), "acme\u{1b}[31m");
+
+    assert_eq!(stderr(&output), "harbour: acme\\u{1b}[31m is a directory\n");
+}
+
+#[test]
+fn control_characters_in_a_file_name_are_sent_as_they_are() {
+    let scratch = tempfile::tempdir().unwrap();
+    let file = existing(scratch.path(), "acme\u{1b}.rs");
+
+    let (_, heard) = served(
+        scratch.path(),
+        "acme\u{1b}.rs",
+        vec![harbour(scratch.path(), |_| Reply::None)],
+    );
+
+    assert_eq!(heard[0], vec![(Verb::Ask, file)]);
 }
 
 #[test]

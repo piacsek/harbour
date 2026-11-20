@@ -209,6 +209,27 @@ fn harbour_edit_opens_a_name_full_of_ex_specials_in_the_running_neovim() {
     neovim.shows("acme-name-acme %b#c|d e.rs");
 }
 
+#[test]
+#[ignore]
+fn harbour_edit_twice_in_a_row_opens_the_second_file_in_the_neovim_the_first_started() {
+    let Some(neovim) = Neovim::beside_claude("nvim-twice") else {
+        return;
+    };
+    let first = source_file(neovim.home.path(), "first.rs");
+    let second = first.with_file_name("second.rs");
+    std::fs::write(&second, "acme second line\n").unwrap();
+    let state = neovim.home.path().join("xdg/state");
+
+    let opened = handed(neovim.home.path(), Some(state.to_str().unwrap()), &first);
+    let reopened = handed(neovim.home.path(), Some(state.to_str().unwrap()), &second);
+
+    assert_eq!(String::from_utf8_lossy(&opened.stderr), "");
+    assert_eq!(opened.status.code(), Some(0));
+    assert_eq!(String::from_utf8_lossy(&reopened.stderr), "");
+    assert_eq!(reopened.status.code(), Some(0));
+    neovim.shows("acme second line");
+}
+
 struct Neovim {
     server: Server,
     home: TempDir,
@@ -216,6 +237,15 @@ struct Neovim {
 
 impl Neovim {
     fn start(name: &str) -> Option<Neovim> {
+        let neovim = Neovim::beside_claude(name)?;
+        neovim.server.send_keys(&["C-l"]);
+        let editing = neovim.server.wait_for_screen("claude | nvim: ");
+        assert!(editing.contains("claude | nvim: "), "{editing}");
+        neovim.assert_in_neovim();
+        Some(neovim)
+    }
+
+    fn beside_claude(name: &str) -> Option<Neovim> {
         let Some(real) = nvim_on_path() else {
             eprintln!(
                 "skipping {name}: no nvim on PATH, so the real-Neovim test has nothing to run"
@@ -246,12 +276,7 @@ impl Neovim {
         server.send_keys(&["Enter"]);
         let focused = server.wait_for_screen("┏ claude");
         assert!(focused.contains("┏ claude"), "{focused}");
-        server.send_keys(&["C-l"]);
-        let editing = server.wait_for_screen("claude | nvim: ");
-        assert!(editing.contains("claude | nvim: "), "{editing}");
-        let neovim = Neovim { server, home };
-        neovim.assert_in_neovim();
-        Some(neovim)
+        Some(Neovim { server, home })
     }
 
     fn assert_in_neovim(&self) {

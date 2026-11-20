@@ -6,7 +6,7 @@ use harbour::{handoff, state, summary};
 
 const USAGE: &str = "harbour: Harbour: where shipping begins
 
-usage: harbour [--demo | --help | --version | changelog | status | edit <file>]
+usage: harbour [--demo | --help | --version | changelog | status | edit [--] <file>]
 
 With no argument on a terminal, harbour opens a sidebar of Claude Code sessions
 beside a live pane. --demo opens the same with made-up sessions: no claude needed.
@@ -39,7 +39,8 @@ fn main() -> ExitCode {
             print_status();
             ExitCode::SUCCESS
         }
-        [Some("edit"), _] => edit(&args[1]),
+        [Some("edit"), Some("--"), _] => edit(&args[2]),
+        [Some("edit"), file] if file != Some("--") => edit(&args[1]),
         [] if on_a_terminal() => shown(harbour::tui::run()),
         [Some("--demo")] if on_a_terminal() => shown(harbour::tui::demo()),
         _ => {
@@ -63,10 +64,20 @@ fn edit(file: &std::ffi::OsStr) -> ExitCode {
     match handoff::edit(file) {
         Ok(()) => ExitCode::SUCCESS,
         Err(message) => {
-            eprintln!("harbour: {message}");
+            eprintln!("harbour: {}", escaped(&message));
             ExitCode::FAILURE
         }
     }
+}
+
+fn escaped(message: &str) -> String {
+    message
+        .chars()
+        .map(|character| match character {
+            control if control.is_control() => control.escape_default().to_string(),
+            plain => plain.to_string(),
+        })
+        .collect()
 }
 
 fn on_a_terminal() -> bool {

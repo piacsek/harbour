@@ -3,6 +3,7 @@ use std::fs::Permissions;
 use std::io;
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
+use std::thread;
 use std::time::{Duration, Instant};
 
 use tempfile::TempDir;
@@ -17,6 +18,7 @@ const UNSAVED: &str = "len(filter(getbufinfo({'bufmodified': 1}), \
                        {_, b -> index(['', 'acwrite'], getbufvar(b.bufnr, '&buftype')) >= 0}))";
 
 const OPEN_PATIENCE: Duration = Duration::from_secs(1);
+const RETRY_OPEN: Duration = Duration::from_millis(10);
 
 const SOCKET_PREFIX: &str = "harbour-nvim";
 const SOCKET_RANDOM: usize = 6;
@@ -134,11 +136,18 @@ impl Editor {
         }
     }
 
-    pub fn open(&self, file: &Path) -> Result<(), String> {
+    pub fn open(&self, file: &Path, deadline: Instant) -> Result<(), String> {
         let silent = || "Neovim did not answer".to_string();
         let (socket, _) = self.socket.as_ref().ok_or_else(silent)?;
-        let deadline = Instant::now() + OPEN_PATIENCE;
-        if nvim::mode(socket, deadline).ok_or_else(silent)?.blocking {
+        let deadline = deadline.min(Instant::now() + OPEN_PATIENCE);
+        let mode = loop {
+            match nvim::mode(socket, deadline) {
+                Some(mode) => break mode,
+                None if Instant::now() + RETRY_OPEN < deadline => thread::sleep(RETRY_OPEN),
+                None => return Err(silent()),
+            }
+        };
+        if mode.blocking {
             return Err("Neovim is waiting for a key; answer it and try again".to_string());
         }
         match nvim::edit(socket, file, deadline) {

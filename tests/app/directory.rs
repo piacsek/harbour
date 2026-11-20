@@ -447,10 +447,14 @@ pub(crate) fn folder(scratch: &Path, path: &str) -> PathBuf {
 }
 
 pub(crate) fn following(scratch: &Path, lines: &[&str]) -> Screen {
+    following_with(scratch, lines, locating_editor())
+}
+
+pub(crate) fn following_with(scratch: &Path, lines: &[&str], editor: Program) -> Screen {
     let start = repository(scratch, "acme-start");
     let mut screen = Screen {
         app: App::new(recording_agent(scratch))
-            .with_editor(locating_editor())
+            .with_editor(editor)
             .with_picker(choosing(&start))
             .with_transcripts(scratch.join("projects"))
             .naming_sessions()

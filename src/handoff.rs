@@ -1,14 +1,16 @@
-use std::ffi::{OsStr, OsString};
+use std::ffi::OsStr;
 use std::fs::{self, DirBuilder, Permissions};
 use std::io::{self, Read, Write};
 use std::net::Shutdown;
 use std::os::fd::AsRawFd;
-use std::os::unix::ffi::{OsStrExt, OsStringExt};
+use std::os::unix::ffi::OsStrExt;
 use std::os::unix::fs::{DirBuilderExt, FileTypeExt, MetadataExt, PermissionsExt};
 use std::os::unix::net::{UnixListener, UnixStream};
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicU64, Ordering};
-use std::thread;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
+use std::sync::mpsc::{self, Receiver, Sender};
+use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant, SystemTime};
 
 use nix::errno::Errno;
@@ -21,9 +23,11 @@ const LONGEST_REPLY: usize = 4096;
 const ASKING: Duration = Duration::from_secs(2);
 const OPENING: Duration = Duration::from_secs(5);
 const ARRIVING: Duration = Duration::from_millis(100);
-const ANSWERING: Duration = Duration::from_millis(100);
 const RETRY: Duration = Duration::from_secs(5);
 const RETRY_CONNECT: Duration = Duration::from_millis(2);
+const POLL: Duration = Duration::from_millis(5);
+const IN_FLIGHT: usize = 16;
+const LONGEST_CHAIN: usize = 40;
 const SOCKET: &str = "sock";
 const STAGED: &str = "new";
 
@@ -61,23 +65,32 @@ pub fn send(dir: Option<&Path>, file: &Path) -> Result<(), String> {
     }
     let sockets = sockets(dir, &[SOCKET]);
     let asking = Instant::now() + ASKING;
-    let replies: Vec<Option<String>> = thread::scope(|scope| {
+    let replies: Vec<Exchange> = thread::scope(|scope| {
         let asked: Vec<_> = sockets
             .iter()
             .map(|socket| scope.spawn(move || exchange(socket, "ask", file, asking)))
             .collect();
         asked
             .into_iter()
-            .map(|asked| asked.join().ok().flatten())
+            .map(|asked| asked.join().unwrap_or(Exchange::Silent))
             .collect()
     });
-    if replies.iter().all(Option::is_none) {
+    if replies
+        .iter()
+        .all(|reply| matches!(reply, Exchange::Unreached))
+    {
         return Err(none_running());
+    }
+    if !replies
+        .iter()
+        .any(|reply| matches!(reply, Exchange::Replied(_)))
+    {
+        return Err("no harbour answered".to_string());
     }
     let mut chosen: Option<(&Path, u128)> = None;
     for (socket, reply) in sockets.iter().zip(&replies) {
         let used = reply
-            .as_deref()
+            .text()
             .and_then(|reply| reply.strip_prefix("holds "))
             .and_then(|used| used.parse::<u128>().ok());
         if let Some(used) = used
@@ -89,7 +102,7 @@ pub fn send(dir: Option<&Path>, file: &Path) -> Result<(), String> {
     let Some((socket, _)) = chosen else {
         return Err(format!("no harbour session holds {}", file.display()));
     };
-    match exchange(socket, "open", file, Instant::now() + OPENING).as_deref() {
+    match exchange(socket, "open", file, Instant::now() + OPENING).text() {
         Some("opened") => Ok(()),
         Some(reply) => match reply.strip_prefix("refused ") {
             Some(message) => Err(message.to_string()),
@@ -100,37 +113,78 @@ pub fn send(dir: Option<&Path>, file: &Path) -> Result<(), String> {
 }
 
 fn resolve(argument: &OsStr) -> Result<PathBuf, String> {
-    let shown = Path::new(argument).display();
-    let too_long = || format!("the path is longer than {LONGEST_PATH} bytes");
     if argument.as_bytes().len() > LONGEST_PATH {
         return Err(too_long());
     }
-    let given = Path::new(argument);
-    let resolved = match given.canonicalize() {
-        Ok(path) if path.is_dir() => return Err(format!("{shown} is a directory")),
-        Ok(path) => path,
-        Err(_) => {
-            let name = given
-                .file_name()
-                .ok_or_else(|| format!("{shown} is a directory"))?;
-            let folder = match given.parent() {
-                Some(parent) if !parent.as_os_str().is_empty() => parent,
-                _ => Path::new("."),
-            };
-            folder
-                .canonicalize()
-                .map_err(|error| format!("{shown}: {}", plain(&error)))?
-                .join(name)
-        }
-    };
-    if resolved.as_os_str().as_bytes().len() > LONGEST_PATH {
-        return Err(too_long());
-    }
-    Ok(resolved)
+    located(Path::new(argument))
 }
 
-fn exchange(socket: &Path, verb: &str, file: &Path, deadline: Instant) -> Option<String> {
-    let mut stream = connect(socket, deadline).ok()?;
+fn located(given: &Path) -> Result<PathBuf, String> {
+    let shown = given.display();
+    let directory = || format!("{shown} is a directory");
+    let mut path = given.to_path_buf();
+    let mut failure = None;
+    for _ in 0..LONGEST_CHAIN {
+        let error = match path.canonicalize() {
+            Ok(found) if found.is_dir() => return Err(directory()),
+            Ok(found) => return within_length(found),
+            Err(error) => error,
+        };
+        let name = path.file_name().ok_or_else(directory)?;
+        let folder = match path.parent() {
+            Some(parent) if !parent.as_os_str().is_empty() => parent,
+            _ => Path::new("."),
+        };
+        let folder = folder
+            .canonicalize()
+            .map_err(|error| format!("{shown}: {}", plain(&error)))?;
+        let joined = folder.join(name);
+        match fs::read_link(&joined) {
+            Ok(target) => path = folder.join(target),
+            Err(_) => return within_length(joined),
+        }
+        failure = Some(error);
+    }
+    Err(format!(
+        "{shown}: {}",
+        failure.as_ref().map_or_else(String::new, plain)
+    ))
+}
+
+fn within_length(path: PathBuf) -> Result<PathBuf, String> {
+    if path.as_os_str().as_bytes().len() > LONGEST_PATH {
+        return Err(too_long());
+    }
+    Ok(path)
+}
+
+fn too_long() -> String {
+    format!("the path is longer than {LONGEST_PATH} bytes")
+}
+
+enum Exchange {
+    Unreached,
+    Silent,
+    Replied(String),
+}
+
+impl Exchange {
+    fn text(&self) -> Option<&str> {
+        match self {
+            Exchange::Replied(text) => Some(text),
+            _ => None,
+        }
+    }
+}
+
+fn exchange(socket: &Path, verb: &str, file: &Path, deadline: Instant) -> Exchange {
+    let Ok(mut stream) = connect(socket, deadline) else {
+        return Exchange::Unreached;
+    };
+    replied(&mut stream, verb, file, deadline).map_or(Exchange::Silent, Exchange::Replied)
+}
+
+fn replied(stream: &mut UnixStream, verb: &str, file: &Path, deadline: Instant) -> Option<String> {
     let expires = unix_millis(SystemTime::now() + deadline.checked_duration_since(Instant::now())?);
     let mut request = format!("{verb} {expires}\0").into_bytes();
     request.extend_from_slice(file.as_os_str().as_bytes());
@@ -139,7 +193,7 @@ fn exchange(socket: &Path, verb: &str, file: &Path, deadline: Instant) -> Option
     stream.set_read_timeout(Some(left)).ok()?;
     stream.write_all(&request).ok()?;
     stream.shutdown(Shutdown::Write).ok()?;
-    let reply = read_until_closed(&mut stream, LONGEST_REPLY, deadline)?;
+    let reply = read_until_closed(stream, LONGEST_REPLY, deadline)?;
     let line = reply.split(|byte| *byte == b'\n').next()?;
     Some(String::from_utf8_lossy(line).into_owned())
 }
@@ -253,69 +307,133 @@ pub enum Reply {
 pub struct Request {
     pub verb: Verb,
     pub file: PathBuf,
+    pub deadline: Instant,
     stream: UnixStream,
+    _slot: Slot,
 }
 
 impl Request {
     pub fn answer(mut self, reply: Reply) {
-        let line = match reply {
-            Reply::Holds(used) => format!("holds {}", unix_millis(used)),
-            Reply::None => "none".to_string(),
-            Reply::Opened => "opened".to_string(),
-            Reply::Refused(message) => format!("refused {}", message.replace('\n', " ")),
-        };
-        let _ = self.stream.set_write_timeout(Some(ANSWERING));
-        let _ = self.stream.write_all(format!("{line}\n").as_bytes());
+        say(&mut self.stream, reply);
+    }
+}
+
+fn say(stream: &mut UnixStream, reply: Reply) {
+    let line = match reply {
+        Reply::Holds(used) => format!("holds {}", unix_millis(used)),
+        Reply::None => "none".to_string(),
+        Reply::Opened => "opened".to_string(),
+        Reply::Refused(message) => format!("refused {}", message.replace('\n', " ")),
+    };
+    let _ = stream.set_nonblocking(true);
+    let _ = stream.write_all(format!("{line}\n").as_bytes());
+}
+
+struct Slot(Arc<AtomicUsize>);
+
+impl Drop for Slot {
+    fn drop(&mut self) {
+        self.0.fetch_sub(1, Ordering::AcqRel);
     }
 }
 
 pub struct Listener {
-    dir: PathBuf,
-    retry: Duration,
-    due: Instant,
-    bound: Option<Bound>,
+    requests: Receiver<Request>,
+    stop: Arc<AtomicBool>,
+    thread: Option<JoinHandle<()>>,
 }
 
 impl Listener {
     pub fn new(dir: &Path) -> Listener {
-        Listener {
-            dir: dir.to_path_buf(),
-            retry: RETRY,
-            due: Instant::now(),
-            bound: None,
-        }
+        Listener::retrying_every(dir, RETRY)
     }
 
-    pub fn retrying_every(mut self, retry: Duration) -> Listener {
-        self.retry = retry;
-        self
+    pub fn retrying_every(dir: &Path, retry: Duration) -> Listener {
+        let (sender, requests) = mpsc::channel();
+        let stop = Arc::new(AtomicBool::new(false));
+        let watching = Watch {
+            dir: dir.to_path_buf(),
+            retry,
+            bound: Bound::create(dir).ok(),
+            stop: Arc::clone(&stop),
+            sender,
+            in_flight: Arc::new(AtomicUsize::new(0)),
+        };
+        let thread = thread::Builder::new()
+            .name("harbour-handoff".to_string())
+            .spawn(move || watching.run())
+            .ok();
+        Listener {
+            requests,
+            stop,
+            thread,
+        }
     }
 
     pub fn incoming(&mut self) -> Option<Request> {
-        let now = Instant::now();
-        if now >= self.due {
-            self.due = now + self.retry;
-            if self.bound.as_ref().is_some_and(|bound| !bound.intact()) {
-                self.bound = None;
-            }
-            if self.bound.is_none() {
-                self.bound = Bound::create(&self.dir).ok();
-            }
-        }
-        let bound = self.bound.as_ref()?;
-        loop {
-            let (stream, _) = bound.listener.accept().ok()?;
-            if let Some(request) = received(stream) {
-                return Some(request);
-            }
+        self.requests.try_recv().ok()
+    }
+}
+
+impl Drop for Listener {
+    fn drop(&mut self) {
+        self.stop.store(true, Ordering::Release);
+        if let Some(thread) = self.thread.take() {
+            let _ = thread.join();
         }
     }
 }
 
-fn received(stream: UnixStream) -> Option<Request> {
-    if peer(&stream)? != Uid::current() {
-        return None;
+struct Watch {
+    dir: PathBuf,
+    retry: Duration,
+    bound: Option<Bound>,
+    stop: Arc<AtomicBool>,
+    sender: Sender<Request>,
+    in_flight: Arc<AtomicUsize>,
+}
+
+impl Watch {
+    fn run(mut self) {
+        let mut due = Instant::now() + self.retry;
+        while !self.stop.load(Ordering::Acquire) {
+            if Instant::now() >= due {
+                due = Instant::now() + self.retry;
+                if self.bound.as_ref().is_some_and(|bound| !bound.intact()) {
+                    self.bound = None;
+                }
+                if self.bound.is_none() {
+                    self.bound = Bound::create(&self.dir).ok();
+                }
+            }
+            match self.bound.as_ref().map(|bound| bound.listener.accept()) {
+                Some(Ok((stream, _))) => self.admit(stream),
+                _ => thread::sleep(POLL),
+            }
+        }
     }
+
+    fn admit(&self, stream: UnixStream) {
+        if peer(&stream) != Some(Uid::current()) {
+            return;
+        }
+        if self.in_flight.fetch_add(1, Ordering::AcqRel) >= IN_FLIGHT {
+            self.in_flight.fetch_sub(1, Ordering::AcqRel);
+            return;
+        }
+        let slot = Slot(Arc::clone(&self.in_flight));
+        let sender = self.sender.clone();
+        let _ = thread::Builder::new()
+            .name("harbour-handoff-read".to_string())
+            .spawn(move || {
+                if let Some(request) = received(stream, slot) {
+                    let _ = sender.send(request);
+                }
+            });
+    }
+}
+
+fn received(stream: UnixStream, slot: Slot) -> Option<Request> {
     stream.set_nonblocking(false).ok()?;
     let mut stream = stream;
     let bytes = read_until_closed(&mut stream, LONGEST_REQUEST, Instant::now() + ARRIVING)?;
@@ -327,17 +445,31 @@ fn received(stream: UnixStream) -> Option<Request> {
         "open" => Verb::Open,
         _ => return None,
     };
-    if expires.parse::<u128>().ok()? <= unix_millis(SystemTime::now()) {
+    let left = expires
+        .parse::<u128>()
+        .ok()?
+        .checked_sub(unix_millis(SystemTime::now()))?;
+    if left == 0 || file.first() != Some(&b'/') || file.len() > LONGEST_PATH {
         return None;
     }
-    if file.first() != Some(&b'/') || file.len() > LONGEST_PATH {
-        return None;
+    let deadline = Instant::now() + Duration::from_millis(u64::try_from(left).ok()?).min(OPENING);
+    match located(Path::new(OsStr::from_bytes(file))) {
+        Ok(file) => Some(Request {
+            verb,
+            file,
+            deadline,
+            stream,
+            _slot: slot,
+        }),
+        Err(refused) => {
+            let reply = match verb {
+                Verb::Ask => Reply::None,
+                Verb::Open => Reply::Refused(refused),
+            };
+            say(&mut stream, reply);
+            None
+        }
     }
-    Some(Request {
-        verb,
-        file: PathBuf::from(OsString::from_vec(file.to_vec())),
-        stream,
-    })
 }
 
 #[cfg(target_os = "linux")]
