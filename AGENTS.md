@@ -394,7 +394,9 @@ nearest the code the guideline is about.
   red, before the production code is touched; then the smallest change that goes green, then
   refactor. This holds for one-line fixes, security patches, patch releases and "obvious"
   changes alike. Writing the test and the fix in the same edit is not TDD, even when the test
-  is then backed out to prove it fails. Show the red run in the update.
+  is then backed out to prove it fails. Show the red run in the update. A test that is green on
+  its first run is not red: break the code it covers, show that red run, restore the code, and
+  say so in the update.
 - **Draft PR first.** The first ship on a branch opens the draft PR assigned to the user,
   with the commit subject as its title and `.github/pull_request_template.md` as its body;
   every later commit lands on that PR. The subject is a starting point: before review, rewrite
@@ -499,7 +501,10 @@ nearest the code the guideline is about.
   adds logic over external state (check states, merge states, write results) carries a table of
   the states and what the user sees for each, and that table is reviewed before any code is
   written: in conveyor, three review rounds in a row each found states such a table would have
-  listed up front.
+  listed up front. A plan's state table lists, for each thing the change reads from outside
+  harbour (a path, the user's environment or configuration, another process or host), what the
+  user sees when it is missing, changed in between, or shared. A plan whose change draws text
+  adds the narrowest sidebar and a CJK name as rows of its state table.
 
 ## Development
 
