@@ -60,7 +60,7 @@ What each line of a card shows. The age on line 1 is right-aligned: `<1m`, then 
 | blocked, no `waitingFor` | red `◉`, title, age | empty | as working |
 | idle | dim `○`, title, age | the last prompt, dimmed | as working |
 | exited | dim `○`, title, time since harbour saw the exit | `exited`, `exited 3` or `exited (<signal>)` | as when it last ran, without subagents |
-| unknown (no registry file, not Claude Code) | grey `·`, title, no age | empty | repository · branch, read from git |
+| unknown (no registry file, not Claude Code) | grey `·`, title, no age (an age when a registry file with an unknown status carries `statusUpdatedAt`) | empty | repository · branch, read from git |
 
 What each source does to the card:
 
@@ -72,6 +72,7 @@ What each source does to the card:
 | a title, then a transcript line that is not JSON, half written, or an `ai-title` whose `aiTitle` is not a string | the last good title stays; the same for every field |
 | a field of an unexpected type (`prNumber` a string, `input` not an object) | that field is left off, or keeps its last value; the card never shows an error |
 | a transcript line longer than 1 MiB, however its chunks arrive | skipped before it is parsed; the fields keep their last values |
+| the registry file of a running session | read whole every 500 ms, as since phase 3: the one read on the draw thread with no size bound, listed in the PR |
 | a huge transcript | harbour reads only its last 1 MiB once, then only what is appended, at most 1 MiB per read (when more was appended, only the last 1 MiB of it) |
 | a transcript being written (the last line has no newline yet) | the partial line waits for its newline, up to 1 MiB, then is dropped |
 | a transcript truncated or replaced (shorter than what was read) | read again from its last 1 MiB |
@@ -94,6 +95,7 @@ What each source does to the card:
 | a detached HEAD | the branch reads `HEAD`, as Claude Code records it |
 | the branch from the transcript and from git differ | the transcript's `gitBranch` wins (the issue's source); git's `HEAD` fills in until a line has one |
 | the directory deleted | line 3 shows the nearest repository above it, else the folder name it had |
+| a long session that switched to a new branch after linking a pull request | line 3 keeps the last linked `#N` until a new one is linked, whatever branch it shows: a known limit, listed in the PR |
 | no pull request, no subagent running | that part is left out, with its separator |
 | one subagent running | `1 subagent`; more read `<n> subagents` |
 | a subagent whose meta file never gets `"finished": true` (one interrupted inside a live session, unverified: no real `~/.claude` file was read) | it counts as running until the session exits: a known limit, listed in the PR |
@@ -121,9 +123,10 @@ has no bar. The title counts, `harbour status`, the dot and its colours are unch
 - **What a tool call shows**: its description, else its command, else its file path, else the
   tool's name, so a working session never shows a blank line while the transcript has a call.
 - **Exited shows the time since harbour saw the exit**, measured from the read that found it.
-- **Unknown shows no age**: harbour cannot tell when its state began.
-- **Everything is read on the draw thread, bounded**: per running session, at most every 500 ms,
-  the registry file, at most 1 MiB of the transcript, the subagents folder (a finished subagent is
+- **Unknown shows no age** without a time to count from: harbour cannot tell when its state began.
+  A registry file in an unknown status that carries `statusUpdatedAt` still shows that age.
+- **Everything is read on the draw thread, bounded except the registry file**: per running
+  session, at most every 500 ms, the registry file (whole, as since phase 3), at most 1 MiB of the transcript, the subagents folder (a finished subagent is
   never read again) and git's small files; the search for a transcript lists `projects/` at most
   every 5 s. A slow or network file system stalls the interface for that long: a known limit.
 - **The transcripts are found under the same config directory as the registry**
@@ -173,6 +176,20 @@ One red-green-refactor cycle each, shipped with `scripts/ship.sh`.
   titled ones and the picker test keeps its numbering.
 - `scripts/screenshots.sh` waits for the text a shot needs (the blocked card's reason, the
   picker's count) instead of a fixed sleep; two runs give byte-identical images.
+- Four review rounds, all unprimed, the last clean:
+  - Round 1: an emoji with a variation selector crashed the title cut.
+  - Round 2: tests that read the checkout's folder name, git files read as UTF-8, widths that
+    differed from ratatui's, the 512 budget, a stale tool call and empty fields.
+  - Round 3: prompts with an image, the pipe guard's blind spot, the demo reading `/home`, waits
+    nobody asserted, reftable's `HEAD`.
+  - Round 4: clean.
+- Three changes removed a class of finding instead of one finding: `src/text.rs` as the one place
+  widths are measured and cut, checked against ratatui's buffer; the in-process harness's scratch
+  `acme-home`, so no test reads the checkout's name; the guard's scanner, which now reads
+  `${...}`, `$'...'` and `|&` the way the shell does.
+- Not fixed, listed in the PR: an unknown card with `statusUpdatedAt` shows an age, the last linked
+  pull request stays across a branch switch, the registry file is read whole, a subagent never
+  marked finished counts as running, and a joined emoji may size differently in some terminals.
 
 ## Hurdles
 
@@ -186,3 +203,4 @@ One red-green-refactor cycle each, shipped with `scripts/ship.sh`.
 - `review-loop` Round 2 found tests that read the checkout's folder name a third time, so the in-process harness now starts every session in a scratch `acme-home` folder, proved by running the `app` tests from a copy in a 60-character folder → rule in `tests/AGENTS.md`
 - `review-loop` Round 3 found a pipe into `grep -qF` in `scripts/screenshots.sh` that `tests/scripts/pipe_readers.rs` missed: a `"` inside `${font[@]+"${font[@]}"}` ended the expansion early and turned the rest of the file into a quoted string; the scanner now matches nested braces and quotes, with a case seen red, and the script reads to the end → code
 - `test-seam` Round 3 found waits whose result no assertion read, so a state the test relied on could time out unseen; each such wait in this PR now asserts what it returned → rule in `tests/AGENTS.md`
+- `review-loop` Round 4 was clean; its minors were three more spellings the guard misread (`$'...'` with an escaped quote, `|&`, a character outside ASCII in awk code), each fixed with a case seen red → code

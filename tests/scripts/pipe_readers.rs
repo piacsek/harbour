@@ -95,6 +95,30 @@ fn a_quote_inside_a_parameter_expansion_does_not_hide_what_follows() {
 }
 
 #[test]
+fn a_pipe_that_carries_stderr_too_is_a_pipe() {
+    assert_eq!(
+        early_readers("printf a |& head -n 1\n"),
+        ["1: a pipe into head"]
+    );
+}
+
+#[test]
+fn an_escaped_quote_in_an_ansi_c_string_does_not_hide_what_follows() {
+    assert_eq!(
+        early_readers("echo $'a\\'b'\nprintf a | head -n 1\necho 'c'\n"),
+        ["2: a pipe into head"]
+    );
+}
+
+#[test]
+fn a_character_outside_ascii_in_awk_code_is_read_past() {
+    assert_eq!(
+        early_readers("awk '{ x = 1 \u{20ac} 2; exit }'\n"),
+        ["1: an awk exit outside BEGIN and END"]
+    );
+}
+
+#[test]
 fn a_grep_that_reads_to_the_end_is_not_found() {
     assert_eq!(
         early_readers("printf '%s\\n' \"$a\" | grep -vxF b | sed -n 1p\n"),
@@ -327,6 +351,10 @@ fn lex(bytes: &[u8], mut at: usize, substitution: bool, tokens: &mut Vec<Token>)
                 tokens.push(Token::Break);
                 at += 2;
             }
+            b'|' if bytes.get(at + 1) == Some(&b'&') => {
+                tokens.push(Token::Pipe);
+                at += 2;
+            }
             b'|' => {
                 tokens.push(Token::Pipe);
                 at += 1;
@@ -373,6 +401,7 @@ fn word(bytes: &[u8], start: usize, tokens: &mut Vec<Token>, heredocs: &mut Vec<
             },
             b'"' => at = double_quoted(bytes, at + 1, tokens),
             b'\\' => at = (at + 2).min(bytes.len()),
+            b'$' if bytes.get(at + 1) == Some(&b'\'') => at = ansi_c_quoted(bytes, at + 2),
             b'$' | b'<' | b'>' if bytes.get(at + 1) == Some(&b'(') => {
                 at = substituted(bytes, at + 1, tokens)
             }
@@ -387,6 +416,17 @@ fn word(bytes: &[u8], start: usize, tokens: &mut Vec<Token>, heredocs: &mut Vec<
         program,
     });
     at
+}
+
+fn ansi_c_quoted(bytes: &[u8], mut at: usize) -> usize {
+    while at < bytes.len() {
+        match bytes[at] {
+            b'\'' => return at + 1,
+            b'\\' => at += 2,
+            _ => at += 1,
+        }
+    }
+    bytes.len()
 }
 
 fn double_quoted(bytes: &[u8], mut at: usize, tokens: &mut Vec<Token>) -> usize {
@@ -541,7 +581,7 @@ fn exits_in_rules(program: &str) -> Vec<usize> {
         if depth > 0
             && word_starts
             && word_ends
-            && code[at..].starts_with("exit")
+            && bytes[at..].starts_with(b"exit")
             && kind != "BEGIN"
             && kind != "END"
         {
