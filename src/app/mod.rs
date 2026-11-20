@@ -363,7 +363,7 @@ impl App {
             self.transcripts.as_deref(),
             true,
         );
-        let directory = editor::root(&entry.seen);
+        let directory = editor::root(&entry.seen, user_home().as_deref());
         if let Some(index) = entry
             .editors
             .iter()
@@ -547,7 +547,7 @@ impl App {
                     session,
                     started_at,
                     record: None,
-                    place: repo::place(directory),
+                    place: repo::place(directory, user_home().as_deref()),
                     exited_at: None,
                     transcript,
                     editors: Vec::new(),
@@ -620,7 +620,11 @@ fn read_entry(
     {
         entry.seen = cwd;
     }
-    entry.place = repo::place(&entry.seen);
+    entry.place = repo::place(&entry.seen, user_home().as_deref());
+}
+
+fn user_home() -> Option<PathBuf> {
+    std::env::var_os("HOME").map(PathBuf::from)
 }
 
 fn follow(entry: &mut Entry, searching: bool) {

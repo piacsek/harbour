@@ -8,6 +8,7 @@ use std::time::{Duration, Instant};
 use tempfile::TempDir;
 
 use crate::nvim;
+use crate::repo;
 use crate::session::Session;
 
 const NORMAL_MODES: [&str; 2] = ["n", "nt"];
@@ -167,13 +168,11 @@ pub fn socket_base(temporary: &Path) -> PathBuf {
     }
 }
 
-pub fn root(directory: &Path) -> PathBuf {
+pub fn root(directory: &Path, home: Option<&Path>) -> PathBuf {
     if !directory.is_dir() {
         return directory.to_path_buf();
     }
-    directory
-        .ancestors()
-        .find(|folder| folder.join(".git").symlink_metadata().is_ok())
+    repo::root(directory, home)
         .unwrap_or(directory)
         .to_path_buf()
 }

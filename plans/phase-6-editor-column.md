@@ -101,15 +101,20 @@ Each session holds one directory, the one Claude Code was last seen in, and `Ctr
 editor at its repository root. It is updated at every `Ctrl-l`, and nothing older than what it
 holds can overwrite it:
 
-| Claude Code | What the sources say | The directory becomes |
-| --- | --- | --- |
-| Not looked up yet | | the start directory |
-| Running | the transcript of the registry's `sessionId` (a plain name) has a `cwd` | that `cwd` |
-| Running | no `sessionId` in the registry (or not a plain name); harbour's own `--session-id` transcript has a `cwd` | that `cwd` |
-| Running | the current id has no `cwd` (no transcript yet after `/clear`, the file gone, or no line with `cwd`), and a transcript directory was seen before | unchanged |
-| Running or exited | no transcript directory was ever seen; harbour's own transcript has a `cwd` | that `cwd`, the last Claude Code wrote before any change of id |
-| Running | no transcript directory was ever seen, none now; the registry has a `cwd` | the registry's `cwd` |
-| Exited | anything (the registry is skipped, its pid may be reused) | unchanged, but for the row above it |
+The id it follows is harbour's own `--session-id` until the registry names one; from then on it
+is the id the registry named last, and a registry that is gone, half written or names no id keeps
+it. A `sessionId` that is not a plain name (letters, digits, `-`, `_`) is followed like any other,
+but its transcript is never looked up, so it counts as missing. The registry's `cwd` applies only
+while no transcript has ever given a directory. Each cell names the test that pins it (in
+`tests/app/following.rs` unless it says `directory.rs`):
+
+| State of the lookup | The followed transcript has a `cwd` | It has none (no line with `cwd`) | It is missing (not written yet, gone, or the id is not a plain name) |
+| --- | --- | --- | --- |
+| No registry yet (harbour's own id) | that `cwd`: `directory.rs` `the_editor_opens_at_the_root_of_the_directory_the_transcript_names_last` | unchanged, the start directory: `without_a_registry_a_transcript_with_no_directory_leaves_the_start_directory` | unchanged, the start directory: `directory.rs` `without_a_transcript_the_editor_opens_at_the_root_of_the_start_directory` |
+| The registry names harbour's own id | that `cwd`, over the registry's: `a_registry_naming_harbours_own_id_follows_its_transcript` | the registry's `cwd` while no transcript gave one: `a_registry_naming_harbours_own_id_gives_its_directory_while_the_transcript_has_none` | the registry's `cwd` while no transcript gave one: `a_registry_naming_harbours_own_id_gives_its_directory_while_the_transcript_is_missing` |
+| The registry names another id | that `cwd`: `directory.rs` `after_claude_code_changes_its_session_the_editor_follows_the_transcript_the_registry_names` | the directory found last: `another_id_whose_transcript_has_no_directory_keeps_the_directory_found_last` | the directory found last: `directory.rs` `a_new_session_id_without_a_transcript_keeps_the_directory_claude_code_was_in`; with none found, the registry's `cwd`: `directory.rs` `the_registry_names_the_directory_while_its_session_has_no_transcript`; a name that is not plain: `directory.rs` `a_session_id_that_is_not_a_plain_name_is_not_looked_up` |
+| The registry gone or half written after naming an id | that id is still followed and its `cwd` taken: `a_registry_gone_or_half_written_keeps_following_the_id_it_named`, `a_registry_gone_after_naming_an_id_still_follows_that_transcript` | the directory found last, or the registry's last `cwd`: `a_registry_gone_keeps_its_last_directory_while_no_transcript_gave_one` | the directory found last, never harbour's own transcript again: `a_registry_gone_after_naming_an_id_with_no_transcript_never_goes_back_to_harbours_own`; a transcript that disappears: `directory.rs` `a_transcript_that_disappears_leaves_the_directory_last_seen` |
+| Claude Code exited | nothing is read (the registry's pid may be reused), unchanged: `after_claude_code_exits_a_new_directory_in_its_transcript_is_not_read` | unchanged, as left | unchanged, as left: `directory.rs` `after_claude_code_exits_the_editor_stays_at_the_directory_last_seen` |
 
 Editors are kept per directory, so one left behind when the directory moves keeps running
 hidden. The way back to each is `e` in the sidebar: it shows the session's editors one after the
@@ -127,11 +132,11 @@ other, in the order they started, so no editor with unsaved buffers is ever out 
 | Claude Code changed session (`/clear`, `/resume`) | `Ctrl-l` reads the registry's `sessionId` and follows that transcript's `cwd` (see Where Claude Code was last seen) |
 | The registry's session has no transcript yet (after `/clear`, before the next prompt), or its transcript is gone | the directory Claude Code was last seen in |
 | Claude Code exited after a change of session | the directory it was last seen in; its editors stay reachable |
-| The last 4 MiB of the transcript is one line with no complete `cwd` (a pasted image) | falls back as above until the next message writes a line with `cwd`; not fixed |
-| The registry's `sessionId` is not a plain name (letters, digits, `-`, `_`) | it is not looked up; the registry's `cwd` |
+| A transcript line over 1 MiB (a pasted image) | it is skipped; the directory stays the one found last until the next line with `cwd` |
+| The registry's `sessionId` is not a plain name (letters, digits, `-`, `_`) | it is followed, but its transcript is never looked up and counts as missing: the directory found last, or the registry's `cwd` while no transcript gave one (see Where Claude Code was last seen) |
 | The registry and both transcripts cannot be read (not `claude`, no line with `cwd`, unreadable) | the editor opens at the root of the session's start directory |
 | Claude Code's directory is gone | nothing starts, focus stays on Claude Code; the bottom of the sidebar says `Not a directory: <path>` |
-| Not in a repository | the editor opens in Claude Code's directory itself |
+| Not in a repository (a `.git` at the home directory itself does not count, compared by the folder, not its spelling, as for the card) | the editor opens in Claude Code's directory itself |
 | The editor cannot start (not installed, not executable) | nothing starts, focus stays on Claude Code; the sidebar says `Could not start nvim: is it installed and on PATH?`, or, when a narrow terminal hides the sidebar, the bottom of the pane says it until the next key |
 | The editor exits with 0 | the pane shows Claude Code, focused; no message; the next `Ctrl-l` starts a fresh editor |
 | The editor exits with an error or a signal | as with 0, and the sidebar says `nvim exited 1` (or `nvim exited (Killed: 9)` for a signal) until the next start; with the sidebar hidden, the bottom of the pane says it until the next key |
@@ -267,9 +272,16 @@ One red-green-refactor cycle each, shipped with `scripts/ship.sh`.
   session's editors in turn; Neovim starts without a socket when its temporary directory cannot
   be made; three tests that started in the checkout folder start in a scratch `acme-api`, and the
   whole `app` target passed in a copy of the tree under a 60-character folder name.
+- Review round 5 fixes: the merge of `main` (phase 8's cards) left one transcript reader, main's
+  incremental `Transcript`, kept per session for both the card and the editor, and every width,
+  cut and wrap goes through `src/text.rs`; the followed id is sticky once the registry has named
+  one, and the whole lookup is the state table above, one test per cell; a `.git` at the home
+  directory itself no longer makes the home a repository for the editor or the card, which now
+  share one walk up (`repo::root` and `repo::place`), comparing the home by device and inode so
+  a home reached through a symlink still counts as home.
 - When harbour is killed by a signal or its terminal window is closed, each editor's empty
   socket directory stays in the temp directory: declined, a known limit in `AGENTS.md`. A
-  transcript whose last 4 MiB is one huge line falls back until the next message: declined.
+  transcript line over 1 MiB is skipped, so its `cwd` waits for the next line: declined.
 - Every Decision above was taken without the owner, as the most conservative reading of issue #4.
 
 ## Hurdles
@@ -304,3 +316,10 @@ One red-green-refactor cycle each, shipped with `scripts/ship.sh`.
 - `test-seam` Three new tests started their session in the checkout folder and asserted its name
   as drawn, so they failed in a worktree with a long folder name, against the rule in
   `tests/AGENTS.md`; they now start in a scratch folder with a short invented name → code
+- `review-loop` Round 5 found a fourth hole in the directory lookup (a failed registry read sent
+  it back to harbour's own transcript); its full state machine is now a table of states and
+  inputs in the plan, each cell pinned by a test, written before the fix, as the plan rule for
+  external state asks → code
+- `tooling` The home `.git` end-to-end test failed while the unit tests passed: macOS gives the
+  session's directory as `/private/var/...` while `HOME` reads `/var/...`, so a comparison of
+  paths missed the home; folders are now compared by device and inode → code

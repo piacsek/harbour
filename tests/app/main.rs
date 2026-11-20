@@ -8,6 +8,7 @@ mod editor_input;
 mod ending;
 mod exits;
 mod focus;
+mod following;
 mod help;
 mod input;
 mod layout;

@@ -28,7 +28,12 @@ fn the_editor_opens_at_the_root_of_the_repository_claude_code_started_in() {
 fn a_worktree_root_is_found_by_its_git_file() {
     let scratch = tempfile::tempdir().unwrap();
     let start = folder(scratch.path(), "acme-wt/lib/deep");
-    fs::write(scratch.path().join("acme-wt/.git"), "gitdir: /acme/.git\n").unwrap();
+    let git_dir = folder(scratch.path(), "acme/.git/worktrees/acme-wt");
+    fs::write(
+        scratch.path().join("acme-wt/.git"),
+        format!("gitdir: {}\n", git_dir.display()),
+    )
+    .unwrap();
     let mut screen = started_in(&start, reading_agent());
 
     screen.key(KeyCode::Char('l'), KeyModifiers::CONTROL);
@@ -435,13 +440,13 @@ fn locating_editor() -> Program {
     )
 }
 
-fn folder(scratch: &Path, path: &str) -> PathBuf {
+pub(crate) fn folder(scratch: &Path, path: &str) -> PathBuf {
     let folder = scratch.join(path);
     fs::create_dir_all(&folder).unwrap();
     folder
 }
 
-fn following(scratch: &Path, lines: &[&str]) -> Screen {
+pub(crate) fn following(scratch: &Path, lines: &[&str]) -> Screen {
     let start = repository(scratch, "acme-start");
     let mut screen = Screen {
         app: App::new(recording_agent(scratch))
@@ -468,13 +473,13 @@ fn recording_agent(scratch: &Path) -> Vec<String> {
     ))
 }
 
-fn write_transcript(scratch: &Path, lines: &[&str]) {
+pub(crate) fn write_transcript(scratch: &Path, lines: &[&str]) {
     let args = fs::read_to_string(scratch.join("args")).unwrap();
     let id = args.split_once(' ').unwrap().1;
     write_named_transcript(scratch, id, lines);
 }
 
-fn write_named_transcript(scratch: &Path, id: &str, lines: &[&str]) {
+pub(crate) fn write_named_transcript(scratch: &Path, id: &str, lines: &[&str]) {
     let project = folder(scratch, "projects/-acme-start");
     let mut text = lines.join("\n");
     text.push('\n');
@@ -487,17 +492,17 @@ fn write_named_transcript(scratch: &Path, id: &str, lines: &[&str]) {
         .unwrap();
 }
 
-fn cwd(directory: &Path) -> String {
+pub(crate) fn cwd(directory: &Path) -> String {
     format!("{{\"type\":\"user\",\"cwd\":\"{}\"}}", directory.display())
 }
 
-fn repository(scratch: &Path, name: &str) -> PathBuf {
+pub(crate) fn repository(scratch: &Path, name: &str) -> PathBuf {
     let repository = folder(scratch, name);
     fs::create_dir_all(repository.join(".git")).unwrap();
     repository
 }
 
-fn write_registry(scratch: &Path, id: &str, directory: &Path) {
+pub(crate) fn write_registry(scratch: &Path, id: &str, directory: &Path) {
     let pid = fs::read_to_string(scratch.join("pid")).unwrap();
     let record = format!(
         "{{\"pid\":{},\"sessionId\":\"{id}\",\"cwd\":\"{}\",\"status\":\"idle\"}}",
@@ -511,7 +516,7 @@ fn write_registry(scratch: &Path, id: &str, directory: &Path) {
     .unwrap();
 }
 
-fn end_agent(scratch: &Path) {
+pub(crate) fn end_agent(scratch: &Path) {
     let pid = fs::read_to_string(scratch.join("pid")).unwrap();
     let status = std::process::Command::new("kill")
         .arg(pid.trim())
