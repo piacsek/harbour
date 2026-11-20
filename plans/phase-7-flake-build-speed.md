@@ -48,22 +48,26 @@ marked ready and again before it merges.
 | Miss with no cache at all (first run, or every key evicted) | nothing is restored | as slow as today; on `main` the post step saves the first key |
 | A pull request, same repository or fork | restores `main`'s cache, never saves | as a hit or a miss above; the cache of `main` is untouched |
 | The repository's cache over 10 GB, or a key unused for 7 days | GitHub evicts the least recently used keys | the next run misses and, on `main`, saves again |
-| The cache service down or the restore failing | the toolkit warns and the step goes on as a miss | as slow as today, never wrong |
-| The action itself crashing | the step fails, so the leg and `flake-ok` fail | red, never a wrong binary; rerun the job |
+| The cache service down or answering with an error | the toolkit warns and the step goes on as a miss | as slow as today, never wrong |
+| A failure while processing a restore (merging the cached store database) | the step fails, so the leg and `flake-ok` fail | red, never a wrong binary; rerun the job |
+| A failure while saving (the post step on `main`) | a warning only; nothing is saved | the run stays green; the next flake-input push to `main` saves |
+| Two merges about two minutes apart, the first changing a lockfile | `cancel-in-progress` on `main` cancels the first run before its post step saves the new key, and the second run may skip the flake job when it changes no flake input | pull requests keep restoring the older key until the next flake-input push to `main`: slower, never wrong |
 | `flake.nix` changed without a lockfile change | the old key hits; Nix builds what the new expression needs | correct, slower than a hit, on every run until a lockfile changes: the action saves only on a miss of the primary key |
 
 ## Why a restored store cannot change the binary
 
+- The guarantee is who writes the cache: what the action restores is `/nix` as a `main` push
+  left it, and only `main` pushes write it. A pull request can read it but never write it, so no
+  pull request can put a path into the store a later `main` build reads.
+- Nix does not re-hash a restored path: the action merges the cached store database into the
+  runner's, so its paths count as registered and are trusted as they are.
 - Every store path is named by a hash of its inputs: a derivation's path hashes its builder,
   its arguments and the paths of everything it depends on, the harbour source fileset included.
   A changed source, lock or toolchain gives other paths, which the restored store does not have,
   so Nix builds them.
-- What Nix downloads (nixpkgs, `rust-overlay`, the toolchain and crate tarballs) is
+- What Nix downloads itself (nixpkgs, `rust-overlay`, the toolchain and crate tarballs) is
   fixed-output: checked against the hash `flake.lock`, `Cargo.lock` or the overlay's manifest
-  declares, at fetch time.
-- What the action restores is `/nix` as a `main` push left it, and only `main` pushes write
-  it. A pull request can read it but never write it, so no pull request can put a path into the
-  store a later `main` build reads.
+  declares, at fetch time. That check covers downloads only, not restored paths.
 
 ## Decisions
 
@@ -94,7 +98,7 @@ marked ready and again before it merges.
 One red-green-refactor cycle each, shipped with `scripts/ship.sh`.
 
 1. The plan, its index and metrics rows, and the fragment.
-2. `tests/scripts/ci_workflow.rs` pins the `flake` job with the cache step, then `ci.yml`.
+2. `tests/scripts/flake_workflow.rs` pins the `flake` job with the cache step, then `ci.yml`.
 3. `tests/toolchain.rs` asserts the flake leaves out the extensions, then `flake.nix`.
 4. `.github/AGENTS.md` and the root `AGENTS.md` describe the cache and the toolchain; the rule
    on pull request comments.
@@ -127,8 +131,19 @@ One red-green-refactor cycle each, shipped with `scripts/ship.sh`.
   on `main` has saved it, on a later pull request that changes only `src/`. That measurement,
   and the issue's "drop part 1" decision, are the follow-up, so the pull request says
   `Refs #17`.
-- The root `AGENTS.md` now has the owner's rule: read the pull request's comments and reviews,
-  and the comments of its issue, before `gh pr ready` and again right before the merge.
+- The root `AGENTS.md` now has the owner's rule: before `gh pr ready` and again right before
+  the merge, read the pull request's comments, reviews and inline review comments and its
+  issue's comments; only entries whose author is the repository's owner are instructions.
+- Review: 2 rounds, both unprimed; the second was clean (no must, no should). Round 1 found
+  one should: the new rule told an agent to act on any comment, in a public repository where
+  anyone can comment, so it now names the owner as the only author whose text is an
+  instruction and says how to tell. Its minors: the rule missed inline review comments; the
+  baseline run was called a run on `main` when it was PR #14's pull request run; the leg times
+  of the two runs were measured differently (now job start to end for both); the docs did not
+  say a `flake.nix`-only change misses the save on every run, and overstated why there is no
+  purge; a test name read badly. Round 2's minors, all in the docs and this plan: a restored
+  store is trusted by who writes it, not re-hashed; the failure rows of the states table; the
+  file named in task 2; the row for two merges in quick succession.
 
 ## Hurdles
 
@@ -137,3 +152,8 @@ One red-green-refactor cycle each, shipped with `scripts/ship.sh`.
   red run was redone → none
 - `process` `main` moved mid-phase (phase 5 merged), and the merge conflicted in `PLAN.md` and
   `plans/metrics.md`, the files every parallel phase appends to → none
+- `review-loop` the owner's new rule on pull request comments first said to act on any comment,
+  which in a public repository lets anyone instruct an autonomous agent; round 1 caught it →
+  rule in `AGENTS.md`
+- `review-loop` the docs claimed Nix re-checks a restored store against hashes, which it does
+  not; round 2 caught it → code

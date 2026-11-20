@@ -62,9 +62,10 @@ speed-up, when its pipeline went from about 3 min 20 s to 37 s:
   toolchain and the crate tarballs), so `nix-community/cache-nix-action` restores `/nix` under
   `nix-<OS>-<hash of flake.lock and Cargo.lock>`, falling back to the newest `nix-<OS>-` key, and
   saves only on a `push` to `main`: a pull request, a fork's included, restores `main`'s cache and
-  never writes one, so none can put a path into the store a later `main` build reads. Nix names
-  every path by the hash of its inputs and checks every download against its declared hash, so a
-  restored store can only skip work, never change what is built. A miss (no key yet, every key
+  never writes one, so none can put a path into the store a later `main` build reads. That is
+  the guarantee: Nix does not re-hash a restored path (the action merges the cached store
+  database, so its paths count as registered), it only checks against the declared hash what it
+  downloads itself. A miss (no key yet, every key
   evicted, the cache service down) is as slow as before the cache, never wrong. On a save after a
   lockfile change it collects garbage down to 3 GiB on Linux and 5 GiB on macOS, with
   `keep-outputs = true` so the build's own closure stays. No purge: GitHub's eviction (7 days
