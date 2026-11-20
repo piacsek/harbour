@@ -72,6 +72,7 @@ src/keys.rs                   the bytes a terminal sends for a key (legacy encod
 src/mouse.rs                  `route`, a pure function: a gesture belongs to where its button went down and to the session shown then, and ends when another session is shown, and the selected session gets only what its mouse mode asked for (`?9` presses, `?1000` presses, releases and the wheel, `?1002` drags too, `?1003` moves too), with Shift, Alt and Ctrl, in its encoding (SGR, UTF-8 or the legacy bytes), clamped to the pane; an empty pane forwards nothing and ends the gesture
 src/changelog.rs              the bundled CHANGELOG.md and the rules a release entry must meet
 CHANGELOG.md                  only its `# Changelog` heading on `main`; each release commit writes its sections
+CLAUDE.md                     a symlink to `AGENTS.md`, for tools that read only that name
 rust-toolchain.toml           the one Rust version (rustfmt and clippy with it) that local gates and CI run; see Development
 flake.nix, flake.lock         the Nix flake: the binary built from `Cargo.toml`, `Cargo.lock`, `CHANGELOG.md` and `src/` with the Rust `rust-toolchain.toml` names, through the locked `rust-overlay`, without the components it lists (rustfmt, clippy); feeds the binary
 scripts/gates.sh              the quality gates; fails loudly, never pipe it through tail
@@ -428,8 +429,9 @@ nearest the code the guideline is about.
   drops only what "Known limits" or another rule of this file states (never because an earlier
   round declined it: a finding declined for good is first written into "Known limits"), and
   rates what holds by the severity definition below. The skill's conventions pass reads
-  `CLAUDE.md` files and this repository has only `AGENTS.md` files, so each round the
-  orchestrator also checks the diff against their rules (the fragment, the screenshot of a
+  `CLAUDE.md` files; the root `CLAUDE.md` links to this file, so it reads the root rules of the
+  checkout it runs in, but `tests/AGENTS.md` and `.github/AGENTS.md` have no such link, so each
+  round the orchestrator also checks the diff against the rules of every `AGENTS.md` (the fragment, the screenshot of a
   visible change, TDD shown red, the public-repo rule, the README shape) and reports a break
   as a finding like any other. No reviewer runs the gates: `scripts/ship.sh` runs them, the
   scrub check included, before every push, and the required `check` job tests the pull
@@ -575,7 +577,7 @@ is the committed code of every branch that changed what the binary is built from
 (`scripts/dev-install-skippable.sh`): `harbour-dev` resolves to another worktree's build, and
 nothing between the merge base with `origin/main` and the working tree, untracked files
 included, is outside `tests/`, `docs/`, `plans/`, `scripts/`, `changes/`, `.github/`,
-`.claude/`, an `AGENTS.md` at any depth (`src/` included), `PLAN.md`, `README.md`, `LICENSE`
+`.claude/`, an `AGENTS.md` at any depth (`src/` included), the root `CLAUDE.md`, `PLAN.md`, `README.md`, `LICENSE`
 and `.gitignore`. That list lives in `scripts/feeds-binary.sh`, the one definition of "feeds
 the binary", which `dev-install-skippable.sh` calls. Everything else counts as feeding the
 binary (`src/`, `Cargo.toml`, `Cargo.lock`, the bundled `CHANGELOG.md`, any path nobody
@@ -619,8 +621,8 @@ kind: fix
   (`scripts/feeds-binary.sh`, the same list `ship.sh` uses for the dev install). `flake.nix` and
   `flake.lock` feed the binary on purpose: they decide what a Nix user runs, and only a release
   moves `stable` to them. Such a pull request is always released, a refactor as an `internal`
-  patch. One that touches only tests, docs, plans, scripts, CI, guidelines or agent skills
-  (`.claude/`) needs none and releases nothing.
+  patch. One that touches only tests, docs, plans, scripts, CI, guidelines (an `AGENTS.md`, the
+  root `CLAUDE.md`) or agent skills (`.claude/`) needs none and releases nothing.
 - **`changes/` is add-only.** A fragment is never edited, renamed or deleted once it is on
   `main`: "pending" means "not in the tree of the last tag", so a changed released fragment
   stops every release and a reused name can skip one silently. Put a correction in a new file.
