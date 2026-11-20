@@ -2,6 +2,7 @@ use std::io::IsTerminal;
 use std::process::ExitCode;
 
 use harbour::changelog::CHANGELOG;
+use harbour::{state, summary};
 
 const USAGE: &str = "harbour: Harbour: where shipping begins
 
@@ -27,13 +28,29 @@ fn main() -> ExitCode {
             print!("{CHANGELOG}");
             ExitCode::SUCCESS
         }
-        [Some("status")] => ExitCode::SUCCESS,
+        [Some("status")] => {
+            print_status();
+            ExitCode::SUCCESS
+        }
         [] if on_a_terminal() => shown(harbour::tui::run()),
         [Some("--demo")] if on_a_terminal() => shown(harbour::tui::demo()),
         _ => {
             eprintln!("{USAGE}");
             ExitCode::FAILURE
         }
+    }
+}
+
+fn print_status() {
+    let Some(dir) = summary::directory(
+        std::env::var_os("XDG_STATE_HOME").map(Into::into),
+        std::env::var_os("HOME").map(Into::into),
+    ) else {
+        return;
+    };
+    let line = state::status_line(summary::total(&dir));
+    if !line.is_empty() {
+        println!("{line}");
     }
 }
 

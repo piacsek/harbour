@@ -45,6 +45,39 @@ impl State {
     }
 }
 
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct Counts {
+    pub blocked: usize,
+    pub working: usize,
+    pub idle: usize,
+    pub unknown: usize,
+}
+
+impl Counts {
+    pub fn plus(self, other: Counts) -> Counts {
+        Counts {
+            blocked: self.blocked.saturating_add(other.blocked),
+            working: self.working.saturating_add(other.working),
+            idle: self.idle.saturating_add(other.idle),
+            unknown: self.unknown.saturating_add(other.unknown),
+        }
+    }
+}
+
+pub fn status_line(counts: Counts) -> String {
+    [
+        (State::Blocked, "fg=red", counts.blocked),
+        (State::Working, "fg=yellow", counts.working),
+        (State::Idle, "dim", counts.idle),
+        (State::Unknown, "fg=brightblack", counts.unknown),
+    ]
+    .into_iter()
+    .filter(|(_, _, count)| *count > 0)
+    .map(|(state, style, count)| format!("#[{style}]{} {count}#[default]", state.glyph()))
+    .collect::<Vec<_>>()
+    .join(" ")
+}
+
 pub fn row(
     name: &str,
     exit_note: Option<String>,
