@@ -6,6 +6,7 @@ use crate::registry::{Record, Status};
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum State {
     Working,
+    Blocked,
     Idle,
     Exited,
     Unknown,
@@ -18,6 +19,7 @@ impl State {
         }
         match record.map(|record| record.status) {
             Some(Status::Busy | Status::Shell) => State::Working,
+            Some(Status::Waiting) => State::Blocked,
             Some(Status::Idle) => State::Idle,
             _ => State::Unknown,
         }
@@ -26,6 +28,7 @@ impl State {
     fn glyph(self) -> &'static str {
         match self {
             State::Working => "●",
+            State::Blocked => "◉",
             State::Idle | State::Exited | State::Unknown => "○",
         }
     }
@@ -33,6 +36,7 @@ impl State {
     fn style(self) -> Style {
         match self {
             State::Working => Style::default().fg(Color::Yellow),
+            State::Blocked => Style::default().fg(Color::Red),
             State::Idle | State::Exited => Style::default().add_modifier(Modifier::DIM),
             State::Unknown => Style::default().fg(Color::DarkGray),
         }
@@ -45,8 +49,16 @@ pub fn row(name: &str, exit_note: Option<String>, record: Option<&Record>) -> Li
         Span::styled(state.glyph(), state.style()),
         Span::from(format!(" {name}")),
     ];
-    if let Some(note) = exit_note {
-        spans.push(Span::from(format!(" exited{note}")));
+    match (
+        exit_note,
+        record.and_then(|record| record.waiting_for.as_ref()),
+    ) {
+        (Some(note), _) => spans.push(Span::from(format!(" exited{note}"))),
+        (None, Some(reason)) if state == State::Blocked => {
+            spans.push(Span::from(" "));
+            spans.push(Span::styled(reason.clone(), state.style()));
+        }
+        _ => {}
     }
     Line::from(spans)
 }

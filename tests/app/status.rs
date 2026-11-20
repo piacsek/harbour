@@ -109,6 +109,63 @@ fn the_dot_follows_a_change_of_status() {
     assert!(dot.modifier.contains(Modifier::DIM));
 }
 
+#[test]
+fn a_session_waiting_on_you_shows_a_red_target_and_what_it_waits_for() {
+    let registry = tempfile::tempdir().unwrap();
+    let mut screen = watching(
+        registry.path(),
+        written(
+            registry.path(),
+            r#"{"status":"waiting","waitingFor":"permission prompt"}"#,
+        ),
+    );
+    screen.press('n');
+
+    let row = format!("◉ {} 1 permission prompt", directory());
+    let shown = screen.wait_for(&row);
+
+    assert!(shown.contains(&row), "{shown}");
+    assert_eq!(screen.cell(3, 1).fg, Color::Red);
+    assert_eq!(screen.cell(last_column(&shown, "prompt"), 1).fg, Color::Red);
+    assert_eq!(screen.cell(5, 1).fg, Color::Reset);
+}
+
+#[test]
+fn a_session_waiting_without_a_reason_shows_the_red_target_alone() {
+    let registry = tempfile::tempdir().unwrap();
+    let mut screen = watching(
+        registry.path(),
+        written(registry.path(), r#"{"status":"waiting"}"#),
+    );
+    screen.press('n');
+
+    let row = format!("◉ {} 1", directory());
+    let shown = screen.wait_for(&row);
+
+    assert!(shown.contains(&format!("{row} ")), "{shown}");
+    assert_eq!(screen.cell(3, 1).fg, Color::Red);
+}
+
+#[test]
+fn an_exited_session_shows_a_dim_hollow_dot_whatever_its_file_says() {
+    let registry = tempfile::tempdir().unwrap();
+    let file = format!("{}/$$.json", registry.path().display());
+    let mut screen = watching(
+        registry.path(),
+        script(&format!(
+            "printf '{{\"status\":\"busy\"}}' > '{file}'; sleep 1; exit 3"
+        )),
+    );
+    screen.press('n');
+
+    let row = format!("○ {} 1 exited 3", directory());
+    let shown = screen.wait_for(&row);
+
+    assert!(shown.contains(&row), "{shown}");
+    assert!(screen.cell(3, 1).modifier.contains(Modifier::DIM));
+    assert_eq!(screen.cell(3, 1).fg, Color::Reset);
+}
+
 fn watching(registry: &Path, command: Vec<String>) -> Screen {
     let mut screen = Screen {
         app: App::new(command).with_registry(registry.to_path_buf()),
@@ -120,11 +177,20 @@ fn watching(registry: &Path, command: Vec<String>) -> Screen {
 }
 
 fn registered(registry: &Path, status: &str) -> Vec<String> {
+    written(registry, &format!(r#"{{"status":"{status}"}}"#))
+}
+
+fn written(registry: &Path, json: &str) -> Vec<String> {
     script(&format!(
-        "printf '{{\"status\":\"{status}\"}}' > '{}'/$$.json; \
-         echo 'acme agent registered'; exec sleep 600",
+        "printf '%s' '{json}' > '{}'/$$.json; echo 'acme agent registered'; exec sleep 600",
         registry.display()
     ))
+}
+
+fn last_column(shown: &str, text: &str) -> u16 {
+    let line = shown.lines().nth(1).unwrap();
+    let start = line[..line.find(text).unwrap()].chars().count();
+    u16::try_from(start + text.chars().count() - 1).unwrap()
 }
 
 fn wait_for_dot(screen: &mut Screen, done: impl Fn(&Cell) -> bool) -> Cell {
