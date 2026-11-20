@@ -24,37 +24,45 @@ impl App {
     }
 
     pub(super) fn settle_exited(&mut self) {
-        let mut settled = false;
+        let mut settling = Vec::new();
         for entry in &mut self.sessions {
-            let exited = entry
-                .session
-                .as_mut()
-                .is_some_and(|session| session.exit().is_some());
-            if exited && entry.exited_at.is_none() {
+            let exited = entry.exited_at.is_none()
+                && entry
+                    .session
+                    .as_mut()
+                    .is_some_and(|session| session.exit().is_some());
+            if exited {
                 read_entry(
                     entry,
                     self.registry.as_deref(),
                     self.transcripts.as_deref(),
                     Reading::Last,
                 );
-                entry.exited_at = Some(Instant::now());
-                entry.reservation = None;
-                settled = true;
+                settling.push(entry.id);
             }
         }
-        if settled {
-            self.remember_all();
+        if settling.is_empty() {
+            return;
+        }
+        self.remember_all();
+        for entry in &mut self.sessions {
+            if entry.session.is_some() && settling.contains(&entry.id) {
+                entry.exited_at = Some(Instant::now());
+                entry.reservation = None;
+            }
         }
     }
 
     pub(super) fn settle_all(&mut self) {
         for entry in &mut self.sessions {
-            read_entry(
-                entry,
-                self.registry.as_deref(),
-                self.transcripts.as_deref(),
-                Reading::Last,
-            );
+            if entry.exited_at.is_none() {
+                read_entry(
+                    entry,
+                    self.registry.as_deref(),
+                    self.transcripts.as_deref(),
+                    Reading::Last,
+                );
+            }
         }
         self.remember_all();
     }

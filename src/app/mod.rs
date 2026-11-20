@@ -504,7 +504,8 @@ impl App {
     }
 
     fn remove_selected(&mut self) {
-        let removed = self.sessions.remove(self.selected);
+        let mut removed = self.sessions.remove(self.selected);
+        removed.reservation = None;
         self.forget(&removed);
         self.selected = self.selected.min(self.sessions.len().saturating_sub(1));
     }

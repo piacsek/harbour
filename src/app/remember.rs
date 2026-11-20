@@ -18,6 +18,7 @@ const ELSEWHERE: &str = "open elsewhere";
 const GONE: &str = "This conversation is gone: Claude Code no longer has it.";
 const HELD: &str = "This conversation is open elsewhere: close it there first.";
 const COME_BACK: &str = "Conversations come back stopped.";
+const UNRESERVED: &str = "Could not reserve this conversation";
 const RECALLED: usize = 100;
 
 pub(super) fn pane(why: &str) -> &'static str {
@@ -127,7 +128,11 @@ impl App {
                 return true;
             }
             Some(Ok(Some(reservation))) => Some(reservation),
-            _ => None,
+            Some(Err(error)) => {
+                self.failed = Some(format!("{UNRESERVED}: {error}"));
+                return true;
+            }
+            None => None,
         };
         let mut command = self.command.clone();
         let transcript = self
@@ -154,6 +159,7 @@ impl App {
                 entry.seen = entry.directory.clone();
                 entry.followed = false;
                 entry.reservation = reservation;
+                entry.on_editor = false;
                 self.failed = None;
                 self.pane_focused = true;
             }
@@ -224,20 +230,20 @@ impl App {
                 .position(|other| other.remembered.as_deref() == Some(wanted.session_id.as_str()));
             if let Some(other) = other {
                 if self.sessions[other].running() {
+                    leave(memory, &mut self.sessions[index]);
                     return index;
                 }
                 self.sessions.remove(other);
-                if other < self.selected {
-                    self.selected -= 1;
-                }
                 if other < index {
                     index -= 1;
                 }
+                if other == self.selected {
+                    self.selected = index;
+                } else if other < self.selected {
+                    self.selected -= 1;
+                }
             }
         }
-        let Some(memory) = &self.memory else {
-            return index;
-        };
         let kept = match &old {
             Some(old) => memory.replace(old, &wanted),
             None => memory.keep(&wanted),
@@ -301,8 +307,17 @@ impl App {
     }
 }
 
+fn leave(memory: &Memory, entry: &mut Entry) {
+    entry.reservation = None;
+    entry.kept = None;
+    if let Some(old) = entry.remembered.take() {
+        memory.forget(&old);
+    }
+}
+
 fn wanted(entry: &Entry, position: usize) -> Option<Remembered> {
     entry.session.as_ref()?;
+    entry.exited_at.is_none().then_some(())?;
     let transcript = entry.transcript.as_ref().filter(|found| found.is_found())?;
     Some(Remembered {
         session_id: transcript.session_id().to_string(),

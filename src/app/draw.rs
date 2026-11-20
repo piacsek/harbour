@@ -4,7 +4,6 @@ use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::{Color, Modifier, Stylize};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, BorderType, Clear, Paragraph, Wrap};
-use std::time::Instant;
 
 use super::{App, Entry, HINT, NARROW, Question, remember};
 use crate::card::{Card, Ended};
@@ -27,17 +26,12 @@ impl App {
         let notes: Vec<Option<Ended>> = self
             .sessions
             .iter_mut()
-            .map(|entry| {
-                let ended = match &mut entry.session {
-                    None => Some(Ended::Stopped(entry.why)),
-                    Some(session) => session
-                        .exit()
-                        .map(|status| Ended::Exited(exit_note(status))),
-                };
-                if matches!(ended, Some(Ended::Exited(_))) {
-                    entry.exited_at.get_or_insert_with(Instant::now);
-                }
-                ended
+            .map(|entry| match &mut entry.session {
+                None => Some(Ended::Stopped(entry.why)),
+                Some(_) if entry.exited_at.is_none() => None,
+                Some(session) => session
+                    .exit()
+                    .map(|status| Ended::Exited(exit_note(status))),
             })
             .collect();
         let counts = state::counts(
@@ -82,11 +76,7 @@ impl App {
             })
             .collect();
         let exited = self.sessions.get_mut(self.selected).is_some_and(|entry| {
-            !entry.on_editor
-                && entry
-                    .session
-                    .as_mut()
-                    .is_some_and(|session| session.exit().is_some())
+            !entry.on_editor && entry.session.is_some() && entry.exited_at.is_some()
         });
         match self.sessions.get(self.selected) {
             None => {

@@ -87,15 +87,7 @@ fn a_new_session_id_replaces_the_remembered_one() {
     let kept = remembered_soon(&mut screen, &scratch.memory(), OTHER_ID, "The second one");
     assert_eq!(kept.len(), 1);
     assert_eq!(kept[0].session_id, OTHER_ID);
-    let file = scratch
-        .dir
-        .path()
-        .join(format!("state/harbour/sessions/{OTHER_ID}.json"));
-    assert!(
-        std::fs::read_to_string(file)
-            .unwrap()
-            .contains(&format!(r#""replaces":"{ID}""#))
-    );
+    assert!(!scratch.memory().holds(ID));
 }
 
 #[test]

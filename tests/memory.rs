@@ -1,6 +1,9 @@
 use std::fs;
 use std::os::unix::fs::{PermissionsExt, symlink};
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Barrier};
+use std::thread;
 use std::time::{Duration, SystemTime};
 
 use harbour::memory::{Memory, Remembered};
@@ -380,7 +383,7 @@ fn an_id_that_is_not_shaped_like_a_claude_code_session_id_is_skipped() {
 }
 
 #[test]
-fn a_file_another_file_replaced_is_dropped_and_removed() {
+fn a_file_naming_another_in_replaces_deletes_nothing() {
     let scratch = tempfile::tempdir().unwrap();
     let dir = folder(scratch.path());
     let memory = Memory::new(&dir);
@@ -393,8 +396,8 @@ fn a_file_another_file_replaced_is_dropped_and_removed() {
 
     let recalled = memory.recall();
 
-    assert_eq!(recalled, vec![remembered(OTHER_ID, 0)]);
-    assert!(!dir.join(format!("{ID}.json")).exists());
+    assert_eq!(recalled, vec![remembered(ID, 0), remembered(OTHER_ID, 0)]);
+    assert!(dir.join(format!("{ID}.json")).exists());
 }
 
 #[test]
@@ -410,7 +413,7 @@ fn keeping_a_replacement_forgets_the_old_file() {
 }
 
 #[test]
-fn a_replacement_records_the_id_it_replaces() {
+fn a_replacement_names_no_other_id() {
     let scratch = tempfile::tempdir().unwrap();
     let dir = folder(scratch.path());
     let memory = Memory::new(&dir);
@@ -418,7 +421,7 @@ fn a_replacement_records_the_id_it_replaces() {
     memory.replace(ID, &remembered(OTHER_ID, 0)).unwrap();
 
     let text = fs::read_to_string(dir.join(format!("{OTHER_ID}.json"))).unwrap();
-    assert!(text.contains(&format!(r#""replaces":"{ID}""#)), "{text}");
+    assert!(!text.contains("replaces"), "{text}");
 }
 
 #[test]
@@ -536,6 +539,64 @@ fn a_dead_reservation_is_swept_and_not_listed() {
     assert!(reserved.is_some());
     assert!(!Memory::new(&dir).reserved().contains(ID));
     assert!(!dead.exists());
+}
+
+#[test]
+fn a_reservation_taken_while_another_harbour_sweeps_stays_listed() {
+    let scratch = tempfile::tempdir().unwrap();
+    let dir = folder(scratch.path());
+    fs::create_dir_all(&dir).unwrap();
+    let done = Arc::new(AtomicBool::new(false));
+    let sweeper = {
+        let dir = dir.clone();
+        let done = Arc::clone(&done);
+        thread::spawn(move || {
+            while !done.load(Ordering::Relaxed) {
+                Memory::new(&dir).reserved();
+            }
+        })
+    };
+
+    let lost = (0..2000)
+        .filter(|_| {
+            Memory::new(&dir)
+                .reserve(ID)
+                .ok()
+                .flatten()
+                .is_some_and(|_held| !Memory::new(&dir).reserved().contains(ID))
+        })
+        .count();
+
+    done.store(true, Ordering::Relaxed);
+    sweeper.join().unwrap();
+    assert_eq!(lost, 0);
+}
+
+#[test]
+fn two_reservations_of_one_id_at_once_never_both_hold() {
+    let scratch = tempfile::tempdir().unwrap();
+    let dir = folder(scratch.path());
+    fs::create_dir_all(&dir).unwrap();
+
+    let both = (0..100)
+        .filter(|_| {
+            let start = Arc::new(Barrier::new(2));
+            let other = {
+                let dir = dir.clone();
+                let start = Arc::clone(&start);
+                thread::spawn(move || {
+                    start.wait();
+                    Memory::new(&dir).reserve(ID).ok().flatten()
+                })
+            };
+            start.wait();
+            let mine = Memory::new(&dir).reserve(ID).ok().flatten();
+            let theirs = other.join().unwrap();
+            mine.is_some() && theirs.is_some()
+        })
+        .count();
+
+    assert_eq!(both, 0);
 }
 
 #[test]

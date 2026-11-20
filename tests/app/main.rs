@@ -22,6 +22,7 @@ mod reserving;
 mod selection;
 mod status;
 mod stopping;
+mod switching;
 mod transcripts;
 
 use std::path::{Path, PathBuf};

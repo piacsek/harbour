@@ -1,17 +1,19 @@
 use std::collections::HashSet;
 use std::ffi::OsStr;
-use std::fs::{self, DirBuilder, File, OpenOptions, Permissions};
+use std::fs::{self, DirBuilder, File, OpenOptions, Permissions, TryLockError};
 use std::io::{self, Read, Write};
-use std::os::unix::fs::{DirBuilderExt, OpenOptionsExt, PermissionsExt};
+use std::os::unix::fs::{DirBuilderExt, MetadataExt, OpenOptionsExt, PermissionsExt};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::time::{Duration, SystemTime};
+use std::thread;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use serde::{Deserialize, Serialize};
 
 const VERSION: u64 = 1;
 const LONGEST: u64 = 64 * 1024;
 const STALE: Duration = Duration::from_secs(30 * 24 * 60 * 60);
+const ATTEMPTS: usize = 5;
 
 static STAGED: AtomicU64 = AtomicU64::new(0);
 
@@ -31,8 +33,6 @@ struct Saved {
     directory: String,
     title: String,
     position: usize,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    replaces: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -67,7 +67,7 @@ impl Memory {
         let Ok(entries) = fs::read_dir(&self.dir) else {
             return Vec::new();
         };
-        let saved: Vec<Saved> = entries
+        let mut recalled: Vec<Remembered> = entries
             .flatten()
             .filter_map(|entry| {
                 let name = entry.file_name();
@@ -77,24 +77,12 @@ impl Memory {
                 (saved.version == VERSION
                     && saved.session_id == id
                     && Path::new(&saved.directory).is_absolute())
-                .then_some(saved)
-            })
-            .collect();
-        let replaced: HashSet<&str> = saved
-            .iter()
-            .filter_map(|saved| saved.replaces.as_deref())
-            .collect();
-        for old in &replaced {
-            self.forget(old);
-        }
-        let mut recalled: Vec<Remembered> = saved
-            .iter()
-            .filter(|saved| !replaced.contains(saved.session_id.as_str()))
-            .map(|saved| Remembered {
-                session_id: saved.session_id.clone(),
-                directory: PathBuf::from(&saved.directory),
-                title: saved.title.clone(),
-                position: saved.position,
+                .then(|| Remembered {
+                    session_id: saved.session_id,
+                    directory: PathBuf::from(saved.directory),
+                    title: saved.title,
+                    position: saved.position,
+                })
             })
             .collect();
         recalled.sort_by(|a, b| (a.position, &a.session_id).cmp(&(b.position, &b.session_id)));
@@ -102,12 +90,8 @@ impl Memory {
     }
 
     pub fn keep(&self, remembered: &Remembered) -> io::Result<()> {
-        self.write(remembered, None)
-    }
-
-    fn write(&self, remembered: &Remembered, replaces: Option<&str>) -> io::Result<()> {
         let id = &remembered.session_id;
-        if !is_session_id(id) || replaces.is_some_and(|old| !is_session_id(old)) {
+        if !is_session_id(id) {
             return Err(io::ErrorKind::InvalidInput.into());
         }
         let directory = remembered
@@ -125,7 +109,6 @@ impl Memory {
             directory: directory.to_string(),
             title: remembered.title.clone(),
             position: remembered.position,
-            replaces: replaces.map(str::to_string),
         })?;
         let staged = self.dir.join(format!(".{id}.{}.tmp", unique()));
         let written = OpenOptions::new()
@@ -152,7 +135,7 @@ impl Memory {
     }
 
     pub fn replace(&self, old: &str, remembered: &Remembered) -> io::Result<()> {
-        self.write(remembered, Some(old))?;
+        self.keep(remembered)?;
         self.forget(old);
         Ok(())
     }
@@ -181,6 +164,26 @@ impl Memory {
             return Err(io::ErrorKind::InvalidInput.into());
         }
         self.private_dir()?;
+        let mut held_before = false;
+        for _ in 0..ATTEMPTS {
+            let Some(reservation) = self.lock(id)? else {
+                continue;
+            };
+            let own = reservation.path.file_name().map(ToOwned::to_owned);
+            if !self.sweep(own.as_deref()).contains(id) {
+                return Ok(Some(reservation));
+            }
+            drop(reservation);
+            if held_before {
+                return Ok(None);
+            }
+            held_before = true;
+            thread::sleep(jitter());
+        }
+        Err(io::ErrorKind::WouldBlock.into())
+    }
+
+    fn lock(&self, id: &str) -> io::Result<Option<Reservation>> {
         let path = self.dir.join(format!("{id}.{}.lock", unique()));
         let lock = OpenOptions::new()
             .write(true)
@@ -188,10 +191,15 @@ impl Memory {
             .mode(0o600)
             .open(&path)?;
         let reservation = Reservation { path, lock };
-        reservation.lock.try_lock()?;
-        let own = reservation.path.file_name().map(ToOwned::to_owned);
-        let held = self.sweep(own.as_deref());
-        Ok((!held.contains(id)).then_some(reservation))
+        match reservation.lock.try_lock() {
+            Ok(()) => {}
+            Err(TryLockError::WouldBlock) => return Ok(None),
+            Err(TryLockError::Error(error)) => return Err(error),
+        }
+        let locked = reservation.lock.metadata()?;
+        let still_there = fs::symlink_metadata(&reservation.path)
+            .is_ok_and(|there| there.dev() == locked.dev() && there.ino() == locked.ino());
+        Ok(still_there.then_some(reservation))
     }
 
     pub fn reserved(&self) -> HashSet<String> {
@@ -282,9 +290,16 @@ fn is_session_id(id: &str) -> bool {
         })
 }
 
+fn jitter() -> Duration {
+    let nanos = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_or(0, |since| since.subsec_nanos());
+    Duration::from_millis(20 + u64::from(nanos % 60))
+}
+
 fn unique() -> String {
     let now = SystemTime::now()
-        .duration_since(SystemTime::UNIX_EPOCH)
+        .duration_since(UNIX_EPOCH)
         .map_or(0, |since| since.as_nanos());
     let staged = STAGED.fetch_add(1, Ordering::Relaxed);
     format!("{}-{now}-{staged}", std::process::id())
