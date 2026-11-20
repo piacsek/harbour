@@ -11,6 +11,13 @@ use tempfile::TempDir;
 use crate::session::Session;
 
 const PRINTING_TO: &str = r#"out=$1; shift; "$@" >"$out""#;
+const FZF_PRINTS_ONE_LINE: [&str; 4] = [
+    "--no-expect",
+    "--no-print-query",
+    "--no-read0",
+    "--no-print0",
+];
+
 const LISTING_INTO: &str = r#"out=$1; here=$2; n=$3; shift 3
 listed="${out%/*}/listed"
 mkfifo "$listed" || exit 126
@@ -56,8 +63,9 @@ impl Picker {
                 } else {
                     OsString::new()
                 };
-                let before = [here, fzf.len().to_string().into()];
                 let mut command = fzf.clone();
+                command.extend(FZF_PRINTS_ONE_LINE.map(String::from));
+                let before = [here, command.len().to_string().into()];
                 command.extend(list.iter().cloned());
                 wrapping(LISTING_INTO, output, &before, &command)
             }
@@ -68,6 +76,7 @@ impl Picker {
 pub struct Pick {
     session: Session,
     program: String,
+    failing: &'static [u32],
     output: PathBuf,
     from: PathBuf,
     _scratch: TempDir,
@@ -81,7 +90,10 @@ pub enum Picked {
 
 impl Pick {
     pub fn open(picker: &Picker, from: &Path, rows: u16, cols: u16) -> io::Result<Option<Pick>> {
-        let scratch = tempfile::Builder::new().prefix("harbour-pick").tempdir()?;
+        let scratch = tempfile::Builder::new()
+            .prefix("harbour-pick")
+            .permissions(fs::Permissions::from_mode(0o700))
+            .tempdir()?;
         let output = scratch.path().join("picked");
         match (picker, startable(picker.program(), from)) {
             (Picker::Command(_), Err(error)) => return Err(error),
@@ -93,6 +105,10 @@ impl Pick {
         Ok(Some(Pick {
             session,
             program: picker.program().to_string(),
+            failing: match picker {
+                Picker::Command(_) => &[126, 127],
+                Picker::Fuzzy { .. } => &[2, 126, 127],
+            },
             output,
             from: from.to_path_buf(),
             _scratch: scratch,
@@ -109,7 +125,8 @@ impl Pick {
 
     pub fn picked(&mut self) -> Option<Picked> {
         let status = self.session.exit()?;
-        if let code @ (126 | 127) = status.exit_code() {
+        let code = status.exit_code();
+        if self.failing.contains(&code) {
             return Some(Picked::Refused(format!(
                 "Could not start {}: it exited with {code}",
                 self.program

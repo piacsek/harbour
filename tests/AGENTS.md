@@ -26,7 +26,7 @@ these suites come from; the ones about sessions were hit in harbour.
   build machine's `PATH`, and a Linux distribution may install both in `/usr/bin`. The
   end-to-end tests clear `HARBOUR_DIR_PICKER` and `HARBOUR_SESSION_COMMAND` unless the test sets
   them, and run the binary on a `PATH` of links to the tools the fixtures need (`tools` in
-  `tests/e2e/main.rs`), where neither is, so `n` starts at once; they set `HARBOUR_DIR_PICKER`
+  `tests/e2e/main.rs`), where neither is, so `n` starts at once, and with `TMPDIR` under the scratch `HOME`, so a picker still open when the tmux server dies leaves no `harbour-pick*` directory behind; they set `HARBOUR_DIR_PICKER`
   to `tests/fixtures/picker.sh` to test the picker; in-process tests hand the builder `.with_picker` of `App` a `Picker` of `/bin/sh -c`
   scripts. A picker script draws on stderr: its stdout is the directory it picks.
 

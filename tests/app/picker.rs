@@ -325,6 +325,77 @@ fn a_directory_name_that_is_not_utf8_reaches_fzf_byte_for_byte() {
 }
 
 #[test]
+fn fzf_is_given_the_options_that_fix_what_it_prints() {
+    let scratch = tempfile::tempdir().unwrap();
+    let picker = fuzzy(vec!["fzf".to_string()], listing(""));
+
+    let command = picker.command(scratch.path(), &scratch.path().join("picked"));
+
+    let fzf = command
+        .iter()
+        .position(|argument| argument == "fzf")
+        .unwrap();
+    assert_eq!(command[fzf + 1], "--no-expect");
+    assert_eq!(command[fzf + 2], "--no-print-query");
+    assert_eq!(command[fzf + 3], "--no-read0");
+    assert_eq!(command[fzf + 4], "--no-print0");
+    assert_eq!(command[fzf - 1], "5");
+}
+
+#[test]
+fn fzf_exiting_with_an_error_is_named_and_starts_nothing() {
+    let picker = fuzzy(script("echo 'acme fzf' >&2; exit 2"), listing(""));
+    let mut screen = Screen::picking(placed_agent(), picker);
+    widen(&mut screen);
+
+    screen.press('n');
+
+    let shown = screen.wait_for_all(&[
+        "Could not start /bin/sh: it exited with 2",
+        "No session yet",
+    ]);
+    assert!(
+        shown.contains("Could not start /bin/sh: it exited with 2"),
+        "{shown}"
+    );
+    assert!(shown.contains("No session yet"), "{shown}");
+}
+
+#[test]
+fn fzf_with_no_match_starts_nothing_and_says_nothing() {
+    let picker = fuzzy(
+        script("echo 'acme fzf' >&2; read -r key </dev/tty; exit 1"),
+        listing(""),
+    );
+    let mut screen = Screen::picking(placed_agent(), picker);
+    screen.press('n');
+    screen.wait_for("acme fzf");
+
+    screen.type_text("\r");
+
+    let shown = closed(&mut screen);
+    assert!(shown.contains("No session yet"), "{shown}");
+    assert!(!shown.contains("Could not start"), "{shown}");
+}
+
+#[test]
+fn fzf_escaped_starts_nothing_and_says_nothing() {
+    let picker = fuzzy(
+        script("echo 'acme fzf' >&2; read -r key </dev/tty; exit 130"),
+        listing(""),
+    );
+    let mut screen = Screen::picking(placed_agent(), picker);
+    screen.press('n');
+    screen.wait_for("acme fzf");
+
+    screen.type_text("\r");
+
+    let shown = closed(&mut screen);
+    assert!(shown.contains("No session yet"), "{shown}");
+    assert!(!shown.contains("Could not start"), "{shown}");
+}
+
+#[test]
 fn a_picked_path_through_dot_dot_starts_in_the_directory_it_names() {
     let scratch = tempfile::tempdir().unwrap();
     let api = directory_in(scratch.path(), "acme-api");

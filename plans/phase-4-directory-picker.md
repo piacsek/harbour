@@ -57,8 +57,16 @@ pane takes the focus, so the user can type to it at once (added by the owner dur
   `HARBOUR_SESSION_COMMAND`. A command line with arguments goes in a script.
 - **Only the first line the picker prints counts.** The rest is ignored, read as bytes, so a
   path that is not UTF-8 keeps its bytes.
-- **A picker that exits with 126 or 127 could not start**, which the sidebar names; any other
-  failure is a cancel.
+- **A picker that exits with 126 or 127 could not start**, which the sidebar names; so does fzf
+  exiting with 2, its error status (an option its version rejects in `FZF_DEFAULT_OPTS`). Any
+  other failure is a cancel: fzf's 1 (no match) and 130 (Esc, Ctrl-C) included (review round 4).
+- **fzf gets `--no-expect --no-print-query --no-read0 --no-print0`** after the user's
+  `FZF_DEFAULT_OPTS`, the options that change what it reads or prints, so it prints one directory
+  a line; appearance and key bindings stay the user's (review round 4). Every one is older than
+  the fzf of any current distribution. `--accept-nth` (0.60) has no negation, so a user who sets
+  it in `FZF_DEFAULT_OPTS` gets the field it names.
+- **The temporary directory is created 0700**, so on a shared `/tmp` no other user reads the
+  picked path or drains the list (review round 4).
 - **Focus moves to the pane only when the picker confirmed a directory.** When fzf is missing and
   `n` starts the session at once, the sidebar keeps the focus, as before this phase: the owner's
   addition names the picker, and the end-to-end tests drive `n` twice in a row from the sidebar.

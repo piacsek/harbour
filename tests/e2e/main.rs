@@ -5,6 +5,8 @@ use std::time::{Duration, Instant};
 
 use harbour::tui::{DIR_PICKER, SESSION_COMMAND};
 
+mod picker;
+
 const AGENT: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/agent.sh");
 const RAW_AGENT: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/raw-agent.sh");
 const PICKER: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/picker.sh");
@@ -344,131 +346,6 @@ fn the_demo_removes_its_made_up_registry_when_it_ends() {
     assert_eq!(std::fs::read_dir(temp.path()).unwrap().count(), 0);
 }
 
-#[test]
-#[ignore]
-fn n_in_the_demo_without_fzf_starts_a_session_at_once() {
-    let home = tempfile::tempdir().unwrap();
-    let server = Server::start("demo-no-fzf", 160, 20);
-    server.run(home.path(), &[], &["--demo"]);
-    server.wait_for_screen("acme-api 5");
-
-    server.send_keys(&["n"]);
-
-    let screen = server.wait_for_screen("acme-api 6");
-    assert!(screen.contains("acme-api 6"), "{screen}");
-    assert!(!screen.contains("Could not start"), "{screen}");
-}
-
-#[test]
-#[ignore]
-fn n_in_a_directory_deleted_before_launch_starts_nothing_and_names_it() {
-    let home = tempfile::tempdir().unwrap();
-    let directory = home.path().join("acme-api");
-    let server = Server::start("deleted", 160, 20);
-    server.launch(
-        home.path(),
-        "rmdir \"$PWD\" &&",
-        &[(SESSION_COMMAND, AGENT)],
-        &[],
-    );
-    server.wait_for_screen("press n to start one");
-
-    server.send_keys(&["n"]);
-
-    let refusal = format!("Not a directory: {}", directory.display());
-    let screen = server.wait_for_screen(&refusal);
-    assert!(screen.contains(&refusal), "{screen}");
-    assert!(screen.contains("No session yet"), "{screen}");
-}
-
-#[test]
-#[ignore]
-fn n_after_its_directory_is_deleted_starts_nothing_and_names_it() {
-    let home = tempfile::tempdir().unwrap();
-    let directory = home.path().join("acme-api");
-    let server = Server::start("deleted-after", 160, 20);
-    server.run(home.path(), &[(SESSION_COMMAND, AGENT)], &[]);
-    server.wait_for_screen("press n to start one");
-    let shown = directory.canonicalize().unwrap();
-    std::fs::remove_dir(&directory).unwrap();
-
-    server.send_keys(&["n"]);
-
-    let refusal = format!("Not a directory: {}", shown.display());
-    let screen = server.wait_for_screen(&refusal);
-    assert!(screen.contains(&refusal), "{screen}");
-    assert!(screen.contains("No session yet"), "{screen}");
-}
-
-#[test]
-#[ignore]
-fn a_picker_that_returns_its_deleted_directory_starts_nothing() {
-    let home = tempfile::tempdir().unwrap();
-    let directory = home.path().join("acme-api");
-    let server = Server::start("deleted-picked", 160, 20);
-    server.run(
-        home.path(),
-        &[(SESSION_COMMAND, AGENT), (DIR_PICKER, PICKER)],
-        &[],
-    );
-    server.wait_for_screen("press n to start one");
-    server.send_keys(&["n"]);
-    server.wait_for_screen("acme picker: type a directory");
-    std::fs::remove_dir(&directory).unwrap();
-
-    server.send_keys(&[&directory.display().to_string(), "Enter"]);
-
-    let refusal = format!("Not a directory: {}", directory.display());
-    let screen = server.wait_for_screen(&refusal);
-    assert!(screen.contains(&refusal), "{screen}");
-    assert!(screen.contains("No session yet"), "{screen}");
-}
-
-#[test]
-#[ignore]
-fn n_with_a_picker_after_its_directory_is_deleted_starts_nothing() {
-    let home = tempfile::tempdir().unwrap();
-    let directory = home.path().join("acme-api");
-    let server = Server::start("deleted-picker", 160, 20);
-    server.run(
-        home.path(),
-        &[(SESSION_COMMAND, AGENT), (DIR_PICKER, PICKER)],
-        &[],
-    );
-    server.wait_for_screen("press n to start one");
-    let shown = directory.canonicalize().unwrap();
-    std::fs::remove_dir(&directory).unwrap();
-
-    server.send_keys(&["n"]);
-
-    let refusal = format!("Not a directory: {}", shown.display());
-    let screen = server.wait_for_screen(&refusal);
-    assert!(screen.contains(&refusal), "{screen}");
-    assert!(screen.contains("No session yet"), "{screen}");
-}
-
-#[test]
-#[ignore]
-fn n_in_the_demo_lists_made_up_directories_in_fzf() {
-    let home = tempfile::tempdir().unwrap();
-    let server = Server::start("demo-picker", 160, 20);
-    let path = format!("{FAKE_FZF}:{}", tools(home.path()));
-    server.run(home.path(), &[("PATH", &path)], &["--demo"]);
-    server.wait_for_screen("acme-api 5");
-    server.send_keys(&["n"]);
-
-    let screen = server.wait_for_screen_all(&["acme fzf lists:", "/home/acme/web"]);
-    assert!(screen.contains("acme fzf lists:"), "{screen}");
-    assert!(screen.contains("/home/acme/web"), "{screen}");
-    let scratch = home
-        .path()
-        .file_name()
-        .unwrap()
-        .to_string_lossy()
-        .into_owned();
-    assert!(!screen.contains(&scratch), "{screen}");
-}
-
 struct Server {
     socket: String,
 }
@@ -579,6 +456,7 @@ impl Server {
             "-u".to_string(),
             "CLAUDE_CONFIG_DIR".to_string(),
             quoted(&format!("HOME={}", home.display())),
+            quoted(&format!("TMPDIR={}", scratch_tmp(home).display())),
             quoted(&format!("PATH={}", tools(home))),
         ];
         words.extend(
@@ -648,6 +526,12 @@ impl Drop for Server {
 
 fn quoted(word: &str) -> String {
     format!("'{}'", word.replace('\'', r"'\''"))
+}
+
+fn scratch_tmp(home: &Path) -> std::path::PathBuf {
+    let tmp = home.join("tmp");
+    std::fs::create_dir_all(&tmp).unwrap();
+    tmp
 }
 
 fn tools(home: &Path) -> String {
