@@ -11,7 +11,7 @@ marked ready and again before it merges.
 
 ## Verified facts (2026-11-20, `main` at fe8aaf5)
 
-- Run 44682655741 (on `main`), from its job logs:
+- Run 44682655741 (the pull request run of phase 4's branch, PR #14), from its job logs:
 
   | Leg | `nix build` | Install Nix | Fetched | Derivations built |
   | --- | --- | --- | --- | --- |
@@ -50,7 +50,7 @@ marked ready and again before it merges.
 | The repository's cache over 10 GB, or a key unused for 7 days | GitHub evicts the least recently used keys | the next run misses and, on `main`, saves again |
 | The cache service down or the restore failing | the toolkit warns and the step goes on as a miss | as slow as today, never wrong |
 | The action itself crashing | the step fails, so the leg and `flake-ok` fail | red, never a wrong binary; rerun the job |
-| `flake.nix` changed without a lockfile change | the old key hits; Nix builds what the new expression needs | correct, slower than a hit; the key is not refreshed until a lockfile changes |
+| `flake.nix` changed without a lockfile change | the old key hits; Nix builds what the new expression needs | correct, slower than a hit, on every run until a lockfile changes: the action saves only on a miss of the primary key |
 
 ## Why a restored store cannot change the binary
 
@@ -69,10 +69,9 @@ marked ready and again before it merges.
 
 - **Save only on a `push` to `main`**: `save: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}`.
   Pull requests read `main`'s cache and never write one.
-- **No purge.** It needs `actions: write`, and job permissions cannot be granted for one event
-  only, so every same-repository pull request run would hold it too. Old keys are left to
-  GitHub's eviction (7 days unused, least recently used above 10 GB). The job keeps
-  `contents: read` and gains no permission.
+- **No purge.** GitHub's own eviction (7 days unused, least recently used above 10 GB) is
+  enough to remove old keys, and purging needs `actions: write`, which a separate job gated on
+  the push event could hold but this design then needs nowhere: no job gains a permission.
 - **Garbage collection on, with headroom**: `gc-max-store-size-linux: 3G`,
   `gc-max-store-size-macos: 5G`, about twice a build's store estimated from the logs, to be
   checked after the merge. `keep-outputs = true` in the Nix configuration keeps the build-time
@@ -109,13 +108,14 @@ One red-green-refactor cycle each, shipped with `scripts/ship.sh`.
   `tests/scripts/ci_workflow.rs` pins the workflow's one `permissions:` to `contents: read`.
 - The flake builds with `(rust-bin.fromRustupToolchainFile ./rust-toolchain.toml).override
   { extensions = [ ]; }`, pinned in `tests/toolchain.rs`.
-- Measured on the pull request (run 44690818423, at 62f1c7e) against `main` before it (run
-  44682655741). The pull request's cache missed, as it must: nothing is saved before the merge.
+- Measured on the pull request (run 44690818423, at 62f1c7e) against the pull request run of
+  phase 4's branch, PR #14 (run 44682655741). Leg times are each job's `startedAt` to
+  `completedAt` (`gh run view <id> --json jobs`). The pull request's cache missed, as it must: nothing is saved before the merge.
 
   | Leg | `nix build` before | `nix build` after | Leg before | Leg after | Derivations built |
   | --- | --- | --- | --- | --- | --- |
-  | Linux | 55 s | 52 s | 63 s | 59 s | 108 → 104 |
-  | macOS | 105 s | 113 s | 142 s | 149 s | 121 → 117 |
+  | Linux | 55 s | 52 s | 63 s | 61 s | 108 → 104 |
+  | macOS | 105 s | 113 s | 142 s | 153 s | 121 → 117 |
 
   The four derivations gone are `clippy`, `clippy-preview`, `rustfmt` and `rustfmt-preview`;
   neither log names clippy or rustfmt any more. Both runs fetched the same 259 (Linux) and 262

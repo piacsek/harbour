@@ -7,8 +7,7 @@ fn the_paths_job_decides_from_what_changed_since_the_base() {
 }
 
 #[test]
-fn the_flake_builds_on_linux_and_macos_with_the_nix_store_main_saved_unless_the_paths_job_said_false()
- {
+fn the_flake_builds_on_linux_and_macos_from_a_nix_store_only_main_saves() {
     assert!(ci().contains(FLAKE_JOB), "{}", ci());
 }
 

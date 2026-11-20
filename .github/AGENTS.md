@@ -67,10 +67,10 @@ speed-up, when its pipeline went from about 3 min 20 s to 37 s:
   restored store can only skip work, never change what is built. A miss (no key yet, every key
   evicted, the cache service down) is as slow as before the cache, never wrong. On a save after a
   lockfile change it collects garbage down to 3 GiB on Linux and 5 GiB on macOS, with
-  `keep-outputs = true` so the build's own closure stays. No purge: it needs `actions: write`,
-  which a job cannot hold for `push` alone, so pull requests would hold it too; GitHub's eviction
-  (7 days unused, least recently used above 10 GB) removes old keys. A change to `flake.nix`
-  alone hits the old key and builds the difference.
+  `keep-outputs = true` so the build's own closure stays. No purge: GitHub's eviction (7 days
+  unused, least recently used above 10 GB) removes old keys, and without it no job needs
+  `actions: write`. A change to `flake.nix` alone hits the old key and builds the difference, on
+  every run until a lockfile changes, since the action saves only on a miss of the primary key.
 - **The flake builds with the Rust of `rust-toolchain.toml`**, through the locked
   `rust-overlay`, in the file's `minimal` profile but without the `components` it lists
   (`.override { extensions = [ ]; }`): rustfmt and clippy are for the gates, and the build never
