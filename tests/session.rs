@@ -36,6 +36,22 @@ fn the_command_starts_in_the_directory_it_is_given() {
 }
 
 #[test]
+fn a_directory_that_is_gone_starts_nothing_and_is_named() {
+    let scratch = tempfile::tempdir().unwrap();
+    let directory = scratch.path().join("acme-gone");
+    let command = ["/bin/sh".to_string(), "-c".into(), "sleep 5".into()];
+
+    let refused = Session::start(&command, &directory, ROWS, COLS)
+        .err()
+        .unwrap();
+
+    assert_eq!(
+        refused.to_string(),
+        format!("Not a directory: {}", directory.display())
+    );
+}
+
+#[test]
 fn the_command_sees_its_directory_in_pwd() {
     let scratch = tempfile::tempdir().unwrap();
     let directory = scratch.path().join("acme-web");

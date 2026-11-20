@@ -39,6 +39,12 @@ impl Session {
         rows: u16,
         cols: u16,
     ) -> io::Result<Session> {
+        if !directory.is_dir() {
+            return Err(io::Error::new(
+                io::ErrorKind::NotADirectory,
+                format!("Not a directory: {}", directory.display()),
+            ));
+        }
         let (rows, cols) = safe_size(rows, cols);
         let pty = native_pty_system()
             .openpty(PtySize {

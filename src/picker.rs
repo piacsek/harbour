@@ -42,6 +42,27 @@ impl Picker {
             Picker::Fuzzy { fzf, .. } => &fzf[0],
         }
     }
+
+    pub fn command(&self, from: &Path, output: &Path) -> Vec<OsString> {
+        match self {
+            Picker::Command(command) => wrapping(PRINTING_TO, output, &[], command),
+            Picker::Fuzzy {
+                fzf,
+                list,
+                here_first,
+            } => {
+                let here = if *here_first {
+                    from.as_os_str().to_owned()
+                } else {
+                    OsString::new()
+                };
+                let before = [here, fzf.len().to_string().into()];
+                let mut command = fzf.clone();
+                command.extend(list.iter().cloned());
+                wrapping(LISTING_INTO, output, &before, &command)
+            }
+        }
+    }
 }
 
 pub struct Pick {
@@ -62,30 +83,12 @@ impl Pick {
     pub fn open(picker: &Picker, from: &Path, rows: u16, cols: u16) -> io::Result<Option<Pick>> {
         let scratch = tempfile::Builder::new().prefix("harbour-pick").tempdir()?;
         let output = scratch.path().join("picked");
-        let wrapped = match picker {
-            Picker::Command(command) => {
-                startable(picker.program(), from)?;
-                wrapping(PRINTING_TO, &output, &[], command)
-            }
-            Picker::Fuzzy {
-                fzf,
-                list,
-                here_first,
-            } => {
-                if startable(picker.program(), from).is_err() {
-                    return Ok(None);
-                }
-                let here = if *here_first {
-                    from.as_os_str().to_owned()
-                } else {
-                    OsString::new()
-                };
-                let before = [here, fzf.len().to_string().into()];
-                let mut command = fzf.clone();
-                command.extend(list.iter().cloned());
-                wrapping(LISTING_INTO, &output, &before, &command)
-            }
-        };
+        match (picker, startable(picker.program(), from)) {
+            (Picker::Command(_), Err(error)) => return Err(error),
+            (Picker::Fuzzy { .. }, Err(_)) => return Ok(None),
+            (_, Ok(())) => {}
+        }
+        let wrapped = picker.command(from, &output);
         let session = Session::start(&wrapped, from, rows, cols)?;
         Ok(Some(Pick {
             session,
@@ -123,13 +126,8 @@ impl Pick {
         if line.is_empty() {
             return Some(Picked::Cancelled);
         }
-        match self.from.join(OsStr::from_bytes(line)).canonicalize() {
-            Ok(chosen) if chosen.is_dir() => Some(Picked::Chosen(chosen)),
-            _ => Some(Picked::Refused(format!(
-                "Not a directory: {}",
-                String::from_utf8_lossy(line)
-            ))),
-        }
+        let chosen = self.from.join(OsStr::from_bytes(line));
+        Some(Picked::Chosen(chosen.canonicalize().unwrap_or(chosen)))
     }
 }
 

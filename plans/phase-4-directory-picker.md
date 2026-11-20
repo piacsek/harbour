@@ -45,7 +45,8 @@ pane takes the focus, so the user can type to it at once (added by the owner dur
 | zoxide lists harbour's directory too | it shows once, first |
 | fzf not installed and `HARBOUR_DIR_PICKER` unset | `n` starts the session in harbour's directory at once, as before; focus stays on the sidebar |
 | the picker prints nothing, or exits with an error | the popup closes and nothing is started |
-| the picker prints a path that is not a directory (missing, deleted, a file) | nothing is started; the bottom of the sidebar says `Not a directory: <path>` |
+| the picker prints a path that is not a directory (missing, deleted, a file) | nothing is started; the bottom of the sidebar says `Not a directory: <path>`, the path read from harbour's directory |
+| harbour's directory deleted before or after launch, with or without a picker | nothing is started and no picker opens; the bottom of the sidebar says `Not a directory: <harbour's directory>` |
 | the picker prints a relative path | it is read from harbour's directory, where the picker ran |
 | `HARBOUR_DIR_PICKER` names a program that cannot start | nothing is started; the bottom of the sidebar says `Could not start <program>: <cause>` |
 | while the popup is open | every key, paste and mouse event goes to the picker; nothing reaches the sidebar or a session |
@@ -77,10 +78,14 @@ pane takes the focus, so the user can type to it at once (added by the owner dur
   the picked line reach the picker and come back as `OsString`, so a name that is not UTF-8
   works on Linux.
 - **The picked directory is canonicalized** before the session is named and started, so
-  `x/acme-web/..` starts in `x` with that name and `PWD`; a path that cannot be canonicalized is
-  refused as "Not a directory".
-- **A working directory harbour cannot read** (deleted before it started) makes `n` say
-  `Could not start <command>: could not read the working directory: ...`, as `main` did.
+  `x/acme-web/..` starts in `x` with that name and `PWD`.
+- **One check refuses a directory that is gone** (review round 3, the third finding on that
+  mechanism: a race, deleted before launch, deleted after launch). `Session::start` refuses any
+  directory that is not a directory at that moment with `Not a directory: <path>`, before
+  portable-pty can fall back to the home directory; every start goes through it (the picker's
+  own popup, the picked directory and the start without a picker), and the sidebar shows that
+  message as it is. No caller checks again. When harbour cannot read its working directory at
+  launch, it takes the shell's `PWD`, so that case names the directory too.
 - **`tempfile` becomes a runtime dependency**: the FIFO fzf reads and the file the picker writes
   live in a private temporary directory removed when the pick ends. It is already locked as a
   dev-dependency, and no smaller way creates a unique private directory.
@@ -127,3 +132,4 @@ One red-green-refactor cycle each, shipped with `scripts/ship.sh`.
 - `api-shape` `App` implements `Drop`, so `with_picker` could not be built with struct update syntax over `App::new` → none
 - `design` Review round 1 found zoxide run on harbour's thread with no bound, so a slow list froze the interface; the list moved into the popup's own shell → code
 - `tooling` On macOS `/bin/sh` exits 1, not 126 or 127, when `exec` of a script with a missing interpreter fails; the picker wrappers run the program without `exec` → code
+- `review-loop` Three review rounds in a row each found another state of a directory that is gone by the time a session starts (a race, deleted before launch, deleted after launch); one check in `Session::start` replaced the per-path checks → code

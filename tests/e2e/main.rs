@@ -361,8 +361,9 @@ fn n_in_the_demo_without_fzf_starts_a_session_at_once() {
 
 #[test]
 #[ignore]
-fn n_in_a_deleted_directory_says_the_directory_cannot_be_read() {
+fn n_in_a_directory_deleted_before_launch_starts_nothing_and_names_it() {
     let home = tempfile::tempdir().unwrap();
+    let directory = home.path().join("acme-api");
     let server = Server::start("deleted", 160, 20);
     server.launch(
         home.path(),
@@ -374,8 +375,75 @@ fn n_in_a_deleted_directory_says_the_directory_cannot_be_read() {
 
     server.send_keys(&["n"]);
 
-    let screen = server.wait_for_screen("Could not start");
-    assert!(screen.contains("could not read the working"), "{screen}");
+    let refusal = format!("Not a directory: {}", directory.display());
+    let screen = server.wait_for_screen(&refusal);
+    assert!(screen.contains(&refusal), "{screen}");
+    assert!(screen.contains("No session yet"), "{screen}");
+}
+
+#[test]
+#[ignore]
+fn n_after_its_directory_is_deleted_starts_nothing_and_names_it() {
+    let home = tempfile::tempdir().unwrap();
+    let directory = home.path().join("acme-api");
+    let server = Server::start("deleted-after", 160, 20);
+    server.run(home.path(), &[(SESSION_COMMAND, AGENT)], &[]);
+    server.wait_for_screen("press n to start one");
+    let shown = directory.canonicalize().unwrap();
+    std::fs::remove_dir(&directory).unwrap();
+
+    server.send_keys(&["n"]);
+
+    let refusal = format!("Not a directory: {}", shown.display());
+    let screen = server.wait_for_screen(&refusal);
+    assert!(screen.contains(&refusal), "{screen}");
+    assert!(screen.contains("No session yet"), "{screen}");
+}
+
+#[test]
+#[ignore]
+fn a_picker_that_returns_its_deleted_directory_starts_nothing() {
+    let home = tempfile::tempdir().unwrap();
+    let directory = home.path().join("acme-api");
+    let server = Server::start("deleted-picked", 160, 20);
+    server.run(
+        home.path(),
+        &[(SESSION_COMMAND, AGENT), (DIR_PICKER, PICKER)],
+        &[],
+    );
+    server.wait_for_screen("press n to start one");
+    server.send_keys(&["n"]);
+    server.wait_for_screen("acme picker: type a directory");
+    std::fs::remove_dir(&directory).unwrap();
+
+    server.send_keys(&[&directory.display().to_string(), "Enter"]);
+
+    let refusal = format!("Not a directory: {}", directory.display());
+    let screen = server.wait_for_screen(&refusal);
+    assert!(screen.contains(&refusal), "{screen}");
+    assert!(screen.contains("No session yet"), "{screen}");
+}
+
+#[test]
+#[ignore]
+fn n_with_a_picker_after_its_directory_is_deleted_starts_nothing() {
+    let home = tempfile::tempdir().unwrap();
+    let directory = home.path().join("acme-api");
+    let server = Server::start("deleted-picker", 160, 20);
+    server.run(
+        home.path(),
+        &[(SESSION_COMMAND, AGENT), (DIR_PICKER, PICKER)],
+        &[],
+    );
+    server.wait_for_screen("press n to start one");
+    let shown = directory.canonicalize().unwrap();
+    std::fs::remove_dir(&directory).unwrap();
+
+    server.send_keys(&["n"]);
+
+    let refusal = format!("Not a directory: {}", shown.display());
+    let screen = server.wait_for_screen(&refusal);
+    assert!(screen.contains(&refusal), "{screen}");
     assert!(screen.contains("No session yet"), "{screen}");
 }
 

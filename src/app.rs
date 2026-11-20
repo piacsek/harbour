@@ -1,3 +1,4 @@
+use std::io;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant, SystemTime};
 
@@ -26,7 +27,7 @@ const READ_EVERY: Duration = Duration::from_millis(500);
 
 pub struct App {
     command: Vec<String>,
-    home: Result<PathBuf, String>,
+    home: PathBuf,
     picker: Option<Picker>,
     picking: Option<Pick>,
     picking_area: Rect,
@@ -64,7 +65,9 @@ struct Entry {
 impl App {
     pub fn new(command: Vec<String>) -> App {
         let home = std::env::current_dir()
-            .map_err(|error| format!("could not read the working directory: {error}"));
+            .ok()
+            .or_else(|| std::env::var_os("PWD").map(PathBuf::from))
+            .unwrap_or_default();
         App {
             command,
             home,
@@ -265,20 +268,18 @@ impl App {
     }
 
     fn pick_or_start(&mut self) {
-        let (Some(picker), Ok(home)) = (&self.picker, &self.home) else {
+        let Some(picker) = &self.picker else {
             self.start();
             return;
         };
         let popup = popup(self.screen);
-        match Pick::open(picker, home, popup.height, popup.width) {
+        match Pick::open(picker, &self.home, popup.height, popup.width) {
             Ok(Some(pick)) => {
                 self.gesture = Gesture::Idle;
                 self.picking = Some(pick);
             }
             Ok(None) => self.start(),
-            Err(error) => {
-                self.failed = Some(format!("Could not start {}: {error}", picker.program()))
-            }
+            Err(error) => self.failed = Some(refusal(picker.program(), &error)),
         }
     }
 
@@ -306,10 +307,7 @@ impl App {
     }
 
     fn start_with(&mut self, command: &[String]) {
-        match self.home.clone() {
-            Ok(home) => self.start_in(command, &home),
-            Err(reason) => self.failed = Some(format!("Could not start {}: {reason}", command[0])),
-        }
+        self.start_in(command, &self.home.clone());
     }
 
     fn start_in(&mut self, command: &[String], directory: &Path) {
@@ -328,10 +326,7 @@ impl App {
                 self.selected = self.sessions.len() - 1;
             }
             Err(error) => {
-                self.failed = Some(format!(
-                    "Could not start {}: {error}",
-                    command.first().map_or("", String::as_str)
-                ))
+                self.failed = Some(refusal(command.first().map_or("", String::as_str), &error))
             }
         }
     }
@@ -540,6 +535,13 @@ fn is_ctrl(key: KeyEvent, c: char) -> bool {
 
 fn is_yes(key: KeyEvent) -> bool {
     matches!(key.code, KeyCode::Char('y' | 'Y')) && KeyModifiers::SHIFT.contains(key.modifiers)
+}
+
+fn refusal(program: &str, error: &io::Error) -> String {
+    match error.kind() {
+        io::ErrorKind::NotADirectory => error.to_string(),
+        _ => format!("Could not start {program}: {error}"),
+    }
 }
 
 fn folder_name(path: &Path) -> String {
