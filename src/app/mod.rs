@@ -7,6 +7,8 @@ use ratatui::layout::{Position, Rect};
 
 mod draw;
 
+use draw::exit_note;
+
 use crate::demo;
 use crate::editor::{Editor, Program};
 use crate::keys;
@@ -293,6 +295,31 @@ impl App {
                 entry.on_editor = true;
             }
             Err(error) => self.failed = Some(refusal(program.name(), &error)),
+        }
+    }
+
+    fn finish_editors(&mut self) {
+        let Some(program) = &self.editor else {
+            return;
+        };
+        for entry in &mut self.sessions {
+            let mut index = 0;
+            while index < entry.editors.len() {
+                let Some(status) = entry.editors[index].session.exit().cloned() else {
+                    index += 1;
+                    continue;
+                };
+                entry.editors.remove(index);
+                entry.editor = match entry.editor {
+                    Some(shown) if shown == index => None,
+                    Some(shown) if shown > index => Some(shown - 1),
+                    other => other,
+                };
+                entry.on_editor &= entry.editor.is_some();
+                if !status.success() {
+                    self.failed = Some(format!("{} exited{}", program.name(), exit_note(&status)));
+                }
+            }
         }
     }
 

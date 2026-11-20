@@ -1,4 +1,5 @@
 mod editor;
+mod editor_exits;
 mod ending;
 mod exits;
 mod focus;

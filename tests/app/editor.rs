@@ -136,7 +136,7 @@ fn the_pane_border_marks_the_editor_while_it_is_shown() {
     assert!(screen.cell(editor, 0).modifier.contains(Modifier::BOLD));
 }
 
-fn reading_editor() -> Program {
+pub(crate) fn reading_editor() -> Program {
     Program::new(
         "acme-edit",
         script(
@@ -146,7 +146,7 @@ fn reading_editor() -> Program {
     )
 }
 
-fn editor_open() -> Screen {
+pub(crate) fn editor_open() -> Screen {
     let mut screen = Screen::editing(reading_agent(), reading_editor());
     screen.press('n');
     screen.wait_for("acme agent ready");

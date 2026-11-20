@@ -60,7 +60,7 @@ to another worktree, `Ctrl-l` opens a second editor there and the first keeps ru
 | Not in a repository | the editor opens in Claude Code's directory itself |
 | The editor cannot start (not installed, not executable) | nothing starts, focus stays on Claude Code; the sidebar says `Could not start nvim: is it installed and on PATH?` |
 | The editor exits with 0 | the pane shows Claude Code, focused; no message; the next `Ctrl-l` starts a fresh editor |
-| The editor exits with an error or a signal | as with 0, and the sidebar says `nvim exited 1` (or `nvim exited (SIGKILL)`) until the next start |
+| The editor exits with an error or a signal | as with 0, and the sidebar says `nvim exited 1` (or `nvim exited (Killed: 9)` for a signal) until the next start |
 | A hidden editor exits | it is forgotten; an error exit is named the same way |
 | Not answering on its socket (busy, or its socket could not be made) | `Ctrl-h` goes to Claude Code after at most the timeout; it is never stuck |
 | Switching the selected session with an editor open | the pane shows what the newly selected session last showed; the other session's editor keeps running hidden |
@@ -95,7 +95,7 @@ to another worktree, `Ctrl-l` opens a second editor there and the first keeps ru
 - **The tab strip is in the pane's top border**: `claude | <editor>` before the first editor
   starts for the session, `claude | <editor>: <directory>` with the directory of the editor the
   pane would show; the shown one is bold, the other dim.
-- **An editor's exit message reuses the row's wording** (`exited 1`, `exited (SIGKILL)`),
+- **An editor's exit message reuses the row's wording** (`exited 1`, `exited (Killed: 9)`),
   prefixed with the editor's name; editors harbour ends itself are forgotten without a message.
 
 ## Tasks

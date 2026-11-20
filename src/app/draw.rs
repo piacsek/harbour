@@ -15,6 +15,7 @@ use crate::tabs;
 impl App {
     pub fn draw(&mut self, frame: &mut Frame) {
         self.finish_pick();
+        self.finish_editors();
         self.read_registry();
         self.screen = frame.area();
         let (sidebar, pane) = self.areas(frame.area());
@@ -199,7 +200,7 @@ fn draw_failure(frame: &mut Frame, failed: &str, area: Rect) {
     frame.render_widget(Paragraph::new(lines), bottom);
 }
 
-fn exit_note(status: &ExitStatus) -> String {
+pub(super) fn exit_note(status: &ExitStatus) -> String {
     match (status.signal(), status.exit_code()) {
         (Some(signal), _) => format!(" ({signal})"),
         (None, 0) => String::new(),
