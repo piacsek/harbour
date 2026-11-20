@@ -7,6 +7,7 @@ mod help;
 mod input;
 mod layout;
 mod picker;
+mod remembering;
 mod selection;
 mod status;
 mod transcripts;

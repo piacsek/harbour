@@ -14,6 +14,11 @@ const HEIGHT: usize = 3;
 const STEP: usize = HEIGHT + 1;
 const INDENT: &str = "  ";
 
+pub enum Ended {
+    Exited(String),
+    Stopped(&'static str),
+}
+
 pub struct Card {
     state: State,
     title: String,
@@ -25,21 +30,25 @@ pub struct Card {
 impl Card {
     pub fn new(
         title: &str,
-        exit_note: Option<String>,
+        ended: Option<Ended>,
         record: Option<&Record>,
         place: &Place,
         elapsed: Option<Duration>,
         facts: Option<&Facts>,
     ) -> Card {
-        let state = State::of(exit_note.is_some(), record);
+        let state = State::of(ended.is_some(), record);
         let fact = |pick: fn(&Facts) -> Option<&String>| {
             facts
                 .and_then(pick)
                 .map(|text| clean(text))
                 .filter(|text| !text.is_empty())
         };
-        let doing = match (exit_note, state) {
-            (Some(note), _) => Some((format!("exited{note}"), Style::default())),
+        let doing = match (ended, state) {
+            (Some(Ended::Exited(note)), _) => Some((format!("exited{note}"), Style::default())),
+            (Some(Ended::Stopped(why)), _) => Some((
+                why.to_string(),
+                Style::default().add_modifier(Modifier::DIM),
+            )),
             (None, State::Blocked) => record
                 .and_then(|record| record.waiting_for.as_deref())
                 .map(|reason| (clean(reason), state.style())),

@@ -10,10 +10,11 @@ use ratatui::style::{Color, Modifier};
 use ratatui::text::Line;
 use ratatui::widgets::{Block, BorderType, Clear, Paragraph, Wrap};
 
-use crate::card::{Card, Sidebar};
+use crate::card::{Card, Ended, Sidebar};
 use crate::demo;
 use crate::help;
 use crate::keys;
+use crate::memory::Memory;
 use crate::mouse::{self, Gesture, Target};
 use crate::picker::{Pick, Picked, Picker};
 use crate::registry::{self, Record};
@@ -23,6 +24,8 @@ use crate::state;
 use crate::summary::Summary;
 use crate::text;
 use crate::transcript::Transcript;
+
+mod remember;
 
 const NARROW: u16 = 60;
 const HINT: &str = "No session yet: press n to start one.";
@@ -52,6 +55,7 @@ pub struct App {
     transcripts: Option<PathBuf>,
     read_at: Option<Instant>,
     summary: Option<Summary>,
+    memory: Option<Memory>,
 }
 
 #[derive(Clone, Copy, PartialEq)]
@@ -63,13 +67,14 @@ enum Question {
 struct Entry {
     id: usize,
     name: String,
-    session: Session,
+    session: Option<Session>,
     started_at: SystemTime,
     record: Option<Record>,
     directory: PathBuf,
     place: Place,
     exited_at: Option<Instant>,
     transcript: Option<Transcript>,
+    remembered: Option<String>,
 }
 
 impl Entry {
@@ -115,6 +120,7 @@ impl App {
             transcripts: None,
             read_at: None,
             summary: None,
+            memory: None,
         }
     }
 
@@ -186,8 +192,8 @@ impl App {
             return;
         }
         match key.code {
-            _ if is_ctrl(key, 'l') => self.pane_focused = !self.sessions.is_empty(),
-            KeyCode::Enter => self.pane_focused = !self.sessions.is_empty(),
+            _ if is_ctrl(key, 'l') => self.focus_or_resume(),
+            KeyCode::Enter => self.focus_or_resume(),
             KeyCode::Char('q') => self.quit(),
             KeyCode::Char('n') => self.pick_or_start(),
             KeyCode::Char('x') => self.end_or_remove(),
@@ -244,19 +250,22 @@ impl App {
                 self.pane_focused = !self.sessions.is_empty();
             }
         }
-        let entry = self.sessions.get(self.selected);
-        let target = entry.map(|entry| {
-            let (mode, encoding) = entry.session.mouse_protocol();
+        let shown = self
+            .sessions
+            .get(self.selected)
+            .and_then(|entry| entry.session.as_ref().map(|session| (entry.id, session)));
+        let target = shown.map(|(id, session)| {
+            let (mode, encoding) = session.mouse_protocol();
             Target {
-                session: entry.id,
+                session: id,
                 mode,
                 encoding,
             }
         });
         let (gesture, bytes) = mouse::route(self.gesture, event, self.shown_pane, target);
         self.gesture = gesture;
-        if let (Some(entry), Some(bytes)) = (entry, bytes) {
-            entry.session.send(&bytes);
+        if let (Some((_, session)), Some(bytes)) = (shown, bytes) {
+            session.send(&bytes);
         }
     }
 
@@ -278,15 +287,26 @@ impl App {
         self.sessions
             .get(self.selected)
             .filter(|_| self.pane_focused)
-            .map(|entry| &entry.session)
+            .and_then(|entry| entry.session.as_ref())
+    }
+
+    fn focus_or_resume(&mut self) {
+        if !self.resume() {
+            self.pane_focused = !self.sessions.is_empty();
+        }
     }
 
     fn end_or_remove(&mut self) {
         let Some(entry) = self.sessions.get_mut(self.selected) else {
             return;
         };
-        if entry.session.exit().is_some() {
-            self.sessions.remove(self.selected);
+        if entry
+            .session
+            .as_mut()
+            .is_none_or(|session| session.exit().is_some())
+        {
+            let removed = self.sessions.remove(self.selected);
+            self.forget(removed.remembered);
             self.selected = self.selected.min(self.sessions.len().saturating_sub(1));
         } else {
             self.asking = Some(Question::End);
@@ -297,7 +317,8 @@ impl App {
         if self
             .sessions
             .iter_mut()
-            .all(|entry| entry.session.exit().is_some())
+            .filter_map(|entry| entry.session.as_mut())
+            .all(|session| session.exit().is_some())
         {
             self.quitting = true;
         } else {
@@ -308,8 +329,12 @@ impl App {
     fn answer_yes(&mut self, question: Question) {
         match question {
             Question::End => {
-                if let Some(entry) = self.sessions.get_mut(self.selected) {
-                    entry.session.end();
+                if let Some(session) = self
+                    .sessions
+                    .get_mut(self.selected)
+                    .and_then(|entry| entry.session.as_mut())
+                {
+                    session.end();
                 }
             }
             Question::Quit => self.quitting = true,
@@ -368,13 +393,14 @@ impl App {
                 self.sessions.push(Entry {
                     id: self.started,
                     name: format!("{} {}", folder_name(directory), self.started),
-                    session,
+                    session: Some(session),
                     started_at,
                     record: None,
                     directory: directory.to_path_buf(),
                     place: repo::place(directory),
                     exited_at: None,
                     transcript: None,
+                    remembered: None,
                 });
                 self.selected = self.sessions.len() - 1;
             }
@@ -391,11 +417,14 @@ impl App {
         self.read_at = Some(Instant::now());
         for entry in &mut self.sessions {
             let last = entry.record.take();
-            if entry.session.exit().is_some() {
+            let Some(session) = entry.session.as_mut() else {
+                continue;
+            };
+            if session.exit().is_some() {
                 continue;
             }
             entry.record = self.registry.as_deref().and_then(|dir| {
-                let pid = entry.session.pid()?;
+                let pid = session.pid()?;
                 registry::read(dir, pid, entry.started_at, last)
             });
             let id = entry
@@ -428,15 +457,20 @@ impl App {
         self.screen = frame.area();
         let (sidebar, pane) = self.areas(frame.area());
         self.sidebar = sidebar;
-        let notes: Vec<Option<String>> = self
+        let notes: Vec<Option<Ended>> = self
             .sessions
             .iter_mut()
             .map(|entry| {
-                let note = entry.session.exit().map(exit_note);
-                if note.is_some() {
+                let ended = match &mut entry.session {
+                    None => Some(Ended::Stopped(remember::STOPPED)),
+                    Some(session) => session
+                        .exit()
+                        .map(|status| Ended::Exited(exit_note(status))),
+                };
+                if matches!(ended, Some(Ended::Exited(_))) {
                     entry.exited_at.get_or_insert_with(Instant::now);
                 }
-                note
+                ended
             })
             .collect();
         let counts = state::counts(
@@ -463,8 +497,12 @@ impl App {
         } else {
             self.pane
         };
-        for entry in &mut self.sessions {
-            entry.session.resize(self.pane.height, self.pane.width);
+        for session in self
+            .sessions
+            .iter_mut()
+            .filter_map(|entry| entry.session.as_mut())
+        {
+            session.resize(self.pane.height, self.pane.width);
         }
         let cards: Vec<Card> = self
             .sessions
@@ -484,7 +522,8 @@ impl App {
         let exited = self
             .sessions
             .get_mut(self.selected)
-            .is_some_and(|entry| entry.session.exit().is_some());
+            .and_then(|entry| entry.session.as_mut())
+            .is_some_and(|session| session.exit().is_some());
         match self.sessions.get(self.selected) {
             None => {
                 let message = self.failed.as_deref().unwrap_or(HINT);
@@ -506,8 +545,18 @@ impl App {
                 self.cards
                     .draw(&cards, self.selected, below_rows, frame.buffer_mut());
                 if !pane.is_empty() {
-                    frame.render_widget(pane_block, pane);
-                    frame.render_widget(&shown.session, self.pane);
+                    match &shown.session {
+                        Some(session) => {
+                            frame.render_widget(pane_block, pane);
+                            frame.render_widget(session, self.pane);
+                        }
+                        None => frame.render_widget(
+                            Paragraph::new(remember::RESUME)
+                                .wrap(Wrap { trim: false })
+                                .block(pane_block),
+                            pane,
+                        ),
+                    }
                     if exited {
                         frame.buffer_mut().set_style(self.pane, Modifier::DIM);
                     }
@@ -567,7 +616,11 @@ impl App {
 
 impl Drop for App {
     fn drop(&mut self) {
-        session::end_all(self.sessions.iter_mut().map(|entry| &mut entry.session));
+        session::end_all(
+            self.sessions
+                .iter_mut()
+                .filter_map(|entry| entry.session.as_mut()),
+        );
     }
 }
 
