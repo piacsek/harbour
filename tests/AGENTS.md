@@ -72,9 +72,10 @@ these suites come from; the ones about sessions were hit in harbour.
   Beside 24 CPU-burning processes on the 12-core build machine, 6 runs of 10 lost a test to a
   10 s screen wait (the swap prompt test 3 times, the name full of ex specials twice, the demo's
   made-up editor twice); at 2 threads, 0 of 10 failed. So `gates.sh` runs the target last, in a
-  `cargo test` of its own, with `--test-threads=2`, at a cost of about 40 s a ship. Load from
-  another worktree's test run is not covered: an in-process `app` test has failed while another
-  ship tested beside it.
+  `cargo test` of its own, with `--test-threads=2`, at a cost of about 40 s a ship. An in-process
+  `app` test has failed while another ship tested beside it; another worktree's gates now wait
+  behind the gates lock (root `AGENTS.md`, Development), but load from anything else (a test run
+  outside `gates.sh`, a build) is not covered.
 - **System calls differ between macOS and Linux, and `check` runs on Linux only.** Development
   is on macOS. In phase 12 `nix::unistd::getpeereid` did not exist on Linux, so `check` failed to
   build a branch that passed on macOS, and a connection the listener closed without reading its
@@ -143,6 +144,12 @@ these suites come from; the ones about sessions were hit in harbour.
   symlinked into the scratch directory. A new test that does write an executable takes a mutex
   shared by every such test for its whole body. Treat a green PR run as no proof against this
   class: it is timing-dependent.
+- **A blocked `gates.sh` outlives a test that panics.** Early lock tests left `gates.sh` runs
+  waiting on a held gate after their assertions failed, orphaned for minutes in a deleted
+  temporary directory, where another builder's `pgrep -f scripts/gates.sh` waited on them. A
+  test that starts a `gates.sh` that can wait or block runs it as a `Gates` of
+  `tests/scripts/gates_lock.rs`: its own process group, killed on drop, the test failing while
+  any of it survives.
 - **A scratch `HOME` does not isolate what outranks it.** A variable exported in the shell wins
   over a scratch `HOME`: `HARBOUR_DENYLIST` names the real denylist whatever `HOME` is, and
   `GIT_DIR` or a global git config reaches into the scratch repository. The `ship.sh` and

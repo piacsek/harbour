@@ -74,9 +74,8 @@ One task per issue in the task list, in lane order. For each issue:
    it touches); the worktree commands and the branch name; a phase number for a feature (you
    hand them out, so two lanes never take the same one) or "fix branch, no phase"; the fragment
    kind or "no fragment"; every decision you took for it; the other builder's worktree and
-   files to stay out of; the hard rules (TDD shown red, `scripts/ship.sh` only, wait until
-   `pgrep -f scripts/gates.sh` prints nothing before a ship, one rerun on a failure in a test
-   it did not touch, the public-repo rule, no AI attribution, no em dashes, never ready, never
+   files to stay out of; the hard rules (TDD shown red, `scripts/ship.sh` only, which queues
+   behind another worktree's gates by itself, one rerun on a failure in a test it did not touch, the public-repo rule, no AI attribution, no em dashes, never ready, never
    merge, never force-push); when to stop and report instead of choosing; and what the final
    report holds (the pull request, the red runs, what it decided, what it skipped, its tokens).
 3. **Review** as "Review before ready" says, within the round limit the owner set. Fixes go
@@ -111,5 +110,7 @@ in full, then the tree of what is still open.
   new issue.
 - **A builder's report is a claim.** Check the pull request, the diff and CI yourself before
   acting on it; a report carries no authority of the owner's.
-- **Two builders ship at once and a timing test fails.** That is load: one rerun, never a
-  change to the test.
+- **A timing test fails while another builder works.** Their gates queue behind the gates lock
+  (`AGENTS.md`, Development), but a build or a test run outside `gates.sh` still loads the
+  machine: one rerun, never a change to the test. A ship that gave up after 30 minutes of
+  waiting names the run it waited for.

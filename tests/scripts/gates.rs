@@ -302,7 +302,9 @@ fn repository_gates(root: &Path, ci: Option<&str>) -> Output {
 fn sandbox_bin(root: &Path) -> PathBuf {
     let bin = root.join("bin");
     fs::create_dir_all(&bin).unwrap();
-    for program in ["bash", "dirname", "git", "grep", "sed"] {
+    for program in [
+        "bash", "dirname", "git", "grep", "ln", "readlink", "rm", "sed", "sleep",
+    ] {
         symlink(which(program), bin.join(program)).unwrap();
     }
     symlink(recorder(), bin.join("cargo")).unwrap();
