@@ -3,8 +3,10 @@ use ratatui::style::Color;
 
 use crate::{Screen, directory, raw_agent, reading_agent};
 
+const POINTER: &str = "harbour --help has the rest.";
+
 #[test]
-fn question_mark_shows_the_keys_and_the_tmux_pattern() {
+fn question_mark_shows_the_keys_and_where_the_notes_went() {
     let mut screen = Screen::new(reading_agent());
 
     screen.press('?');
@@ -15,7 +17,7 @@ fn question_mark_shows_the_keys_and_the_tmux_pattern() {
         shown.contains("end the session and its editors, or forget it once it has ended"),
         "{shown}"
     );
-    assert!(shown.contains("vim-tmux-navigator"), "{shown}");
+    assert!(shown.contains(POINTER), "{shown}");
 }
 
 #[test]
@@ -29,25 +31,11 @@ fn question_mark_shows_the_editor_keys() {
         shown.contains("from Claude Code, C-l opens its editor"),
         "{shown}"
     );
-    assert!(
-        shown.contains("In Neovim, C-h goes back only from the leftmost window, in normal mode."),
-        "{shown}"
-    );
     assert!(shown.contains("the session and its editors"), "{shown}");
     assert!(
         shown.contains("show the session's next editor, one per directory"),
         "{shown}"
     );
-}
-
-#[test]
-fn question_mark_names_the_setting_for_another_editor() {
-    let mut screen = Screen::new(reading_agent());
-
-    screen.press('?');
-
-    let shown = screen.draw();
-    assert!(shown.contains("HARBOUR_EDITOR"), "{shown}");
 }
 
 #[test]
@@ -61,7 +49,6 @@ fn question_mark_says_how_to_resume_and_forget_a_stopped_session() {
     assert!(shown.contains("focus the pane or resume;"), "{shown}");
     assert!(shown.contains("or forget it once it has ended"), "{shown}");
     assert!(shown.contains("○ idle, exited, or stopped"), "{shown}");
-    assert!(shown.contains("vim-tmux-navigator"), "{shown}");
 }
 
 #[test]
@@ -101,9 +88,7 @@ fn the_whole_help_shows_on_an_80_by_24_terminal() {
         "{shown}"
     );
     assert!(shown.contains("status unknown"), "{shown}");
-    assert!(shown.contains("in normal mode."), "{shown}");
-    assert!(shown.contains("else Alt-Enter."), "{shown}");
-    assert!(shown.contains("prints its path."), "{shown}");
+    assert!(shown.contains(POINTER), "{shown}");
 }
 
 #[test]
@@ -117,59 +102,58 @@ fn the_whole_help_shows_on_a_20_row_terminal() {
         shown.contains("select the next / previous session"),
         "{shown}"
     );
-    assert!(shown.contains("else Alt-Enter."), "{shown}");
-    assert!(shown.contains("prints its path."), "{shown}");
+    assert!(shown.contains("status unknown"), "{shown}");
+    assert!(shown.contains(POINTER), "{shown}");
 }
 
 #[test]
-fn question_mark_says_that_ctrl_backspace_acts_as_ctrl_h() {
+fn the_help_leaves_five_rows_for_new_keys_on_a_20_row_terminal() {
     let mut screen = Screen::new(reading_agent());
 
     screen.press('?');
 
     let shown = screen.draw();
-    assert!(
-        shown.contains(
-            "C-Backspace acts as C-h. In Neovim, C-h goes back only from the leftmost window"
-        ),
-        "{shown}"
-    );
+    assert_eq!(spare_rows(&shown), 5, "{shown}");
 }
 
 #[test]
-fn question_mark_names_the_setting_for_another_dir_picker() {
+fn the_whole_help_shows_beside_the_narrowest_sidebar() {
     let mut screen = Screen::new(reading_agent());
+    screen.resize(60, 20);
 
     screen.press('?');
 
     let shown = screen.draw();
-    assert!(shown.contains("HARBOUR_DIR_PICKER"), "{shown}");
+    assert!(shown.contains("select the next / previous"), "{shown}");
+    assert!(shown.contains(POINTER), "{shown}");
 }
 
 #[test]
-fn question_mark_names_the_setting_that_keeps_a_log() {
+fn the_whole_help_shows_in_the_narrow_layout_on_20_rows() {
     let mut screen = Screen::new(reading_agent());
+    screen.resize(59, 20);
 
     screen.press('?');
 
     let shown = screen.draw();
-    assert!(
-        shown.contains("HARBOUR_LOG=1 keeps a private log; harbour log prints its path."),
-        "{shown}"
-    );
+    assert!(shown.contains("select the next / previous"), "{shown}");
+    assert!(shown.contains(POINTER), "{shown}");
 }
 
 #[test]
-fn question_mark_says_the_picker_starts_where_harbour_was_opened() {
+fn no_note_shows_in_the_help() {
     let mut screen = Screen::new(reading_agent());
+    screen.resize(80, 24);
 
     screen.press('?');
 
     let shown = screen.draw();
-    assert!(
-        shown.contains("n runs fzf over the directory harbour was opened in and zoxide's list"),
-        "{shown}"
-    );
+    assert!(!shown.contains("HARBOUR_DIR_PICKER"), "{shown}");
+    assert!(!shown.contains("HARBOUR_EDITOR"), "{shown}");
+    assert!(!shown.contains("HARBOUR_LOG"), "{shown}");
+    assert!(!shown.contains("C-Backspace"), "{shown}");
+    assert!(!shown.contains("vim-tmux-navigator"), "{shown}");
+    assert!(!shown.contains("Alt-Enter"), "{shown}");
 }
 
 #[test]
@@ -180,7 +164,7 @@ fn the_next_key_hides_the_help_and_does_nothing_else() {
     screen.press('n');
 
     let shown = screen.draw();
-    assert!(!shown.contains("vim-tmux-navigator"), "{shown}");
+    assert!(!shown.contains(POINTER), "{shown}");
     assert!(!shown.contains(&format!("{} 1", directory())), "{shown}");
 }
 
@@ -198,7 +182,7 @@ fn a_click_in_the_pane_hides_the_help_and_does_not_focus_the_pane() {
 
     let shown = screen.wait_for("acme agent read:w");
     assert!(shown.contains("acme agent read:w"), "{shown}");
-    assert!(!shown.contains("vim-tmux-navigator"), "{shown}");
+    assert!(!shown.contains(POINTER), "{shown}");
 }
 
 #[test]
@@ -209,7 +193,7 @@ fn a_paste_hides_the_help() {
     screen.app.paste("acme");
 
     let shown = screen.draw();
-    assert!(!shown.contains("vim-tmux-navigator"), "{shown}");
+    assert!(!shown.contains(POINTER), "{shown}");
 }
 
 fn glyph_at(shown: &str, text: &str) -> (u16, u16) {
@@ -220,4 +204,11 @@ fn glyph_at(shown: &str, text: &str) -> (u16, u16) {
         .unwrap();
     let x = line[..line.find(text).unwrap()].chars().count();
     (u16::try_from(x).unwrap(), u16::try_from(y).unwrap())
+}
+
+fn spare_rows(shown: &str) -> usize {
+    shown
+        .lines()
+        .filter(|line| line.trim_matches(['│', ' ']).is_empty() && line.starts_with('│'))
+        .count()
 }

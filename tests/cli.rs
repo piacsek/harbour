@@ -349,6 +349,14 @@ usage: harbour [--demo | --help | --version | changelog | status | log | edit [-
 
 With no argument on a terminal, harbour opens a sidebar of Claude Code sessions
 beside a live pane. --demo opens the same with made-up sessions: no claude needed.
+In harbour, ? shows the keys and what the dots mean.
+n runs fzf over the directory harbour was opened in and zoxide's list;
+HARBOUR_DIR_PICKER names another picker.
+C-l opens nvim at Claude Code's repository root; HARBOUR_EDITOR names another.
+C-Backspace acts as C-h. In Neovim, C-h goes back only from the leftmost window,
+in normal mode.
+With vim-tmux-navigator, add harbour to the processes it sends C-h and C-l to.
+Under tmux, a newline is Shift-Enter with extended-keys on, else Alt-Enter.
 status prints how many sessions of every running harbour are blocked, working,
 idle or unknown. For tmux, put #(harbour status) in your status-right, for example
   set -g status-right '#(harbour status) %H:%M'

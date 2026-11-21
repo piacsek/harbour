@@ -200,8 +200,10 @@ impl App {
         let keys = help::KEYS
             .iter()
             .map(|(key, what)| Line::from(format!("{key:<10} {what}")));
-        let notes = help::NOTES.iter().map(|line| Line::from(*line));
-        let lines: Vec<Line> = keys.chain(state::legend()).chain(notes).collect();
+        let lines: Vec<Line> = keys
+            .chain(state::legend())
+            .chain([Line::from(help::REST)])
+            .collect();
         frame.render_widget(Clear, frame.area());
         frame.render_widget(
             Paragraph::new(lines)
