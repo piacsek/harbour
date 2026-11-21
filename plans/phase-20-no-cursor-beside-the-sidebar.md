@@ -119,6 +119,26 @@ start) to 507096 (phase 19's end), but every phase shared one session with other
 parallel, so no two rows compare and no trend can be read. Process drift: none; every phase had
 a worktree, a review and a metrics row.
 
+### Built
+
+- The pane's cursor is placed only while the pane has focus: one line in `compose`
+  (`src/app/draw.rs`) drops the position of the shown session's cursor while the sidebar has
+  focus. The shape stays the program's, so moving focus writes no shape; the picker, the help
+  view, an exited session and a failure message keep their own rules, applied after it.
+- Red run: four new in-process tests in `tests/app/cursor.rs` and the reworded question test
+  failed on the cursor still placed beside the focused sidebar (`left: Some(Position { x: 62,
+  y: 3 })`, `right: None` at `tests/app/cursor.rs:91`, `:102` and `:118`, `x: 63` for the editor
+  at `:140`, and the frame test finding `ESC[?25h` at `:169`); the new end-to-end test
+  `the_terminal_hides_the_cursor_while_the_sidebar_has_focus` failed with `#{cursor_flag}` still
+  `1` (`tests/e2e/cursor.rs:84`). All passed after the change.
+- Four tests of phase 19 that read the cursor right after `n` now press Enter first, through
+  `focused_on_the_pane`, since `n` keeps the sidebar focused; the frame-order test of a session
+  switch presses Enter after `k`, so its frame shows the cursor.
+- A question is asked only from the sidebar, so it now shows no cursor; its rows still never get
+  one.
+- `scripts/screenshots.sh` rewrote every image under `docs/`, each byte-identical to `main`'s: a
+  screenshot cannot show the terminal's real cursor.
+
 ## Hurdles
 
-- none recorded
+- `test-seam` Five cursor tests of phase 19 read a shown cursor right after `n` or `k`, which keep the sidebar focused, so they had to press Enter first before the change could land, the same assumption as phase 19's end-to-end hurdle → code
