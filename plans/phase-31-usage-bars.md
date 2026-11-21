@@ -45,8 +45,9 @@ shapes below are written in invented wording and numbers; nothing the probe prin
 - **When the bars show:** only once the popup would say `printed nothing` or an exit today
   (its process exited and its output read to the end, or half a second after the exit), the
   report printed something and it parses. Before that, `loading…`, then the text as it arrives.
-  The report is parsed again each frame once finished (a 200-row screen, cheap), so nothing is
-  cached that could go stale.
+  The report is parsed once, when it finishes, and kept for the rest of the popup's life, so
+  output that something its process started prints later changes neither the view nor where
+  `t` goes.
 - **`t` or `T`** with no modifier but Shift switches between the bars and the report as printed
   only while the bars can show; otherwise it goes to the report's process like any other key, as
   today. A popup opened again starts on the bars.
@@ -86,10 +87,11 @@ shapes below are written in invented wording and numbers; nothing the probe prin
 | The report prints nothing, or its command fails | `printed nothing` or `exit <code>` in the title, as today; a failed report that still parses shows the bars under that title |
 | The popup is narrower than 80 columns (small terminal) | the bars shrink first, down to 4 cells, then each line is cut with `…` |
 | The narrowest popup (a terminal of a few columns) | each line cut to the inside, `…` last; the border stays whole |
-| The popup is shorter than the drawing | the limit bars first, what does not fit left out from the end, the hint kept on the last row |
+| The popup is shorter than the drawing | the limit bars first, what does not fit left out from the end, the blank rows only where they fit, the hint kept on the last row |
 | The terminal resized while it is open, narrower then wider | the bars drawn again for each width; the text view keeps its PTY width, as today |
 | `t` pressed while loading | sent to the report's process, as today; the bars show once it finishes |
 | `t` pressed on the bars | the report as printed, ` t bars ` on the bottom border; `t` again, the bars |
+| Something the report started prints after the bars show | the bars stay, `t` still switches views |
 | `t` on the fallback text | sent to the report's process; nothing changes |
 | Ctrl-t, Alt-t | sent to the report's process; nothing changes |
 | Esc, `q`, `Q` | closes, as today, from either view |
@@ -130,3 +132,5 @@ shapes below are written in invented wording and numbers; nothing the probe prin
   order, a wrapped share or `Top` line read wrongly, and bars that later output could undo → code
 - `test-seam` macOS ends a PTY's output once its session leader exits, so the test of output
   printed after the report's exit runs on Linux only (in Docker locally) → code
+- `review-loop` Round 3 was clean; the parser's leftovers were filed as an issue by the
+  orchestrator → backlog
