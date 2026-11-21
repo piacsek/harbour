@@ -38,17 +38,15 @@ impl App {
         let Some(right) = swaps(key) else {
             return false;
         };
-        if self.pane_focused
-            && self
+        if !self.side_by_side
+            || self
                 .sessions
                 .get(self.selected)
                 .is_some_and(|entry| entry.showing_editor().is_some())
         {
             return false;
         }
-        if self.side_by_side && self.pane_focused {
-            self.swapped = right;
-        }
+        self.swapped = right;
         true
     }
 
@@ -208,20 +206,19 @@ impl App {
         let right_room = usize::from(right_width.saturating_sub(2));
         let counted = state::title(counts, right_room);
         let named_room = right_room.saturating_sub(counted.width());
+        let claude_left = claude_title(self.nerd_font, left_room - kept, claude_style);
+        let mut spans = headline
+            .map(|headline| info(&headline, left_room - claude_left.width()))
+            .unwrap_or_default();
         let (left_name, right_name) = if self.swapped {
+            let used = Line::from(spans.clone()).width();
             (
-                self.editor_title(left_room - kept, editor_style),
+                self.editor_title(left_room - used, editor_style),
                 claude_title(self.nerd_font, named_room, claude_style),
             )
         } else {
-            (
-                claude_title(self.nerd_font, left_room - kept, claude_style),
-                self.editor_title(named_room, editor_style),
-            )
+            (claude_left, self.editor_title(named_room, editor_style))
         };
-        let mut spans = headline
-            .map(|headline| info(&headline, left_room - left_name.width()))
-            .unwrap_or_default();
         spans.extend(left_name.spans);
         let [left_block, right_block] = self.ordered([claude_block, editor_block]);
         self.ordered([

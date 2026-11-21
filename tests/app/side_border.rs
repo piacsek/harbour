@@ -73,10 +73,10 @@ fn swapped_the_left_half_names_the_session_and_the_editor() {
 
     let left: String = top.chars().take(60).collect();
     assert!(
-        left.starts_with("┌ ● Fix the login  3m  acme-edit: "),
+        left.starts_with("┌ ● Fix the login  acme-api · main  3m  acme-edit"),
         "{left}"
     );
-    assert!(left.ends_with("─┐"), "{left}");
+    assert_eq!(screen.cell(59, 0).symbol(), "┐");
 }
 
 #[test]
@@ -98,9 +98,25 @@ fn swapped_a_cjk_title_on_the_left_half_is_cut_by_display_width() {
 
     assert_eq!(screen.cell(2, 0).symbol(), "●");
     assert_eq!(screen.cell(4, 0).symbol(), "修");
-    assert!(top.contains(" acme-edit: "), "{top}");
+    assert!(top.contains("…  3m  "), "{top}");
     assert_eq!(screen.cell(59, 0).symbol(), "┐");
     assert_eq!(screen.cell(60, 0).symbol(), "┏");
+}
+
+#[test]
+fn swapped_a_cjk_title_keeps_the_headline_it_has_unswapped() {
+    let title = "修正ログイン修正ログイン修正ログイン修正ログイン修正ログイン";
+    let unswapped = top(&side_by_side(title).draw());
+    let headline: String = unswapped
+        .chars()
+        .skip(1)
+        .take_while(|c| *c != 'c')
+        .collect();
+
+    let swapped = top(&swapped(title).draw());
+
+    let left: String = swapped.chars().skip(1).collect();
+    assert!(left.starts_with(&headline), "{headline}\n{swapped}");
 }
 
 fn side_by_side(title: &str) -> Screen {

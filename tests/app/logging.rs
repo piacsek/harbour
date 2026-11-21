@@ -119,8 +119,10 @@ fn the_side_by_side_key_is_logged_by_its_name() {
 
 #[test]
 fn the_swap_keys_are_logged_by_their_names() {
-    let (app, lines) = logged(App::new(reading_agent()));
+    let editor = Program::new("acme-edit", script("exec sleep 600"));
+    let (app, lines) = logged(App::new(reading_agent()).with_editor(editor));
     let mut screen = focused(app);
+    screen.key(KeyCode::Char('\\'), KeyModifiers::ALT);
 
     screen.key(KeyCode::Char('}'), KeyModifiers::ALT);
     screen.key(KeyCode::Char('{'), KeyModifiers::ALT);

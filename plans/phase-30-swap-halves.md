@@ -35,8 +35,8 @@ or in nothing. The order is one setting for the whole harbour until it quits.
   follow without a change. `enter_side` starts the editor at its own half's size.
 - **The keys**: `{` or `}`, Alt with or without Shift, a press, not `ESCAPED`; the same guard as
   Alt-\ (an editor that has focus gets them). While side by side and Claude Code has focus,
-  Alt-{ sets Claude Code on the left and Alt-} on the right; elsewhere harbour takes them and
-  nothing happens, as the width keys do while zoomed.
+  Alt-{ sets Claude Code on the left and Alt-} on the right; outside side by side they go on to
+  the session as before (changed in review round 1 from "nothing happens").
 - **C-h and C-l keep left and right**: swapped, C-h from Claude Code opens or shows the editor
   as C-l does unswapped; C-l from the editor gives the focus to Claude Code unless the editor
   keeps it (`wants_ctrl_l`, the mirror of `wants_ctrl_h`: anything but Neovim's normal modes
@@ -59,7 +59,7 @@ or in nothing. The order is one setting for the whole harbour until it quits.
 | Side by side, Claude Code focused on the right | Alt-{ swaps, Alt-} does nothing |
 | Side by side, the editor half focused | the editor gets the key, as with Alt-\ |
 | Side by side under 120 columns (the focused half shown alone) | the order changes and shows once the terminal is wide enough |
-| The normal view, or zoom | nothing happens |
+| The normal view, or zoom | the key reaches the session as before (round 1: was nothing happens) |
 | A question, the help view, the picker, the session list or the usage popup | nothing happens |
 | Another session is jumped to or picked | it is shown in the order set |
 | The mode is left and entered again | the order set is kept |
@@ -82,8 +82,8 @@ or in nothing. The order is one setting for the whole harbour until it quits.
 
 | Width | What the border shows |
 | --- | --- |
-| 120, swapped | left: dot, title cut to fit, `acme-edit: <dir>`; right: `claude` and the counts |
-| A CJK title, swapped | cut by display columns with `…` over the left half, never wider than it |
+| 120, swapped | left: the headline it has unswapped, then `acme-edit: <dir>` in the room left, the directory cut from its start; right: `claude` and the counts |
+| A CJK title, swapped | the same headline as unswapped, cut by display columns with `…`, never wider than the left half |
 | `nerd_font` on, swapped | each name with its icon, over its own half |
 
 The narrowest sidebar is not a row: the sidebar is hidden while side by side.
@@ -173,3 +173,7 @@ no trend across phases 26 to 29. The orchestrator's context grew from 684129 to 
   the halves already followed the programs; each was shown red by breaking the code → none
 - `process` the end-to-end tests were written while a ship waited on the other worktree's gates
   lock, and had to be set aside before its `git add -A` → none
+- `review-loop` round 1 found the swap keys swallowed outside side by side, the swapped headline
+  squeezed to its minimum by the editor's name, and a `--help` line made wrong by the swap → code
+- `ci` a border test passed on macOS only: its long temporary directory left room at the end of
+  the half, Linux's short one filled it; the corner cell is asserted instead → code

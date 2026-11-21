@@ -107,18 +107,17 @@ fn each_program_is_sized_to_the_half_it_moves_to() {
 }
 
 #[test]
-fn in_the_normal_view_the_swap_keys_reach_no_session() {
-    let mut screen = Screen::new(raw_reader(1));
+fn in_the_normal_view_the_swap_keys_reach_claude_code() {
+    let mut screen = Screen::new(raw_reader(4));
     screen.press('n');
     screen.wait_for("acme agent ready");
     screen.key(KeyCode::Enter, KeyModifiers::NONE);
 
     right(&mut screen);
     left(&mut screen);
-    screen.press('a');
 
     let shown = screen.wait_for("acme agent read:");
-    assert!(shown.contains("acme agent read: 61"), "{shown}");
+    assert!(shown.contains("acme agent read: 1b 7d 1b 7b"), "{shown}");
 }
 
 #[test]
@@ -152,21 +151,17 @@ fn a_swap_key_while_the_editor_has_focus_reaches_the_editor() {
 }
 
 #[test]
-fn while_zoomed_the_swap_keys_change_nothing_seen_later() {
-    let scratch = tempfile::tempdir().unwrap();
-    let mut screen = editing(scratch.path());
+fn while_zoomed_the_swap_keys_reach_claude_code() {
+    let mut screen = Screen::new(raw_reader(2));
+    screen.press('n');
+    screen.wait_for("acme agent ready");
     screen.key(KeyCode::Enter, KeyModifiers::NONE);
     screen.key(KeyCode::Char('z'), KeyModifiers::ALT);
 
     right(&mut screen);
-    side(&mut screen);
-    screen.type_text("hi\r");
 
-    let shown = screen.wait_for_all(&["acme editor ready", "acme agent 1 got: hi"]);
-    assert!(
-        region(&shown, 0, 60).contains("acme agent 1 got: hi"),
-        "{shown}"
-    );
+    let shown = screen.wait_for("acme agent read:");
+    assert!(shown.contains("acme agent read: 1b 7d"), "{shown}");
 }
 
 #[test]
