@@ -24,11 +24,14 @@ impl App {
             self.log_input(Input::Picker, bytes.len());
             return;
         }
-        if self.dismiss(is_yes(key)) || self.jump_by_key(key) {
+        if self.dismiss(is_yes(key)) {
             return;
         }
         if self.sidebar.is_empty() && !self.sessions.is_empty() {
             self.failed = None;
+        }
+        if self.jump_by_key(key) {
+            return;
         }
         if self.pane_focused && is_ctrl(acted, 'h') {
             match self.sessions.get_mut(self.selected) {
@@ -95,6 +98,8 @@ impl App {
     pub(super) fn focus_or_resume(&mut self) {
         if !self.resume() {
             self.pane_focused = !self.sessions.is_empty();
+        } else if self.failed.is_some() {
+            self.pane_focused = false;
         }
     }
 

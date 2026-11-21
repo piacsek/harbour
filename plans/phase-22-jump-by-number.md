@@ -59,7 +59,8 @@ it. Select, focus and resume are one function, `App::jump`, so the pick of #39 c
 | The pane already focused on another session | the card at N is selected and its pane focused; the session that had the pane receives nothing |
 | An editor focused, one that asked for extended keys | the jump happens; the editor receives nothing |
 | A stopped card that resumes | the card resumes as Enter resumes it, its pane focused |
-| A stopped card that cannot resume | the card is selected and says why (`directory gone`, `open elsewhere`), as Enter would; the sidebar keeps focus |
+| A stopped card that cannot resume | the card is selected and says why (`directory gone`, `open elsewhere`), as Enter would; the sidebar has focus, also when a pane had it (in the narrow layout the sidebar is shown) |
+| A stopped card whose transcript is gone | the card is removed and `This conversation is gone` shows over whatever is selected then; the sidebar has focus |
 | An exited card | selected and its pane focused, as Enter does |
 | The selected card was removed between two keys (`x`, or its session exited and was settled) | the position counts the cards shown at that key, so N names whatever card is at N now |
 | A question shown | the key answers it as any key but `y` does (no), and no jump |
@@ -67,10 +68,11 @@ it. Select, focus and resume are one function, `App::jump`, so the pick of #39 c
 | The picker shown | the picker gets the key, as today, and no jump |
 | A session started but not yet in the sidebar | only through the picker, which is still shown: the picker gets the key |
 | Narrow layout (under 60 columns), sidebar shown | the card is selected and its pane shown alone, as Enter shows it |
-| Narrow layout, pane shown | the card at N is selected and its pane shown alone |
+| Narrow layout, pane shown | the card at N is selected and its pane shown alone; a message drawn over the old pane is cleared, as any key clears it |
 | Extended keys unavailable (`extended-keys off`, or a terminal without them) | nothing changes from today: the session gets the legacy bytes (`1`, `\0`, Esc, ..., `9`) and the sidebar treats them as it did |
 | macOS "Switch to Desktop N" on | macOS takes the key, harbour never sees it (`harbour --help` says so) |
 | The log on | the key is logged as `key name="C-N"` |
+| Ctrl+Shift+N (layouts where digits need Shift) | the same as Ctrl-N |
 
 Zoom is not built yet, so it has no row.
 
@@ -95,6 +97,10 @@ Zoom is not built yet, so it has no row.
   the rest.` off. For the same reason C-h now reads `from an editor` instead of `from the
   editor`, one column shorter, so it stops wrapping at 59 columns and frees the row the new key
   takes. The narrow layout on 20 rows has no spare row left; the wide one keeps four.
+- A refused jump ends with the sidebar focused even when it came from a pane, so keys typed
+  next never act on the sidebar behind a highlighted pane. Enter shares that path.
+- Ctrl with or without Shift on a digit jumps: where the digits need Shift, Ctrl+Shift+N is
+  what the terminal sends for Ctrl-N.
 
 ## Tasks
 

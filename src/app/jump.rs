@@ -26,7 +26,9 @@ impl App {
 
 fn position(key: KeyEvent) -> Option<usize> {
     match key.code {
-        KeyCode::Char(c @ '1'..='9') if key.modifiers == KeyModifiers::CONTROL => {
+        KeyCode::Char(c @ '1'..='9')
+            if key.modifiers - KeyModifiers::SHIFT == KeyModifiers::CONTROL =>
+        {
             c.to_digit(10).and_then(|digit| usize::try_from(digit).ok())
         }
         _ => None,

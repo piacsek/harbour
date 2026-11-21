@@ -97,11 +97,11 @@ fn ctrl_nine_with_no_card_does_nothing() {
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = Screen::new(lined_agent(scratch.path()));
 
-    ctrl(&mut screen, '9');
-    screen.press('n');
+    let before = screen.draw();
 
-    let shown = screen.wait_for("acme agent 1");
-    assert!(shown.contains("acme agent 1"), "{shown}");
+    ctrl(&mut screen, '9');
+
+    assert_eq!(screen.draw(), before);
 }
 
 #[test]
@@ -243,6 +243,105 @@ fn the_keys_a_terminal_without_extended_keys_sends_for_ctrl_one_to_ctrl_nine_rea
     );
 }
 
+#[test]
+fn ctrl_shift_two_jumps_as_ctrl_two_does() {
+    let scratch = tempfile::tempdir().unwrap();
+    let mut screen = three_sessions(scratch.path());
+
+    screen.key(
+        KeyCode::Char('2'),
+        KeyModifiers::CONTROL | KeyModifiers::SHIFT,
+    );
+    screen.type_text("hi\r");
+
+    let shown = screen.wait_for("acme agent 2 got:");
+    assert!(shown.contains("acme agent 2 got: hi"), "{shown}");
+}
+
+#[test]
+fn a_jump_from_a_pane_to_a_card_whose_directory_is_gone_leaves_the_sidebar_focused() {
+    let (scratch, mut screen) = live_beside_stopped(120);
+    fs::remove_dir_all(scratch.checkout()).unwrap();
+
+    ctrl(&mut screen, '1');
+
+    let shown = screen.wait_for("Not a directory");
+    assert_sidebar_focused(&mut screen, &shown);
+}
+
+#[test]
+fn a_jump_from_a_pane_to_a_card_whose_directory_is_gone_leaves_the_sidebar_focused_when_narrow() {
+    let (scratch, mut screen) = live_beside_stopped(59);
+    fs::remove_dir_all(scratch.checkout()).unwrap();
+
+    ctrl(&mut screen, '1');
+
+    let shown = screen.wait_for("Not a directory");
+    assert_sidebar_focused(&mut screen, &shown);
+}
+
+#[test]
+fn a_jump_from_a_pane_to_a_card_open_elsewhere_leaves_the_sidebar_focused() {
+    let (scratch, mut screen) = live_beside_stopped(120);
+    hold(&scratch);
+
+    ctrl(&mut screen, '1');
+
+    let shown = screen.wait_for("is open elsewhere");
+    assert_sidebar_focused(&mut screen, &shown);
+}
+
+#[test]
+fn a_jump_from_a_pane_to_a_card_open_elsewhere_leaves_the_sidebar_focused_when_narrow() {
+    let (scratch, mut screen) = live_beside_stopped(59);
+    hold(&scratch);
+
+    ctrl(&mut screen, '1');
+
+    let shown = screen.wait_for("is open elsewhere");
+    assert_sidebar_focused(&mut screen, &shown);
+}
+
+#[test]
+fn a_jump_from_a_pane_to_a_card_whose_transcript_is_gone_leaves_the_sidebar_focused() {
+    let (scratch, mut screen) = live_beside_stopped(120);
+    fs::remove_file(scratch.transcript_file(ID)).unwrap();
+
+    ctrl(&mut screen, '1');
+
+    let shown = screen.wait_for("This conversation is gone");
+    assert_sidebar_focused(&mut screen, &shown);
+}
+
+#[test]
+fn a_jump_from_a_pane_to_a_card_whose_transcript_is_gone_leaves_the_sidebar_focused_when_narrow() {
+    let (scratch, mut screen) = live_beside_stopped(59);
+    fs::remove_file(scratch.transcript_file(ID)).unwrap();
+
+    ctrl(&mut screen, '1');
+
+    let shown = screen.wait_for("This conversation is gone");
+    assert_sidebar_focused(&mut screen, &shown);
+}
+
+#[test]
+fn a_jump_in_the_narrow_layout_clears_the_message_drawn_over_the_pane() {
+    let scratch = tempfile::tempdir().unwrap();
+    let editor = Program::new("acme-edit", script("exit 3"));
+    let mut screen = Screen::of(App::new(lined_agent(scratch.path())).with_editor(editor));
+    screen.resize(59, 20);
+    screen.press('n');
+    screen.press('n');
+    screen.key(KeyCode::Enter, KeyModifiers::NONE);
+    screen.key(KeyCode::Char('l'), KeyModifiers::CONTROL);
+    screen.wait_for("acme-edit exited 3");
+
+    ctrl(&mut screen, '1');
+
+    let shown = screen.wait_for("acme agent 1");
+    assert!(!shown.contains("acme-edit exited"), "{shown}");
+}
+
 fn ctrl(screen: &mut Screen, digit: char) {
     screen.key(KeyCode::Char(digit), KeyModifiers::CONTROL);
 }
@@ -287,4 +386,52 @@ fn raw_reader(length: usize) -> Vec<String> {
          dd bs=1 count={length} 2>/dev/null | od -An -tx1 | tr -s ' \\n' '  ' | \
          sed 's/^/acme agent read:/' >&2; exec sleep 600"
     ))
+}
+
+const LIVE: &str = "acme agent live";
+
+fn live_beside_stopped(width: u16) -> (Scratch, Screen) {
+    let scratch = Scratch::new();
+    scratch.remember(ID, "The first one", 0);
+    scratch.remember(OTHER_ID, TITLE, 1);
+    scratch.transcript(ID, r#"{"type":"user","message":{}}"#);
+    scratch.transcript(OTHER_ID, r#"{"type":"user","message":{}}"#);
+    let mut screen = scratch.watching(script(&format!(
+        "[ \"$1\" ] || echo '{LIVE}'; exec sleep 600"
+    )));
+    screen.resize(width, 20);
+    screen.wait_for(TITLE);
+    screen.press('n');
+    screen.key(KeyCode::Enter, KeyModifiers::NONE);
+    screen.wait_for(LIVE);
+    (scratch, screen)
+}
+
+fn hold(scratch: &Scratch) {
+    fs::write(
+        scratch
+            .sessions()
+            .join(format!("{}.json", std::process::id())),
+        format!(r#"{{"status":"idle","sessionId":"{ID}"}}"#),
+    )
+    .unwrap();
+}
+
+fn assert_sidebar_focused(screen: &mut Screen, shown: &str) {
+    assert!(
+        shown.lines().next().unwrap().starts_with("┏ sessions"),
+        "{shown}"
+    );
+    let before = selected_line(shown);
+    screen.press('j');
+    let moved = screen.draw();
+    assert_ne!(selected_line(&moved), before, "{moved}");
+}
+
+fn selected_line(shown: &str) -> String {
+    shown
+        .lines()
+        .find(|line| line.contains('▌'))
+        .unwrap_or_default()
+        .to_string()
 }
