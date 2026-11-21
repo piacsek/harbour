@@ -3,7 +3,7 @@ use std::io;
 use std::path::Path;
 use std::rc::Rc;
 
-use crossterm::event::{KeyCode, KeyModifiers};
+use crossterm::event::{KeyCode, KeyModifiers, MouseButton, MouseEventKind};
 use harbour::app::App;
 use harbour::cursor::Shape;
 use harbour::editor::Program;
@@ -14,13 +14,12 @@ use ratatui::layout::{Position, Rect};
 use ratatui::style::Modifier;
 use ratatui::{Terminal, TerminalOptions, Viewport};
 
-use crate::{Screen, home, pane_corner, script};
+use crate::{Screen, home, pane_corner, reading_agent, script};
 
 #[test]
 fn the_terminal_cursor_sits_on_the_pane_cursor_cell() {
     let mut screen = Screen::new(shaped_agent("6"));
-    screen.press('n');
-    let shown = screen.wait_for("acme agent shaped");
+    let shown = focused_on_the_pane(&mut screen);
 
     let corner = pane_corner(&shown);
 
@@ -81,17 +80,93 @@ fn the_help_view_shows_no_cursor_and_the_default_shape() {
 }
 
 #[test]
-fn a_question_leaves_the_cursor_in_the_pane() {
+fn a_question_asked_from_the_sidebar_shows_no_cursor_and_keeps_the_shape() {
     let mut screen = Screen::new(shaped_agent("6"));
     screen.press('n');
-    let shown = screen.wait_for("acme agent shaped");
-    let corner = pane_corner(&shown);
+    screen.wait_for("acme agent shaped");
 
     screen.press('x');
 
     screen.wait_for("End? y/n");
+    assert_eq!(screen.cursor(), None);
+    assert_eq!(screen.app.cursor_shape(), 6);
+}
+
+#[test]
+fn the_sidebar_focused_shows_no_cursor_in_the_pane_and_keeps_the_shape() {
+    let mut screen = Screen::new(shaped_agent("6"));
+    screen.press('n');
+
+    screen.wait_for("acme agent shaped");
+
+    assert_eq!(screen.cursor(), None);
+    assert_eq!(screen.app.cursor_shape(), 6);
+}
+
+#[test]
+fn the_cursor_comes_back_at_the_same_cell_once_the_pane_has_focus_again() {
+    let mut screen = Screen::new(shaped_agent("6"));
+    let shown = focused_on_the_pane(&mut screen);
+    let corner = pane_corner(&shown);
+    screen.key(KeyCode::Char('h'), KeyModifiers::CONTROL);
+    screen.wait_for("┏ sessions");
+    let beside = screen.cursor();
+
+    screen.key(KeyCode::Enter, KeyModifiers::NONE);
+
+    screen.wait_for("┌ sessions");
+    assert_eq!(beside, None);
     assert_eq!(screen.cursor(), Some(Position::new(corner + 22, 3)));
     assert_eq!(screen.app.cursor_shape(), 6);
+}
+
+#[test]
+fn the_editor_shows_no_cursor_while_the_sidebar_has_focus_and_its_cursor_again_after() {
+    let mut screen = Screen::editing(reading_agent(), placed_editor());
+    focused_on_the_pane(&mut screen);
+    screen.key(KeyCode::Char('l'), KeyModifiers::CONTROL);
+    screen.wait_for("acme editor placed");
+    let before = screen.cursor();
+    screen.mouse(MouseEventKind::Down(MouseButton::Left), 1, 1);
+    screen.mouse(MouseEventKind::Up(MouseButton::Left), 1, 1);
+    screen.wait_for("┏ sessions");
+    let beside = screen.cursor();
+
+    screen.mouse(MouseEventKind::Down(MouseButton::Left), 70, 10);
+    screen.mouse(MouseEventKind::Up(MouseButton::Left), 70, 10);
+
+    screen.wait_for("┌ sessions");
+    assert!(before.is_some());
+    assert_eq!(beside, None);
+    assert_eq!(screen.cursor(), before);
+}
+
+#[test]
+fn a_frame_with_the_sidebar_focused_never_shows_the_cursor() {
+    let mut screen = Screen::new(shaped_agent("6"));
+    screen.press('n');
+    screen.wait_for("acme agent shaped");
+    let written = Written::default();
+    let mut terminal = Terminal::with_options(
+        CrosstermBackend::new(written.clone()),
+        TerminalOptions {
+            viewport: Viewport::Fixed(Rect::new(0, 0, 120, 20)),
+        },
+    )
+    .unwrap();
+    let mut shape = Shape::default();
+
+    tui::frame(
+        &mut terminal,
+        &mut screen.app,
+        &mut shape,
+        &mut written.clone(),
+    )
+    .unwrap();
+
+    let text = written.text();
+    assert!(text.starts_with("\x1b[?25l"), "{text:?}");
+    assert!(!text.contains("\x1b[?25h"), "{text:?}");
 }
 
 #[test]
@@ -149,6 +224,8 @@ fn switching_sessions_hides_the_cursor_before_changing_its_shape() {
     .unwrap();
     screen.press('k');
     screen.wait_for("acme agent 1");
+    screen.key(KeyCode::Enter, KeyModifiers::NONE);
+    screen.wait_for("┌ sessions");
     written.clear();
 
     tui::frame(
@@ -173,7 +250,9 @@ fn a_frame_hides_the_cursor_before_its_first_cell_and_moves_then_shows_it_in_one
         "printf '\\033[3;5Hacme agent plain'; exec sleep 600",
     ));
     screen.press('n');
-    let shown = screen.wait_for("acme agent plain");
+    screen.wait_for("acme agent plain");
+    screen.key(KeyCode::Enter, KeyModifiers::NONE);
+    let shown = screen.wait_for("┌ sessions");
     let corner = pane_corner(&shown);
     let written = Written::default();
     let mut terminal = Terminal::with_options(
@@ -212,8 +291,7 @@ fn an_exited_session_shows_no_cursor() {
 #[test]
 fn the_narrowest_sidebar_keeps_the_cursor_in_the_pane() {
     let mut screen = Screen::at(App::new(shaped_agent("6")), home(), 60);
-    screen.press('n');
-    let shown = screen.wait_for("acme agent shaped");
+    let shown = focused_on_the_pane(&mut screen);
 
     let corner = pane_corner(&shown);
 
@@ -274,7 +352,9 @@ fn a_message_over_the_bottom_of_a_narrow_pane_keeps_the_cursor_above_it() {
 fn a_wide_character_under_the_cursor_is_drawn_whole_and_unstyled() {
     let mut screen = Screen::new(script("printf 'acme 東京\\033[2D'; exec sleep 600"));
     screen.press('n');
-    let shown = screen.wait_for("京");
+    screen.wait_for("京");
+    screen.key(KeyCode::Enter, KeyModifiers::NONE);
+    let shown = screen.wait_for("┌ sessions");
     let corner = pane_corner(&shown);
 
     let cell = screen.cell(corner + 8, 1);
@@ -282,6 +362,20 @@ fn a_wide_character_under_the_cursor_is_drawn_whole_and_unstyled() {
     assert_eq!(screen.cursor(), Some(Position::new(corner + 8, 1)));
     assert_eq!(cell.symbol(), "京");
     assert!(!cell.modifier.contains(Modifier::REVERSED));
+}
+
+fn focused_on_the_pane(screen: &mut Screen) -> String {
+    screen.press('n');
+    screen.wait_for("acme agent");
+    screen.key(KeyCode::Enter, KeyModifiers::NONE);
+    screen.wait_for("┌ sessions")
+}
+
+fn placed_editor() -> Program {
+    Program::new(
+        "acme-edit",
+        script("printf '\\033[3;5Hacme editor placed'; exec sleep 600"),
+    )
 }
 
 fn shaped_agent(shape: &str) -> Vec<String> {
