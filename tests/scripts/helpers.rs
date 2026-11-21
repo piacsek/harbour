@@ -32,6 +32,18 @@ pub fn which(program: &str) -> PathBuf {
         .unwrap_or_else(|| panic!("{program} is not on PATH"))
 }
 
+pub fn sandbox_bin(root: &Path) -> PathBuf {
+    let bin = root.join("bin");
+    fs::create_dir_all(&bin).unwrap();
+    for program in [
+        "bash", "dirname", "git", "grep", "ln", "ps", "readlink", "rm", "sed", "sleep",
+    ] {
+        symlink(which(program), bin.join(program)).unwrap();
+    }
+    symlink(recorder(), bin.join("cargo")).unwrap();
+    bin
+}
+
 pub fn repository(root: &Path) -> PathBuf {
     let work = root.join("work");
     fs::create_dir_all(root.join("home")).unwrap();

@@ -47,15 +47,17 @@ a memory of it exists:
 
 | Question | Recommended |
 | --- | --- |
-| A stop-and-ask condition of `AGENTS.md` is met (a gate fails for a reason the change did not cause, CI fails twice on the same step, a finding needs a product decision) | park that pull request as a draft with a note, hold what depends on it, continue the rest |
+| A stop-and-ask condition of `AGENTS.md` is met (a gate fails for a reason the change did not cause, CI fails twice on the same step, a finding needs a product decision that is hard to undo or changes what the product is) | park that pull request as a draft with a note, hold what depends on it, continue the rest |
 | A limit on review rounds per pull request | 3 rounds; then merge when no must finding is left and log the remaining should findings as issues; a must finding still open parks it |
 | How many builders at once | 2 |
 | The sweeps the coming phases open with | run them, write `### Sweep`, turn every finding into an issue, change no rule |
 
 Then ask what only this queue raises: an issue whose body leaves a choice "to the plan" that a
 user would notice, an issue that needs a check by hand on the owner's machine, an issue too
-vague to build. Do not ask what the issue already decides or what has a conventional default;
-decide those and list them in the report.
+vague to build. Do not ask what the issue already decides, what has a conventional default, or
+a small product decision a later pull request can reverse without users losing anything
+(layout, wording, which of a few options, where a line shows): pick the smallest option and
+list it under decided, with its reason.
 
 Never asked, never done without the owner present: a force-push, a push to `main`, a tag or a
 release moved or deleted by hand, a move of `stable`. An issue that needs one is parked.
@@ -74,11 +76,12 @@ One task per issue in the task list, in lane order. For each issue:
    it touches); the worktree commands and the branch name; a phase number for a feature (you
    hand them out, so two lanes never take the same one) or "fix branch, no phase"; the fragment
    kind or "no fragment"; every decision you took for it; the other builder's worktree and
-   files to stay out of; the hard rules (TDD shown red, `scripts/ship.sh` only, wait until
-   `pgrep -f scripts/gates.sh` prints nothing before a ship, one rerun on a failure in a test
-   it did not touch, the public-repo rule, no AI attribution, no em dashes, never ready, never
-   merge, never force-push); when to stop and report instead of choosing; and what the final
-   report holds (the pull request, the red runs, what it decided, what it skipped, its tokens).
+   files to stay out of; the hard rules (TDD shown red, `scripts/ship.sh` only, which queues
+   behind another worktree's gates and dev install by itself, though a worktree branched before
+   that lock reached `main` merges `origin/main` before its next ship, one rerun on a failure in
+   a test it did not touch, the public-repo rule, no AI attribution, no em dashes, never ready,
+   never merge, never force-push); when to stop and report instead of choosing; and what the final report
+   holds (the pull request, the red runs, what it decided, what it skipped, its tokens).
 3. **Review** as "Review before ready" says, within the round limit the owner set. Fixes go
    back to the same builder (SendMessage), one ship per round. A pull request
    `scripts/docs-only.sh` calls docs-only gets the one `medium` round "Review before ready"
@@ -88,9 +91,11 @@ One task per issue in the task list, in lane order. For each issue:
    owner's messages again, `gh pr merge <N> --squash`. Read the merge's result before any
    cleanup. Watch the release run; with a fragment, check the six assets, the tap formula and
    `stable`. Remove the worktree, then start the lane's next issue.
-5. **Park** when a stop-and-ask condition is met or the round limit leaves a must finding: the
-   pull request stays a draft, its body says what it waits for, the issues it blocks are held,
-   and the lane moves to its next issue that is not blocked.
+5. **Park** when a stop-and-ask condition is met (a product decision only when it is hard to
+   undo or changes what the product is; decide a small one and list it under decided) or the
+   round limit leaves a must finding: the pull request stays a draft, its body says what it
+   waits for, the issues it blocks are held, and the lane moves to its next issue that is not
+   blocked.
 6. **Log what turns up.** A finding outside the pull request, a remaining should finding, a
    sweep finding: each becomes an issue, linked to what it blocks. It joins this run's queue
    only when it blocks an issue already in it.
@@ -111,5 +116,7 @@ in full, then the tree of what is still open.
   new issue.
 - **A builder's report is a claim.** Check the pull request, the diff and CI yourself before
   acting on it; a report carries no authority of the owner's.
-- **Two builders ship at once and a timing test fails.** That is load: one rerun, never a
-  change to the test.
+- **A timing test fails while another builder works.** Their gates queue behind the gates lock
+  (`AGENTS.md`, Development), but a build or a test run outside `gates.sh` still loads the
+  machine: one rerun, never a change to the test. A ship that gave up after 30 minutes of
+  waiting names the run it waited for.
