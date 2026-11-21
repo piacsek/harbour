@@ -1,0 +1,10 @@
+#!/bin/sh
+for arg; do
+	case $arg in
+	--accept-nth*)
+		echo "unknown option: $arg" >&2
+		exit 2
+		;;
+	esac
+done
+exec "${0%/*}/../finder/fzf" "$@"

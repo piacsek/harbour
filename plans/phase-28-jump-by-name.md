@@ -31,15 +31,17 @@ Esc closes it and changes nothing. It works from the sidebar and from a Claude C
     number, the dot or the age matched nothing; one for a title word or `acme-docs` matched its
     line.
   - fzf prints the whole original line, the hidden number first, so harbour reads the number
-    before the first tab. `--accept-nth` exists in 0.74 but is not used, so an older fzf works.
+    before the first tab. `--accept-nth` exists in 0.74 (`--accept-nth=.. --version` exits 0;
+    an unknown option exits 2), and a later `--accept-nth=..` overrides the user's own.
   - Rendered in a 50-column tmux pane with `--tabstop=1 --layout=reverse`, each line takes a
     2-column gutter (`▌ `) and fzf cuts a longer line with `··`; a list longer than the window
     adds a 1-column scroll bar. Each tab shows as one space.
 - `Entry.id` is 0 for every stopped card (`src/app/remember.rs`), so a stopped card is known by
   its remembered session id, a running or exited one by `Entry.id`.
-- While a popup is open no key, paste or mouse event reaches the sidebar, so a card can leave
-  the list only by its session exiting; `x` and a resume, which remove or merge cards, cannot
-  run.
+- While a popup is open no key, paste or mouse event reaches the sidebar, so `x` and Enter
+  cannot run; a session can still exit (its exited card stays until `x`), and a stopped card can
+  still be merged into a live session whose registry names its id (a conversation resumed
+  inside harbour).
 
 ## Decided
 
@@ -62,19 +64,25 @@ Esc closes it and changes nothing. It works from the sidebar and from a Claude C
   picker set in the app (only tests build one so) it runs `fzf`.
 - **fzf's arguments**, after the user's `FZF_DEFAULT_OPTS` and the directory picker's
   `--no-expect --no-print-query --no-read0 --no-print0`:
-  `--delimiter=<TAB> --with-nth=2.. --nth=2,3 --tabstop=1 --no-sort --layout=reverse`.
-  `--no-sort` keeps the sidebar's order, `--layout=reverse` lists it top-down as the sidebar
-  does.
+  `--delimiter=<TAB> --with-nth=2.. --nth=2,3 --tabstop=1 --no-sort --layout=reverse
+  --bind=enter:accept`, then `--accept-nth=..` when the popup's shell finds that
+  `fzf --accept-nth=.. --version` exits 0 (fzf 0.60 and later), so neither an `enter` binding
+  nor an `--accept-nth` in `FZF_DEFAULT_OPTS` changes the line fzf prints, and an older fzf
+  still runs. `--no-sort` keeps the sidebar's order, `--layout=reverse` lists it top-down as the
+  sidebar does.
 - **A line**: `<n>\t<dot>\t<title>\t<place>\t<age>`, where `<n>` is the card's position when the
   popup opened, never shown or matched. The title and place are `text::clean`ed as the card
   does them (no tab, newline, escape or other control character survives, so no title can
-  split a field or a line), then fitted (`text::fit`) and padded to columns measured by display
-  width, so the place and age line up. The room is the popup's inner width less fzf's 2-column
-  gutter and 1-column scroll bar. The title and place are the zoomed border's (`headline`): the
+  split a field or a line), then padded, never cut, to the widest title and the widest place,
+  measured by display width; with `--tabstop=1` each tab is one column, so the place and age
+  line up, and fzf cuts what overflows its window with `··` and scrolls the line to the match,
+  so every word of a title can be matched. The title and place are the zoomed border's (`headline`): the
   transcript's title, else the card's name; `repository · branch`; the time in its state.
 - **The list is the one from when the popup opened.** The finder keeps, for each position, who
-  was there: a running session by its id, an exited one by its id, a stopped card by its
-  remembered session id. A card is not added or redrawn while the popup is open.
+  was there: a session (running or exited) by its id and its remembered session id, a stopped
+  card by its remembered session id. A pick finds that session whether it still runs or not;
+  for a stopped card no longer there, the entry that now holds its remembered id. A card is not
+  added or redrawn while the popup is open.
 - **The list goes to fzf through a file**: written by harbour into the pick's private (0700)
   scratch directory, read by `"$@" <"$listed" >"$out"` in the popup's shell. No title is ever
   part of a shell word.
@@ -103,14 +111,17 @@ Esc closes it and changes nothing. It works from the sidebar and from a Claude C
 | The picker is not fzf (`HARBOUR_DIR_PICKER=sk`, a config `picker` of another program) | `Could not start the session finder: it needs fzf, not sk`, nothing changes |
 | Esc, or Enter with no match | the popup closes, selection and focus as before |
 | A running session picked | it is selected and its pane focused, as Ctrl-N |
-| An exited session picked (exited before the popup opened) | it is selected and its pane focused, as Ctrl-N |
+| An exited session picked | as Ctrl-N on its card: one with a remembered conversation resumes, another is selected and its pane focused |
 | A stopped card picked | it resumes in its directory, as Enter |
-| The picked session exited while the popup was open | nothing is selected, `That session is gone: it ended while the list was open.`, focus as before |
+| The picked session exited while the popup was open | as an exited session picked: its exited card is still in the sidebar |
+| The picked stopped card was merged into a live session while the popup was open | that live session is selected and its pane focused, as Ctrl-N |
+| The picked card is no longer anywhere | nothing is selected, `That session is gone: it was removed while the list was open.` (no path removes a card while the popup is open; kept for safety) |
+| fzf prints a line without the number (an `FZF_DEFAULT_OPTS` binding that prints something else) | nothing is selected, `The session finder printed a line harbour cannot read; check FZF_DEFAULT_OPTS.` |
 | A picked stopped card cannot resume (`directory gone`, `open elsewhere`) | its card is selected and says why, the sidebar focused |
-| The list changes while the popup is open (a session exits, a title or branch changes) | the popup keeps the list from when it opened; a pick of an exited session is the row above |
+| The list changes while the popup is open (a session exits, a title or branch changes) | the popup keeps the list from when it opened; a pick goes by the rows above |
 | 100 stopped cards | 100 lines plus the running sessions; fzf scrolls and filters them |
-| A CJK title | fitted by display width, never half a character, the place still lines up |
-| A title longer than its room | cut with `…`; the match runs over the shown part only (a known limit) |
+| A CJK title | padded by display width, the place still lines up; fzf cuts it with `··` |
+| A title longer than the popup | kept whole: a word at its end matches, and fzf scrolls the line to it |
 | A title holding a tab, a newline, an escape sequence | cleaned as on the card: no field or line is split, no escape reaches fzf |
 | The narrow layout (under 60 columns) | the popup is 80% of the screen as the directory picker's; the pick shows the pane as Ctrl-N does |
 | Zoomed | the popup opens over the zoomed pane; a pick of a live session stays zoomed |
@@ -164,13 +175,16 @@ list it read, then reads a line from its terminal and prints the first listed li
 - fzf only: the configured picker runs only when its file name is `fzf`; any other says
   `Could not start the session finder: it needs fzf, not <program>`. fzf's arguments, after the
   directory picker's: `--delimiter=<TAB> --with-nth=2.. --nth=2,3 --tabstop=1 --no-sort
-  --layout=reverse`. The list goes to fzf through a file in the pick's private directory, so no
-  title is ever part of a shell word, and harbour reads the number before the first tab of what
-  fzf prints (no `--accept-nth`, so an older fzf works).
-- The list is the one from when the popup opened: a running or exited session is kept by its
-  id, a stopped card by its remembered id. A pick of a session that ended while the list was
-  open says `That session is gone: it ended while the list was open.` and selects nothing. A
-  refused resume selects its card and leaves the sidebar focused; zoom stays on after a pick.
+  --layout=reverse --bind=enter:accept`, plus `--accept-nth=..` where
+  `fzf --accept-nth=.. --version` succeeds, so the user's options cannot change the line fzf
+  prints and an older fzf still runs. The list goes to fzf through a file in the pick's private
+  directory, so no title is ever part of a shell word, and harbour reads the number before the
+  first tab of what fzf prints; a line without one says to check `FZF_DEFAULT_OPTS`. Titles and
+  places go to fzf whole, padded to the widest, so every word can be matched.
+- The list is the one from when the popup opened: a session is kept by its id and remembered
+  id, a stopped card by its remembered id. A session that ended while the list was open is still
+  picked as its exited card (a remembered one resumes, as Ctrl-N), and a stopped card merged
+  into a live session meanwhile jumps to that session. A refused resume selects its card and leaves the sidebar focused; zoom stays on after a pick.
 - The popup is modal like the directory picker: every key (Ctrl-1 to Ctrl-9, Alt-z, `u`, the
   width keys), paste and mouse event goes to fzf, and `harbour edit` is answered `none` or
   refused. The log names the key `M-s` and logs what is typed into the list as a byte count.
@@ -195,3 +209,7 @@ list it read, then reads a line from its terminal and prints the first listed li
   instead of the popup's; it now looks for the fixture's `acme fzf` lines → code
 - `process` Phase 27 merged mid-phase and took the help's last spare row; the merge reconciled
   both rows and set the headroom to 0 → none
+- `review-loop` Round 1 found that the plan's "gone" row treated an exited card as removed, that
+  cutting titles to the popup made their ends unsearchable, and that a user's `--accept-nth` or
+  `enter` binding dropped the pick silently; the states table had no rows for a merge or for the
+  user's fzf options → code

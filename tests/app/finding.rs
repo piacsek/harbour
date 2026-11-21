@@ -61,7 +61,8 @@ fn fzf_is_given_the_options_that_hide_and_skip_the_number() {
     assert_eq!(command[fzf + 8], "--tabstop=1");
     assert_eq!(command[fzf + 9], "--no-sort");
     assert_eq!(command[fzf + 10], "--layout=reverse");
-    assert_eq!(command.len(), fzf + 11);
+    assert_eq!(command[fzf + 11], "--bind=enter:accept");
+    assert_eq!(command.len(), fzf + 12);
 }
 
 #[test]

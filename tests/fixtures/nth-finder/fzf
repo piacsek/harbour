@@ -1,0 +1,11 @@
+#!/bin/sh
+whole=
+for arg; do
+	[ "$arg" = --accept-nth=.. ] && whole=yes
+done
+picked=$("${0%/*}/../finder/fzf" "$@") || exit
+if [ "$whole" ]; then
+	printf '%s\n' "$picked"
+else
+	printf '%s\n' "$picked" | cut -f3-
+fi

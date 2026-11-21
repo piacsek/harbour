@@ -19,7 +19,9 @@ const FZF_PRINTS_ONE_LINE: [&str; 4] = [
     "--no-print0",
 ];
 
-const READING_FROM: &str = r#"out=$1; shift; "$@" <"${out%/*}/listed" >"$out""#;
+const READING_FROM: &str = r#"out=$1; shift
+if "$1" --accept-nth=.. --version </dev/null >/dev/null 2>&1; then set -- "$@" --accept-nth=..; fi
+"$@" <"${out%/*}/listed" >"$out""#;
 
 const LISTING_INTO: &str = r#"out=$1; here=$2; n=$3; shift 3
 listed="${out%/*}/listed"

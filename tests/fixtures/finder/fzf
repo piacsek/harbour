@@ -14,5 +14,9 @@ IFS= read -r answer </dev/tty
 case $answer in
 '') exit 130 ;;
 broken) exit 2 ;;
+cut:*)
+	printf '%s\n' "$listed" | grep -F -m1 -e "${answer#cut:}" | cut -f3-
+	exit 0
+	;;
 esac
 printf '%s\n' "$listed" | grep -F -m1 -e "$answer" || exit 1

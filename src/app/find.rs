@@ -8,12 +8,13 @@ use crate::input::ESCAPED;
 use crate::mouse::Gesture;
 use crate::picker::{Pick, Picker};
 
-const GONE: &str = "That session is gone: it ended while the list was open.";
+const GONE: &str = "That session is gone: it was removed while the list was open.";
+const UNREAD: &str =
+    "The session finder printed a line harbour cannot read; check FZF_DEFAULT_OPTS.";
 
-pub(super) enum Who {
-    Live(usize),
-    Ended(usize),
-    Stopped(String),
+pub(super) struct Who {
+    id: Option<usize>,
+    remembered: Option<String>,
 }
 
 impl App {
@@ -36,14 +37,24 @@ impl App {
 
     pub(super) fn found(&mut self, finding: Option<Vec<Who>>, line: &[u8]) {
         let Some(who) = finder::chosen(line).and_then(|n| finding?.into_iter().nth(n)) else {
+            self.failed = Some(UNREAD.to_string());
             return;
         };
-        let index = self.sessions.iter_mut().position(|entry| match &who {
-            Who::Live(id) => entry.id == *id && entry.session.is_some() && entry.running(),
-            Who::Ended(id) => entry.id == *id && entry.session.is_some(),
-            Who::Stopped(id) => entry.session.is_none() && entry.remembered.as_ref() == Some(id),
+        let session = who.id.and_then(|id| {
+            self.sessions
+                .iter()
+                .position(|entry| entry.session.is_some() && entry.id == id)
         });
-        match index {
+        let remembered = |stopped: bool| {
+            let wanted = who.remembered.as_ref()?;
+            self.sessions.iter().position(|entry| {
+                (!stopped || entry.session.is_none()) && entry.remembered.as_ref() == Some(wanted)
+            })
+        };
+        match session
+            .or_else(|| remembered(true))
+            .or_else(|| remembered(false))
+        {
             Some(index) => self.jump(index),
             None => self.failed = Some(GONE.to_string()),
         }
@@ -69,7 +80,7 @@ impl App {
             .collect();
         let picker = Picker::Listed {
             fzf,
-            lines: finder::lines(&headlines, usize::from(popup.width.saturating_sub(5))),
+            lines: finder::lines(&headlines),
         };
         match Pick::open(
             &picker,
@@ -81,7 +92,7 @@ impl App {
             Ok(Some(pick)) => {
                 self.gesture = Gesture::Idle;
                 self.picking = Some(pick);
-                self.finding = Some(self.sessions.iter_mut().map(who).collect());
+                self.finding = Some(self.sessions.iter().map(who).collect());
             }
             Ok(None) => {}
             Err(error) => self.failed = Some(refusal(picker.program(), &error)),
@@ -89,16 +100,10 @@ impl App {
     }
 }
 
-fn who(entry: &mut Entry) -> Who {
-    if entry.session.is_none()
-        && let Some(id) = &entry.remembered
-    {
-        return Who::Stopped(id.clone());
-    }
-    if entry.running() {
-        Who::Live(entry.id)
-    } else {
-        Who::Ended(entry.id)
+fn who(entry: &Entry) -> Who {
+    Who {
+        id: entry.session.is_some().then_some(entry.id),
+        remembered: entry.remembered.clone(),
     }
 }
 

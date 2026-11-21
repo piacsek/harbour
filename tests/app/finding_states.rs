@@ -13,14 +13,17 @@ use harbour::picker::Picker;
 
 use crate::finding::FINDER;
 use crate::handoff::soon;
+use crate::keeping::titled;
 use crate::remembering::{ID, OTHER_ID, Scratch, TITLE};
 use crate::{Screen, home, pane_corner, script};
 
 const GONE: &str = "That session is gone";
+const NTH_FINDER: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/nth-finder/fzf");
+const OLD_FINDER: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/old-finder/fzf");
 const WAITING: &str = "harbour is waiting for an answer; try again after it";
 
 #[test]
-fn a_session_that_ended_while_the_list_was_open_is_gone_and_the_selection_stays() {
+fn a_session_that_ended_while_the_list_was_open_is_selected_as_its_exited_card() {
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = stoppable_sessions(scratch.path(), 3);
     alt_s(&mut screen);
@@ -29,8 +32,133 @@ fn a_session_that_ended_while_the_list_was_open_is_gone_and_the_selection_stays(
     stop(scratch.path(), 1);
     screen.type_text("home 1\r");
 
-    let shown = screen.wait_for(GONE);
+    let shown = screen.wait_until("the popup to close", |shown| !shown.contains("acme fzf"));
+    assert!(selected_line(&shown).contains("acme-home 1"), "{shown}");
+    assert!(!shown.contains(GONE), "{shown}");
+}
+
+#[test]
+fn a_stopped_card_merged_while_the_list_was_open_jumps_to_the_session_that_holds_it() {
+    let scratch = Scratch::new();
+    scratch.remember(ID, TITLE, 0);
+    scratch.transcript(ID, &titled(TITLE));
+    let go = scratch.dir.path().join("go");
+    let mut screen = Screen::of(
+        scratch
+            .app(registering_on(&go, &scratch.sessions()))
+            .with_picker(finder()),
+    );
+    screen.wait_for("stopped");
+    screen.press('n');
+    screen.wait_for(LIVE);
+    screen.key(KeyCode::Char('h'), KeyModifiers::CONTROL);
+    alt_s(&mut screen);
+    screen.wait_for("acme fzf ready");
+
+    fs::write(&go, "").unwrap();
+    screen.wait_until("the stopped card to merge", |shown| {
+        !shown.contains("stopped")
+    });
+    screen.type_text(&format!("{TITLE}\r"));
+    screen.wait_until("the popup to close", |shown| !shown.contains("acme fzf"));
+    screen.type_text("hi\r");
+
+    let shown = screen.wait_for("acme agent got: hi");
+    assert!(!shown.contains(GONE), "{shown}");
+}
+
+#[test]
+fn a_remembered_session_that_exited_resumes_when_picked() {
+    let scratch = Scratch::new();
+    scratch.remember(ID, TITLE, 0);
+    scratch.transcript(ID, r#"{"type":"user","message":{}}"#);
+    let count = scratch.dir.path().join("count");
+    let command = script(&format!(
+        "n=$(($(cat '{count}' 2>/dev/null || echo 0) + 1)); echo $n > '{count}'; \
+         echo \"acme agent run $n $0 $1\"",
+        count = count.display()
+    ));
+    let mut screen = Screen::of(scratch.app(command).with_picker(finder()));
+    screen.wait_for(TITLE);
+    screen.key(KeyCode::Enter, KeyModifiers::NONE);
+    screen.wait_for("exited");
+
+    pick(&mut screen, TITLE);
+
+    let shown = screen.wait_for("acme agent run 2");
+    assert!(
+        shown.contains(&format!("acme agent run 2 --resume {ID}")),
+        "{shown}"
+    );
+}
+
+#[test]
+fn a_word_at_the_end_of_a_long_title_is_found_in_a_narrow_popup() {
+    let (_scratch, mut screen) = long_titled(
+        "acme fix the flaky login test on the checkout page before zanzibar",
+        59,
+    );
+
+    pick(&mut screen, "zanzibar");
+
+    let shown = screen.wait_for(&format!("acme agent --resume {ID}"));
+    assert!(
+        shown.contains(&format!("acme agent --resume {ID}")),
+        "{shown}"
+    );
+}
+
+#[test]
+fn a_word_at_the_end_of_a_long_cjk_title_is_found_in_a_narrow_popup() {
+    let (_scratch, mut screen) = long_titled("港口の修正をする長い名前の最後にある灯台", 59);
+
+    pick(&mut screen, "灯台");
+
+    let shown = screen.wait_for(&format!("acme agent --resume {ID}"));
+    assert!(
+        shown.contains(&format!("acme agent --resume {ID}")),
+        "{shown}"
+    );
+}
+
+#[test]
+fn a_line_fzf_prints_without_its_number_names_fzf_default_opts() {
+    let scratch = tempfile::tempdir().unwrap();
+    let mut screen = stoppable_sessions(scratch.path(), 3);
+
+    pick(&mut screen, "cut:home 2");
+
+    let shown = screen.wait_until("the message", |shown| {
+        sidebar_text(shown).contains("FZF_DEFAULT_OPTS")
+    });
     assert!(selected_line(&shown).contains("acme-home 3"), "{shown}");
+}
+
+#[test]
+fn an_accept_nth_in_the_users_options_still_jumps_to_the_pick() {
+    let scratch = tempfile::tempdir().unwrap();
+    let app = App::new(stoppable_agent(scratch.path()))
+        .with_picker(Picker::Command(vec![NTH_FINDER.into()]));
+    let mut screen = started(app, 3);
+
+    pick(&mut screen, "home 1");
+
+    let shown = screen.wait_until("the popup to close", |shown| !shown.contains("acme fzf"));
+    assert!(selected_line(&shown).contains("acme-home 1"), "{shown}");
+}
+
+#[test]
+fn an_fzf_without_accept_nth_still_opens_and_jumps_to_the_pick() {
+    let scratch = tempfile::tempdir().unwrap();
+    let app = App::new(stoppable_agent(scratch.path()))
+        .with_picker(Picker::Command(vec![OLD_FINDER.into()]));
+    let mut screen = started(app, 3);
+
+    pick(&mut screen, "home 1");
+
+    let shown = screen.wait_until("the popup to close", |shown| !shown.contains("acme fzf"));
+    assert!(selected_line(&shown).contains("acme-home 1"), "{shown}");
+    assert!(!shown.contains("Could not start"), "{shown}");
 }
 
 #[test]
@@ -408,6 +536,26 @@ fn live_beside_stopped(width: u16) -> (Scratch, Screen) {
     screen.press('n');
     screen.key(KeyCode::Enter, KeyModifiers::NONE);
     screen.wait_for(LIVE);
+    (scratch, screen)
+}
+
+fn registering_on(go: &Path, sessions: &Path) -> Vec<String> {
+    script(&format!(
+        "echo '{LIVE}'; while [ ! -e '{go}' ]; do sleep 0.05; done; \
+         printf '%s' '{{\"status\":\"busy\",\"sessionId\":\"{ID}\"}}' > '{sessions}'/$$.json; \
+         while read -r line; do echo \"acme agent got: $line\"; done; exec sleep 600",
+        go = go.display(),
+        sessions = sessions.display()
+    ))
+}
+
+fn long_titled(title: &str, width: u16) -> (Scratch, Screen) {
+    let scratch = Scratch::new();
+    scratch.remember(ID, title, 0);
+    scratch.transcript(ID, r#"{"type":"user","message":{}}"#);
+    let mut screen = Screen::of(scratch.app(resuming_agent()).with_picker(finder()));
+    screen.resize(width, 20);
+    screen.wait_for("stopped");
     (scratch, screen)
 }
 
