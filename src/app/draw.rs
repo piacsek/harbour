@@ -81,10 +81,16 @@ impl App {
             .is_some_and(|entry| entry.on_editor);
         let split = !beside.is_empty();
         let left_focused = self.pane_focused && !(split && on_editor);
-        let beside_block = bordered(self.pane_focused && on_editor, self.accent);
+        let mut beside_block = bordered(self.pane_focused && on_editor, self.accent);
         self.beside = beside_block.inner(beside);
         let mut pane_block = bordered(left_focused, self.accent);
-        if self.zoomed || self.side_by_side {
+        if split {
+            [pane_block, beside_block] = self.side_borders(
+                [pane_block, beside_block],
+                [pane.width, beside.width],
+                counts,
+            );
+        } else if self.zoomed || self.side_by_side {
             pane_block = self.zoom_border(pane_block, pane.width, counts);
         } else if let Some(tabs) = self.tabs(usize::from(pane.width.saturating_sub(2))) {
             pane_block = pane_block.title(tabs);

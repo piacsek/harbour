@@ -33,6 +33,7 @@ mod remembering;
 mod reserving;
 mod selection;
 mod side;
+mod side_border;
 mod status;
 mod stopping;
 mod switching;

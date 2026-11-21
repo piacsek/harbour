@@ -65,7 +65,7 @@ impl App {
             .title(counted.right_aligned())
     }
 
-    fn headline(&self) -> Option<Headline> {
+    pub(super) fn headline(&self) -> Option<Headline> {
         let entry = self.sessions.get(self.selected)?;
         let facts = entry.transcript.as_ref().map(Transcript::facts);
         let title = facts
