@@ -157,13 +157,17 @@ no trend across phases 26 to 29. The orchestrator's context grew from 684129 to 
 - Swapped, C-h and C-l keep their left and right; `wants_ctrl_l` mirrors `wants_ctrl_h` for
   Neovim's rightmost window, checked against a real clean Neovim.
 - The borders keep the headline on the left and the counts on the right, whichever program sits
-  there.
+  there; swapped, the headline keeps the room it has unswapped and the editor's name takes the
+  rest (review round 1).
+- Outside side by side Alt-{ and Alt-} go on to the session, a change from the issue's "nothing
+  happens" made in review round 1.
 - The help row deviates from the plan: the key column is padded to 10 columns, and
   `M-\ M-{ M-}` takes 11, so the key stays `M-\` and its text says `side by side (120+
-  columns); M-{/M-} swap`, which still fits the 20 rows. `harbour --help` gained one line, the
+  columns); M-{/M-} swap`, which still fits the 20 rows. `harbour --help` says the swap keys act only from the Claude Code half, the
   log names `M-{` and `M-}`, and `docs/side-swapped.png` is the new shot.
 - Verified facts: tmux 3.7c with `extended-keys` on sends Alt-{ and Alt-} in both forms (with
   Shift as modifier 4), and Claude Code 2.1.330 binds neither key.
+- Review: 3 rounds, the third clean at 21:42Z, 1 h 34 min from build start (20:07:56Z).
 
 ## Hurdles
 
@@ -179,3 +183,5 @@ no trend across phases 26 to 29. The orchestrator's context grew from 684129 to 
   the half, Linux's short one filled it; the corner cell is asserted instead → code
 - `review-loop` round 2 found two guards no test reached: the swap keys from the editor half side by
   side, and swapped C-h kept by Neovim → code
+- `review-loop` round 3 was clean; its leftovers (C-h to the sidebar from a swapped editor
+  forgetting the editor half, the log naming forwarded `M-{` and `M-}`) went to an issue → backlog

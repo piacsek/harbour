@@ -88,7 +88,7 @@ fn swapped_a_drag_from_the_right_half_across_the_middle_stays_with_claude_code()
     screen.mouse(MouseEventKind::Down(MouseButton::Left), 65, 3);
     screen.mouse(MouseEventKind::Drag(MouseButton::Left), 10, 3);
 
-    let shown = screen.wait_for("acme agent read:");
+    let shown = screen.wait_for("acme agent read:[<0;5;3M[<32;1;3M");
     assert!(
         shown.contains("acme agent read:[<0;5;3M[<32;1;3M"),
         "{shown}"

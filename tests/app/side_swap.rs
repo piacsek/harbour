@@ -1,6 +1,3 @@
-use std::thread::sleep;
-use std::time::Duration;
-
 use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use harbour::input::ESCAPED;
 
@@ -116,7 +113,7 @@ fn in_the_normal_view_the_swap_keys_reach_claude_code() {
     right(&mut screen);
     left(&mut screen);
 
-    let shown = screen.wait_for("acme agent read:");
+    let shown = screen.wait_for("acme agent read: 1b 7d 1b 7b");
     assert!(shown.contains("acme agent read: 1b 7d 1b 7b"), "{shown}");
 }
 
@@ -134,7 +131,7 @@ fn a_swap_key_after_an_escape_reaches_claude_code() {
         ESCAPED,
     ));
 
-    let shown = screen.wait_for("acme agent read:");
+    let shown = screen.wait_for("acme agent read: 1b 7d");
     assert!(shown.contains("acme agent read: 1b 7d"), "{shown}");
 }
 
@@ -145,7 +142,7 @@ fn a_swap_key_while_the_editor_has_focus_reaches_the_editor() {
 
     right(&mut screen);
 
-    let shown = screen.wait_for("acme editor read:");
+    let shown = screen.wait_for("acme editor read: 1b");
     assert!(shown.contains("acme editor read: 1b"), "{shown}");
     assert_eq!(pane_corner(&shown), 40, "{shown}");
 }
@@ -160,7 +157,7 @@ fn side_by_side_a_swap_key_from_the_editor_half_reaches_the_editor() {
 
     right(&mut screen);
 
-    let shown = screen.wait_for("acme editor read:");
+    let shown = screen.wait_for("acme editor read: 1b");
     assert!(shown.contains("acme editor read: 1b"), "{shown}");
     assert!(region(&shown, 0, 60).contains("acme agent 1"), "{shown}");
     assert!(
@@ -179,7 +176,7 @@ fn while_zoomed_the_swap_keys_reach_claude_code() {
 
     right(&mut screen);
 
-    let shown = screen.wait_for("acme agent read:");
+    let shown = screen.wait_for("acme agent read: 1b 7d");
     assert!(shown.contains("acme agent read: 1b 7d"), "{shown}");
 }
 
@@ -189,8 +186,7 @@ fn the_order_set_is_kept_when_the_mode_is_left_and_entered_again() {
     let mut screen = split(scratch.path());
     right(&mut screen);
     side(&mut screen);
-    sleep(Duration::from_millis(100));
-    screen.draw();
+    screen.wait_until("the sidebar back", |shown| pane_corner(shown) == 40);
 
     side(&mut screen);
     screen.type_text("hi\r");
