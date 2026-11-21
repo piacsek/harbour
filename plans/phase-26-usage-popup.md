@@ -101,6 +101,8 @@ scratch tmux server at 78 by 28:
 | the private folder cannot be made (a file in its path, not its owner's) | no popup; `Could not make <folder>: <error>` |
 | the private folder exists open to others | closed to 0700 before it runs |
 | Ctrl-U, Alt-U | nothing; only `u` (or Shift-U) opens it |
+| `u` while a session is zoomed (M-z) | the sidebar is hidden and the zoomed pane has the keys, so `u` reaches that session like any letter; no popup |
+| M-z while the popup is open | sent to the popup like any other key; nothing zooms |
 | `harbour edit <file>` while it is open | `none` to an ask and a refusal to an open, as while the picker or a question waits; the popup stays |
 
 ## Tasks
@@ -109,7 +111,7 @@ scratch tmux server at 78 by 28:
    process stays behind, in the wide and the narrow layout.
 2. Keys, paste and mouse reach only the popup while it is open.
 3. Loading, printed nothing, exit code, cannot start, not `claude`; the argv and the directory.
-4. The help row, the README table, the headroom test at 3, the demo's made-up report and its
+4. The help row, the README table, the headroom test, the demo's made-up report and its
    screenshot, the fragment.
 
 ## Outcome
@@ -122,6 +124,9 @@ scratch tmux server at 78 by 28:
   and the headroom test now asks for 3 free rows.
 - `docs/usage.png` is new and `docs/keys.png` is shot again; `docs/help.png` did not change.
 - Whether `-p /usage` makes a model call or counts against the limits stays unknown.
+- Merging phase 25 (zoom) brought its `M-z` row and the same shortened `q` row. With both new
+  rows the help no longer fit beside the narrowest sidebar, so the `e` row is shortened to
+  `show the next editor, one per directory`, and the headroom test now asks for 2 free rows.
 - Review round 1: the report runs in harbour's private `usage/` folder with
   `--setting-sources user`, never in a session's folder; `harbour edit` is answered as while the
   picker waits; the popup shows `loading…` until its output is read to its end; its close is

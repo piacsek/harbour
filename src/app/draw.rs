@@ -44,6 +44,7 @@ impl App {
         self.follow_selected();
         self.screen = frame.area();
         self.log_changes();
+        self.settle_zoom();
         let (sidebar, pane) = self.areas(frame.area());
         self.sidebar = sidebar;
         let notes: Vec<Option<Ended>> = self
@@ -71,7 +72,9 @@ impl App {
         let sidebar_block = bordered(!self.pane_focused, self.accent).title(title);
         let below_rows = sidebar_block.inner(sidebar);
         let mut pane_block = bordered(self.pane_focused, self.accent);
-        if let Some(tabs) = self.tabs(pane.width) {
+        if self.zoomed {
+            pane_block = self.zoom_border(pane_block, pane.width, counts);
+        } else if let Some(tabs) = self.tabs(usize::from(pane.width.saturating_sub(2))) {
             pane_block = pane_block.title(tabs);
         }
         self.pane = pane_block.inner(if pane.is_empty() { frame.area() } else { pane });
@@ -198,11 +201,10 @@ impl App {
         (self.cursor, self.shape) = cursor;
     }
 
-    fn tabs(&self, width: u16) -> Option<Line<'static>> {
+    pub(super) fn tabs(&self, room: usize) -> Option<Line<'static>> {
         let program = self.editor.as_ref()?;
         let entry = self.sessions.get(self.selected)?;
         let directory = entry.editor().map(|editor| editor.label.as_str());
-        let room = usize::from(width.saturating_sub(2));
         let [claude, editor] = if self.nerd_font {
             tabs::iconed(program.name(), program.is_neovim(), directory, room)
         } else {

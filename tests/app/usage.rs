@@ -8,7 +8,7 @@ use crate::keeping::{remembered_after_a_while, titled};
 use crate::logging::{count, logged, only, read};
 use crate::remembering::{ID, Scratch, TITLE};
 use crate::usage_states::{app, place};
-use crate::{Screen, home, raw_agent, script};
+use crate::{Screen, home, pane_corner, raw_agent, script};
 
 const ARGS_AGENT: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/args-agent.sh");
 
@@ -228,6 +228,21 @@ fn alt_u_opens_no_popup() {
 
     let shown = screen.draw();
     assert!(!shown.contains(" usage "), "{shown}");
+}
+
+#[test]
+fn alt_z_while_the_popup_is_open_does_not_zoom_the_session() {
+    let mut screen = Screen::of(app().with_usage(reading_report()));
+    screen.press('n');
+    screen.wait_for("acme agent ready");
+    screen.press('u');
+    screen.wait_for("acme usage ready");
+
+    screen.key(KeyCode::Char('z'), KeyModifiers::ALT);
+    screen.key(KeyCode::Esc, KeyModifiers::NONE);
+
+    let shown = screen.draw();
+    assert!(pane_corner(&shown) > 0, "{shown}");
 }
 
 fn leaves_nothing_behind(width: u16) {

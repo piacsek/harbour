@@ -40,6 +40,8 @@ mod usage;
 mod usage_states;
 mod waits;
 mod width;
+mod zoom;
+mod zoom_border;
 
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;

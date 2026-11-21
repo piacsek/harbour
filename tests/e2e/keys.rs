@@ -323,6 +323,52 @@ fn ctrl_m_ctrl_shift_h_and_ctrl_shift_l_act_as_enter_ctrl_h_and_ctrl_l_with_exte
     assert!(screen.contains("claude | raw-agent.sh: "), "{screen}");
 }
 
+#[test]
+#[ignore]
+fn alt_z_zooms_the_selected_session_with_extended_keys_on() {
+    let Some((_home, server)) = two_raw_agents("ext-xterm-zoom", "xterm") else {
+        return;
+    };
+
+    server.send_keys(&["M-z", "a"]);
+
+    let screen = server.wait_until("the zoomed pane", |screen| {
+        corners(screen) == 1 && screen.contains("read:a")
+    });
+    assert_eq!(corners(&screen), 1, "{screen}");
+    assert!(screen.contains("read:a"), "{screen}");
+}
+
+#[test]
+#[ignore]
+fn alt_z_zooms_the_selected_session_in_the_csi_u_form() {
+    let Some((_home, server)) = two_raw_agents("ext-csi-u-zoom", "csi-u") else {
+        return;
+    };
+
+    server.send_keys(&["M-z", "a"]);
+
+    let screen = server.wait_until("the zoomed pane", |screen| {
+        corners(screen) == 1 && screen.contains("read:a")
+    });
+    assert_eq!(corners(&screen), 1, "{screen}");
+    assert!(screen.contains("read:a"), "{screen}");
+}
+
+#[test]
+#[ignore]
+fn alt_z_reaches_the_session_as_escape_z_with_extended_keys_off() {
+    let Some((_home, server)) = focused_raw_agent("ext-off-alt-z", "off", "xterm") else {
+        return;
+    };
+
+    server.send_keys(&["M-z"]);
+
+    let screen = server.wait_for_screen("read:^z");
+    assert!(screen.contains("read:^z"), "{screen}");
+    assert_eq!(corners(&screen), 2, "{screen}");
+}
+
 fn two_raw_agents(name: &str, format: &str) -> Option<(TempDir, Server)> {
     let (home, server) = raw_harbour(name, "on", format, "")?;
     server.send_keys(&["n"]);
@@ -395,4 +441,14 @@ fn raw_harbour(name: &str, extended: &str, format: &str, asked: &str) -> Option<
     );
     server.wait_for_screen("press n to start one");
     Some((home, server))
+}
+
+fn corners(screen: &str) -> usize {
+    screen
+        .lines()
+        .next()
+        .unwrap_or_default()
+        .chars()
+        .filter(|c| matches!(c, '┌' | '┏'))
+        .count()
 }

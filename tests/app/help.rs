@@ -33,7 +33,20 @@ fn question_mark_shows_the_editor_keys() {
     );
     assert!(shown.contains("the session and its editors"), "{shown}");
     assert!(
-        shown.contains("show the session's next editor, one per directory"),
+        shown.contains("show the next editor, one per directory"),
+        "{shown}"
+    );
+}
+
+#[test]
+fn question_mark_shows_the_zoom_key() {
+    let mut screen = Screen::new(reading_agent());
+
+    screen.press('?');
+
+    let shown = screen.draw();
+    assert!(
+        shown.contains("M-z        zoom the session to the whole screen, or back"),
         "{shown}"
     );
 }
@@ -107,13 +120,13 @@ fn the_whole_help_shows_on_a_20_row_terminal() {
 }
 
 #[test]
-fn the_help_leaves_three_rows_for_new_keys_on_a_20_row_terminal() {
+fn the_help_leaves_two_rows_for_new_keys_on_a_20_row_terminal() {
     let mut screen = Screen::new(reading_agent());
 
     screen.press('?');
 
     let shown = screen.draw();
-    assert_eq!(spare_rows(&shown), 3, "{shown}");
+    assert_eq!(spare_rows(&shown), 2, "{shown}");
 }
 
 #[test]
