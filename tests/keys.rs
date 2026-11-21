@@ -36,6 +36,14 @@ fn shift_and_enter_is_sent_as_an_escaped_carriage_return() {
 }
 
 #[test]
+fn ctrl_and_enter_is_sent_as_an_escaped_carriage_return() {
+    assert_eq!(
+        encode(with(KeyCode::Enter, KeyModifiers::CONTROL), false),
+        b"\x1b\r"
+    );
+}
+
+#[test]
 fn shift_and_tab_is_sent_as_a_back_tab() {
     assert_eq!(
         encode(with(KeyCode::BackTab, KeyModifiers::SHIFT), false),
