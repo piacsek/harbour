@@ -113,4 +113,23 @@ width minus the card's two-column indent; the narrowest sidebar (20) gives 16.
 
 ## Outcome
 
+- The third line with icons reads as the tables above: `tests/card.rs` covers each fact alone,
+  all five, none but the repository, the editor glyph going first, a glyph dropped with its
+  text (`S` at room 31), the narrowest sidebar, a CJK branch and a CJK repository, and the
+  exited and stopped cards; `tests/app/editor.rs` covers the app's side (the Neovim glyph while
+  an editor is open, none for another editor, and the icons-off card byte for byte as on
+  `main`). The existing `tests/card.rs` rows did not change.
+- The `icons` shot shows all five glyphs on one card (`docs/icons.png`); no other image changed.
+- Phase 23's known limit on one-column glyphs now covers the cards' glyphs too, rather than a
+  second line.
+- Phase 22 (#91) merged during the phase; the branch took `main` in with a merge, and its
+  metrics row's ready and merged times were written from GitHub.
+
 ## Hurdles
+
+- `test-seam` The cut, CJK and ended-card tests passed on their first run against the finished
+  join (the plain `fit` already gave most cuts); each was shown red by breaking the code it
+  covers (the glyph rule, the separator, the ended-card filter), then restored → none
+- `process` `scripts/screenshots.sh` was edited while a ship ran, and `ship.sh`'s `git add -A`
+  would have taken it into that commit; it was saved as a patch, checked out and applied again
+  after the ship → none

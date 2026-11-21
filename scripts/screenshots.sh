@@ -129,14 +129,28 @@ printf 'pub fn retry(attempts: u32) -> Backoff {\n    Backoff::exponential(attem
 exec sleep 600
 SH
 chmod +x "$home/bin/nvim"
+cat >"$home/bin/agent" <<'SH'
+#!/bin/sh
+id="5d2c8e41-7a3f-4b9e-9c1d-8f0e6a2b4c7d"
+projects="$HOME/.claude/projects/acme-api"
+mkdir -p "$HOME/.claude/sessions" "$projects/$id/subagents"
+printf '%s\n' '{"type":"ai-title","aiTitle":"Retry with backoff"}' '{"type":"pr-link","prNumber":128}' >"$projects/$id.jsonl"
+printf '%s' '{"agentType":"Explore"}' >"$projects/$id/subagents/agent-1.meta.json"
+printf '%s' '{"agentType":"Explore"}' >"$projects/$id/subagents/agent-2.meta.json"
+printf '{"status":"busy","sessionId":"%s"}' "$id" >"$HOME/.claude/sessions/$$.json"
+printf 'acme agent ready in acme-api\n'
+exec sleep 600
+SH
+chmod +x "$home/bin/agent"
+git -C "$home/acme-api" init -q -b fix-retry-backoff
 cat >"$home/.config/harbour/config.toml" <<TOML
 nerd_font = true
 picker = ["pwd"]
 editor = ["$home/bin/nvim"]
-session_command = ["sh", "-c", "printf 'acme agent ready in acme-api\\\\n'; exec sleep 600"]
+session_command = ["$home/bin/agent"]
 TOML
 shoot icons 160 26 "" "n Enter C-l" "Backoff::exponential"
-rm -r "$home/.config" "$home/bin"
+rm -rf "$home/.config" "$home/bin" "$home/.claude" "$home/acme-api/.git"
 echo "wrote $out/icons.png"
 usage="$("$bin" --help)"
 usage_rows="$(printf '%s\n' "$usage" | wc -l)"
