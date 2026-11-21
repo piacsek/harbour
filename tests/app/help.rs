@@ -59,7 +59,7 @@ fn question_mark_shows_the_side_by_side_key() {
 
     let shown = screen.draw();
     assert!(
-        shown.contains("M-\\        Claude Code beside its editor (120+ columns)"),
+        shown.contains("M-\\        side by side (120+ columns); M-{/M-} swap"),
         "{shown}"
     );
 }

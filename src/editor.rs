@@ -15,6 +15,7 @@ use crate::session::{Role, Session};
 
 const NORMAL_MODES: [&str; 2] = ["n", "nt"];
 const LEFTMOST: &str = "winnr('h') == winnr()";
+const RIGHTMOST: &str = "winnr('l') == winnr()";
 const UNSAVED: &str = "len(filter(getbufinfo({'bufmodified': 1}), \
                        {_, b -> index(['', 'acwrite'], getbufvar(b.bufnr, '&buftype')) >= 0}))";
 
@@ -141,11 +142,19 @@ impl Editor {
     }
 
     pub fn wants_ctrl_h(&self) -> bool {
+        self.keeps(LEFTMOST)
+    }
+
+    pub fn wants_ctrl_l(&self) -> bool {
+        self.keeps(RIGHTMOST)
+    }
+
+    fn keeps(&self, edge: &str) -> bool {
         match self.listening() {
             Listening::Blocking => true,
             Listening::Ready(_, _, mode) if !NORMAL_MODES.contains(&mode.as_str()) => true,
             Listening::Ready(socket, deadline, _) => {
-                self.evaluated(socket, LEFTMOST, deadline) == Some(0)
+                self.evaluated(socket, edge, deadline) == Some(0)
             }
             Listening::No => false,
         }

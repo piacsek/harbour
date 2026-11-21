@@ -40,6 +40,7 @@ mod side_border;
 mod side_jump;
 mod side_mouse;
 mod side_states;
+mod side_swap;
 mod status;
 mod stopping;
 mod switching;
