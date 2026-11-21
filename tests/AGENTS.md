@@ -24,7 +24,9 @@ these suites come from; the ones about sessions were hit in harbour.
   a test writes is a picker whose interpreter is missing. The usage popup of `u` runs the
   session command's program only when its file name is `claude`: `tests/app/usage.rs` links
   `tests/fixtures/args-agent.sh` as `claude` in a scratch directory, and every other test hands
-  the report to `App::with_usage` as a script.
+  the report to `App::with_usage` as a script. Every app that presses `u` needs
+  `App::with_usage_place` pointing under the scratch `HOME` (`usage_states::app()` does it),
+  or `u` refuses for want of a state folder.
 
 - **No test opens the real fzf or reads the real zoxide database.** `n` runs fzf over
   `zoxide query --list` unless `HARBOUR_DIR_PICKER` names another picker, and both are on the

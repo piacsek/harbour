@@ -1,7 +1,11 @@
 use std::ffi::OsStr;
+use std::fs::{self, DirBuilder, Permissions};
+use std::io;
+use std::os::unix::fs::{DirBuilderExt, MetadataExt, PermissionsExt};
 use std::path::{Path, PathBuf};
 
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers, MouseEvent};
+use nix::unistd::Uid;
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Rect};
 use ratatui::widgets::{Clear, Paragraph};
@@ -12,9 +16,11 @@ use crate::mouse::{self, Gesture, Target};
 use crate::session::{Role, Session};
 
 const ROWS: u16 = 200;
+const NO_PLACE: &str = "Usage needs a state folder; set XDG_STATE_HOME or HOME";
 
 pub(super) struct Usage {
     command: Result<Vec<String>, String>,
+    place: Option<PathBuf>,
     open: Option<Session>,
     area: Rect,
 }
@@ -23,6 +29,7 @@ impl Usage {
     pub(super) fn new(session_command: &[String]) -> Usage {
         Usage {
             command: derived(session_command),
+            place: None,
             open: None,
             area: Rect::default(),
         }
@@ -35,6 +42,15 @@ impl App {
         self
     }
 
+    pub fn with_usage_place(mut self, place: Option<PathBuf>) -> App {
+        self.usage.place = place;
+        self
+    }
+
+    pub(super) fn usage_open(&self) -> bool {
+        self.usage.open.is_some()
+    }
+
     pub(super) fn open_usage(&mut self) {
         let command = match &self.usage.command {
             Ok(command) => command.clone(),
@@ -43,10 +59,17 @@ impl App {
                 return;
             }
         };
+        let Some(directory) = self.usage.place.clone() else {
+            self.failed = Some(NO_PLACE.to_string());
+            return;
+        };
+        if let Err(error) = private(&directory) {
+            self.failed = Some(format!("Could not make {}: {error}", directory.display()));
+            return;
+        }
         let width = draw::bordered(true, self.accent)
             .inner(area(self.screen))
             .width;
-        let directory = self.usage_directory();
         match Session::start_as(Role::Picker, &command, &directory, ROWS, width) {
             Ok(session) => {
                 self.failed = None;
@@ -68,6 +91,7 @@ impl App {
                 && key.modifiers - KeyModifiers::SHIFT == KeyModifiers::NONE)
         {
             self.close_usage();
+            self.log_usage_closed();
             return true;
         }
         let bytes = super::key::beside(session, key);
@@ -109,7 +133,9 @@ impl App {
         };
         let area = area(frame.area());
         let mut block = draw::bordered(true, self.accent).title(" usage ");
-        if let Some(status) = session.exit().filter(|status| !status.success()) {
+        let drained = session.drained();
+        let finished = session.exit().filter(|_| drained).cloned();
+        if let Some(status) = finished.as_ref().filter(|status| !status.success()) {
             block = block.title(format!(" exit{} ", draw::exit_note(status)));
         }
         let inner = block.inner(area);
@@ -120,7 +146,7 @@ impl App {
         if session.printed() {
             frame.render_widget(&*session, inner);
         } else {
-            let note = if session.exit().is_some() {
+            let note = if finished.is_some() {
                 "printed nothing"
             } else {
                 "loading…"
@@ -133,14 +159,6 @@ impl App {
     fn close_usage(&mut self) {
         self.usage.open = None;
         self.gesture = Gesture::Idle;
-    }
-
-    fn usage_directory(&self) -> PathBuf {
-        self.sessions
-            .get(self.selected)
-            .map(|entry| entry.seen.clone())
-            .filter(|seen| seen.is_dir())
-            .unwrap_or_else(|| self.home.clone())
     }
 }
 
@@ -158,6 +176,8 @@ fn derived(session_command: &[String]) -> Result<Vec<String>, String> {
             program.to_string(),
             "-p".to_string(),
             "--no-session-persistence".to_string(),
+            "--setting-sources".to_string(),
+            "user".to_string(),
             "/usage".to_string(),
         ])
     } else {
@@ -165,4 +185,16 @@ fn derived(session_command: &[String]) -> Result<Vec<String>, String> {
             "Usage needs Claude Code; the session command runs {program}"
         ))
     }
+}
+
+fn private(directory: &Path) -> io::Result<()> {
+    DirBuilder::new()
+        .recursive(true)
+        .mode(0o700)
+        .create(directory)?;
+    let meta = fs::symlink_metadata(directory)?;
+    if !meta.is_dir() || meta.uid() != Uid::current().as_raw() {
+        return Err(io::ErrorKind::PermissionDenied.into());
+    }
+    fs::set_permissions(directory, Permissions::from_mode(0o700))
 }

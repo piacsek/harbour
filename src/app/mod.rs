@@ -268,6 +268,7 @@ impl App {
             .with_picker(demo::picker())
             .with_editor(demo::editor())
             .with_usage(demo::usage())
+            .with_usage_place(Some(registry.join("usage")))
             .with_memory(demo::stopped(&registry));
         app.start_with(&demo::working(&registry));
         app.start_with(&demo::blocked(&registry));

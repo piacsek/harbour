@@ -7,13 +7,14 @@ use crate::editor_ending::gone;
 use crate::keeping::{remembered_after_a_while, titled};
 use crate::logging::{count, logged, only, read};
 use crate::remembering::{ID, Scratch, TITLE};
-use crate::{Screen, home, raw_agent, reading_agent, script};
+use crate::usage_states::{app, place};
+use crate::{Screen, home, raw_agent, script};
 
 const ARGS_AGENT: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/args-agent.sh");
 
 #[test]
 fn u_opens_a_popup_with_the_usage_report() {
-    let mut screen = Screen::of(App::new(reading_agent()).with_usage(report()));
+    let mut screen = Screen::of(app().with_usage(report()));
 
     screen.press('u');
 
@@ -24,7 +25,7 @@ fn u_opens_a_popup_with_the_usage_report() {
 
 #[test]
 fn esc_closes_the_popup() {
-    let mut screen = Screen::of(App::new(reading_agent()).with_usage(report()));
+    let mut screen = Screen::of(app().with_usage(report()));
     screen.press('u');
     screen.wait_for("acme session: 12% used");
 
@@ -37,7 +38,7 @@ fn esc_closes_the_popup() {
 
 #[test]
 fn q_closes_the_popup_and_does_not_quit() {
-    let mut screen = Screen::of(App::new(reading_agent()).with_usage(report()));
+    let mut screen = Screen::of(app().with_usage(report()));
     screen.press('u');
     screen.wait_for("acme session: 12% used");
 
@@ -68,20 +69,22 @@ fn the_popup_runs_the_session_commands_claude_for_a_usage_report_without_its_arg
         "--model".to_string(),
         "acme-model".to_string(),
     ];
-    let mut screen = Screen::of(App::new(command));
+    let mut screen = Screen::of(App::new(command).with_usage_place(Some(place())));
 
     screen.press('u');
 
     let shown = screen.wait_for("acme agent args:");
     assert!(
-        shown.contains("acme agent args:[-p --no-session-persistence /usage]"),
+        shown.contains(
+            "acme agent args:[-p --no-session-persistence --setting-sources user /usage]"
+        ),
         "{shown}"
     );
 }
 
 #[test]
 fn a_session_command_that_is_not_claude_opens_no_popup_and_says_why() {
-    let mut screen = Screen::new(reading_agent());
+    let mut screen = Screen::of(app());
 
     screen.press('u');
 
@@ -97,7 +100,8 @@ fn a_session_command_that_is_not_claude_opens_no_popup_and_says_why() {
 fn a_claude_that_cannot_start_opens_no_popup_and_says_so() {
     let scratch = tempfile::tempdir().unwrap();
     let claude = scratch.path().join("claude");
-    let mut screen = Screen::new(vec![claude.display().to_string()]);
+    let app = App::new(vec![claude.display().to_string()]).with_usage_place(Some(place()));
+    let mut screen = Screen::of(app);
 
     screen.press('u');
 
@@ -108,7 +112,7 @@ fn a_claude_that_cannot_start_opens_no_popup_and_says_so() {
 
 #[test]
 fn keys_while_the_popup_is_open_reach_only_the_popup() {
-    let mut screen = Screen::of(App::new(reading_agent()).with_usage(reading_report()));
+    let mut screen = Screen::of(app().with_usage(reading_report()));
     screen.press('n');
     screen.wait_for("acme agent ready");
     screen.press('u');
@@ -127,7 +131,7 @@ fn keys_while_the_popup_is_open_reach_only_the_popup() {
 
 #[test]
 fn a_paste_while_the_popup_is_open_reaches_only_the_popup() {
-    let mut screen = Screen::of(App::new(reading_agent()).with_usage(reading_report()));
+    let mut screen = Screen::of(app().with_usage(reading_report()));
     screen.press('n');
     screen.wait_for("acme agent ready");
     screen.press('u');
@@ -144,8 +148,11 @@ fn a_paste_while_the_popup_is_open_reaches_only_the_popup() {
 
 #[test]
 fn a_click_while_the_popup_is_open_reaches_only_the_popup() {
-    let mut screen =
-        Screen::of(App::new(raw_agent("\\033[?1000h", 6)).with_usage(clicked_report()));
+    let mut screen = Screen::of(
+        App::new(raw_agent("\\033[?1000h", 6))
+            .with_usage_place(Some(place()))
+            .with_usage(clicked_report()),
+    );
     screen.press('n');
     screen.wait_for("acme agent ready");
     screen.press('u');
@@ -167,7 +174,7 @@ fn a_click_while_the_popup_is_open_reaches_only_the_popup() {
 
 #[test]
 fn u_is_logged_by_name_and_what_reaches_the_popup_by_its_byte_count_only() {
-    let (app, lines) = logged(App::new(reading_agent()).with_usage(reading_report()));
+    let (app, lines) = logged(app().with_usage(reading_report()));
     let mut screen = Screen::of(app);
     screen.press('u');
     screen.wait_for("acme usage ready");
@@ -184,10 +191,49 @@ fn u_is_logged_by_name_and_what_reaches_the_popup_by_its_byte_count_only() {
     assert_eq!(count(&lines, "acme-pasted"), 0);
 }
 
+#[test]
+fn closing_the_popup_is_logged_as_the_popups_own_event_and_not_as_a_key() {
+    let (app, lines) = logged(app().with_usage(report()));
+    let mut screen = Screen::of(app);
+    screen.press('u');
+    screen.wait_for("acme session: 12% used");
+    screen.press('q');
+    screen.press('u');
+    screen.wait_for("acme session: 12% used");
+
+    screen.key(KeyCode::Esc, KeyModifiers::NONE);
+    screen.draw();
+
+    let lines = read(&lines);
+    assert_eq!(count(&lines, " usage closed\n"), 2);
+    assert_eq!(count(&lines, " key name="), 2);
+    assert_eq!(count(&lines, r#" key name="q""#), 0);
+}
+
+#[test]
+fn ctrl_u_opens_no_popup() {
+    let mut screen = Screen::of(app().with_usage(report()));
+
+    screen.key(KeyCode::Char('u'), KeyModifiers::CONTROL);
+
+    let shown = screen.draw();
+    assert!(!shown.contains(" usage "), "{shown}");
+}
+
+#[test]
+fn alt_u_opens_no_popup() {
+    let mut screen = Screen::of(app().with_usage(report()));
+
+    screen.key(KeyCode::Char('u'), KeyModifiers::ALT);
+
+    let shown = screen.draw();
+    assert!(!shown.contains(" usage "), "{shown}");
+}
+
 fn leaves_nothing_behind(width: u16) {
     let scratch = Scratch::new();
     scratch.transcript(ID, &titled(TITLE));
-    let app = App::new(reading_agent())
+    let app = app()
         .with_registry(scratch.sessions())
         .with_transcripts(scratch.dir.path().join("claude/projects"))
         .with_memory(scratch.memory())

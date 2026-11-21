@@ -133,6 +133,11 @@ impl App {
         self.log_changes();
     }
 
+    pub(super) fn log_usage_closed(&mut self) {
+        self.logging.forwarded = true;
+        self.logging.log.write(|| "usage closed".to_string());
+    }
+
     pub(super) fn log_paste(&mut self) {
         self.logging.forwarded = false;
         self.log_changes();
