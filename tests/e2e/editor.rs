@@ -223,6 +223,27 @@ fn c_l_in_the_demo_opens_a_made_up_editor() {
 
 #[test]
 #[ignore]
+fn alt_backslash_in_the_demo_shows_its_made_up_editor_beside_claude_code() {
+    let home = tempfile::tempdir().unwrap();
+    let server = Server::start("demo-side", 160, 26);
+    if !server.server_option(&["extended-keys", "on"]) {
+        eprintln!("skipping demo-side: this tmux cannot turn extended-keys on");
+        return;
+    }
+    server.run(home.path(), &[], &["--demo"]);
+    server.wait_for_screen("acme agent");
+
+    server.send_keys(&["M-\\"]);
+
+    let screen = server.wait_for_screen("src/retry.rs");
+    let top: Vec<char> = screen.lines().next().unwrap().chars().collect();
+    assert_eq!(top[0], '┏', "{screen}");
+    assert_eq!(top[80], '┌', "{screen}");
+    assert!(screen.contains("pub fn retry"), "{screen}");
+}
+
+#[test]
+#[ignore]
 fn u_in_the_demo_shows_a_made_up_usage_report() {
     let home = tempfile::tempdir().unwrap();
     let server = Server::start("demo-usage", 160, 26);

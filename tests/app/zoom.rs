@@ -337,7 +337,7 @@ fn zoom(screen: &mut Screen) {
     screen.key(KeyCode::Char('z'), KeyModifiers::ALT);
 }
 
-fn corners(shown: &str) -> usize {
+pub(crate) fn corners(shown: &str) -> usize {
     shown
         .lines()
         .next()

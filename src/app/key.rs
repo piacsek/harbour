@@ -35,6 +35,7 @@ impl App {
         }
         if self.jump_by_key(key)
             || self.zoom_by_key(key)
+            || self.side_by_key(key)
             || self.resize_by_key(key)
             || self.find_by_key(key)
         {

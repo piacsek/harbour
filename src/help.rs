@@ -6,6 +6,7 @@ pub const KEYS: &[(&str, &str)] = &[
     ("C-1..C-9", "focus or resume that card; C-9 the last"),
     ("M-z", "zoom the session to the whole screen, or back"),
     ("M--/M-=", "narrow / widen the sidebar by 2 columns"),
+    ("M-\\", "Claude Code beside its editor (120+ columns)"),
     ("M-s", "jump to a session by part of its name"),
     ("e", "show the next editor, one per directory"),
     ("x", "end it and its editors, or forget an ended one"),
@@ -13,5 +14,3 @@ pub const KEYS: &[(&str, &str)] = &[
     ("?", "show or hide the help"),
     ("q", "quit, after a yes while anything runs"),
 ];
-
-pub const REST: &str = "harbour --help has the rest.";

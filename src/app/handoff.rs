@@ -178,7 +178,11 @@ impl App {
                         directory,
                         &self.temporary,
                         self.started,
-                        self.pane,
+                        if self.beside.is_empty() {
+                            self.pane
+                        } else {
+                            self.beside
+                        },
                         file.map(|(file, _)| file),
                     )
                     .map_err(Reply::Refused)?

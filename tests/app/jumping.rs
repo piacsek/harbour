@@ -409,7 +409,7 @@ fn live_beside_stopped(width: u16) -> (Scratch, Screen) {
     (scratch, screen)
 }
 
-fn hold(scratch: &Scratch) {
+pub(crate) fn hold(scratch: &Scratch) {
     fs::write(
         scratch
             .sessions()
@@ -419,7 +419,7 @@ fn hold(scratch: &Scratch) {
     .unwrap();
 }
 
-fn assert_sidebar_focused(screen: &mut Screen, shown: &str) {
+pub(crate) fn assert_sidebar_focused(screen: &mut Screen, shown: &str) {
     assert!(
         shown.lines().next().unwrap().starts_with("┏ sessions"),
         "{shown}"

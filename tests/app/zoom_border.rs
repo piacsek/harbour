@@ -119,21 +119,21 @@ fn zoom(screen: &mut Screen) {
     screen.key(KeyCode::Char('z'), KeyModifiers::ALT);
 }
 
-fn started(screen: &mut Screen) {
+pub(crate) fn started(screen: &mut Screen) {
     screen.press('n');
     screen.wait_for_all(&["acme-api · main", "3m"]);
 }
 
-fn top(shown: &str) -> String {
+pub(crate) fn top(shown: &str) -> String {
     shown.lines().next().unwrap_or_default().to_string()
 }
 
-struct Claude {
+pub(crate) struct Claude {
     config: tempfile::TempDir,
 }
 
 impl Claude {
-    fn new(title: &str) -> Claude {
+    pub(crate) fn new(title: &str) -> Claude {
         Claude::in_repository(title, "acme-api")
     }
 
@@ -159,7 +159,7 @@ impl Claude {
         self.config.path().join("sessions")
     }
 
-    fn app(&self) -> App {
+    pub(crate) fn app(&self) -> App {
         App::new(script(&format!(
             "printf '%s' '{{\"status\":\"busy\",\"sessionId\":\"{ID}\",\"statusUpdatedAt\":'$(( ($(date +%s) - 180) * 1000 ))'}}' > '{}'/$$.json; \
              echo 'acme agent'; exec sleep 600",

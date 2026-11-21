@@ -17,15 +17,38 @@ pub fn strip(editor: &str, directory: Option<&str>, width: usize) -> [String; 2]
     [CLAUDE.to_string(), text::fit(editor, left)]
 }
 
+pub fn claude(iconed: bool) -> String {
+    if iconed {
+        format!("{} {CLAUDE}", icons::CLAUDE)
+    } else {
+        CLAUDE.to_string()
+    }
+}
+
+pub fn editor_named(editor: &str, neovim: bool, directory: Option<&str>, width: usize) -> String {
+    let named = glyphed(editor, neovim);
+    if let Some(directory) = directory
+        && let Some(named) = with_directory(&named, directory, width)
+    {
+        return named;
+    }
+    if text::columns(&named) <= width {
+        return named;
+    }
+    if neovim {
+        return editor_named(editor, false, directory, width);
+    }
+    if width < 2 {
+        return String::new();
+    }
+    text::fit(editor, width)
+}
+
 pub fn iconed(editor: &str, neovim: bool, directory: Option<&str>, width: usize) -> [String; 2] {
-    let claude = format!("{} {CLAUDE}", icons::CLAUDE);
+    let claude = claude(true);
     let room = width.saturating_sub(SEPARATORS);
     let left = room.saturating_sub(text::columns(&claude));
-    let named = if neovim {
-        format!("{} {editor}", icons::NEOVIM)
-    } else {
-        editor.to_string()
-    };
+    let named = glyphed(editor, neovim);
     if let Some(directory) = directory
         && let Some(named) = with_directory(&named, directory, left)
     {
@@ -35,6 +58,14 @@ pub fn iconed(editor: &str, neovim: bool, directory: Option<&str>, width: usize)
         return [claude, named];
     }
     strip(editor, directory, width)
+}
+
+fn glyphed(editor: &str, neovim: bool) -> String {
+    if neovim {
+        format!("{} {editor}", icons::NEOVIM)
+    } else {
+        editor.to_string()
+    }
 }
 
 fn with_directory(editor: &str, directory: &str, left: usize) -> Option<String> {

@@ -185,7 +185,7 @@ fn picking_over_the_editor() -> Screen {
     screen
 }
 
-fn raw_editor(request: &str, length: usize) -> Program {
+pub(crate) fn raw_editor(request: &str, length: usize) -> Program {
     Program::new(
         "acme-edit",
         script(&format!(
