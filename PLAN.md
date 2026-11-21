@@ -21,6 +21,7 @@ file under `plans/`; its time and tokens are a row of [`plans/metrics.md`](plans
 | 11 | [tmux shortcuts that use the current directory follow the selected session](plans/phase-11-follow-selected-session.md) | [v0.8.0](https://github.com/piacsek/harbour/releases/tag/v0.8.0) |
 | 12 | [open a file in a session's editor from outside harbour](plans/phase-12-edit-from-outside.md) | [v0.10.0](https://github.com/piacsek/harbour/releases/tag/v0.10.0) |
 | 13 | [one review coordinator runs each pull request's review loop](plans/phase-13-review-coordinator.md) | |
+| 14 | [a log of what harbour saw and decided, turned on by `HARBOUR_LOG`](plans/phase-14-log.md) | |
 | 16 | [only the session counts above zero in the sidebar title](plans/phase-16-counts-above-zero.md) | |
 
 ## Backlog
@@ -36,6 +37,9 @@ In this order unless a retro says otherwise.
 
 ### Fixes to weigh
 
+- With the log off, skip the app's log bookkeeping on every key, paste, mouse event and frame
+  (each session's and editor's panic count is taken under its parser lock). Needs a seam a test
+  can see it through (phase 14 review).
 - Replace the terminal parser. `vt100` panics on a wide character cut by a resize and gives some
   emoji the wrong width; harbour contains its panics and keeps the modes the program turned on,
   but each one blanks a session's screen until it repaints. Weigh `alacritty_terminal` as the candidate.

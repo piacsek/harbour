@@ -103,6 +103,7 @@ fn the_whole_help_shows_on_an_80_by_24_terminal() {
     assert!(shown.contains("status unknown"), "{shown}");
     assert!(shown.contains("in normal mode."), "{shown}");
     assert!(shown.contains("use Alt-Enter for a newline."), "{shown}");
+    assert!(shown.contains("prints its path."), "{shown}");
 }
 
 #[test]
@@ -117,6 +118,7 @@ fn the_whole_help_shows_on_a_20_row_terminal() {
         "{shown}"
     );
     assert!(shown.contains("use Alt-Enter for a newline."), "{shown}");
+    assert!(shown.contains("prints its path."), "{shown}");
 }
 
 #[test]
@@ -127,7 +129,9 @@ fn question_mark_says_that_ctrl_backspace_acts_as_ctrl_h() {
 
     let shown = screen.draw();
     assert!(
-        shown.contains("Most terminals send C-Backspace as C-h, so it acts as C-h."),
+        shown.contains(
+            "C-Backspace acts as C-h. In Neovim, C-h goes back only from the leftmost window"
+        ),
         "{shown}"
     );
 }
@@ -140,6 +144,19 @@ fn question_mark_names_the_setting_for_another_dir_picker() {
 
     let shown = screen.draw();
     assert!(shown.contains("HARBOUR_DIR_PICKER"), "{shown}");
+}
+
+#[test]
+fn question_mark_names_the_setting_that_keeps_a_log() {
+    let mut screen = Screen::new(reading_agent());
+
+    screen.press('?');
+
+    let shown = screen.draw();
+    assert!(
+        shown.contains("HARBOUR_LOG=1 keeps a private log; harbour log prints its path."),
+        "{shown}"
+    );
 }
 
 #[test]

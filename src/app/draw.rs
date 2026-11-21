@@ -1,3 +1,5 @@
+use std::time::Instant;
+
 use portable_pty::ExitStatus;
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Layout, Rect};
@@ -26,6 +28,13 @@ impl App {
     }
 
     pub fn draw(&mut self, frame: &mut Frame) {
+        let began = Instant::now();
+        self.compose(frame);
+        self.log_frame(began);
+    }
+
+    fn compose(&mut self, frame: &mut Frame) {
+        self.log_start(frame.area());
         self.finish_pick();
         self.finish_editors();
         self.read_files();
@@ -33,6 +42,7 @@ impl App {
         self.serve();
         self.follow_selected();
         self.screen = frame.area();
+        self.log_changes();
         let (sidebar, pane) = self.areas(frame.area());
         self.sidebar = sidebar;
         let notes: Vec<Option<Ended>> = self

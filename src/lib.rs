@@ -7,6 +7,7 @@ pub mod follow;
 pub mod handoff;
 pub mod help;
 pub mod keys;
+pub mod log;
 pub mod memory;
 pub mod mouse;
 pub mod nvim;
