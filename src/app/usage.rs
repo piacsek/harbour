@@ -3,6 +3,7 @@ use std::fs::{self, DirBuilder, Permissions};
 use std::io;
 use std::os::unix::fs::{DirBuilderExt, MetadataExt, PermissionsExt};
 use std::path::{Path, PathBuf};
+use std::time::{Duration, Instant};
 
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers, MouseEvent};
 use nix::unistd::Uid;
@@ -16,12 +17,14 @@ use crate::mouse::{self, Gesture, Target};
 use crate::session::{Role, Session};
 
 const ROWS: u16 = 200;
+const HELD: Duration = Duration::from_millis(500);
 const NO_PLACE: &str = "Usage needs a state folder; set XDG_STATE_HOME or HOME";
 
 pub(super) struct Usage {
     command: Result<Vec<String>, String>,
     place: Option<PathBuf>,
     open: Option<Session>,
+    exited: Option<Instant>,
     area: Rect,
 }
 
@@ -31,6 +34,7 @@ impl Usage {
             command: derived(session_command),
             place: None,
             open: None,
+            exited: None,
             area: Rect::default(),
         }
     }
@@ -75,6 +79,7 @@ impl App {
                 self.failed = None;
                 self.gesture = Gesture::Idle;
                 self.usage.open = Some(session);
+                self.usage.exited = None;
             }
             Err(error) => {
                 self.failed = Some(refusal(command.first().map_or("", String::as_str), &error));
@@ -134,7 +139,12 @@ impl App {
         let area = area(frame.area());
         let mut block = draw::bordered(true, self.accent).title(" usage ");
         let drained = session.drained();
-        let finished = session.exit().filter(|_| drained).cloned();
+        let exit = session.exit().cloned();
+        if exit.is_some() && self.usage.exited.is_none() {
+            self.usage.exited = Some(Instant::now());
+        }
+        let held = self.usage.exited.is_some_and(|at| at.elapsed() >= HELD);
+        let finished = exit.filter(|_| drained || held);
         if let Some(status) = finished.as_ref().filter(|status| !status.success()) {
             block = block.title(format!(" exit{} ", draw::exit_note(status)));
         }
@@ -161,6 +171,7 @@ impl App {
 
     fn close_usage(&mut self) {
         self.usage.open = None;
+        self.usage.exited = None;
         self.gesture = Gesture::Idle;
     }
 }

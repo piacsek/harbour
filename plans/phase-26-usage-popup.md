@@ -84,7 +84,7 @@ scratch tmux server at 78 by 28:
 | `claude` slow to start | `loading…` for as long as the screen stays blank |
 | it prints and exits 0 | what it printed stays in the popup until Esc or `q` |
 | it exits 0 having printed nothing | `printed nothing`, once its output is read to its end |
-| it exits while a child it started keeps the terminal open | decided at the exit, since the exit of the PTY's leader hangs up the terminal and the output ends |
+| it exits while a child it started keeps the terminal open | decided half a second after the exit: what it printed, `printed nothing` or the exit |
 | it exits non-zero (not logged in, no network) | what it printed, and `exit <code>` in the popup's title |
 | `claude` missing or not executable | no popup; `Could not start <program>: <error>` on the message line |
 | the session command is not `claude` | no popup; `Usage needs Claude Code; the session command runs <program>` |
@@ -143,9 +143,10 @@ scratch tmux server at 78 by 28:
 - Review round 2 found no must or should; its last fixes: `U` opens the popup and `Q` closes
   it, with Shift or Caps Lock, and a finished report keeps its PTY width, so shrinking the
   terminal no longer cuts it for good. A report whose child keeps the terminal open after the
-  exit was thought to stay on `loading…`, but the exit of the PTY's leader hangs up the
-  terminal on macOS and Linux (checked in a Linux container), so the output ends at once; a test
-  pins it and no wait was added.
+  exit stayed on `loading…` on the CI runner, though not on macOS or in a local Linux
+  container: the popup now decides half a second after the exit even when the end of output
+  never comes. Half a second is far longer than reading what a finished process left in the
+  PTY takes, and short enough not to read as a hang.
 - 2 review rounds.
 
 ## Hurdles
@@ -155,4 +156,4 @@ scratch tmux server at 78 by 28:
 - `test-seam` seven of the popup's state tests were green on their first run and had to be shown red by breaking the code → none
 - `design` the first design ran the report in the session's folder, where `-p` skips the trust question and project hooks run → code
 - `test-seam` the race between seeing the exit and reading the output could not be reproduced on macOS, so its popup test is green against the old logic → none
-- `review-loop` a finding assumed a child holding the terminal keeps the output open after the exit, which a Linux container run disproved → none
+- `test-seam` a child holding the terminal after the exit kept the output open on the CI runner only, so the red run was CI's, not a local one → none
