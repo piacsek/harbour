@@ -5,6 +5,7 @@ use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use ratatui::layout::Rect;
 
 use super::jump::position;
+use super::split::widens;
 use super::zoom::is_zoom;
 use super::{App, Entry};
 use crate::handoff::{Reply, Verb};
@@ -334,6 +335,7 @@ fn named(key: KeyEvent) -> String {
         }
         _ if let Some(position) = position(key) => format!("C-{position}"),
         _ if is_zoom(key) => "M-z".to_string(),
+        KeyCode::Char(c) if widens(key).is_some() => format!("M-{c}"),
         KeyCode::Char(c) if BOUND.contains(&c) && KeyModifiers::SHIFT.contains(key.modifiers) => {
             c.to_string()
         }

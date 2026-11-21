@@ -107,6 +107,26 @@ fn the_zoom_key_is_logged_by_its_name() {
 }
 
 #[test]
+fn the_narrower_key_is_logged_by_its_name() {
+    let (app, lines) = logged(App::new(reading_agent()));
+    let mut screen = focused(app);
+
+    screen.key(KeyCode::Char('-'), KeyModifiers::ALT);
+
+    only(&read(&lines), r#" key name="M--""#);
+}
+
+#[test]
+fn the_wider_key_is_logged_by_its_name() {
+    let (app, lines) = logged(App::new(reading_agent()));
+    let mut screen = focused(app);
+
+    screen.key(KeyCode::Char('='), KeyModifiers::ALT);
+
+    only(&read(&lines), r#" key name="M-=""#);
+}
+
+#[test]
 fn a_key_harbour_binds_nothing_to_is_logged_without_its_name() {
     let (app, lines) = logged(App::new(reading_agent()));
     let mut screen = Screen::of(app);

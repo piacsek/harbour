@@ -38,6 +38,7 @@ mod switching;
 mod transcripts;
 mod waits;
 mod width;
+mod width_keys;
 mod zoom;
 mod zoom_border;
 

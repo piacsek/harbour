@@ -71,9 +71,9 @@ never receives either key.
   narrow `sidebar_width` today; not acted on.
 - **The widest sidebar is half the terminal** (`area.width / 2`, rounded down, the limit
   `sidebar_width` already has), so the pane keeps at least half.
-- **The width starts from `sidebar_width`, else a third of the terminal**, and is kept as a
-  number of columns of its own in the app (`adjusted`, never written anywhere) from the first
-  key on. Each key moves the width as drawn: narrower is `max(drawn - 2, 15)` unless drawn is
+- **The width starts from `sidebar_width`, else a third of the terminal**, and from the first
+  key on the app keeps the new number of columns in place of the configured one (in memory
+  only, never written anywhere). Each key moves the width as drawn: narrower is `max(drawn - 2, 15)` unless drawn is
   already 15 or less; wider is `min(drawn + 2, half)` unless drawn is already at half. A
   configured width under 15 stays as configured; Alt-minus does nothing there and Alt-equals
   adds 2.
@@ -106,7 +106,7 @@ never receives either key.
 | No session | the border moves; the empty pane takes the rest |
 | The terminal narrowed below the adjusted width's half | the sidebar is cut to half the new width; the number is kept |
 | The terminal widened again | the sidebar is back at the adjusted width, or half the new width when smaller |
-| A CJK card title at the narrowest sidebar | `● 修正…  3m`: 2 characters and `…` in 5 columns, cut by display width, never a half character |
+| A CJK card title at the narrowest sidebar | `▌ · 東京の倉…` in 9 columns without a time, `東京…` in 5 beside a 3-column time: cut by display width, never a half character, the border kept |
 | What each session is told, and when | at the first frame after the key, every session (shown or not) is resized to the new pane: its PTY gets the new columns, its program SIGWINCH, once; the rows never change |
 | Quit and start again | the width starts from `sidebar_width`, else a third |
 
