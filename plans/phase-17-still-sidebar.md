@@ -62,4 +62,22 @@ selected.
 
 ## Outcome
 
+- The selected card draws no line 2 in any state, and every card keeps its three rows, so a card
+  below starts on the same row whichever card is selected. Hidden in `Sidebar::draw`, which
+  already knew the selection: nothing under `src/app/` changed.
+- An unselected working card shows the last prompt, dimmed, like an idle one; with no prompt read
+  yet it shows nothing. The last tool call is no longer read: `Facts::activity`, the `assistant`
+  arm of `learn`, the `user` arm that cleared it, `prompted`, `last_tool_call` and `described`
+  are gone, with the seven transcript tests that covered them.
+- About 90 in-process app tests waited for or read line 2 of the only, so selected, card. Each
+  now starts a second card, selects another one, or waits on the sidebar title or the pane.
+- The demo's working session has a last prompt, and the `details` shot presses `j`, so the
+  blocked card is selected and the working card shows its prompt dimmed; eight screenshots
+  changed, since the selected card in each lost its line 2.
+- The help legend still says a blocked card says what it waits for: true of every card but the
+  selected one, whose pane shows the question itself.
+
 ## Hurdles
+
+- `test-seam` About 90 in-process app tests used the selected card's line 2 (`exited`, `open elsewhere`, `stopped`) as their wait signal, so hiding it broke them all at once; they now wait on the sidebar title's counts or the pane → none
+- `process` The new end-to-end test pushed `tests/e2e/main.rs` past 700 lines and the first ship of task 3 stopped at the size gate; it moved to `tests/e2e/cards.rs` → code
