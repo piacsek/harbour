@@ -5,6 +5,7 @@ use harbour::handoff::{Reply, Verb};
 
 use crate::handing::answering;
 use crate::handoff::{file, harbour, soon, start_in};
+use crate::logging::{count, logged, only, read};
 use crate::{Screen, directory, reading_agent};
 
 #[test]
@@ -320,6 +321,34 @@ fn an_open_of_harbour_edit_closes_the_view_and_shows_the_file() {
     assert_eq!(reply, Reply::Opened);
     let shown = screen.wait_for("acme nvim ready");
     assert!(!shown.contains(" changelog "), "{shown}");
+}
+
+#[test]
+fn opening_the_view_logs_it_in_place_of_the_key() {
+    let (app, lines) = logged(App::new(reading_agent()).with_changelog(&long()));
+    let mut screen = Screen::of(app);
+
+    screen.press('c');
+
+    let lines = read(&lines);
+    only(&lines, " changelog shown");
+    assert_eq!(count(&lines, " key name="), 0);
+}
+
+#[test]
+fn the_keys_inside_the_view_log_nothing() {
+    let (app, lines) = logged(App::new(reading_agent()).with_changelog(&long()));
+    let mut screen = Screen::of(app);
+    screen.press('c');
+
+    screen.press('j');
+    screen.key(KeyCode::Char('d'), KeyModifiers::CONTROL);
+    screen.press('k');
+    screen.press('x');
+
+    let lines = read(&lines);
+    only(&lines, " changelog shown");
+    assert_eq!(count(&lines, " key name="), 0);
 }
 
 const RELEASES: &str = "# Changelog\n\n## v0.2.0 (2026-11-02)\n- acme deploys retry twice\n\n## v0.1.0 (2026-11-01)\n- acme starts\n";

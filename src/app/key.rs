@@ -109,7 +109,7 @@ impl App {
             KeyCode::Char('e') => self.next_editor(),
             KeyCode::Char('?') => self.helping = true,
             KeyCode::Char('c' | 'C') if (acted.modifiers - KeyModifiers::SHIFT).is_empty() => {
-                self.reading = Some(Default::default())
+                self.show_changelog()
             }
             KeyCode::Char('u' | 'U') if (acted.modifiers - KeyModifiers::SHIFT).is_empty() => {
                 self.open_usage()

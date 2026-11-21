@@ -143,6 +143,13 @@ impl App {
         self.logging.resized = true;
     }
 
+    pub(super) fn log_changelog_key(&mut self, shown: bool) {
+        self.logging.forwarded = true;
+        if shown {
+            self.logging.log.write(|| "changelog shown".to_string());
+        }
+    }
+
     pub(super) fn log_usage_closed(&mut self) {
         self.logging.forwarded = true;
         self.logging.log.write(|| "usage closed".to_string());

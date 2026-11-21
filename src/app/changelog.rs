@@ -30,7 +30,13 @@ impl App {
             (KeyCode::Char('u'), KeyModifiers::CONTROL) => reading.up(half),
             _ => self.reading = None,
         }
+        self.log_changelog_key(false);
         true
+    }
+
+    pub(super) fn show_changelog(&mut self) {
+        self.reading = Some(Reading::default());
+        self.log_changelog_key(true);
     }
 
     pub(super) fn draw_changelog(&mut self, frame: &mut Frame) -> bool {
