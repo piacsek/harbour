@@ -1,0 +1,170 @@
+# Phase 25: zoom, the selected session on the whole screen
+
+Issue #36. Alt-z hides the sidebar and gives the selected session the whole screen; the pane's
+top border then carries what the sidebar showed about it (its dot, title, `repository · branch`
+and time) and the counts. Phase 25 is a multiple of 5, so it opens with the sweep of phases 20
+to 23 (`### Sweep` under `## Outcome`).
+
+## Verified facts
+
+- **Alt-z bytes**, captured in a scratch tmux 3.7c server (`tmux -L <scratch> -f /dev/null`,
+  `TMUX_TMPDIR` a short `mktemp -d /tmp/...` folder, since the scratchpad path makes the socket
+  path too long), by a program that turns on modifyOtherKeys 2 (`\e[>4;2m`, what harbour
+  writes) and prints every read in hex:
+
+  | tmux setup | `send-keys M-z` | `send-keys Escape z` | `send-keys -H 1b 7a` |
+  | --- | --- | --- | --- |
+  | `extended-keys on`, `extended-keys-format xterm` | `1b 5b 32 37 3b 33 3b 31 32 32 7e` (`CSI 27;3;122~`) | `1b 7a` | `1b 7a` |
+  | `extended-keys on`, `extended-keys-format csi-u` | `1b 5b 31 32 32 3b 33 75` (`CSI 122;3u`) | `1b 7a` | `1b 7a` |
+  | `extended-keys always`, xterm | `CSI 27;3;122~` | `1b 7a` | `1b 7a` |
+  | `extended-keys off` (tmux's default) | `1b 7a` | `1b 7a` | `1b 7a` |
+  | `extended-keys on`, the program did not ask | `1b 7a` | `1b 7a` | `1b 7a` |
+
+- **Esc then z typed into tmux**: bytes fed to a tmux client the way a terminal sends them (by
+  an outer tmux, and by a Python pty client after a 4 s settle). With `extended-keys on`, ESC
+  then `z` sent 0, 2, 5, 50 and 300 ms apart reached the pane as the extended Alt-z, in both
+  formats, with `escape-time` 10 and 500 alike; a lone ESC reached the pane alone only after
+  0.3 to 1.3 s. With `extended-keys off` every one arrived as one read of `1b 7a`. So inside
+  tmux, tmux itself turns a fast Esc then z into Alt-z before harbour reads a byte, and no rule
+  over bytes can tell the two apart there. Outside tmux a terminal sends ESC and `z` as two
+  keys; harbour's reader takes `ESC z` in one read as the legacy Alt-z.
+- **Harbour's reader** (`src/input.rs`) reads `CSI 27;3;122~`, `CSI 122;3u` and the legacy
+  `ESC z` as the same `KeyEvent(Char('z'), ALT)` today.
+- **Claude Code** binds no Alt-z by default: its keybindings page (code.claude.com/docs/en/keybindings,
+  read 2026-11-21) lists Meta+P, Meta+O, Meta+T, Meta+Up and Meta+Down, and Alt+V on Windows and
+  WSL, as its only Alt bindings; a user may still bind `meta+z` in `keybindings.json`. Not run.
+- **Neovim 0.12.6** reads an unmapped Alt key as Esc then the key in every mode: in a clean
+  headless Neovim, `<M-j>` fed in normal, insert and visual mode moved the cursor one line down
+  and left Neovim in normal mode each time (`:h i_ALT`, `v_ALT`, `c_ALT` document it for insert,
+  visual and cmdline mode). So `Esc zz` typed fast in a Neovim pane inside tmux with extended
+  keys reaches Neovim today as `<M-z>z`, which Neovim runs as Esc, `zz`.
+
+## Decided
+
+- **Harbour takes Alt-z only in an extended form** (`CSI 27;3;122~` or `CSI 122;3u`), and never
+  from an editor: the legacy `ESC z` and any Alt-z while the editor has focus reach the session
+  or the editor as today. The reader marks a key it read after an ESC prefix (a key state bit
+  of its own, `input::ESCAPED`), so the app can tell the two apart.
+  - Why: outside tmux, Esc then z typed fast arrives as `ESC z`, which never zooms. Inside tmux
+    no byte rule can tell them apart (above), and Neovim runs Alt-z as Esc then z in every mode,
+    so taking it from Neovim at all would steal `Esc zz`. A mode check would not help, normal
+    mode included.
+  - Cost: without extended keys (tmux's default `extended-keys off`, a terminal that ignores
+    modifyOtherKeys) Alt-z never zooms; from the editor it never zooms, so leave a zoomed editor
+    with C-h first (it shows Claude Code, still zoomed); in a Claude Code pane inside tmux with
+    extended keys, Esc then z typed within tmux's wait (seen up to 300 ms) zooms, and Claude Code
+    gets neither key. `harbour --help`, the PR body and the fragment say so.
+- Zoom is a flag of the app, `zoomed`, that holds only while the pane has focus and the selected
+  session's Claude Code runs. Each frame drops it otherwise, before the layout: C-h from Claude
+  Code (focus to the sidebar), the session exiting, a refused resume. It is never saved.
+- Alt-z from the sidebar on a running session zooms and focuses the pane; from the Claude Code
+  pane it toggles; with no session, on a stopped card or an exited one it does nothing. A
+  session never receives it (the editor rule aside).
+- Leaving zoom keeps focus on the pane; the sidebar comes back at its configured width.
+- Ctrl-1 to Ctrl-9 while zoomed jump and stay zoomed (the jump focuses the pane); `harbour edit`
+  showing another session keeps the zoom the same way. A jump to a stopped card zooms the
+  resumed session; a refused resume ends the zoom.
+- The zoomed border, in a module of its own (`src/zoom.rs`), on the pane's top border:
+  - left: the dot, the title, `repository · branch` and the time in its state, then the names
+    (`claude | <editor>: <directory>`, with icons under `nerd_font`) as today;
+  - right: the counts, by the sidebar title's rule (`state::title`, counts above zero);
+  - fitted by priority: the counts first, then the names (by the rules of `src/tabs.rs`), then
+    the session info in what is left: the time stays while the title has a column, as on the
+    card; the title and place are cut by `text::fit`; the dot alone needs 3 columns
+    (` ● `), under that the info goes.
+- The help gets one row (`M-z`), the README key table with it, and the headroom test drops to 3.
+- The log names the key `M-z` when harbour acts on it; one forwarded to the session or editor
+  is logged as input, as today.
+
+## States
+
+| State | What shows |
+| --- | --- |
+| Zoomed, a session running | the pane alone on the whole screen, its top border: dot, title, `repository · branch`, time, the names, the counts at the right |
+| Zoomed, terminal too narrow for the whole border | the counts stay; the session info is cut first (title, then place, the time while the title keeps a column), then the names by `tabs.rs`'s rules |
+| Zoomed, the narrowest width the border still fits | measured in the tests: the counts and the dot with one column of title; under that the info goes, then the names |
+| Zoomed, a CJK title and branch | cut by display width (`text::fit`), never a half character, never wider than the border |
+| Zoomed, terminal under 60 columns | today's narrow mode with the pane shown, plus the zoomed border |
+| Alt-z with no session or on a stopped card | nothing happens |
+| Alt-z on an exited session | nothing happens |
+| Alt-z while the editor has focus | the editor gets it, as today; zoom unchanged |
+| Alt-z sent as legacy `ESC z` | the session gets it, as today |
+| C-h from a zoomed Claude Code pane | zoom ends, the sidebar is back and has focus |
+| C-h from a zoomed editor | Claude Code shows, still zoomed (or Neovim takes the key, by today's rule) |
+| The zoomed session exits or is removed | zoom ends, the sidebar is back |
+| Question, help view or picker while zoomed | shown as today; zoom kept underneath (each opens only from the sidebar, so only a zoom of a session that keeps the pane can sit under them) |
+| `harbour edit` opens a file in another session while zoomed | that session is shown, still zoomed |
+| Ctrl-1 to Ctrl-9 while zoomed | the jumped-to session, still zoomed |
+| Zoom ends | the sidebar at its configured `sidebar_width`, or a third |
+| Quit and start again | not zoomed |
+
+What harbour reads from outside: only the key bytes above. A terminal or tmux without extended
+keys sends the legacy form, so Alt-z goes to the session; nothing else is read.
+
+## What a frame writes when zoom toggles
+
+1. `tui::frame` writes `ESC[?25l` (cursor hidden) first, as every frame.
+2. `compose` drops a zoom that no longer holds, then lays out: zoomed, the pane takes the whole
+   screen (no sidebar); otherwise the split as today.
+3. Every session is resized to the new pane (its program gets SIGWINCH and repaints later; until
+   then the frame shows vt100's screen cut or padded to the new size, as any width change does).
+4. The pane's block with the zoomed or plain top border, then the session's screen, then the
+   overlays (question, failure, help, picker).
+5. The cursor position is taken from the session at the new pane's origin; the shape follows.
+6. `tui::frame` sends the shape, then `MoveTo` and `Show` when the pane has focus.
+
+## Tasks
+
+1. The sweep, this plan, the `PLAN.md` and `plans/metrics.md` rows, phase 22's after-merge cells.
+2. The reader marks a key read after an ESC prefix (`input::ESCAPED`).
+3. Alt-z zooms: the flag, the layout without the sidebar, the keys (sidebar, Claude Code pane,
+   editor, legacy), the frame's settle (C-h, exit), the log name.
+4. The zoomed border (`src/zoom.rs`): info, names, counts, fitted.
+5. Help row, README key table, `harbour --help` (the rule and its cost), the e2e through tmux
+   with `extended-keys on`, the `zoom` shot, the fragment, the Layout of `AGENTS.md`.
+6. Outcome and Hurdles.
+
+## Outcome
+
+### Sweep
+
+Range: phases 20 to 23. `scripts/sweep-report.sh` starts after phase 20, the last `### Sweep`,
+so it reports phases 21 to 23; phase 20's own `## Outcome` and `## Hurdles` were read by hand.
+All four are on `main`; phase 24 was still being built. The report counted 9 hurdles for phases
+21 to 23 (`test-seam` 5, `api-shape`, `design`, `process` and `review-loop` 1 each) and phase
+20 added 1 (`test-seam`); 4 of the 10 went `→ none`. Ready, merged and released of phase 22
+were read from GitHub (phase 23's were already written). The owner decided in advance that every
+finding becomes a proposed issue or is declined, no rule and no backlog line is applied, and
+nobody is asked; the orchestrator files the issues.
+
+- A test that passed before the change existed, in all four phases: phase 20's three cursor
+  tests passed whatever their rule did (the sidebar already hid the cursor), phase 21's width
+  test asked for a third, the default, phase 22's out-of-range key drew nothing either way, phase
+  23's off path did not change. Each is a test of an absence or of a default; two were caught by
+  review, not by the red run → proposed issue.
+- A helper shipped before its first caller and stopped by the dead-code gate: phase 23 (`→ none`)
+  and, in the last range, phases 17 and 19. Twice `→ none` across two sweeps → proposed issue.
+- The help view has no spare row in the narrow layout: phase 22 freed one by shortening C-h's
+  text, and this phase meets the same wall for `M-z` → proposed issue.
+- No "Sweep due before phase 25" issue was opened: phase 25 started while phase 24 was unmerged
+  → declined: the class of #88.
+- Phase 22's end-to-end tests used Ctrl-3 as a sample key the phase then claimed → declined:
+  one-off, fixed in code; this phase checked `M-z` in the tests before taking it.
+- Phase 21's file-name rule applied to one side of each program → declined: one-off, fixed in
+  code in the round that found it.
+- Phase 22's round-1 test that did not wait between two sessions → declined: fixed in code, the
+  wait every other test already makes; load-sensitive tests are #87.
+- Phase 21's tmux colour form (`38;5;N`) → declined: a fact of tmux's capture, fixed where it
+  arose.
+
+Metrics (from `plans/metrics.md`): review rounds 1, 2, 2, 1 for phases 20 to 23; start to
+release 30 min 47 s, 1 h 29 min 41 s, 1 h 34 min 18 s and 42 min 7 s. The Claude reviewer per
+round runs from 103532 to 169182: phase 21's two rounds (157086, 169182) sit above the last
+sweep's top of 149335, phases 22 and 23 are back at 115281 to 124912; one phase, no trend.
+Builder notices: 1, 2, 2 and 1 per phase, each between 90614 and 164528, the last ship of each
+unknown. The orchestrator's context grew from 521726 (phase 20's start) to 633470 (phase 23's
+end), in one session shared by every phase of the range and a fix branch, so no two rows
+compare. Process drift: none beyond the missing sweep issue; every phase had a worktree, a
+review and a metrics row.
+
+## Hurdles
