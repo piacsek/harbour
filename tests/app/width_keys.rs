@@ -25,6 +25,24 @@ fn alt_equals_from_the_sidebar_makes_it_two_columns_wider() {
 }
 
 #[test]
+fn alt_shift_minus_narrows_it_on_a_layout_where_minus_needs_shift() {
+    let mut screen = started(30);
+
+    screen.key(KeyCode::Char('-'), KeyModifiers::ALT | KeyModifiers::SHIFT);
+
+    assert_eq!(pane_corner(&screen.draw()), 28);
+}
+
+#[test]
+fn alt_shift_equals_widens_it_on_a_layout_where_equals_needs_shift() {
+    let mut screen = started(30);
+
+    screen.key(KeyCode::Char('='), KeyModifiers::ALT | KeyModifiers::SHIFT);
+
+    assert_eq!(pane_corner(&screen.draw()), 32);
+}
+
+#[test]
 fn alt_equals_from_the_claude_code_pane_widens_the_sidebar_and_keeps_the_pane_focused() {
     let mut screen = Screen::at(
         App::new(reading_agent()).with_sidebar_width(30),
@@ -290,6 +308,50 @@ fn a_cjk_name_stays_whole_in_the_narrowest_sidebar() {
     assert_eq!(screen.cell(15, 0).symbol(), "┌");
 }
 
+#[test]
+fn an_exited_session_keeps_its_last_line_whole_after_the_width_keys() {
+    let mut screen = exited_at(88);
+
+    wider(&mut screen);
+    wider(&mut screen);
+    wider(&mut screen);
+    narrower(&mut screen);
+    narrower(&mut screen);
+    narrower(&mut screen);
+
+    let shown = screen.draw();
+    assert!(shown.contains(&line(88)), "{shown}");
+}
+
+#[test]
+fn an_exited_session_keeps_its_last_line_whole_after_the_terminal_narrows_and_widens() {
+    let mut screen = exited_at(88);
+
+    screen.resize(100, 20);
+    screen.resize(120, 20);
+
+    let shown = screen.draw();
+    assert!(shown.contains(&line(88)), "{shown}");
+}
+
+#[test]
+fn a_session_that_exits_while_zoomed_keeps_its_last_line_for_a_wider_terminal() {
+    let mut screen = Screen::at(
+        App::new(printing_at(118)).with_sidebar_width(30),
+        home(),
+        120,
+    );
+    screen.press('n');
+    zoom(&mut screen);
+    screen.wait_for("acme done");
+    screen.wait_until("the zoom to end", |shown| !shown.contains(&line(118)));
+
+    screen.resize(240, 20);
+
+    let shown = screen.draw();
+    assert!(shown.contains(&line(118)), "{shown}");
+}
+
 fn started(width: u16) -> Screen {
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = Screen::at(
@@ -312,4 +374,28 @@ fn wider(screen: &mut Screen) {
 
 fn zoom(screen: &mut Screen) {
     screen.key(KeyCode::Char('z'), KeyModifiers::ALT);
+}
+
+fn exited_at(columns: u16) -> Screen {
+    let mut screen = Screen::at(
+        App::new(printing_at(columns)).with_sidebar_width(30),
+        home(),
+        120,
+    );
+    screen.press('n');
+    screen.wait_for("acme done");
+    screen.wait_for("exited");
+    screen
+}
+
+fn printing_at(columns: u16) -> Vec<String> {
+    script(&format!(
+        "while [ \"$(stty size | cut -d' ' -f2)\" != {columns} ]; do sleep 0.05; done; \
+         printf '%s\\nacme done\\n' '{}'",
+        line(columns)
+    ))
+}
+
+fn line(columns: u16) -> String {
+    format!("{}Z", "a".repeat(usize::from(columns) - 1))
 }

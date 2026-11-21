@@ -54,7 +54,7 @@ impl App {
 }
 
 pub(super) fn widens(key: KeyEvent) -> Option<bool> {
-    if key.modifiers != KeyModifiers::ALT
+    if key.modifiers - KeyModifiers::SHIFT != KeyModifiers::ALT
         || key.kind != KeyEventKind::Press
         || key.state.contains(ESCAPED)
     {

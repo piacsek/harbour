@@ -94,6 +94,7 @@ never receives either key.
 | Sidebar and pane both shown, from the sidebar | the border moves 2 columns; every session gets its new size at the next frame |
 | Sidebar and pane both shown, from the Claude Code pane | the same; focus stays on the pane |
 | From the editor | the editor gets the key, as today; the width is unchanged |
+| Sent with Alt and Shift, on a layout where `-` or `=` needs Shift | the same as without Shift |
 | Sent as legacy `ESC -` or `ESC =` | the session gets it, as today; the width is unchanged |
 | At the narrowest, 15 columns (or a configured width under 15) | Alt-minus: nothing happens; Alt-equals: 2 columns wider |
 | At the widest, half the terminal | Alt-equals: nothing happens; Alt-minus: 2 columns narrower |
@@ -155,14 +156,23 @@ Each ship is whole: the new items ship with their caller.
   no new field. The draw still cuts it to half the terminal, so a narrower terminal shows the
   cut width and a wider one brings the kept number back. A key after a cut starts from the
   width drawn, not the number kept (60 kept at 100 columns: Alt-minus gives 48).
-- Narrowest 15: the cursor bar, the dot and its space take 4 columns, the border 1, which
-  leaves 10 for a title, enough for `東京の倉…` without a time and `東京…` beside a 3-column
+- Narrowest 15: the cursor bar, the dot and its space take 4 columns, the two border columns
+  2, which leaves 9 for a title, enough for `東京の倉…` without a time and `東京…` beside a 3-column
   time. A configured width under 15 is left as it is by Alt-minus, and Alt-equals adds 2 to it.
 - Nothing happens under 60 columns (one side shown), while zoomed (the width from before the
   zoom is back after it), or while the help, a question or the picker is shown: those take or
   dismiss every key first. Every session, shown or not, gets the new pane size at the next
   frame, one SIGWINCH each, since `compose` resizes each one only when its size changed.
 - The log names the keys `M--` and `M-=`.
+- Alt with Shift counts too, as the jump keys take Ctrl with Shift for digits: on a layout
+  where `-` or `=` needs Shift, the extended key arrives with both.
+- Review round 1: a session whose process has exited keeps the screen size it had and is
+  clipped when drawn. Before, every key, terminal resize or zoom resized its screen, a
+  narrower one cut its rows for good, and a wider one only added blanks, so its last screen
+  (often the error the user wants to read) lost its right edge. Three tests show it: the width
+  keys, the terminal narrowed and widened, and a session that exits while zoomed seen again in
+  a wider terminal (each red before the fix). Left as it is: a live program that does not
+  repaint on a resize loses what a narrower screen cut, as in a terminal without reflow.
 - The help gained the row `M--/M-=    narrow / widen the sidebar by 2 columns`. To keep the
   help whole at 59 by 20, the `x` row was shortened to `end it and its editors, or forget an
   ended one` (46 characters, the most a row holds at 59 columns). After the merge of phase 26,
@@ -188,6 +198,8 @@ Each ship is whole: the new items ship with their caller.
   several minutes with the e2e tests); the next task waits on it → none
 - `tooling` one help test asserting the old `x` row text was missed in the red run of task 4
   and only failed once the row changed → none
+- `review-loop` round 1 found that resizing an exited session's screen cut its last screen
+  for good, a path every resize had and the width keys made easy to hit → code
 - `process` phase 26 merged mid-phase and touched the same help rows, headroom test, README
   table and `docs/keys.png`; the merge needed a recount of the spare rows and a new States row
   → none
