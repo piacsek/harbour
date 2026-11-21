@@ -4,71 +4,101 @@ use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 pub enum Keyboard {
     #[default]
     Legacy,
-    Xterm,
+    XtermOne,
+    XtermTwo,
     Kitty,
 }
 
 pub fn encode_as(key: KeyEvent, application_cursor: bool, keyboard: Keyboard) -> Vec<u8> {
+    match keyboard {
+        Keyboard::Legacy => encode(key, application_cursor),
+        Keyboard::XtermOne => xterm(key, application_cursor, false),
+        Keyboard::XtermTwo => xterm(key, application_cursor, true),
+        Keyboard::Kitty => kitty(key, application_cursor),
+    }
+}
+
+fn xterm(key: KeyEvent, application_cursor: bool, every_modified_key: bool) -> Vec<u8> {
+    let ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
+    let alt = key.modifiers.contains(KeyModifiers::ALT);
+    let alt_only = alt && !ctrl && !key.modifiers.contains(KeyModifiers::SHIFT);
     let modifier = modifier_parameter(key.modifiers);
-    match (keyboard, key.code, unexpressed(key)) {
-        (Keyboard::Legacy, ..) => encode(key, application_cursor),
-        (Keyboard::Xterm, _, Some((code, modifier))) => {
-            format!("\x1b[27;{modifier};{code}~").into_bytes()
+    let long_form = every_modified_key || !alt_only;
+    let long = |code: u32, modifier: u8| format!("\x1b[27;{modifier};{code}~").into_bytes();
+    let control = match key.code {
+        KeyCode::Char(c) if ctrl && !every_modified_key => control_byte(c),
+        _ => None,
+    };
+    match (key.code, functional(key.code), control) {
+        (KeyCode::Char(_), ..) if !ctrl && !alt => encode(key, application_cursor),
+        (.., Some(byte)) if alt => vec![0x1b, byte],
+        (.., Some(byte)) => vec![byte],
+        (KeyCode::Char(c), ..) if long_form => long(u32::from(c), modifier),
+        (_, Some(code), _) if modifier > 1 && long_form => long(code, modifier),
+        (KeyCode::BackTab, ..) if every_modified_key || ctrl => {
+            long(9, modifier_parameter(key.modifiers | KeyModifiers::SHIFT))
         }
-        (Keyboard::Kitty, _, Some((code, modifier))) => {
-            format!("\x1b[{code};{modifier}u").into_bytes()
-        }
-        (Keyboard::Xterm, KeyCode::F(number @ 13..=24), None)
-            if !key.modifiers.contains(KeyModifiers::SHIFT) =>
-        {
+        (KeyCode::F(number @ 13..=24), ..) if !key.modifiers.contains(KeyModifiers::SHIFT) => {
             encode(
                 KeyEvent::new(KeyCode::F(number - 12), key.modifiers | KeyModifiers::SHIFT),
                 application_cursor,
             )
         }
-        (Keyboard::Xterm, KeyCode::F(number @ 25..=35), None) if modifier == 1 => encode(
+        (KeyCode::F(number @ 25..=35), ..) if modifier == 1 => encode(
             KeyEvent::new(KeyCode::F(number - 24), KeyModifiers::CONTROL),
             application_cursor,
         ),
-        (Keyboard::Kitty, KeyCode::F(number @ 13..=35), None) => {
-            let code = 57363 + u32::from(number);
-            if modifier > 1 {
-                format!("\x1b[{code};{modifier}u").into_bytes()
-            } else {
-                format!("\x1b[{code}u").into_bytes()
-            }
-        }
         _ => encode(key, application_cursor),
     }
 }
 
-fn unexpressed(key: KeyEvent) -> Option<(u32, u8)> {
-    let ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
-    let shift = key.modifiers.contains(KeyModifiers::SHIFT);
+fn kitty(key: KeyEvent, application_cursor: bool) -> Vec<u8> {
     let modifier = modifier_parameter(key.modifiers);
-    match key.code {
-        KeyCode::Esc if ctrl || shift => Some((27, modifier)),
-        KeyCode::Enter if ctrl || shift => Some((13, modifier)),
-        KeyCode::Tab if ctrl || shift => Some((9, modifier)),
-        KeyCode::BackTab if ctrl => {
-            Some((9, modifier_parameter(key.modifiers | KeyModifiers::SHIFT)))
+    let ctrl_or_alt = key
+        .modifiers
+        .intersects(KeyModifiers::CONTROL | KeyModifiers::ALT);
+    let csi_u = |code: u32, modifier: u8| {
+        if modifier > 1 {
+            format!("\x1b[{code};{modifier}u").into_bytes()
+        } else {
+            format!("\x1b[{code}u").into_bytes()
         }
-        KeyCode::Backspace if shift => Some((127, modifier)),
-        KeyCode::Char(c) if ctrl && c.is_ascii_uppercase() => Some((
+    };
+    match (key.code, functional(key.code)) {
+        (KeyCode::Char(c), _) if ctrl_or_alt && c.is_ascii_uppercase() => csi_u(
             u32::from(c.to_ascii_lowercase()),
             modifier_parameter(key.modifiers | KeyModifiers::SHIFT),
-        )),
-        KeyCode::Char(c) if ctrl && shift && c.is_ascii_lowercase() => {
-            Some((u32::from(c), modifier))
-        }
-        KeyCode::Char(c @ ('i' | 'm' | '[')) if ctrl => Some((u32::from(c), modifier)),
-        KeyCode::Char(c) if ctrl && !has_control_byte(c) => Some((u32::from(c), modifier)),
+        ),
+        (KeyCode::Char(c), _) if ctrl_or_alt => csi_u(u32::from(c), modifier),
+        (KeyCode::Esc, _) => csi_u(27, modifier),
+        (_, Some(code)) if modifier > 1 => csi_u(code, modifier),
+        (KeyCode::BackTab, _) => csi_u(9, modifier_parameter(key.modifiers | KeyModifiers::SHIFT)),
+        (KeyCode::F(3), _) if modifier > 1 => format!("\x1b[13;{modifier}~").into_bytes(),
+        (KeyCode::F(3), _) => b"\x1b[13~".to_vec(),
+        (KeyCode::F(number @ 13..=35), _) => csi_u(57363 + u32::from(number), modifier),
+        _ => encode(key, application_cursor),
+    }
+}
+
+fn functional(code: KeyCode) -> Option<u32> {
+    match code {
+        KeyCode::Enter => Some(13),
+        KeyCode::Tab => Some(9),
+        KeyCode::Esc => Some(27),
+        KeyCode::Backspace => Some(127),
         _ => None,
     }
 }
 
-fn has_control_byte(c: char) -> bool {
-    c.is_ascii_alphabetic() || matches!(c, ' ' | '@' | '[' | '\\' | ']' | '^' | '_')
+fn control_byte(c: char) -> Option<u8> {
+    match c {
+        ' ' | '2' => Some(0),
+        '3'..='7' => Some(c as u8 - b'3' + 0x1b),
+        '8' => Some(0x7f),
+        '/' => Some(0x1f),
+        '@'..='~' => Some(c as u8 & 0x1f),
+        _ => None,
+    }
 }
 
 pub fn encode(key: KeyEvent, application_cursor: bool) -> Vec<u8> {
@@ -171,8 +201,10 @@ impl Asked {
     pub fn keyboard(&self) -> Keyboard {
         if self.kitty & 1 == 1 {
             Keyboard::Kitty
-        } else if self.level > 0 {
-            Keyboard::Xterm
+        } else if self.level > 1 {
+            Keyboard::XtermTwo
+        } else if self.level == 1 {
+            Keyboard::XtermOne
         } else {
             Keyboard::Legacy
         }

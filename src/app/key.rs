@@ -15,7 +15,7 @@ impl App {
     }
 
     fn key_handled(&mut self, key: KeyEvent) {
-        let key = ctrl_backspace_as_ctrl_h(key);
+        let key = ctrl_shift_as_ctrl(ctrl_backspace_as_ctrl_h(key));
         if let Some(pick) = &self.picking {
             let session = pick.session();
             let bytes = beside(session, key);
@@ -37,7 +37,7 @@ impl App {
                         .filter(|editor| editor.wants_ctrl_h())
                     {
                         Some(editor) => {
-                            let bytes = keys::encode(key, false);
+                            let bytes = beside(&editor.session, key);
                             editor.session.send(&bytes);
                             self.log_input(Input::Shown, bytes.len());
                         }
@@ -67,7 +67,7 @@ impl App {
             let bytes = if on_editor {
                 beside(session, key)
             } else {
-                agent(session, key)
+                keys::encode(key, session.application_cursor())
             };
             session.send(&bytes);
             self.log_input(Input::Shown, bytes.len());
@@ -76,6 +76,7 @@ impl App {
         }
         match key.code {
             _ if is_ctrl(key, 'l') => self.focus_or_resume(),
+            _ if is_ctrl(key, 'm') => self.focus_or_resume(),
             KeyCode::Enter => self.focus_or_resume(),
             KeyCode::Char('q') => self.quit(),
             KeyCode::Char('n') => self.pick_or_start(),
@@ -172,18 +173,21 @@ fn ctrl_backspace_as_ctrl_h(key: KeyEvent) -> KeyEvent {
     }
 }
 
+fn ctrl_shift_as_ctrl(key: KeyEvent) -> KeyEvent {
+    match key.code {
+        KeyCode::Char(c @ ('h' | 'H' | 'l' | 'L'))
+            if key.modifiers - KeyModifiers::SHIFT == KeyModifiers::CONTROL =>
+        {
+            KeyEvent::new(KeyCode::Char(c.to_ascii_lowercase()), KeyModifiers::CONTROL)
+        }
+        _ => key,
+    }
+}
+
 fn beside(session: &Session, key: KeyEvent) -> Vec<u8> {
     match session.keyboard() {
         Keyboard::Legacy => keys::encode(plain_enter(key), session.application_cursor()),
         keyboard => keys::encode_as(key, session.application_cursor(), keyboard),
-    }
-}
-
-fn agent(session: &Session, key: KeyEvent) -> Vec<u8> {
-    if key.code == KeyCode::Enter || is_ctrl(key, 'm') {
-        keys::encode(key, session.application_cursor())
-    } else {
-        keys::encode_as(key, session.application_cursor(), session.keyboard())
     }
 }
 

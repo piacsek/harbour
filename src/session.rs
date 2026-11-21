@@ -34,6 +34,13 @@ pub struct Session {
     exit: Option<ExitStatus>,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Role {
+    Agent,
+    Picker,
+    Editor,
+}
+
 impl Session {
     pub fn start<S: AsRef<OsStr>>(
         command: &[S],
@@ -41,16 +48,17 @@ impl Session {
         rows: u16,
         cols: u16,
     ) -> io::Result<Session> {
-        Session::spawn(command, directory, rows, cols, false)
+        Session::spawn(command, directory, rows, cols, Role::Agent)
     }
 
-    pub fn start_keeping_tmux<S: AsRef<OsStr>>(
+    pub fn start_as<S: AsRef<OsStr>>(
+        role: Role,
         command: &[S],
         directory: &Path,
         rows: u16,
         cols: u16,
     ) -> io::Result<Session> {
-        Session::spawn(command, directory, rows, cols, true)
+        Session::spawn(command, directory, rows, cols, role)
     }
 
     fn spawn<S: AsRef<OsStr>>(
@@ -58,7 +66,7 @@ impl Session {
         directory: &Path,
         rows: u16,
         cols: u16,
-        keeping_tmux: bool,
+        role: Role,
     ) -> io::Result<Session> {
         if !directory.is_dir() {
             return Err(io::Error::new(
@@ -79,7 +87,7 @@ impl Session {
         builder.args(&command[1..]);
         builder.cwd(directory);
         builder.env("PWD", directory);
-        if !keeping_tmux {
+        if role != Role::Editor {
             builder.env_remove("TMUX");
             builder.env_remove("TMUX_PANE");
         }
@@ -96,7 +104,10 @@ impl Session {
             rows,
             cols,
             0,
-            Replies::default(),
+            Replies {
+                asked: (role != Role::Agent).then(Asked::default),
+                ..Replies::default()
+            },
         )));
         let shared = Arc::clone(&parser);
         let replier = writer.clone();
@@ -110,7 +121,7 @@ impl Session {
                     for (segment, reset) in segments(&buffer[..read], escaped) {
                         contained(&mut parser, rows, cols, |parser| parser.process(segment));
                         if reset {
-                            parser.callbacks_mut().asked = Asked::default();
+                            parser.callbacks_mut().forget_asked();
                         }
                     }
                     escaped = buffer[read - 1] == 0x1b;
@@ -120,7 +131,7 @@ impl Session {
                     let _ = replier.send(replies);
                 }
             }
-            shared.lock().unwrap().callbacks_mut().asked = Asked::default();
+            shared.lock().unwrap().callbacks_mut().forget_asked();
         });
         Ok(Session {
             parser,
@@ -212,7 +223,13 @@ impl Session {
     }
 
     pub fn keyboard(&self) -> Keyboard {
-        self.parser.lock().unwrap().callbacks().asked.keyboard()
+        self.parser
+            .lock()
+            .unwrap()
+            .callbacks()
+            .asked
+            .as_ref()
+            .map_or(Keyboard::Legacy, Asked::keyboard)
     }
 
     pub fn cursor_shape(&self) -> u8 {
@@ -364,8 +381,16 @@ struct Replies {
     bytes: Vec<u8>,
     repaint: bool,
     panics: usize,
-    asked: Asked,
+    asked: Option<Asked>,
     shape: u8,
+}
+
+impl Replies {
+    fn forget_asked(&mut self) {
+        if let Some(asked) = &mut self.asked {
+            *asked = Asked::default();
+        }
+    }
 }
 
 impl vt100::Callbacks for Replies {
@@ -377,7 +402,11 @@ impl vt100::Callbacks for Replies {
         parameters: &[&[u16]],
         last: char,
     ) {
-        if let Some(reply) = self.asked.csi(first, parameters, last) {
+        if let Some(reply) = self
+            .asked
+            .as_mut()
+            .and_then(|asked| asked.csi(first, parameters, last))
+        {
             self.bytes.extend(reply);
             return;
         }
