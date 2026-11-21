@@ -54,6 +54,28 @@ impl App {
         self.pane_focused = true;
     }
 
+    pub(super) fn stay_side(&mut self) {
+        self.side_by_side = false;
+        let Some(entry) = self.sessions.get(self.selected) else {
+            return;
+        };
+        if !self.pane_focused || entry.ended() {
+            return;
+        }
+        let on_editor = entry.on_editor;
+        self.failed = None;
+        self.open_editor();
+        let entry = &mut self.sessions[self.selected];
+        if self.failed.is_some() || entry.editor().is_none() {
+            entry.on_editor = false;
+            self.zoomed = true;
+            return;
+        }
+        entry.on_editor = on_editor;
+        self.side_by_side = true;
+        self.zoomed = false;
+    }
+
     pub(super) fn side_mouse(&mut self, event: MouseEvent) -> bool {
         if self.beside.is_empty() {
             return false;

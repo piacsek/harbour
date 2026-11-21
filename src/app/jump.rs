@@ -11,8 +11,7 @@ impl App {
         self.select(index);
         self.focus_or_resume();
         if side {
-            self.side_by_side = false;
-            self.enter_side();
+            self.stay_side();
         }
     }
 

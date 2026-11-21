@@ -203,8 +203,15 @@ default is shown red by breaking the code it covers, then restored, and said so.
 - Under 120 columns Alt-\ does nothing; a terminal that shrinks below 120 while side by side
   shows the focused half alone with the zoom border, and the split comes back when it widens.
 - Each frame drops the mode once the pane loses focus, the session ends or no session is
-  selected; with no editor left it turns into a zoom. Ctrl-1 to Ctrl-9 keep the mode for the
-  session they show.
+  selected; with no editor left it turns into a zoom.
+- A jump while side by side (Ctrl-1 to Ctrl-9, a pick from phase 28's session finder, a stopped
+  card that resumes) has its own rule, `stay_side` in `src/app/side.rs`, beside Alt-\'s
+  `enter_side`: the target keeps the mode and the half it last had focused; with an editor that
+  cannot start, its Claude Code shows alone as Alt-z shows it, with the message; under 120 columns
+  the mode stays, the focused half alone, and splits again once the terminal widens. A jump to an
+  exited session or a refused resume ends the mode with the sidebar back. Review round 1 found
+  that the jump had reused `enter_side`, which focused Claude Code, needed 120 columns and dropped
+  the mode on a failed start.
 - The borders: the headline and `claude` over the left half, the editor's name and directory and
   the counts over the right, the focused half's names bold. The mode lives in `src/app/side.rs`;
   `src/tabs.rs` gained `claude` and `editor_named`.
@@ -212,13 +219,20 @@ default is shown red by breaking the code it covers, then restored, and said so.
   help no spare row on a 20-row terminal, so after merging it the pointer line (`harbour --help
   has the rest.`) went: the dots legend now ends the help, which again fills all 20 rows with no
   row to spare; issue #98 tracks the lasting fix. The log names the key `M-\`.
-- A pick from phase 28's session finder while side by side shows the picked session side by side,
-  through the same `jump` Ctrl-1 to Ctrl-9 use.
 - `docs/side-by-side.png` is the new `side-by-side` shot; `docs/keys.png` and `docs/help.png`
   changed with the help.
-- Not covered by a test: `harbour edit` opening a file while side by side keeps the mode (read
-  from the code: the holder's editor is shown and the selection kept, and the settle keeps the
-  mode while that editor runs).
+- Review round 1 went through the States table row by row: 14 of its 31 rows had no test, or
+  none in the mode (the first row with the editor already running, Alt-\ and the width keys from
+  the editor half, the extended-keys editor, the three jump rows, the exited jump, `harbour edit`
+  into another and into the same session, u and the finder's Esc, `sidebar_width`, `accent`, the
+  demo, the exited screen's size, quitting). Each now has one in `tests/app/side_jump.rs`,
+  `tests/app/side_states.rs` or `tests/e2e/editor.rs`, except two with none possible: an exited
+  screen keeping its size (row "An exited session's screen in the split", and the same clause of
+  "The session exits while side by side") is not observable, since a dead program answers no
+  `SIGWINCH` and vt100's size is not exposed to the tests; and "Quit and start again" holds
+  because nothing persists the mode, so there is nothing to read back. `nerd_font` names are
+  covered by `tests/tabs.rs`; C-h from a Neovim half rests on `wants_ctrl_h`, covered by the
+  Neovim tests outside the mode.
 
 ## Hurdles
 
@@ -226,5 +240,8 @@ default is shown red by breaking the code it covers, then restored, and said so.
   existing row had to be shortened, and after phase 28 merged the pointer line went → code
 - `process` phase 28, built in parallel, edits the same help rows, README table, screenshots and
   AGENTS.md lines, so this branch waits for its merge to resolve them → none
+- `review-loop` the jump reused Alt-\'s `enter_side`, so review round 1 found three holes in that
+  one mechanism (the focus, a failed start, under 120 columns); the jump got its own rule instead
+  of three patches → code
 - `tooling` foreground waits are blocked or moved to the background, so a ship is waited on with
   an until-loop, with no edits while `ship.sh` stages → none

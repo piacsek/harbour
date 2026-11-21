@@ -385,11 +385,11 @@ fn zoom(screen: &mut Screen) {
     screen.key(KeyCode::Char('z'), KeyModifiers::ALT);
 }
 
-fn side(screen: &mut Screen) {
+pub(crate) fn side(screen: &mut Screen) {
     screen.key(KeyCode::Char('\\'), KeyModifiers::ALT);
 }
 
-fn editing(scratch: &Path) -> Screen {
+pub(crate) fn editing(scratch: &Path) -> Screen {
     let editor = Program::new("acme-edit", editor());
     let mut screen = Screen::editing(agent(scratch), editor);
     screen.press('n');
@@ -397,7 +397,7 @@ fn editing(scratch: &Path) -> Screen {
     screen
 }
 
-fn agent(scratch: &Path) -> Vec<String> {
+pub(crate) fn agent(scratch: &Path) -> Vec<String> {
     let count = scratch.join("count");
     script(&format!(
         "n=$(($(cat '{count}' 2>/dev/null || echo 0) + 1)); echo $n > '{count}'; \
@@ -408,7 +408,7 @@ fn agent(scratch: &Path) -> Vec<String> {
     ))
 }
 
-fn editor() -> Vec<String> {
+pub(crate) fn editor() -> Vec<String> {
     script(
         "trap 'echo \"acme editor size: $(stty size)\"' WINCH; \
          echo \"acme editor ready $(stty size)\"; \
