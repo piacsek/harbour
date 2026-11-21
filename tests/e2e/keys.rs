@@ -371,6 +371,52 @@ fn alt_z_reaches_the_session_as_escape_z_with_extended_keys_off() {
 
 #[test]
 #[ignore]
+fn alt_backslash_shows_claude_code_beside_its_editor_with_extended_keys_on() {
+    let Some((_home, server)) = focused_raw_agent("ext-xterm-side", "on", "xterm") else {
+        return;
+    };
+
+    server.send_keys(&["M-\\", "a"]);
+
+    let screen = server.wait_until("side by side", |screen| {
+        pane_corner(screen) == Some(80) && screen.contains("read:a")
+    });
+    assert_eq!(pane_corner(&screen), Some(80), "{screen}");
+    assert_eq!(corners(&screen), 2, "{screen}");
+}
+
+#[test]
+#[ignore]
+fn alt_backslash_shows_claude_code_beside_its_editor_in_the_csi_u_form() {
+    let Some((_home, server)) = focused_raw_agent("ext-csi-u-side", "on", "csi-u") else {
+        return;
+    };
+
+    server.send_keys(&["M-\\", "a"]);
+
+    let screen = server.wait_until("side by side", |screen| {
+        pane_corner(screen) == Some(80) && screen.contains("read:a")
+    });
+    assert_eq!(pane_corner(&screen), Some(80), "{screen}");
+    assert_eq!(corners(&screen), 2, "{screen}");
+}
+
+#[test]
+#[ignore]
+fn alt_backslash_reaches_the_session_as_escape_backslash_with_extended_keys_off() {
+    let Some((_home, server)) = focused_raw_agent("ext-off-side", "off", "xterm") else {
+        return;
+    };
+
+    server.send_keys(&["M-\\"]);
+
+    let screen = server.wait_for_screen("read:^\\");
+    assert!(screen.contains("read:^\\"), "{screen}");
+    assert_ne!(pane_corner(&screen), Some(80), "{screen}");
+}
+
+#[test]
+#[ignore]
 fn alt_equals_widens_the_sidebar_with_extended_keys_on() {
     let Some((_home, server)) = focused_raw_agent("ext-xterm-wider", "on", "xterm") else {
         return;

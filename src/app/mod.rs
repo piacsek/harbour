@@ -14,6 +14,7 @@ mod key;
 mod logging;
 mod read;
 mod remember;
+mod side;
 mod split;
 mod usage;
 mod zoom;
@@ -54,6 +55,7 @@ pub struct App {
     named: usize,
     pane: Rect,
     shown_pane: Rect,
+    beside: Rect,
     sidebar: Rect,
     cards: Sidebar,
     accent: Color,
@@ -61,6 +63,7 @@ pub struct App {
     sidebar_width: Option<u16>,
     pane_focused: bool,
     zoomed: bool,
+    side_by_side: bool,
     gesture: Gesture,
     failed: Option<String>,
     asking: Option<Question>,
@@ -178,6 +181,7 @@ impl App {
             named: 0,
             pane: Rect::new(0, 0, 80, 24),
             shown_pane: Rect::default(),
+            beside: Rect::default(),
             sidebar: Rect::default(),
             cards: Sidebar::default(),
             accent: Color::Cyan,
@@ -185,6 +189,7 @@ impl App {
             sidebar_width: None,
             pane_focused: false,
             zoomed: false,
+            side_by_side: false,
             gesture: Gesture::Idle,
             failed: None,
             asking: None,
@@ -356,6 +361,9 @@ impl App {
             if matches!(event.kind, MouseEventKind::Down(_)) {
                 self.dismiss(false);
             }
+            return;
+        }
+        if self.side_mouse(event) {
             return;
         }
         let at = Position::new(event.column, event.row);
