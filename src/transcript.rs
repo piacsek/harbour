@@ -16,7 +16,6 @@ const SHOWN: usize = 4096;
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Facts {
     pub title: Option<String>,
-    pub activity: Option<String>,
     pub prompt: Option<String>,
     pub branch: Option<String>,
     pub directory: Option<PathBuf>,
@@ -241,14 +240,6 @@ impl Transcript {
                     self.facts.pull_request = Some(number);
                 }
             }
-            Some("assistant") => {
-                if let Some(activity) =
-                    last_tool_call(fields).filter(|call| !call.trim().is_empty())
-                {
-                    self.facts.activity = Some(shown(&activity));
-                }
-            }
-            Some("user") if prompted(fields) => self.facts.activity = None,
             _ => {}
         }
     }
@@ -277,54 +268,12 @@ fn plain(id: &str) -> bool {
             .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
 }
 
-fn prompted(fields: &Map<String, Value>) -> bool {
-    match fields
-        .get("message")
-        .and_then(|message| message.get("content"))
-    {
-        Some(Value::String(_)) => true,
-        Some(Value::Array(items)) => {
-            !items.is_empty()
-                && !items
-                    .iter()
-                    .any(|item| item.get("type").and_then(Value::as_str) == Some("tool_result"))
-        }
-        _ => false,
-    }
-}
-
 fn shown(text: &str) -> String {
     let mut end = text.len().min(SHOWN);
     while !text.is_char_boundary(end) {
         end -= 1;
     }
     text[..end].to_string()
-}
-
-fn last_tool_call(fields: &Map<String, Value>) -> Option<String> {
-    fields
-        .get("message")?
-        .get("content")?
-        .as_array()?
-        .iter()
-        .rev()
-        .filter(|item| item.get("type").and_then(Value::as_str) == Some("tool_use"))
-        .find_map(described)
-}
-
-fn described(call: &Value) -> Option<String> {
-    let name = call.get("name").and_then(Value::as_str)?;
-    let input = call.get("input").and_then(Value::as_object);
-    ["description", "command", "file_path"]
-        .iter()
-        .find_map(|key| {
-            input
-                .and_then(|input| input.get(*key))
-                .and_then(Value::as_str)
-                .filter(|value| !value.trim().is_empty())
-        })
-        .or(Some(name))
-        .map(str::to_string)
 }
 
 enum Meta {

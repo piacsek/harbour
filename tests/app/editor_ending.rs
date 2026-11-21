@@ -38,6 +38,18 @@ fn the_editor_of_an_exited_session_is_not_dimmed() {
 }
 
 #[test]
+fn an_exited_session_shows_its_exit_beside_its_editor() {
+    let scratch = tempfile::tempdir().unwrap();
+    let mut screen = with_exited_agent(scratch.path());
+    screen.key(KeyCode::Enter, KeyModifiers::NONE);
+
+    screen.key(KeyCode::Char('l'), KeyModifiers::CONTROL);
+
+    let shown = screen.wait_for("acme editor ready");
+    assert_eq!(below(&shown, "acme-home 1"), "exited");
+}
+
+#[test]
 fn x_on_an_exited_session_whose_editor_runs_asks_first() {
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = with_exited_agent(scratch.path());

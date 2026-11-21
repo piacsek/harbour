@@ -17,7 +17,29 @@ const RESUMABLE_AGENT: &str = concat!(
 
 #[test]
 #[ignore]
-fn a_card_shows_the_title_and_activity_from_the_sessions_transcript() {
+fn the_demo_shows_the_last_prompt_of_its_working_session_once_another_card_is_selected() {
+    let home = tempfile::tempdir().unwrap();
+    let server = Server::start("demo-prompt", 160, 26);
+    server.run(home.path(), &[], &["--demo"]);
+    server.wait_for_screen("permission prompt");
+
+    server.send_keys(&["j"]);
+
+    let screen = server.wait_for_screen("Do you want to proceed?");
+    let prompt = screen
+        .lines()
+        .skip_while(|line| !line.contains("● Fix the flaky retry test"))
+        .nth(1)
+        .unwrap_or_default();
+    assert!(
+        prompt.starts_with("┃    fix the flaky retry test in acme/api"),
+        "{screen}"
+    );
+}
+
+#[test]
+#[ignore]
+fn a_card_shows_the_title_from_the_sessions_transcript_and_never_its_last_tool_call() {
     let home = tempfile::tempdir().unwrap();
     let config = tempfile::tempdir().unwrap();
     let config_dir = config.path().display().to_string();
@@ -33,10 +55,13 @@ fn a_card_shows_the_title_and_activity_from_the_sessions_transcript() {
     server.wait_for_screen("press n to start one");
 
     server.send_keys(&["n"]);
+    server.wait_for_screen("● Fix the flaky login test");
+    server.send_keys(&["n"]);
 
-    let screen = server.wait_for_screen_all(&["Fix the flaky login test", "Run the login tests"]);
-    assert!(screen.contains("● Fix the flaky login test"), "{screen}");
-    assert!(screen.contains("Run the login tests"), "{screen}");
+    let screen = server.wait_until("two titled cards", |screen| {
+        screen.matches("● Fix the flaky login test").count() == 2
+    });
+    assert!(!screen.contains("Run the login tests"), "{screen}");
 }
 
 #[test]
