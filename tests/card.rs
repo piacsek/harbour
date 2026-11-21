@@ -173,7 +173,6 @@ fn sidebar(cards: &[Card], selected: usize, width: u16) -> (Vec<String>, Buffer)
 fn working(prompt: &str) -> Card {
     let facts = Facts {
         prompt: Some(prompt.to_string()),
-        activity: Some("Run the retry tests".to_string()),
         ..Facts::default()
     };
     card(Status::Busy, None, &facts)
