@@ -38,6 +38,7 @@ mod switching;
 mod transcripts;
 mod waits;
 mod width;
+mod zoom;
 
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;

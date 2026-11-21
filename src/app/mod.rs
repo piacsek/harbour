@@ -14,6 +14,7 @@ mod logging;
 mod read;
 mod remember;
 mod split;
+mod zoom;
 
 use draw::exit_note;
 use logging::Input;
@@ -55,6 +56,7 @@ pub struct App {
     nerd_font: bool,
     sidebar_width: Option<u16>,
     pane_focused: bool,
+    zoomed: bool,
     gesture: Gesture,
     failed: Option<String>,
     asking: Option<Question>,
@@ -175,6 +177,7 @@ impl App {
             nerd_font: false,
             sidebar_width: None,
             pane_focused: false,
+            zoomed: false,
             gesture: Gesture::Idle,
             failed: None,
             asking: None,

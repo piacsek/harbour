@@ -3,9 +3,9 @@ use std::os::fd::AsFd;
 use std::time::Duration;
 
 use crossterm::event::{
-    Event, KeyCode, KeyEvent, KeyModifiers, MouseButton, MouseEvent, MouseEventKind,
+    Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseButton, MouseEvent, MouseEventKind,
 };
-use harbour::input::Input;
+use harbour::input::{ESCAPED, Input};
 
 #[test]
 fn legacy_keys_read_as_before() {
@@ -59,10 +59,13 @@ fn legacy_control_keys_read_as_before() {
 fn legacy_modified_keys_read_as_before() {
     assert_eq!(
         parsed(b"\x1ba"),
-        [with(KeyCode::Char('a'), KeyModifiers::ALT)]
+        [escaped(KeyCode::Char('a'), KeyModifiers::ALT)]
     );
-    assert_eq!(parsed(b"\x1b\r"), [with(KeyCode::Enter, KeyModifiers::ALT)]);
-    assert_eq!(parsed(b"\x1b\x01"), [with(KeyCode::Char('a'), ALT_CTRL)]);
+    assert_eq!(
+        parsed(b"\x1b\r"),
+        [escaped(KeyCode::Enter, KeyModifiers::ALT)]
+    );
+    assert_eq!(parsed(b"\x1b\x01"), [escaped(KeyCode::Char('a'), ALT_CTRL)]);
     assert_eq!(
         parsed(b"\x1b[1;5A"),
         [with(KeyCode::Up, KeyModifiers::CONTROL)]
@@ -74,6 +77,22 @@ fn legacy_modified_keys_read_as_before() {
     assert_eq!(
         parsed(b"\x1b[5;5~"),
         [with(KeyCode::PageUp, KeyModifiers::CONTROL)]
+    );
+}
+
+#[test]
+fn alt_z_read_after_an_escape_is_marked_and_the_extended_forms_are_not() {
+    assert_eq!(
+        parsed(b"\x1bz"),
+        [escaped(KeyCode::Char('z'), KeyModifiers::ALT)]
+    );
+    assert_eq!(
+        parsed(b"\x1b[27;3;122~"),
+        [with(KeyCode::Char('z'), KeyModifiers::ALT)]
+    );
+    assert_eq!(
+        parsed(b"\x1b[122;3u"),
+        [with(KeyCode::Char('z'), KeyModifiers::ALT)]
     );
 }
 
@@ -367,6 +386,15 @@ fn ctrl(c: char) -> Event {
 
 fn with(code: KeyCode, modifiers: KeyModifiers) -> Event {
     Event::Key(KeyEvent::new(code, modifiers))
+}
+
+fn escaped(code: KeyCode, modifiers: KeyModifiers) -> Event {
+    Event::Key(KeyEvent::new_with_kind_and_state(
+        code,
+        modifiers,
+        KeyEventKind::Press,
+        ESCAPED,
+    ))
 }
 
 fn mouse(kind: MouseEventKind, column: u16, row: u16, modifiers: KeyModifiers) -> Event {

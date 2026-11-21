@@ -97,6 +97,16 @@ fn a_jump_key_with_shift_is_logged_as_the_jump_key() {
 }
 
 #[test]
+fn the_zoom_key_is_logged_by_its_name() {
+    let (app, lines) = logged(App::new(reading_agent()));
+    let mut screen = focused(app);
+
+    screen.key(KeyCode::Char('z'), KeyModifiers::ALT);
+
+    only(&read(&lines), r#" key name="M-z""#);
+}
+
+#[test]
 fn a_key_harbour_binds_nothing_to_is_logged_without_its_name() {
     let (app, lines) = logged(App::new(reading_agent()));
     let mut screen = Screen::of(app);

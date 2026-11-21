@@ -6,7 +6,9 @@ const NARROW: u16 = 60;
 
 impl App {
     pub(super) fn areas(&self, area: Rect) -> (Rect, Rect) {
-        if area.width >= NARROW {
+        if self.zoomed {
+            (Rect::default(), area)
+        } else if area.width >= NARROW {
             two_columns(area, self.sidebar_width)
         } else {
             self.one_side(area)
