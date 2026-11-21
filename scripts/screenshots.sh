@@ -164,6 +164,30 @@ TOML
 shoot icons 160 26 "" "n Enter C-l" "Backoff::exponential"
 rm -rf "$home/.config" "$home/bin" "$home/.claude" "$home/acme-api/.git"
 echo "wrote $out/icons.png"
+released="$home/released"
+mkdir -p "$released"
+cp -R "$root/src" "$root/Cargo.toml" "$root/Cargo.lock" "$root/rust-toolchain.toml" "$released/"
+cat >"$released/CHANGELOG.md" <<'MD'
+# Changelog
+
+## v0.3.0 (2026-11-20)
+- `c` in the sidebar shows what changed in each release, newest first, over the whole screen.
+- A deploy of acme-api that fails on a flaky registry retries twice with backoff before the
+  card says it failed, so a short outage no longer ends the session's work.
+
+## v0.2.1 (2026-11-12)
+- The card of a session waiting on acme-web says what it waits for.
+
+## v0.2.0 (2026-11-03)
+- `harbour status` prints the blocked, working and idle counts for the tmux status line.
+- Conversations come back as stopped cards after harbour restarts, and Enter resumes one.
+MD
+(cd "$released" && cargo build --release --target-dir "$root/target/released")
+built="$bin"
+bin="$root/target/released/release/harbour"
+shoot changelog 160 26 --demo "c" "v0.2.0 (2026-11-03)"
+bin="$built"
+echo "wrote $out/changelog.png"
 usage="$("$bin" --help)"
 usage_rows="$(printf '%s\n' "$usage" | wc -l)"
 shoot help 160 "$((usage_rows + 1))" --help ""

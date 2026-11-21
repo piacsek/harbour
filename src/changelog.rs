@@ -1,4 +1,11 @@
+use ratatui::style::Stylize;
+use ratatui::text::Line;
+
+use crate::text;
+
 pub const CHANGELOG: &str = include_str!("../CHANGELOG.md");
+
+const NO_NOTES: &str = "This build has no release notes.";
 
 const UNRELEASED: &str = "0.0.0";
 
@@ -129,4 +136,82 @@ pub fn check_released(text: &str, released: &[&str], current: &str) -> Result<()
         )),
         None => Ok(()),
     }
+}
+
+pub fn shown(changelog: &str, width: usize) -> Vec<Line<'static>> {
+    let mut lines = Vec::new();
+    let mut bullet: Option<String> = None;
+    let mut released = false;
+    for line in changelog.lines() {
+        if let Some(more) = bullet.as_mut()
+            && line.starts_with(char::is_whitespace)
+            && !line.trim().is_empty()
+        {
+            more.push(' ');
+            more.push_str(line.trim());
+            continue;
+        }
+        if let Some(done) = bullet.take() {
+            lines.extend(hanging(&done, width));
+        }
+        if let Some(rest) = line.strip_prefix("- ") {
+            bullet = Some(rest.trim().to_string());
+        } else if let Some(heading) = heading(line) {
+            released |= line.starts_with("## ");
+            lines.extend(
+                text::wrap(&unquoted(heading), width)
+                    .into_iter()
+                    .map(|part| Line::from(part).bold()),
+            );
+        } else if line.trim().is_empty() {
+            lines.push(Line::default());
+        } else {
+            lines.extend(
+                text::wrap(&unquoted(line), width)
+                    .into_iter()
+                    .map(Line::from),
+            );
+        }
+    }
+    if let Some(done) = bullet {
+        lines.extend(hanging(&done, width));
+    }
+    if !released {
+        lines.push(Line::default());
+        lines.push(Line::from(NO_NOTES).dim());
+    }
+    lines
+}
+
+fn heading(line: &str) -> Option<&str> {
+    let rest = line.trim_start_matches('#');
+    (rest.len() < line.len())
+        .then(|| rest.strip_prefix(' '))
+        .flatten()
+}
+
+fn unquoted(line: &str) -> String {
+    let mut shown = String::new();
+    let mut rest = line;
+    while let Some((before, after)) = rest.split_once('`') {
+        let Some((code, next)) = after.split_once('`') else {
+            break;
+        };
+        shown.push_str(before);
+        shown.push_str(code);
+        rest = next;
+    }
+    shown.push_str(rest);
+    shown
+}
+
+fn hanging(bullet: &str, width: usize) -> Vec<Line<'static>> {
+    text::wrap(&unquoted(bullet), width.saturating_sub(2))
+        .into_iter()
+        .enumerate()
+        .map(|(index, part)| {
+            let lead = if index == 0 { "- " } else { "  " };
+            Line::from(format!("{lead}{part}"))
+        })
+        .collect()
 }

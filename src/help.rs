@@ -11,6 +11,6 @@ pub const KEYS: &[(&str, &str)] = &[
     ("e", "show the next editor, one per directory"),
     ("x", "end it and its editors, or forget an ended one"),
     ("u", "show Claude Code's usage and limits"),
-    ("?", "show or hide the help"),
+    ("?/c", "show or hide the help / the changelog"),
     ("q", "quit, after a yes while anything runs"),
 ];

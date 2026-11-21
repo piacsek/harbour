@@ -349,7 +349,7 @@ usage: harbour [--demo | --help | --version | changelog | status | log | config 
 
 With no argument on a terminal, harbour opens a sidebar of Claude Code sessions
 beside a live pane. --demo opens the same with made-up sessions: no claude needed.
-In harbour, ? shows the keys and what the dots mean.
+In harbour, ? shows the keys and what the dots mean, and c the changelog.
 Settings come from $XDG_CONFIG_HOME/harbour/config.toml, else
 ~/.config/harbour/config.toml, read at start: editor, picker and
 session_command (each a list: the program, then its arguments), sidebar_width

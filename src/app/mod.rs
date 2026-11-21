@@ -6,6 +6,7 @@ use crossterm::event::{MouseEvent, MouseEventKind};
 use ratatui::layout::{Position, Rect};
 use ratatui::style::Color;
 
+mod changelog;
 mod draw;
 mod find;
 mod handoff;
@@ -69,6 +70,8 @@ pub struct App {
     failed: Option<String>,
     asking: Option<Question>,
     helping: bool,
+    changelog: String,
+    reading: Option<changelog::Reading>,
     quitting: bool,
     shape: u8,
     cursor: Option<Position>,
@@ -196,6 +199,8 @@ impl App {
             failed: None,
             asking: None,
             helping: false,
+            changelog: crate::changelog::CHANGELOG.to_string(),
+            reading: None,
             quitting: false,
             shape: 0,
             cursor: None,
@@ -369,6 +374,10 @@ impl App {
             }
             return;
         }
+        if self.changelog_mouse(event) {
+            self.gesture = Gesture::Idle;
+            return;
+        }
         if self.helping || self.asking.is_some() {
             self.gesture = Gesture::Idle;
             if matches!(event.kind, MouseEventKind::Down(_)) {
@@ -408,8 +417,9 @@ impl App {
     }
 
     fn dismiss(&mut self, yes: bool) -> bool {
-        if self.helping {
+        if self.helping || self.reading.is_some() {
             self.helping = false;
+            self.close_changelog();
             return true;
         }
         let Some(question) = self.asking.take() else {

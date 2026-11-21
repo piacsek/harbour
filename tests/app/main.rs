@@ -1,6 +1,7 @@
 mod ages;
 mod asked_keys;
 mod cards;
+mod changelog;
 mod cursor;
 mod directory;
 mod editor;
