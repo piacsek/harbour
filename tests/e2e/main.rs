@@ -1,4 +1,5 @@
-use std::path::Path;
+use std::cell::RefCell;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::thread::sleep;
 use std::time::{Duration, Instant};
@@ -407,12 +408,14 @@ fn the_demo_removes_its_made_up_registry_when_it_ends() {
 
 struct Server {
     socket: String,
+    home: RefCell<Option<PathBuf>>,
 }
 
 impl Server {
     fn start(name: &str, width: u16, height: u16) -> Self {
         let server = Self {
             socket: format!("harbour-e2e-{name}-{}", std::process::id()),
+            home: RefCell::new(None),
         };
         let status = server
             .tmux(&[
@@ -496,6 +499,7 @@ impl Server {
     }
 
     fn launch(&self, home: &Path, before: &str, env: &[(&str, &str)], args: &[&str]) {
+        self.home.replace(Some(home.to_path_buf()));
         let command = format!(
             "{}; echo \"harbour exited $?\"; exec sleep 600",
             harbour_line(home, before, env, args)
@@ -504,6 +508,7 @@ impl Server {
     }
 
     fn exec(&self, home: &Path, before: &str, env: &[(&str, &str)], args: &[&str]) {
+        self.home.replace(Some(home.to_path_buf()));
         self.respawn(&harbour_line(home, &format!("{before} exec"), env, args));
     }
 
@@ -589,6 +594,11 @@ impl Server {
 
 impl Drop for Server {
     fn drop(&mut self) {
+        if std::thread::panicking()
+            && let Some(home) = self.home.get_mut()
+        {
+            log::print_newest(home);
+        }
         let _ = self.tmux(&["kill-server"]).status();
     }
 }
@@ -617,6 +627,7 @@ fn harbour_line(home: &Path, before: &str, env: &[(&str, &str)], args: &[&str]) 
         quoted(&format!("HOME={}", home.display())),
         quoted(&format!("TMPDIR={}", scratch_tmp(home).display())),
         quoted(&format!("PATH={}", tools(home))),
+        quoted("HARBOUR_LOG=1"),
     ];
     words.extend(
         env.iter()

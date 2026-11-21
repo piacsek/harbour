@@ -3,7 +3,14 @@ use std::process::Command;
 use std::thread::sleep;
 use std::time::{Duration, Instant};
 
+use harbour::tui::SESSION_COMMAND;
+
 use crate::Server;
+
+const TITLED_AGENT: &str = concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/tests/fixtures/titled-agent.sh"
+);
 
 #[test]
 #[ignore]
@@ -32,6 +39,36 @@ fn with_harbour_log_empty_harbour_makes_no_log_folder() {
     assert!(!home.path().join(".local/state/harbour/log").exists());
 }
 
+#[test]
+#[ignore]
+fn the_log_never_holds_what_was_typed_pasted_or_a_title() {
+    let home = tempfile::tempdir().unwrap();
+    let config = tempfile::tempdir().unwrap();
+    let config_dir = config.path().display().to_string();
+    let server = Server::start("log-marker", 160, 20);
+    server.run(
+        home.path(),
+        &[
+            (SESSION_COMMAND, TITLED_AGENT),
+            ("CLAUDE_CONFIG_DIR", &config_dir),
+        ],
+        &[],
+    );
+    server.wait_for_screen("press n to start one");
+    server.send_keys(&["n"]);
+    server.wait_for_screen("Fix the flaky login test");
+    server.send_keys(&["Enter"]);
+
+    server.send_keys(&["acme-typed-marker"]);
+    server.paste("acme-pasted-marker");
+
+    server.wait_for_screen_all(&["acme-typed-marker", "acme-pasted-marker"]);
+    let text = wait_for_log(home.path(), " input to=session ");
+    assert!(!text.contains("acme-typed-marker"), "{text}");
+    assert!(!text.contains("acme-pasted-marker"), "{text}");
+    assert!(!text.contains("Fix the flaky login test"), "{text}");
+}
+
 pub(crate) fn wait_for_log(home: &Path, text: &str) -> String {
     let deadline = Instant::now() + Duration::from_secs(10);
     loop {
@@ -44,6 +81,13 @@ pub(crate) fn wait_for_log(home: &Path, text: &str) -> String {
             "waited 10 s for {text:?} in harbour's log, which held:\n{last}"
         );
         sleep(Duration::from_millis(50));
+    }
+}
+
+pub(crate) fn print_newest(home: &Path) {
+    let text = newest_log(home);
+    if !text.is_empty() {
+        eprintln!("harbour's log:\n{text}");
     }
 }
 
