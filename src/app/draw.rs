@@ -2,7 +2,7 @@ use std::time::Instant;
 
 use portable_pty::ExitStatus;
 use ratatui::Frame;
-use ratatui::layout::{Constraint, Rect};
+use ratatui::layout::{Constraint, Position, Rect};
 use ratatui::style::{Color, Modifier, Stylize};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, BorderType, Clear, Paragraph, Wrap};
@@ -11,6 +11,7 @@ use super::{App, Entry, HINT, Question, remember, user_home};
 use crate::card::{Card, Ended};
 use crate::editor::Changes;
 use crate::help;
+use crate::session::Session;
 use crate::state;
 use crate::tabs;
 use crate::text;
@@ -100,6 +101,7 @@ impl App {
         let exited = self.sessions.get_mut(self.selected).is_some_and(|entry| {
             !entry.on_editor && entry.session.is_some() && entry.exited_at.is_some()
         });
+        let mut cursor = None;
         match self.sessions.get(self.selected) {
             None => {
                 let message = self.failed.as_deref().unwrap_or(HINT);
@@ -125,6 +127,7 @@ impl App {
                         Some(session) => {
                             frame.render_widget(pane_block, pane);
                             frame.render_widget(session, self.pane);
+                            cursor = placed(session, self.pane);
                         }
                         None => frame.render_widget(
                             Paragraph::new(remember::pane(shown.why))
@@ -157,6 +160,7 @@ impl App {
         }
         if self.helping {
             self.draw_help(frame);
+            cursor = None;
         }
         if let Some(pick) = &mut self.picking {
             let area = popup(frame.area());
@@ -167,6 +171,11 @@ impl App {
             frame.render_widget(Clear, area);
             frame.render_widget(block, area);
             frame.render_widget(pick.session(), inner);
+            cursor = placed(pick.session(), inner);
+        }
+        self.shape = cursor.map_or(0, |(_, shape)| shape);
+        if let Some((at, _)) = cursor {
+            frame.set_cursor_position(at);
         }
     }
 
@@ -210,6 +219,10 @@ impl App {
             frame.area(),
         );
     }
+}
+
+fn placed(session: &Session, area: Rect) -> Option<(Position, u8)> {
+    session.cursor(area).map(|at| (at, session.cursor_shape()))
 }
 
 fn failure_lines(failed: &str, width: u16) -> Vec<Line<'static>> {

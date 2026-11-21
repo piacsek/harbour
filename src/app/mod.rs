@@ -55,6 +55,7 @@ pub struct App {
     asking: Option<Question>,
     helping: bool,
     quitting: bool,
+    shape: u8,
     registry: Option<PathBuf>,
     transcripts: Option<PathBuf>,
     naming: bool,
@@ -170,6 +171,7 @@ impl App {
             asking: None,
             helping: false,
             quitting: false,
+            shape: 0,
             registry: None,
             transcripts: None,
             naming: false,
@@ -250,6 +252,10 @@ impl App {
         );
         app.selected = 0;
         app
+    }
+
+    pub fn cursor_shape(&self) -> u8 {
+        self.shape
     }
 
     pub fn running(&self) -> bool {

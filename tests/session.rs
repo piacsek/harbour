@@ -5,7 +5,7 @@ use std::time::{Duration, Instant};
 
 use harbour::session::Session;
 use ratatui::buffer::Buffer;
-use ratatui::layout::Rect;
+use ratatui::layout::{Position, Rect};
 use ratatui::widgets::Widget;
 use vt100::{MouseProtocolEncoding, MouseProtocolMode};
 
@@ -356,6 +356,108 @@ fn a_large_paste_into_a_command_that_does_not_read_returns_at_once() {
     assert!(finished.recv_timeout(Duration::from_secs(2)).is_ok());
 }
 
+#[test]
+fn a_session_remembers_each_cursor_shape_its_program_asks_for() {
+    let session = start(SHAPING);
+    wait_for(&session, "acme shapes ready");
+
+    assert_eq!(shaped(&session, "1"), 1);
+    assert_eq!(shaped(&session, "2"), 2);
+    assert_eq!(shaped(&session, "3"), 3);
+    assert_eq!(shaped(&session, "4"), 4);
+    assert_eq!(shaped(&session, "5"), 5);
+    assert_eq!(shaped(&session, "6"), 6);
+    assert_eq!(shaped(&session, "0"), 0);
+}
+
+#[test]
+fn a_session_starts_with_the_default_cursor_shape() {
+    let session = start(SHAPING);
+    wait_for(&session, "acme shapes ready");
+
+    assert_eq!(session.cursor_shape(), 0);
+}
+
+#[test]
+fn a_cursor_shape_without_a_number_is_the_default() {
+    let session = start(SHAPING);
+    wait_for(&session, "acme shapes ready");
+    shaped(&session, "6");
+
+    assert_eq!(shaped(&session, ""), 0);
+}
+
+#[test]
+fn a_cursor_shape_past_six_keeps_the_shape_before() {
+    let session = start(SHAPING);
+    wait_for(&session, "acme shapes ready");
+    shaped(&session, "4");
+
+    assert_eq!(shaped(&session, "7"), 4);
+}
+
+#[test]
+fn a_session_whose_screen_was_reset_keeps_its_cursor_shape() {
+    let mut session =
+        Session::start(&shaped_wide_at_the_edge(), &std::env::temp_dir(), ROWS, 160).unwrap();
+    wait_for(&session, "ready");
+    session.resize(ROWS, 159);
+    session.send(b"\r");
+    sleep(Duration::from_millis(300));
+    session.send(b"\r");
+    wait_for(&session, "redrew 159");
+
+    assert!(session.take_panics() > 0);
+    assert_eq!(session.cursor_shape(), 5);
+}
+
+#[test]
+fn the_pane_paints_no_cursor_of_its_own() {
+    let session = start("printf 'acme here'; exec sleep 600");
+    wait_for(&session, "acme here");
+
+    let area = Rect::new(0, 0, COLS, ROWS);
+    let mut buffer = Buffer::empty(area);
+    session.render(area, &mut buffer);
+
+    assert_eq!(buffer[(9, 0)].symbol(), " ");
+    assert_eq!(buffer[(9, 0)].fg, ratatui::style::Color::Reset);
+}
+
+#[test]
+fn a_session_says_where_its_cursor_is_in_the_area_it_is_drawn_in() {
+    let session = start("printf '\\033[3;5Hacme here'; exec sleep 600");
+    wait_for(&session, "acme here");
+
+    let cursor = session.cursor(Rect::new(20, 4, COLS, ROWS));
+
+    assert_eq!(cursor, Some(Position::new(33, 6)));
+}
+
+#[test]
+fn a_session_whose_program_hid_its_cursor_has_none() {
+    let session = start("printf '\\033[?25lacme hidden'; exec sleep 600");
+    wait_for(&session, "acme hidden");
+
+    assert_eq!(session.cursor(Rect::new(0, 0, COLS, ROWS)), None);
+}
+
+#[test]
+fn a_cursor_below_the_area_drawn_is_not_shown() {
+    let session = start("printf 'acme\\nlow'; exec sleep 600");
+    wait_for(&session, "low");
+
+    assert_eq!(session.cursor(Rect::new(0, 0, COLS, 1)), None);
+}
+
+#[test]
+fn a_cursor_right_of_the_area_drawn_is_not_shown() {
+    let session = start("printf 'acme wide'; exec sleep 600");
+    wait_for(&session, "acme wide");
+
+    assert_eq!(session.cursor(Rect::new(0, 0, 9, ROWS)), None);
+}
+
 fn replied(query: &str, length: usize) -> String {
     format!(
         "stty raw -echo; printf '{query}'; r=$(dd bs=1 count={length} 2>/dev/null); \
@@ -455,4 +557,18 @@ fn failure(wait: impl FnOnce()) -> String {
         .downcast_ref::<String>()
         .cloned()
         .unwrap_or_default()
+}
+
+const SHAPING: &str = "echo 'acme shapes ready'; \
+                       while :; do read -r n || continue; printf \"\\033[${n} q\"; echo \"shape:$n.\"; done";
+
+fn shaped(session: &Session, shape: &str) -> u8 {
+    session.send(format!("{shape}\r").as_bytes());
+    wait_for(session, &format!("shape:{shape}."));
+    session.cursor_shape()
+}
+
+fn shaped_wide_at_the_edge() -> [String; 3] {
+    let [shell, flag, script] = wide_at_the_edge();
+    [shell, flag, format!("printf '\\033[5 q'; {script}")]
 }

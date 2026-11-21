@@ -25,6 +25,7 @@ file under `plans/`; its time and tokens are a row of [`plans/metrics.md`](plans
 | 15 | [room for the key and layout features: keys, the split and `KEYS` each in a place of their own](plans/phase-15-room-for-keys-and-layout.md) | [v0.12.1](https://github.com/piacsek/harbour/releases/tag/v0.12.1) |
 | 16 | [only the session counts above zero in the sidebar title](plans/phase-16-counts-above-zero.md) | [v0.12.0](https://github.com/piacsek/harbour/releases/tag/v0.12.0) |
 | 17 | [a still sidebar: no activity line on the selected card, the last prompt on the others](plans/phase-17-still-sidebar.md) | |
+| 19 | [the pane's cursor takes the shape its program asks for](plans/phase-19-cursor-shape.md) | |
 
 ## Backlog
 
