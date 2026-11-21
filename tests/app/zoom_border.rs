@@ -43,6 +43,25 @@ fn the_zoomed_border_keeps_the_names_after_the_session() {
 }
 
 #[test]
+fn a_long_editor_directory_leaves_the_session_its_dot_and_title() {
+    let claude = Claude::in_repository("Fix the login", "acme-workspace/acme-services/acme-api");
+    let editor = Program::new("acme-edit", script("exec sleep 600"));
+    let mut screen = Screen::of(claude.app().with_editor(editor));
+    screen.resize(80, 20);
+    started(&mut screen);
+    zoom(&mut screen);
+
+    screen.key(KeyCode::Char('l'), KeyModifiers::CONTROL);
+
+    let top = top(&screen.wait_for("acme-edit: "));
+    assert!(
+        top.starts_with("┏ ● Fix the login  acme-api…  3m  claude | acme-edit: …"),
+        "{top}"
+    );
+    assert!(top.ends_with("  sessions ● 1 ┓"), "{top}");
+}
+
+#[test]
 fn a_narrow_zoomed_border_cuts_the_session_and_keeps_the_counts() {
     let claude = Claude::new("Fix the login");
     let mut screen = Screen::of(claude.app());
@@ -115,11 +134,15 @@ struct Claude {
 
 impl Claude {
     fn new(title: &str) -> Claude {
+        Claude::in_repository(title, "acme-api")
+    }
+
+    fn in_repository(title: &str, path: &str) -> Claude {
         let config = tempfile::tempdir().unwrap();
         let projects = config.path().join("projects/-home-acme");
         fs::create_dir_all(config.path().join("sessions")).unwrap();
         fs::create_dir_all(&projects).unwrap();
-        let repository = repository(config.path(), "acme-api", "main");
+        let repository = repository(config.path(), path, "main");
         fs::write(
             projects.join(format!("{ID}.jsonl")),
             format!(

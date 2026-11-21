@@ -73,9 +73,11 @@ to 24 (`### Sweep` under `## Outcome`).
   - left: the dot, the title, `repository · branch` and the time in its state, then the names
     (`claude | <editor>: <directory>`, with icons under `nerd_font`) as today;
   - right: the counts, by the sidebar title's rule (`state::title`, counts above zero);
-  - fitted by priority: the counts first, then the names (by the rules of `src/tabs.rs`) in
-    what the counts leave, then the session info in what the names leave: the time stays while the title has a column, as on the
-    card; the title and place are cut by `text::fit`; the dot alone needs 3 columns
+  - fitted by priority: the counts first; then the session info is guaranteed its dot, up to
+    16 columns of title and the time; the names (by the rules of `src/tabs.rs`, the directory
+    losing its start first) fit in what remains; whatever the names leave goes back to the
+    session info (more title, then the place). The time stays while the title has a column, as
+    on the card; the title and place are cut by `text::fit`; the dot alone needs 3 columns
     (` ● `), under that the info goes.
 - The help gets one row (`M-z`), the README key table with it, and the headroom test drops to 3.
 - The log names the key `M-z` when harbour acts on it; one forwarded to the session or editor
@@ -86,8 +88,10 @@ to 24 (`### Sweep` under `## Outcome`).
 | State | What shows |
 | --- | --- |
 | Zoomed, a session running | the pane alone on the whole screen, its top border: dot, title, `repository · branch`, time, the names, the counts at the right |
-| Zoomed, terminal too narrow for the whole border | the counts stay; the session info is cut first (the place is cut, then dropped, then the title is cut, the time kept while the title keeps a column), then the names by `tabs.rs`'s rules |
-| Zoomed, the narrowest width the border still fits | 11 columns: `┏ ● …  ●1 ┓`, the short counts and the dot with one column of title; under that the info goes, then the names |
+| Zoomed, terminal too narrow for the whole border | the counts stay; the session info keeps its dot, up to 16 columns of title and the time; the names shorten by `tabs.rs`'s rules into the rest (the directory loses its start first); what they leave goes back to the info (more title, then the place) |
+| Zoomed at 80 columns, an editor directory of about 45 columns | `┏ ● Fix the login  acme-api…  3m  claude \| acme-edit: …/acme-api  sessions ● 1 ┓`: the dot and the title stay, the directory loses its start |
+| Zoomed from the sidebar while a failure message shows at its bottom | the message is cleared, as a key over the pane clears it, so it never covers the zoomed pane's bottom rows |
+| Zoomed, the narrowest width the border still fits | 11 columns: `┏ ● …  ●1 ┓`, the short counts and the dot with one column of title; under that the info goes, then the names. The 11 columns hold for a single kind of count: with several kinds the short counts alone can take the whole room, and the dot and title go |
 | Zoomed, a CJK title and branch | cut by display width (`text::fit`), never a half character, never wider than the border |
 | Zoomed, terminal under 60 columns | today's narrow mode with the pane shown, plus the zoomed border |
 | Alt-z with no session or on a stopped card | nothing happens |
@@ -153,11 +157,11 @@ nobody is asked; the orchestrator files the issues.
   test asked for a third, the default, phase 22's out-of-range key drew nothing either way, phase
   23's off path did not change, phase 24's cut, CJK and ended-card tests passed against the finished join, and this phase's
   leaving-zoom and `ESC z` tests were green first too. Each is a test of an absence or of a default; two were caught by
-  review, not by the red run → proposed issue.
+  review, not by the red run → issue #96.
 - A helper shipped before its first caller and stopped by the dead-code gate: phase 23 (`→ none`)
-  and, in the last range, phases 17 and 19. Twice `→ none` across two sweeps → proposed issue.
+  and, in the last range, phases 17 and 19. Twice `→ none` across two sweeps → issue #97.
 - The help view has no spare row in the narrow layout: phase 22 freed one by shortening C-h's
-  text, and this phase meets the same wall for `M-z` → proposed issue.
+  text, and this phase meets the same wall for `M-z` → issue #98.
 - No "Sweep due before phase 25" issue was opened: phase 25 started while phase 24 was unmerged
   → declined: the class of #88.
 - Phase 22's end-to-end tests used Ctrl-3 as a sample key the phase then claimed → declined:
@@ -207,6 +211,11 @@ review and a metrics row.
   narrow layout's scroll across a visit to the pane. Alt-z from the sidebar on a card that showed
   its editor now zooms Claude Code; Alt-Z (Caps Lock) zooms; a missing title shows the place
   alone.
+- Review round 2: Alt-z from the sidebar clears a failure message shown at its bottom, which
+  otherwise moved onto the zoomed pane's bottom rows; the session info is guaranteed its dot,
+  up to 16 columns of title and the time before the names fit, since a long editor directory
+  left it nothing at 80 columns. With several kinds of count the short counts alone can exceed
+  the narrowest border, which drops the dot and title; not acted on. 2 review rounds.
 - `scripts/screenshots.sh` turns on `extended-keys` for the `zoom` shot alone, so `send-keys M-z`
   arrives as the extended Alt-z, and turns it off after it, so the other shots are as before.
 

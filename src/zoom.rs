@@ -10,6 +10,11 @@ pub struct Headline {
     pub age: Option<String>,
 }
 
+pub fn guaranteed(headline: &Headline) -> usize {
+    let aged = headline.age.as_ref().map_or(0, |age| columns(age) + 2);
+    4 + columns(&headline.title).min(16) + aged
+}
+
 pub fn info(headline: &Headline, room: usize) -> Vec<Span<'static>> {
     if room < 3 {
         return Vec::new();

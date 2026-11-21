@@ -314,6 +314,25 @@ fn leaving_zoom_keeps_the_sidebar_scrolled_where_it_was() {
     assert!(card_at_top(&shown).contains("acme-home 3 "), "{shown}");
 }
 
+#[test]
+fn alt_z_from_the_sidebar_clears_the_failure_shown_there() {
+    let scratch = tempfile::tempdir().unwrap();
+    let editor = Program::new("acme-edit", script("exit 1"));
+    let mut screen = Screen::editing(lined_agent(scratch.path()), editor);
+    screen.press('n');
+    screen.wait_for("acme agent 1");
+    screen.key(KeyCode::Enter, KeyModifiers::NONE);
+    screen.key(KeyCode::Char('l'), KeyModifiers::CONTROL);
+    screen.wait_for("acme-edit exited");
+    screen.key(KeyCode::Char('h'), KeyModifiers::CONTROL);
+
+    zoom(&mut screen);
+
+    let shown = screen.draw();
+    assert!(!shown.contains("acme-edit exited"), "{shown}");
+    assert_eq!(corners(&shown), 1, "{shown}");
+}
+
 fn zoom(screen: &mut Screen) {
     screen.key(KeyCode::Char('z'), KeyModifiers::ALT);
 }

@@ -9,7 +9,7 @@ use crate::repo::Place;
 use crate::state::{self, Counts, State};
 use crate::text::clean;
 use crate::transcript::Transcript;
-use crate::zoom::{Headline, info};
+use crate::zoom::{Headline, guaranteed, info};
 
 impl App {
     pub(super) fn zoom_by_key(&mut self, key: KeyEvent) -> bool {
@@ -28,6 +28,7 @@ impl App {
             entry.on_editor &= self.pane_focused;
             self.zoomed = true;
             self.pane_focused = true;
+            self.failed = None;
         }
         true
     }
@@ -49,9 +50,12 @@ impl App {
         let room = usize::from(width.saturating_sub(2));
         let counted = state::title(counts, room);
         let left = room.saturating_sub(counted.width());
-        let names = self.tabs(left).unwrap_or_default();
-        let mut spans = self
-            .headline()
+        let headline = self.headline();
+        let kept = headline
+            .as_ref()
+            .map_or(0, |headline| guaranteed(headline).min(left));
+        let names = self.tabs(left - kept).unwrap_or_default();
+        let mut spans = headline
             .map(|headline| info(&headline, left.saturating_sub(names.width())))
             .unwrap_or_default();
         spans.extend(names.spans);
