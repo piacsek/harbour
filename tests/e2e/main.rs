@@ -482,12 +482,11 @@ impl Server {
         assert!(status.success(), "could not set {args:?}");
     }
 
-    fn server_option(&self, args: &[&str]) {
-        let status = self
-            .tmux(&[&["set-option", "-s"], args].concat())
+    fn server_option(&self, args: &[&str]) -> bool {
+        self.tmux(&[&["set-option", "-s"], args].concat())
             .status()
-            .unwrap();
-        assert!(status.success(), "could not set {args:?}");
+            .unwrap()
+            .success()
     }
 
     fn tmux(&self, args: &[&str]) -> Command {

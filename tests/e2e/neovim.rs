@@ -165,8 +165,9 @@ impl Neovim {
         std::fs::create_dir(&sockets).unwrap();
         let sockets = sockets.display().to_string();
         let server = Server::start(name, 200, 24);
-        for option in options {
-            server.server_option(option);
+        if let Some(option) = options.iter().find(|option| !server.server_option(option)) {
+            eprintln!("skipping {name}: this tmux cannot set {option:?}");
+            return None;
         }
         server.run(
             home.path(),

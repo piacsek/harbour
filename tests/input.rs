@@ -193,6 +193,32 @@ fn a_bracketed_paste_reads_as_one_paste() {
 }
 
 #[test]
+fn a_large_paste_in_full_pieces_reads_as_one_paste_from_one_read() {
+    let text = "acme ".repeat(60 * 1024);
+
+    let events = read_in_pieces(&pasted(&text), 1024);
+
+    assert_eq!(events, [Event::Paste(text)]);
+}
+
+#[test]
+fn a_large_paste_in_short_pieces_reads_as_one_paste_from_one_read() {
+    let text = "acme ".repeat(60 * 1024);
+
+    let events = read_in_pieces(&pasted(&text), 500);
+
+    assert_eq!(events, [Event::Paste(text)]);
+}
+
+#[test]
+fn a_sequence_that_never_ends_does_not_swallow_the_keys_after_it() {
+    assert_eq!(parsed(b"\x1b[?2004;1$yx"), [key(KeyCode::Char('x'))]);
+    assert_eq!(parsed(b"\x1b[1;\x1b[A"), [key(KeyCode::Up)]);
+    let overlong = [b"\x1b[".as_slice(), &[b'1'; 62], b"x"].concat();
+    assert_eq!(parsed(&overlong), [key(KeyCode::Char('x'))]);
+}
+
+#[test]
 fn mouse_reports_read_as_before() {
     assert_eq!(
         parsed(b"\x1b[<0;5;3M"),
@@ -310,4 +336,23 @@ fn mouse(kind: MouseEventKind, column: u16, row: u16, modifiers: KeyModifiers) -
         row,
         modifiers,
     })
+}
+
+fn pasted(text: &str) -> Vec<u8> {
+    [b"\x1b[200~".as_slice(), text.as_bytes(), b"\x1b[201~"].concat()
+}
+
+fn read_in_pieces(bytes: &[u8], size: usize) -> Vec<Event> {
+    let mut pieces = bytes.chunks(size);
+    Input::default()
+        .read_with(
+            |chunk, _| {
+                Ok(pieces.next().map_or(0, |piece| {
+                    chunk[..piece.len()].copy_from_slice(piece);
+                    piece.len()
+                }))
+            },
+            Duration::ZERO,
+        )
+        .unwrap()
 }
