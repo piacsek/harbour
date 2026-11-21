@@ -9,6 +9,8 @@ step() {
   "$@"
 }
 
+. scripts/gates-lock.sh
+lock_gates
 step scripts/scrub-check.sh
 step cargo fmt --check
 if [ -z "${CI:-}" ] && reason="$(scripts/docs-only.sh)"; then

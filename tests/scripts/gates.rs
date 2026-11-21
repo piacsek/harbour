@@ -3,7 +3,7 @@ use std::os::unix::fs::symlink;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
 
-use crate::helpers::{calls, git, link_script, recorder, repository, stderr, which};
+use crate::helpers::{calls, git, link_script, recorder, repository, sandbox_bin, stderr, which};
 
 #[test]
 fn gates_with_tmux_run_the_e2e_tests_after_the_rest_on_two_threads() {
@@ -233,6 +233,7 @@ fn gates_in_ci_never_skip_the_tests_of_a_docs_only_branch() {
 fn gates_sandbox(root: &Path) -> PathBuf {
     let bin = sandbox_bin(root);
     link_script(root, "gates.sh");
+    link_script(root, "gates-lock.sh");
     link_script(root, "script-tests-skippable.sh");
     link_script(root, "docs-only.sh");
     symlink(recorder(), root.join("scripts/scrub-check.sh")).unwrap();
@@ -253,6 +254,7 @@ fn gates_repository(root: &Path) -> PathBuf {
     let bin = sandbox_bin(root);
     let work = repository(root);
     link_script(&work, "gates.sh");
+    link_script(&work, "gates-lock.sh");
     link_script(&work, "script-tests-skippable.sh");
     link_script(&work, "docs-only.sh");
     symlink(recorder(), work.join("scripts/scrub-check.sh")).unwrap();
@@ -297,14 +299,4 @@ fn repository_gates(root: &Path, ci: Option<&str>) -> Output {
         command.env("CI", value);
     }
     command.output().unwrap()
-}
-
-fn sandbox_bin(root: &Path) -> PathBuf {
-    let bin = root.join("bin");
-    fs::create_dir_all(&bin).unwrap();
-    for program in ["bash", "dirname", "git", "grep", "sed"] {
-        symlink(which(program), bin.join(program)).unwrap();
-    }
-    symlink(recorder(), bin.join("cargo")).unwrap();
-    bin
 }
