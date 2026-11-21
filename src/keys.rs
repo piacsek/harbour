@@ -148,3 +148,61 @@ fn modifier_parameter(modifiers: KeyModifiers) -> u8 {
         + 2 * u8::from(modifiers.contains(KeyModifiers::ALT))
         + 4 * u8::from(modifiers.contains(KeyModifiers::CONTROL))
 }
+
+const KITTY_DEPTH: usize = 16;
+
+#[derive(Clone, Debug, Default)]
+pub struct Asked {
+    level: u16,
+    kitty: u16,
+    pushed: Vec<u16>,
+}
+
+impl Asked {
+    pub fn keyboard(&self) -> Keyboard {
+        if self.kitty & 1 == 1 {
+            Keyboard::Kitty
+        } else if self.level > 0 {
+            Keyboard::Xterm
+        } else {
+            Keyboard::Legacy
+        }
+    }
+
+    pub fn csi(&mut self, first: Option<u8>, parameters: &[&[u16]], last: char) -> Option<Vec<u8>> {
+        let value = |index: usize| {
+            parameters
+                .get(index)
+                .and_then(|values| values.first())
+                .copied()
+        };
+        match (first, last) {
+            (Some(b'>'), 'm') if matches!(value(0), None | Some(4)) => {
+                self.level = value(1).unwrap_or(0);
+            }
+            (Some(b'>'), 'u') => {
+                if self.pushed.len() == KITTY_DEPTH {
+                    self.pushed.remove(0);
+                }
+                self.pushed.push(self.kitty);
+                self.kitty = value(0).unwrap_or(0) & 1;
+            }
+            (Some(b'<'), 'u') => {
+                for _ in 0..value(0).unwrap_or(1).max(1) {
+                    self.kitty = self.pushed.pop().unwrap_or(0);
+                }
+            }
+            (Some(b'='), 'u') => {
+                let flags = value(0).unwrap_or(0) & 1;
+                self.kitty = match value(1).unwrap_or(1) {
+                    2 => self.kitty | flags,
+                    3 => self.kitty & !flags,
+                    _ => flags,
+                };
+            }
+            (Some(b'?'), 'u') => return Some(format!("\x1b[?{}u", self.kitty).into_bytes()),
+            _ => {}
+        }
+        None
+    }
+}
