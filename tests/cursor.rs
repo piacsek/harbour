@@ -15,7 +15,7 @@ fn a_new_shape_is_sent_as_its_sequence() {
 
     let written = sent(&mut shape, 6);
 
-    assert_eq!(written, "\x1b[?25l\x1b[6 q");
+    assert_eq!(written, "\x1b[6 q");
 }
 
 #[test]
@@ -35,7 +35,18 @@ fn going_back_to_the_default_sends_the_default() {
 
     let written = sent(&mut shape, 0);
 
-    assert_eq!(written, "\x1b[?25l\x1b[0 q");
+    assert_eq!(written, "\x1b[0 q");
+}
+
+#[test]
+fn a_shape_is_sent_again_after_leaving_reset_it() {
+    let mut shape = Shape::default();
+    sent(&mut shape, 6);
+    shape.leave(&mut Vec::new()).unwrap();
+
+    let written = sent(&mut shape, 6);
+
+    assert!(written.ends_with("\x1b[6 q"), "{written:?}");
 }
 
 fn sent(shape: &mut Shape, wanted: u8) -> String {

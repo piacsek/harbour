@@ -214,6 +214,7 @@ impl Session {
             return None;
         }
         let (row, col) = screen.cursor_position();
+        let col = col.min(screen.size().1.saturating_sub(1));
         let at = Position::new(area.x.checked_add(col)?, area.y.checked_add(row)?);
         area.contains(at).then_some(at)
     }

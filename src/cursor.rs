@@ -12,7 +12,7 @@ impl Shape {
         if wanted == self.sent.load(Ordering::SeqCst) {
             return Ok(());
         }
-        write!(out, "\x1b[?25l\x1b[{wanted} q")?;
+        write!(out, "\x1b[{wanted} q")?;
         out.flush()?;
         self.sent.store(wanted, Ordering::SeqCst);
         Ok(())
@@ -22,6 +22,8 @@ impl Shape {
         if self.sent.load(Ordering::SeqCst) == 0 {
             return Ok(());
         }
-        write!(out, "\x1b[0 q")
+        write!(out, "\x1b[0 q")?;
+        self.sent.store(0, Ordering::SeqCst);
+        Ok(())
     }
 }

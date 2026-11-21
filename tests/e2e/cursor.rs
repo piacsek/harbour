@@ -36,7 +36,7 @@ fn another_session_shown_gives_the_terminal_its_shape() {
     server.send_keys(&["n"]);
     server.wait_for_screen("acme agent ready");
     server.send_keys(&["Enter", "4", "Enter"]);
-    wait_for_shape(&server, "underline");
+    assert_eq!(wait_for_shape(&server, "underline"), "underline");
 
     server.send_keys(&["C-h", "n"]);
 
@@ -56,7 +56,7 @@ fn quitting_gives_the_terminal_back_its_default_cursor_shape() {
     server.send_keys(&["n"]);
     server.wait_for_screen("acme agent ready");
     server.send_keys(&["Enter", "5", "Enter"]);
-    wait_for_shape(&server, "bar");
+    assert_eq!(wait_for_shape(&server, "bar"), "bar");
 
     server.send_keys(&["C-h", "q", "y"]);
 
@@ -74,13 +74,9 @@ fn wait_for_shape(server: &Server, expected: &str) -> String {
         let shape = String::from_utf8_lossy(&output.stdout)
             .trim_end()
             .to_string();
-        if shape == expected {
+        if shape == expected || Instant::now() >= deadline {
             return shape;
         }
-        assert!(
-            Instant::now() < deadline,
-            "waited 10 s for the cursor shape {expected}, last shape: {shape}"
-        );
         sleep(Duration::from_millis(50));
     }
 }

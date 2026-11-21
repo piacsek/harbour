@@ -137,6 +137,7 @@ pub fn frame<W: io::Write>(
     shape: &mut Shape,
     out: &mut impl io::Write,
 ) -> io::Result<()> {
+    out.write_all(b"\x1b[?25l")?;
     terminal.try_draw(|frame| {
         app.draw(frame);
         shape.send(out, app.cursor_shape())

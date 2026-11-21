@@ -41,13 +41,16 @@ on top of it, so the one place the real cursor is placed stays easy to make cond
 
 | State | Cursor |
 | --- | --- |
-| Program sends `ESC[0 q` or `ESC[ q` | the terminal's default cursor, at the pane's cursor cell |
+| Program sends `ESC[0 q` or `ESC[ q` | the terminal's default cursor, at the pane's cursor cell, once harbour sent another shape during the run; until then harbour sends nothing, so the pane keeps whatever shape the shell left before harbour started |
+| A line that exactly fills the pane (the cursor waits after the last column) | the cursor on the last column, as a terminal shows it |
 | `ESC[1 q` / `ESC[2 q` | a blinking / steady block |
 | `ESC[3 q` / `ESC[4 q` | a blinking / steady underline |
 | `ESC[5 q` / `ESC[6 q` | a blinking / steady bar, between characters |
 | `ESC[7 q` or more | the shape it had before (the value is ignored) |
 | Program hid its cursor (`ESC[?25l`) | no cursor anywhere; the shape stays the program's, so a Neovim hiding it around each redraw sends nothing |
 | Pane shorter than the screen, cursor below the drawn area | no cursor |
+| Any frame, the shape changed or not | the cursor hidden before the frame's first cell and shown at its cell after the last, so it never jumps across the screen while the frame draws |
+| A panic on another thread (the hook resets the shape and harbour goes on) | the next frame sends the program's shape again |
 | Sidebar has focus | the pane's cursor, as before (#35 changes this) |
 | Help view shown | no cursor |
 | A question at the bottom of the sidebar | the pane's cursor stays in the pane; the question rows never get it |
@@ -96,6 +99,14 @@ terminal answers which shape it shows, and the default is what Neovim itself lea
   the terminal, at quit and from the panic hook, only when the last shape it sent was another,
   so a shell that sets its own shape keeps it when harbour never sent one (after harbour sent
   the default back, the terminal already has it).
+- Every frame starts with `ESC[?25l` and ends, through ratatui, with the cursor shown and moved
+  to its cell, so it never jumps while the cells are written. Hiding was chosen over
+  synchronized output (`ESC[?2026h`): it is one write every terminal understands, and a terminal
+  without synchronized output would still show the cursor jumping.
+- A cursor waiting after the last column (a line that exactly fills the pane) shows on that
+  column. After the panic hook resets the shape, the next frame sends the program's shape again.
+- The pane keeps whatever shape the shell left until a program in harbour asks for another,
+  since harbour sends nothing while every program keeps the default.
 - A failure message over the bottom rows of the narrow pane-only layout hides the cursor while
   it sits on those rows. A full reset (`ESC c`) inside a session keeps the remembered shape:
   vt100 handles it without a callback (the states table).
@@ -113,3 +124,4 @@ terminal answers which shape it shows, and the default is what Neovim itself lea
 - `test-seam` An end-to-end test sent keys right after `n` while the sidebar still had focus, so the session never got them; it presses Enter first, as the focus test does → none
 - `test-seam` A failing test in `tests/tui.rs` trips the counting panic hook of the test beside it and hides its own message, so the red of the cursor reset showed as the hook test failing → none
 - `review-loop` Round 1 found the shape flickering under a Neovim that hides its cursor around each redraw, the shape written after the frame showed the cursor, and the reset at quit sent even when harbour never sent a shape; a states table row per frame step (what is written, in which order) would have listed them → none
+- `review-loop` Round 2 found the cursor visible while each frame's cells were written, a cursor waiting after the last column hidden, and the panic hook's reset not recorded → none

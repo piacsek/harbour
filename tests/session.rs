@@ -458,6 +458,17 @@ fn a_cursor_right_of_the_area_drawn_is_not_shown() {
     assert_eq!(session.cursor(Rect::new(0, 0, 9, ROWS)), None);
 }
 
+#[test]
+fn a_cursor_waiting_after_a_full_line_sits_on_its_last_column() {
+    let session = start("printf \"acme$(printf '%196s' '' | tr ' ' x)\"; exec sleep 600");
+    wait_for(&session, "acmexxx");
+
+    assert_eq!(
+        session.cursor(Rect::new(0, 0, COLS, ROWS)),
+        Some(Position::new(COLS - 1, 0))
+    );
+}
+
 fn replied(query: &str, length: usize) -> String {
     format!(
         "stty raw -echo; printf '{query}'; r=$(dd bs=1 count={length} 2>/dev/null); \

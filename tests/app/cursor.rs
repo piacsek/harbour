@@ -168,6 +168,38 @@ fn switching_sessions_hides_the_cursor_before_changing_its_shape() {
 }
 
 #[test]
+fn a_frame_hides_the_cursor_before_its_first_cell_and_shows_it_at_its_cell_last() {
+    let mut screen = Screen::new(script(
+        "printf '\\033[3;5Hacme agent plain'; exec sleep 600",
+    ));
+    screen.press('n');
+    let shown = screen.wait_for("acme agent plain");
+    let corner = pane_corner(&shown);
+    let written = Written::default();
+    let mut terminal = Terminal::with_options(
+        CrosstermBackend::new(written.clone()),
+        TerminalOptions {
+            viewport: Viewport::Fixed(Rect::new(0, 0, 120, 20)),
+        },
+    )
+    .unwrap();
+    let mut shape = Shape::default();
+
+    tui::frame(
+        &mut terminal,
+        &mut screen.app,
+        &mut shape,
+        &mut written.clone(),
+    )
+    .unwrap();
+
+    let text = written.text();
+    let shown = text.rfind("\x1b[?25h").unwrap();
+    assert!(text.starts_with("\x1b[?25l"), "{text:?}");
+    assert_eq!(&text[shown..], format!("\x1b[?25h\x1b[4;{}H", corner + 22));
+}
+
+#[test]
 fn the_narrowest_sidebar_keeps_the_cursor_in_the_pane() {
     let mut screen = Screen::at(App::new(shaped_agent("6")), home(), 60);
     screen.press('n');
