@@ -301,6 +301,9 @@ impl App {
     }
 
     fn paste_handled(&mut self, text: &str) {
+        if self.usage_paste(text) {
+            return;
+        }
         if let Some(pick) = &self.picking {
             let bytes = pick.session().paste(text);
             self.log_input(Input::Picker, bytes);
@@ -322,6 +325,9 @@ impl App {
     }
 
     fn mouse_handled(&mut self, event: MouseEvent) {
+        if self.usage_mouse(event) {
+            return;
+        }
         if let Some(pick) = &self.picking {
             let (mode, encoding) = pick.session().mouse_protocol();
             let target = Target {

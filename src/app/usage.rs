@@ -1,14 +1,14 @@
 use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
 
-use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+use crossterm::event::{KeyCode, KeyEvent, KeyModifiers, MouseEvent};
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Rect};
 use ratatui::widgets::Clear;
 
 use super::logging::Input;
 use super::{App, draw, refusal};
-use crate::mouse::Gesture;
+use crate::mouse::{self, Gesture, Target};
 use crate::session::{Role, Session};
 
 const ROWS: u16 = 200;
@@ -73,6 +73,33 @@ impl App {
         let bytes = super::key::beside(session, key);
         session.send(&bytes);
         self.log_input(Input::Usage, bytes.len());
+        true
+    }
+
+    pub(super) fn usage_paste(&mut self, text: &str) -> bool {
+        let Some(session) = &self.usage.open else {
+            return false;
+        };
+        let bytes = session.paste(text);
+        self.log_input(Input::Usage, bytes);
+        true
+    }
+
+    pub(super) fn usage_mouse(&mut self, event: MouseEvent) -> bool {
+        let Some(session) = &self.usage.open else {
+            return false;
+        };
+        let (mode, encoding) = session.mouse_protocol();
+        let target = Target {
+            session: 0,
+            mode,
+            encoding,
+        };
+        let (gesture, bytes) = mouse::route(self.gesture, event, self.usage.area, Some(target));
+        self.gesture = gesture;
+        if let Some(bytes) = bytes {
+            session.send(&bytes);
+        }
         true
     }
 

@@ -1,12 +1,13 @@
 use std::path::Path;
 
-use crossterm::event::{KeyCode, KeyModifiers};
+use crossterm::event::{KeyCode, KeyModifiers, MouseButton, MouseEventKind};
 use harbour::app::App;
 
 use crate::editor_ending::gone;
 use crate::keeping::{remembered_after_a_while, titled};
+use crate::logging::{count, logged, only, read};
 use crate::remembering::{ID, Scratch, TITLE};
-use crate::{Screen, home, reading_agent, script};
+use crate::{Screen, home, raw_agent, reading_agent, script};
 
 const ARGS_AGENT: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/args-agent.sh");
 
@@ -105,6 +106,84 @@ fn a_claude_that_cannot_start_opens_no_popup_and_says_so() {
     assert!(shown.contains("Could not start"), "{shown}");
 }
 
+#[test]
+fn keys_while_the_popup_is_open_reach_only_the_popup() {
+    let mut screen = Screen::of(App::new(reading_agent()).with_usage(reading_report()));
+    screen.press('n');
+    screen.wait_for("acme agent ready");
+    screen.press('u');
+    screen.wait_for("acme usage ready");
+
+    screen.type_text("nxjk?u\r");
+
+    let shown = screen.wait_for("acme usage got: nxjk?u");
+    assert!(!shown.contains("? y/n"), "{shown}");
+    screen.key(KeyCode::Esc, KeyModifiers::NONE);
+    let after = typed_into_the_session_after(&mut screen);
+    assert!(!after.contains("acme agent got: nxjk?u"), "{after}");
+    assert!(!after.contains("acme-home 2"), "{after}");
+    assert!(!after.contains(" help "), "{after}");
+}
+
+#[test]
+fn a_paste_while_the_popup_is_open_reaches_only_the_popup() {
+    let mut screen = Screen::of(App::new(reading_agent()).with_usage(reading_report()));
+    screen.press('n');
+    screen.wait_for("acme agent ready");
+    screen.press('u');
+    screen.wait_for("acme usage ready");
+
+    screen.app.paste("acme pasted\r");
+
+    let shown = screen.wait_for("acme usage got: acme pasted");
+    assert!(shown.contains("acme usage got: acme pasted"), "{shown}");
+    screen.key(KeyCode::Esc, KeyModifiers::NONE);
+    let after = typed_into_the_session_after(&mut screen);
+    assert!(!after.contains("acme agent got: acme pasted"), "{after}");
+}
+
+#[test]
+fn a_click_while_the_popup_is_open_reaches_only_the_popup() {
+    let mut screen =
+        Screen::of(App::new(raw_agent("\\033[?1000h", 6)).with_usage(clicked_report()));
+    screen.press('n');
+    screen.wait_for("acme agent ready");
+    screen.press('u');
+    screen.wait_for("acme usage ready");
+
+    screen.mouse(MouseEventKind::Down(MouseButton::Left), 110, 5);
+    screen.mouse(MouseEventKind::Up(MouseButton::Left), 110, 5);
+    screen.mouse(MouseEventKind::Down(MouseButton::Left), 50, 10);
+    screen.mouse(MouseEventKind::Up(MouseButton::Left), 50, 10);
+
+    let shown = screen.wait_for("acme usage read:");
+    assert!(shown.contains("acme usage read:[M"), "{shown}");
+    screen.key(KeyCode::Esc, KeyModifiers::NONE);
+    screen.key(KeyCode::Enter, KeyModifiers::NONE);
+    screen.type_text("abcdef");
+    let after = screen.wait_for("acme agent read:");
+    assert!(after.contains("acme agent read:abcdef"), "{after}");
+}
+
+#[test]
+fn u_is_logged_by_name_and_what_reaches_the_popup_by_its_byte_count_only() {
+    let (app, lines) = logged(App::new(reading_agent()).with_usage(reading_report()));
+    let mut screen = Screen::of(app);
+    screen.press('u');
+    screen.wait_for("acme usage ready");
+
+    screen.type_text("acme-secret");
+    screen.app.paste("acme-pasted");
+    screen.draw();
+
+    let lines = read(&lines);
+    only(&lines, r#" key name="u""#);
+    assert_eq!(count(&lines, " input to=usage bytes=1\n"), 11);
+    only(&lines, " input to=usage bytes=11\n");
+    assert_eq!(count(&lines, "acme-secret"), 0);
+    assert_eq!(count(&lines, "acme-pasted"), 0);
+}
+
 fn leaves_nothing_behind(width: u16) {
     let scratch = Scratch::new();
     scratch.transcript(ID, &titled(TITLE));
@@ -127,6 +206,27 @@ fn leaves_nothing_behind(width: u16) {
     assert!(shown.contains("No session yet"), "{shown}");
     assert!(gone(pid.trim()));
     assert_eq!(scratch.memory().recall(), Vec::new());
+}
+
+fn typed_into_the_session_after(screen: &mut Screen) -> String {
+    screen.key(KeyCode::Enter, KeyModifiers::NONE);
+    screen.type_text("acme after\r");
+    screen.wait_for("acme agent got: acme after")
+}
+
+fn reading_report() -> Vec<String> {
+    script(
+        "echo 'acme usage ready'; \
+         while read -r line; do echo \"acme usage got: $line\"; done; exec sleep 600",
+    )
+}
+
+fn clicked_report() -> Vec<String> {
+    script(
+        "stty raw -echo; printf '\\033[?1000h'; echo 'acme usage ready'; \
+         r=$(dd bs=1 count=6 2>/dev/null); \
+         printf 'acme usage read:%s' \"$r\" | tr -d '\\033'; exec sleep 600",
+    )
 }
 
 fn report() -> Vec<String> {

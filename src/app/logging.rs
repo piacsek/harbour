@@ -10,7 +10,7 @@ use crate::handoff::{Reply, Verb};
 use crate::log::Log;
 use crate::session::Session;
 
-const BOUND: [char; 9] = ['q', 'n', 'x', 'e', '?', 'j', 'k', 'y', 'Y'];
+const BOUND: [char; 10] = ['q', 'n', 'x', 'e', '?', 'u', 'j', 'k', 'y', 'Y'];
 const SLOW_FRAME: Duration = Duration::from_millis(100);
 
 #[derive(Default)]
