@@ -2,12 +2,13 @@ use std::io;
 use std::panic::PanicHookInfo;
 use std::time::Duration;
 
-use crossterm::cursor::SetCursorStyle;
 use crossterm::event::{
     self, DisableBracketedPaste, DisableMouseCapture, EnableBracketedPaste, EnableMouseCapture,
     Event, KeyEventKind,
 };
 use crossterm::execute;
+use ratatui::Terminal;
+use ratatui::backend::CrosstermBackend;
 
 use crate::app::App;
 use crate::cursor::Shape;
@@ -69,38 +70,37 @@ pub fn demo() -> io::Result<()> {
 fn show(app: App) -> io::Result<()> {
     let app = app.with_mover(Box::new(|directory| std::env::set_current_dir(directory)));
     let mut terminal = ratatui::init();
-    std::panic::set_hook(panic_hook(std::panic::take_hook()));
+    let shape = Shape::default();
+    std::panic::set_hook(panic_hook(shape.clone(), std::panic::take_hook()));
     let result = execute!(io::stdout(), EnableBracketedPaste, EnableMouseCapture)
-        .and_then(|()| drive(&mut terminal, app));
-    let _ = leave_terminal(&mut io::stdout());
+        .and_then(|()| drive(&mut terminal, app, shape.clone()));
+    let _ = leave_terminal(&mut io::stdout(), &shape);
     ratatui::restore();
     result
 }
 
-pub fn panic_hook(restore_terminal: Box<PanicHook>) -> Box<PanicHook> {
+pub fn panic_hook(shape: Shape, restore_terminal: Box<PanicHook>) -> Box<PanicHook> {
     Box::new(move |info| {
         if session::containing() {
             return;
         }
-        let _ = leave_terminal(&mut io::stdout());
+        let _ = leave_terminal(&mut io::stdout(), &shape);
         restore_terminal(info);
     })
 }
 
-pub fn leave_terminal(out: &mut impl io::Write) -> io::Result<()> {
-    execute!(
-        out,
-        DisableMouseCapture,
-        DisableBracketedPaste,
-        SetCursorStyle::DefaultUserShape
-    )
+pub fn leave_terminal(out: &mut impl io::Write, shape: &Shape) -> io::Result<()> {
+    shape.leave(out)?;
+    execute!(out, DisableMouseCapture, DisableBracketedPaste)
 }
 
-fn drive(terminal: &mut ratatui::DefaultTerminal, mut app: App) -> io::Result<()> {
-    let mut shape = Shape::default();
+fn drive(
+    terminal: &mut ratatui::DefaultTerminal,
+    mut app: App,
+    mut shape: Shape,
+) -> io::Result<()> {
     while app.running() {
-        terminal.draw(|frame| app.draw(frame))?;
-        shape.send(&mut io::stdout(), app.cursor_shape())?;
+        frame(terminal, &mut app, &mut shape, &mut io::stdout())?;
         if event::poll(Duration::from_millis(30))? {
             match event::read()? {
                 Event::Key(key) if key.kind != KeyEventKind::Release => app.key(key),
@@ -110,6 +110,19 @@ fn drive(terminal: &mut ratatui::DefaultTerminal, mut app: App) -> io::Result<()
             }
         }
     }
+    Ok(())
+}
+
+pub fn frame<W: io::Write>(
+    terminal: &mut Terminal<CrosstermBackend<W>>,
+    app: &mut App,
+    shape: &mut Shape,
+    out: &mut impl io::Write,
+) -> io::Result<()> {
+    terminal.try_draw(|frame| {
+        app.draw(frame);
+        shape.send(out, app.cursor_shape())
+    })?;
     Ok(())
 }
 

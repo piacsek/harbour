@@ -1,10 +1,18 @@
+use std::cell::RefCell;
+use std::io;
 use std::path::Path;
+use std::rc::Rc;
 
 use crossterm::event::{KeyCode, KeyModifiers};
 use harbour::app::App;
+use harbour::cursor::Shape;
+use harbour::editor::Program;
 use harbour::picker::Picker;
-use ratatui::layout::Position;
+use harbour::tui;
+use ratatui::backend::CrosstermBackend;
+use ratatui::layout::{Position, Rect};
 use ratatui::style::Modifier;
+use ratatui::{Terminal, TerminalOptions, Viewport};
 
 use crate::{Screen, home, pane_corner, script};
 
@@ -37,6 +45,18 @@ fn a_program_that_hid_its_cursor_shows_none() {
     screen.wait_for("acme agent hidden");
 
     assert_eq!(screen.cursor(), None);
+}
+
+#[test]
+fn a_hidden_cursor_keeps_the_shape_the_program_set() {
+    let mut screen = Screen::new(script(
+        "printf '\\033[6 q\\033[?25lacme agent hidden'; exec sleep 600",
+    ));
+    screen.press('n');
+    screen.wait_for("acme agent hidden");
+
+    assert_eq!(screen.cursor(), None);
+    assert_eq!(screen.app.cursor_shape(), 6);
 }
 
 #[test]
@@ -104,6 +124,50 @@ fn another_session_shown_takes_its_own_shape() {
 }
 
 #[test]
+fn switching_sessions_hides_the_cursor_before_changing_its_shape() {
+    let scratch = tempfile::tempdir().unwrap();
+    let mut screen = Screen::new(bar_then_block_agent(scratch.path()));
+    screen.press('n');
+    screen.wait_for("acme agent 1");
+    screen.press('n');
+    screen.wait_for("acme agent 2");
+    let written = Written::default();
+    let mut terminal = Terminal::with_options(
+        CrosstermBackend::new(written.clone()),
+        TerminalOptions {
+            viewport: Viewport::Fixed(Rect::new(0, 0, 120, 20)),
+        },
+    )
+    .unwrap();
+    let mut shape = Shape::default();
+    tui::frame(
+        &mut terminal,
+        &mut screen.app,
+        &mut shape,
+        &mut written.clone(),
+    )
+    .unwrap();
+    screen.press('k');
+    screen.wait_for("acme agent 1");
+    written.clear();
+
+    tui::frame(
+        &mut terminal,
+        &mut screen.app,
+        &mut shape,
+        &mut written.clone(),
+    )
+    .unwrap();
+
+    let text = written.text();
+    let hidden = text.find("\x1b[?25l").unwrap_or(usize::MAX);
+    let shaped = text.find("\x1b[6 q").unwrap();
+    let shown = text.rfind("\x1b[?25h").unwrap();
+    assert!(hidden < shaped, "{text:?}");
+    assert!(shaped < shown, "{text:?}");
+}
+
+#[test]
 fn the_narrowest_sidebar_keeps_the_cursor_in_the_pane() {
     let mut screen = Screen::at(App::new(shaped_agent("6")), home(), 60);
     screen.press('n');
@@ -122,6 +186,46 @@ fn a_narrow_terminal_showing_only_the_sidebar_shows_no_cursor() {
     screen.wait_for("acme-home 1");
 
     assert_eq!(screen.cursor(), None);
+}
+
+#[test]
+fn a_message_over_the_bottom_of_a_narrow_pane_hides_the_cursor_under_it() {
+    let missing = Program::new("acme-edit", vec!["acme-editor-missing".to_string()]);
+    let mut screen = Screen::editing(
+        script("printf '\\033[14;1Hacme agent low'; exec sleep 600"),
+        missing,
+    );
+    screen.resize(50, 16);
+    screen.press('n');
+    screen.wait_for("acme-home 1");
+    screen.key(KeyCode::Enter, KeyModifiers::NONE);
+    screen.wait_for("acme agent low");
+    let before = screen.cursor();
+
+    screen.key(KeyCode::Char('l'), KeyModifiers::CONTROL);
+
+    screen.wait_for("Could not start acme-edit");
+    assert_eq!(before, Some(Position::new(15, 14)));
+    assert_eq!(screen.cursor(), None);
+}
+
+#[test]
+fn a_message_over_the_bottom_of_a_narrow_pane_keeps_the_cursor_above_it() {
+    let missing = Program::new("acme-edit", vec!["acme-editor-missing".to_string()]);
+    let mut screen = Screen::editing(
+        script("printf '\\033[2;1Hacme agent high'; exec sleep 600"),
+        missing,
+    );
+    screen.resize(50, 16);
+    screen.press('n');
+    screen.wait_for("acme-home 1");
+    screen.key(KeyCode::Enter, KeyModifiers::NONE);
+    screen.wait_for("acme agent high");
+
+    screen.key(KeyCode::Char('l'), KeyModifiers::CONTROL);
+
+    screen.wait_for("Could not start acme-edit");
+    assert_eq!(screen.cursor(), Some(Position::new(16, 2)));
 }
 
 #[test]
@@ -152,6 +256,40 @@ fn first_shaped_agent(scratch: &Path) -> Vec<String> {
          echo \"acme agent $n\"; exec sleep 600",
         count = count.display()
     ))
+}
+
+fn bar_then_block_agent(scratch: &Path) -> Vec<String> {
+    let count = scratch.join("count");
+    script(&format!(
+        "n=$(($(cat '{count}' 2>/dev/null || echo 0) + 1)); echo $n > '{count}'; \
+         if [ $n = 1 ]; then printf '\\033[6 q'; else printf '\\033[2 q'; fi; \
+         echo \"acme agent $n\"; exec sleep 600",
+        count = count.display()
+    ))
+}
+
+#[derive(Clone, Default)]
+struct Written(Rc<RefCell<Vec<u8>>>);
+
+impl Written {
+    fn clear(&self) {
+        self.0.borrow_mut().clear();
+    }
+
+    fn text(&self) -> String {
+        String::from_utf8_lossy(&self.0.borrow()).into_owned()
+    }
+}
+
+impl io::Write for Written {
+    fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
+        self.0.borrow_mut().extend_from_slice(bytes);
+        Ok(bytes.len())
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        Ok(())
+    }
 }
 
 fn typed_picker() -> Vec<String> {

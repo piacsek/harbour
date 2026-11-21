@@ -3,6 +3,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::thread::sleep;
 use std::time::{Duration, Instant};
 
+use harbour::cursor::Shape;
 use harbour::session::Session;
 use harbour::tui::{leave_terminal, panic_hook};
 use ratatui::buffer::Buffer;
@@ -15,7 +16,7 @@ static RESTORED: AtomicUsize = AtomicUsize::new(0);
 fn leaving_the_terminal_turns_off_mouse_capture_and_bracketed_paste() {
     let mut written = Vec::new();
 
-    leave_terminal(&mut written).unwrap();
+    leave_terminal(&mut written, &Shape::default()).unwrap();
 
     let written = String::from_utf8(written).unwrap();
     assert!(written.contains("\x1b[?1000l"), "{written:?}");
@@ -23,10 +24,48 @@ fn leaving_the_terminal_turns_off_mouse_capture_and_bracketed_paste() {
 }
 
 #[test]
-fn leaving_the_terminal_gives_back_the_default_cursor_shape() {
+fn leaving_the_terminal_gives_back_the_default_cursor_shape_after_sending_another() {
+    let mut shape = Shape::default();
+    shape.send(&mut Vec::new(), 6).unwrap();
     let mut written = Vec::new();
 
-    leave_terminal(&mut written).unwrap();
+    leave_terminal(&mut written, &shape).unwrap();
+
+    let written = String::from_utf8(written).unwrap();
+    assert!(written.contains("\x1b[0 q"), "{written:?}");
+}
+
+#[test]
+fn leaving_the_terminal_leaves_the_cursor_shape_alone_when_none_was_sent() {
+    let mut written = Vec::new();
+
+    leave_terminal(&mut written, &Shape::default()).unwrap();
+
+    let written = String::from_utf8(written).unwrap();
+    assert!(!written.contains(" q"), "{written:?}");
+}
+
+#[test]
+fn leaving_the_terminal_leaves_the_cursor_shape_alone_once_the_default_was_sent_back() {
+    let mut shape = Shape::default();
+    shape.send(&mut Vec::new(), 6).unwrap();
+    shape.send(&mut Vec::new(), 0).unwrap();
+    let mut written = Vec::new();
+
+    leave_terminal(&mut written, &shape).unwrap();
+
+    let written = String::from_utf8(written).unwrap();
+    assert!(!written.contains(" q"), "{written:?}");
+}
+
+#[test]
+fn a_clone_of_the_shape_knows_what_was_sent() {
+    let mut shape = Shape::default();
+    let kept = shape.clone();
+    shape.send(&mut Vec::new(), 4).unwrap();
+    let mut written = Vec::new();
+
+    leave_terminal(&mut written, &kept).unwrap();
 
     let written = String::from_utf8(written).unwrap();
     assert!(written.contains("\x1b[0 q"), "{written:?}");
@@ -34,9 +73,12 @@ fn leaving_the_terminal_gives_back_the_default_cursor_shape() {
 
 #[test]
 fn the_panic_hook_is_silent_for_a_contained_panic_and_restores_for_another() {
-    panic::set_hook(panic_hook(Box::new(|_| {
-        RESTORED.fetch_add(1, Ordering::SeqCst);
-    })));
+    panic::set_hook(panic_hook(
+        Shape::default(),
+        Box::new(|_| {
+            RESTORED.fetch_add(1, Ordering::SeqCst);
+        }),
+    ));
     let mut session = Session::start(&wide_at_the_edge(), &std::env::temp_dir(), 10, 160).unwrap();
     wait_for(&session, "ready");
     session.resize(10, 159);

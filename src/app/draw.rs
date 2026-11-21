@@ -101,7 +101,7 @@ impl App {
         let exited = self.sessions.get_mut(self.selected).is_some_and(|entry| {
             !entry.on_editor && entry.session.is_some() && entry.exited_at.is_some()
         });
-        let mut cursor = None;
+        let mut cursor = (None, 0);
         match self.sessions.get(self.selected) {
             None => {
                 let message = self.failed.as_deref().unwrap_or(HINT);
@@ -156,11 +156,17 @@ impl App {
             } else {
                 free
             };
-            draw_bottom(frame, failure_lines(failed, area.width), area);
+            let above = draw_bottom(frame, failure_lines(failed, area.width), area);
+            if cursor
+                .0
+                .is_some_and(|at| area.contains(at) && !above.contains(at))
+            {
+                cursor.0 = None;
+            }
         }
         if self.helping {
             self.draw_help(frame);
-            cursor = None;
+            cursor = (None, 0);
         }
         if let Some(pick) = &mut self.picking {
             let area = popup(frame.area());
@@ -173,8 +179,9 @@ impl App {
             frame.render_widget(pick.session(), inner);
             cursor = placed(pick.session(), inner);
         }
-        self.shape = cursor.map_or(0, |(_, shape)| shape);
-        if let Some((at, _)) = cursor {
+        let (at, shape) = cursor;
+        self.shape = shape;
+        if let Some(at) = at {
             frame.set_cursor_position(at);
         }
     }
@@ -221,8 +228,8 @@ impl App {
     }
 }
 
-fn placed(session: &Session, area: Rect) -> Option<(Position, u8)> {
-    session.cursor(area).map(|at| (at, session.cursor_shape()))
+fn placed(session: &Session, area: Rect) -> (Option<Position>, u8) {
+    (session.cursor(area), session.cursor_shape())
 }
 
 fn failure_lines(failed: &str, width: u16) -> Vec<Line<'static>> {

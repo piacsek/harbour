@@ -46,20 +46,22 @@ on top of it, so the one place the real cursor is placed stays easy to make cond
 | `ESC[3 q` / `ESC[4 q` | a blinking / steady underline |
 | `ESC[5 q` / `ESC[6 q` | a blinking / steady bar, between characters |
 | `ESC[7 q` or more | the shape it had before (the value is ignored) |
-| Program hid its cursor (`ESC[?25l`) | no cursor anywhere |
+| Program hid its cursor (`ESC[?25l`) | no cursor anywhere; the shape stays the program's, so a Neovim hiding it around each redraw sends nothing |
 | Pane shorter than the screen, cursor below the drawn area | no cursor |
 | Sidebar has focus | the pane's cursor, as before (#35 changes this) |
 | Help view shown | no cursor |
 | A question at the bottom of the sidebar | the pane's cursor stays in the pane; the question rows never get it |
 | Picker popup shown | the picker's own cursor and shape (fzf's prompt), never the pane session's |
 | Stopped card or no session selected | no cursor, default shape |
-| Another session shown (`j`/`k`, the editor with `e`, C-h/C-l) | that session's cursor and shape; default when it never set one |
+| Another session shown (`j`/`k`, the editor with `e`, C-h/C-l) | that session's cursor and shape; default when it never set one; the cursor is hidden before the new shape is sent, and shown at its new cell only at the end of that frame |
+| A failure message drawn over the bottom rows of the narrow pane-only layout | no cursor while it sits on a row the message covers; above it, the cursor as before |
 | After a contained vt100 panic | the shape the program set before, on the fresh screen |
 | Exited session, dimmed | its last cursor and shape, as the painted one showed |
 | Under tmux | harbour's pane takes the shape (`#{cursor_shape}`), and tmux passes it to the outer terminal when that terminal's terminfo has `Ss` |
 | A terminal that ignores DECSCUSR | its own cursor, unchanged: harbour sends only a well-formed `CSI Ps SP q`, and only when the shape changes, so nothing at all while every program keeps the default |
-| Quit | `ESC[0 q`, the terminal's default shape, then ratatui shows the cursor |
-| Panic (not contained) | the same, from the panic hook through `leave_terminal` |
+| Quit | `ESC[0 q`, the terminal's default shape, only when the last shape harbour sent was another; nothing when harbour never sent one, so a shell's own shape survives; then ratatui shows the cursor |
+| Panic (not contained) | the same, from the panic hook through `leave_terminal`, which shares the last shape sent |
+| Program sends a full reset (`ESC c`) | left out: harbour keeps the shape it had, since vt100 handles `ESC c` itself without a callback, so harbour never sees it; working around vt100 is not worth it for a sequence programs rarely send |
 | Narrowest sidebar (the pane at its widest) | the pane's cursor at its cell; the sidebar never shows it |
 | A CJK line under the cursor (a wide cell) | the real cursor sits on the wide character's first column; the character is drawn whole, no longer restyled by a painted cursor |
 
@@ -87,8 +89,16 @@ terminal answers which shape it shows, and the default is what Neovim itself lea
   shots of a pane lost their painted block; a screenshot cannot show the real cursor or its shape.
 - A session keeps the last shape `ESC [ 0..6 SP q` asked for (7 and up ignored), through a
   contained vt100 panic too. Harbour writes the shape only when it changes, so a terminal that
-  ignores DECSCUSR sees nothing while every program keeps the default, and writes `ESC[0 q` when
-  it leaves the terminal, at quit and from the panic hook.
+  ignores DECSCUSR sees nothing while every program keeps the default. The shape is the shown
+  program's whether or not its cursor is hidden, so a Neovim hiding it around each redraw sends
+  nothing, and it is written inside the frame, after `ESC[?25l`, so the cursor shows at its new
+  cell with the new shape only at the end of that frame. Harbour writes `ESC[0 q` when it leaves
+  the terminal, at quit and from the panic hook, only when the last shape it sent was another,
+  so a shell that sets its own shape keeps it when harbour never sent one (after harbour sent
+  the default back, the terminal already has it).
+- A failure message over the bottom rows of the narrow pane-only layout hides the cursor while
+  it sits on those rows. A full reset (`ESC c`) inside a session keeps the remembered shape:
+  vt100 handles it without a callback (the states table).
 - Neovim sends the shapes under the `TERM` harbour gives it, verified byte for byte with the
   clean fixture; no terminfo change was needed. Under tmux, `#{cursor_shape}` of harbour's pane
   follows the shown session (`tests/e2e/cursor.rs`).
@@ -102,3 +112,4 @@ terminal answers which shape it shows, and the default is what Neovim itself lea
 - `test-seam` The in-process tests of the new session functions and the app's cursor could not be shipped apart: the functions were dead code until the app called them, so plan tasks 1 and 2 became one ship → none
 - `test-seam` An end-to-end test sent keys right after `n` while the sidebar still had focus, so the session never got them; it presses Enter first, as the focus test does → none
 - `test-seam` A failing test in `tests/tui.rs` trips the counting panic hook of the test beside it and hides its own message, so the red of the cursor reset showed as the hook test failing → none
+- `review-loop` Round 1 found the shape flickering under a Neovim that hides its cursor around each redraw, the shape written after the frame showed the cursor, and the reset at quit sent even when harbour never sent a shape; a states table row per frame step (what is written, in which order) would have listed them → none
