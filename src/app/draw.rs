@@ -224,6 +224,9 @@ impl App {
             self.draw_help(frame);
             cursor = (None, 0);
         }
+        if self.draw_changelog(frame) {
+            cursor = (None, 0);
+        }
         if let Some(pick) = &mut self.picking {
             let area = popup(frame.area());
             let title = if self.finding.is_some() {

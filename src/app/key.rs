@@ -27,6 +27,9 @@ impl App {
             self.log_input(Input::Picker, bytes.len());
             return;
         }
+        if self.changelog_key(key) {
+            return;
+        }
         if self.dismiss(is_yes(key)) {
             return;
         }
@@ -105,6 +108,9 @@ impl App {
             KeyCode::Char('x') => self.end_or_remove(),
             KeyCode::Char('e') => self.next_editor(),
             KeyCode::Char('?') => self.helping = true,
+            KeyCode::Char('c' | 'C') if (acted.modifiers - KeyModifiers::SHIFT).is_empty() => {
+                self.reading = Some(Default::default())
+            }
             KeyCode::Char('u' | 'U') if (acted.modifiers - KeyModifiers::SHIFT).is_empty() => {
                 self.open_usage()
             }

@@ -6,6 +6,7 @@ use crossterm::event::{MouseEvent, MouseEventKind};
 use ratatui::layout::{Position, Rect};
 use ratatui::style::Color;
 
+mod changelog;
 mod draw;
 mod find;
 mod handoff;
@@ -69,6 +70,8 @@ pub struct App {
     failed: Option<String>,
     asking: Option<Question>,
     helping: bool,
+    changelog: String,
+    reading: Option<changelog::Reading>,
     quitting: bool,
     shape: u8,
     cursor: Option<Position>,
@@ -196,6 +199,8 @@ impl App {
             failed: None,
             asking: None,
             helping: false,
+            changelog: crate::changelog::CHANGELOG.to_string(),
+            reading: None,
             quitting: false,
             shape: 0,
             cursor: None,

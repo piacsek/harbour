@@ -1,4 +1,6 @@
-use harbour::changelog::{CHANGELOG, check, check_released};
+use harbour::changelog::{CHANGELOG, check, check_released, shown};
+use ratatui::style::Modifier;
+use ratatui::text::Line;
 
 #[test]
 fn the_changelog_has_a_real_entry_for_the_crate_version() {
@@ -263,4 +265,106 @@ fn a_build_from_main_at_version_0_0_0_asks_for_every_released_tag_it_is_given() 
         check_released(text, &["0.20.0", "0.21.0"], "0.0.0"),
         Err("v0.20.0 was released but has no entry; restore it, or merge origin/main if another branch released it".to_string())
     );
+}
+
+#[test]
+fn the_view_shows_each_heading_without_its_hashes() {
+    let lines = shown(RELEASED, 40);
+
+    assert_eq!(text(&lines[0]), "Changelog");
+    assert_eq!(text(&lines[2]), "v0.2.0 (2026-11-02)");
+}
+
+#[test]
+fn the_view_shows_each_heading_bold() {
+    let lines = shown(RELEASED, 40);
+
+    assert!(bold(&lines[0]));
+    assert!(bold(&lines[2]));
+    assert!(!bold(&lines[3]));
+}
+
+#[test]
+fn the_view_keeps_the_blank_lines_between_releases() {
+    let lines = shown(RELEASED, 40);
+
+    assert_eq!(text(&lines[1]), "");
+    assert_eq!(text(&lines[4]), "");
+    assert_eq!(text(&lines[5]), "v0.1.0 (2026-11-01)");
+}
+
+#[test]
+fn the_view_wraps_a_bullet_under_its_text() {
+    let lines = shown("## v0.1.0\n- acme retries the deploy twice\n", 16);
+
+    assert_eq!(text(&lines[1]), "- acme retries");
+    assert_eq!(text(&lines[2]), "  the deploy");
+    assert_eq!(text(&lines[3]), "  twice");
+    assert_eq!(lines.len(), 4);
+}
+
+#[test]
+fn the_view_joins_a_bullet_with_its_indented_lines_before_wrapping() {
+    let lines = shown(
+        "## v0.1.0 (2026-11-01)\n- acme retries the\n  deploy twice\n",
+        40,
+    );
+
+    assert_eq!(text(&lines[1]), "- acme retries the deploy twice");
+    assert_eq!(lines.len(), 2);
+}
+
+#[test]
+fn the_view_wraps_wide_characters_by_their_columns() {
+    let lines = shown("## v0.1.0\n- 港の船 出港 入港するよ\n", 10);
+
+    assert_eq!(text(&lines[1]), "- 港の船");
+    assert_eq!(text(&lines[2]), "  出港");
+    assert_eq!(text(&lines[3]), "  入港する");
+    assert_eq!(text(&lines[4]), "  よ");
+}
+
+#[test]
+fn the_view_wraps_a_heading_wider_than_its_room() {
+    let lines = shown("## v0.1.0 (2026-11-01)\n- acme\n", 10);
+
+    assert_eq!(text(&lines[0]), "v0.1.0");
+    assert_eq!(text(&lines[1]), "(2026-11-0");
+    assert_eq!(text(&lines[2]), "1)");
+    assert!(bold(&lines[2]));
+}
+
+#[test]
+fn the_view_of_a_build_without_releases_says_it_has_no_release_notes() {
+    let lines = shown("# Changelog\n", 40);
+
+    assert_eq!(text(&lines[0]), "Changelog");
+    assert_eq!(text(&lines[1]), "");
+    assert_eq!(text(&lines[2]), "This build has no release notes.");
+    assert_eq!(lines.len(), 3);
+}
+
+#[test]
+fn the_view_dims_the_line_saying_there_are_no_release_notes() {
+    let lines = shown("# Changelog\n", 40);
+
+    assert!(dim(&lines[2]));
+}
+
+const RELEASED: &str =
+    "# Changelog\n\n## v0.2.0 (2026-11-02)\n- second\n\n## v0.1.0 (2026-11-01)\n- first\n";
+
+fn text(line: &Line) -> String {
+    line.spans
+        .iter()
+        .map(|span| span.content.as_ref())
+        .collect()
+}
+
+fn bold(line: &Line) -> bool {
+    line.style.add_modifier.contains(Modifier::BOLD)
+}
+
+fn dim(line: &Line) -> bool {
+    line.style.add_modifier.contains(Modifier::DIM)
 }

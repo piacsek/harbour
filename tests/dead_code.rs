@@ -10,6 +10,7 @@ const SEAMS: &[&str] = &[
     "sending",
     "neovim",
     "path",
+    "with_changelog",
 ];
 
 const KINDS: &[&str] = &["fn", "struct", "enum", "const", "static", "trait", "type"];
