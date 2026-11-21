@@ -27,9 +27,8 @@ fn y_to_the_question_ends_the_session() {
 
     screen.press('y');
 
-    let shown = screen.wait_for("exited");
-    let doing = below(&shown, &format!("○ {} 1", directory()));
-    assert!(doing.starts_with("exited"), "{shown}");
+    let shown = screen.wait_for("sessions ○ 1");
+    assert_eq!(below(&shown, &format!("○ {} 1", directory())), "");
     assert!(!shown.contains("y/n"), "{shown}");
 }
 
@@ -62,7 +61,7 @@ fn x_on_an_exited_session_removes_its_row() {
     let shown = screen.draw();
     let first = format!("▌ ○ {} 1", directory());
     assert!(shown.contains(&first), "{shown}");
-    assert_eq!(below(&shown, &first), "exited");
+    assert_eq!(below(&shown, &first), "");
     assert!(!shown.contains(&format!("{} 2", directory())), "{shown}");
     assert!(!shown.contains("y/n"), "{shown}");
 }
@@ -124,7 +123,7 @@ fn q_with_a_running_session_asks_before_quitting() {
 fn q_with_only_exited_sessions_quits_without_asking() {
     let mut screen = Screen::new(script("exit 0"));
     screen.press('n');
-    screen.wait_for("exited");
+    screen.wait_for("sessions ○ 1");
 
     screen.press('q');
 

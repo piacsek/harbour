@@ -55,7 +55,7 @@ fn the_selected_card_is_bold_on_every_line() {
     let mut screen = Screen::new(script("exit 3"));
     screen.press('n');
 
-    screen.wait_for("exited 3");
+    screen.wait_for("sessions ○ 1");
 
     assert!(screen.cell(5, 1).modifier.contains(Modifier::BOLD));
     assert!(screen.cell(5, 2).modifier.contains(Modifier::BOLD));
@@ -64,6 +64,7 @@ fn the_selected_card_is_bold_on_every_line() {
 #[test]
 fn an_exited_session_says_so_on_the_second_line() {
     let mut screen = Screen::new(script("exit 3"));
+    screen.press('n');
     screen.press('n');
 
     let shown = screen.wait_for("exited 3");
@@ -157,13 +158,13 @@ fn a_terminal_too_short_for_one_card_shows_the_top_of_the_selected_one() {
     let shown = screen.draw();
 
     assert!(shown.contains(&format!("▌ ○ {} 2", directory())), "{shown}");
-    assert!(shown.contains("exited 3"), "{shown}");
     assert!(!shown.contains(&format!("○ {} 1", directory())), "{shown}");
 }
 
 #[test]
 fn the_narrow_layout_shows_the_same_cards_across_the_whole_width() {
     let mut screen = Screen::new(script("exit 3"));
+    screen.press('n');
     screen.press('n');
     screen.wait_for("exited 3");
 
@@ -205,8 +206,8 @@ fn an_exited_session_keeps_the_place_it_last_ran_in() {
     let scratch = tempfile::tempdir().unwrap();
     let repository = repository(scratch.path(), "acme-api", "main");
     let mut screen = picked_in(&repository, "exit 3");
-    let before = screen.wait_for_all(&["exited 3", "acme-api · main"]);
-    assert!(before.contains("exited 3"), "{before}");
+    let before = screen.wait_for_all(&["sessions ○ 1", "acme-api · main"]);
+    assert!(before.contains("sessions ○ 1"), "{before}");
     assert!(before.contains("acme-api · main"), "{before}");
 
     fs::write(repository.join(".git/HEAD"), "ref: refs/heads/fix-login\n").unwrap();

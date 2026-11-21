@@ -14,26 +14,52 @@ const ID: &str = "0f1e2d3c-4b5a-6978-8a9b-0c1d2e3f4a5b";
 const OTHER_ID: &str = "9a8b7c6d-5e4f-4a3b-2c1d-0e9f8a7b6c5d";
 
 #[test]
-fn a_working_session_shows_its_title_and_its_last_tool_call() {
+fn an_unselected_working_session_shows_its_last_prompt_dimmed_not_its_last_tool_call() {
     let claude = Claude::new();
     claude.transcript(
         ID,
         r#"{"type":"ai-title","aiTitle":"Fix the flaky login test"}"#,
     );
+    claude.transcript(
+        ID,
+        r#"{"type":"last-prompt","lastPrompt":"fix the login test"}"#,
+    );
     claude.transcript(ID, &tool(r#"{"description":"Run the login tests"}"#));
+    let mut screen = claude.screen("busy", ID);
+    screen.press('n');
+    screen.press('n');
+
+    let shown = screen.wait_for("fix the login test");
+
+    assert_eq!(
+        below(&shown, "Fix the flaky login test"),
+        "fix the login test"
+    );
+    assert!(!shown.contains("Run the login tests"), "{shown}");
+    assert!(screen.cell(5, 2).modifier.contains(Modifier::DIM));
+}
+
+#[test]
+fn the_selected_session_shows_no_second_line() {
+    let claude = Claude::new();
+    claude.transcript(
+        ID,
+        r#"{"type":"ai-title","aiTitle":"Fix the flaky login test"}"#,
+    );
+    claude.transcript(
+        ID,
+        r#"{"type":"last-prompt","lastPrompt":"fix the login test"}"#,
+    );
     let mut screen = claude.screen("busy", ID);
     screen.press('n');
 
     let shown = screen.wait_for("Fix the flaky login test");
 
-    assert_eq!(
-        below(&shown, "Fix the flaky login test"),
-        "Run the login tests"
-    );
+    assert_eq!(below(&shown, "Fix the flaky login test"), "");
 }
 
 #[test]
-fn an_idle_session_shows_its_last_prompt_dimmed() {
+fn an_unselected_idle_session_shows_its_last_prompt_dimmed() {
     let claude = Claude::new();
     claude.transcript(
         ID,
@@ -46,6 +72,7 @@ fn an_idle_session_shows_its_last_prompt_dimmed() {
     );
     let mut screen = claude.screen("idle", ID);
     screen.press('n');
+    screen.press('n');
 
     let shown = screen.wait_for("split the invoice helper");
 
@@ -57,7 +84,7 @@ fn an_idle_session_shows_its_last_prompt_dimmed() {
 }
 
 #[test]
-fn a_blocked_session_shows_what_it_waits_for_not_its_last_tool_call() {
+fn an_unselected_blocked_session_shows_what_it_waits_for_not_its_last_tool_call() {
     let claude = Claude::new();
     claude.transcript(ID, r#"{"type":"ai-title","aiTitle":"Deploy acme-api"}"#);
     claude.transcript(ID, &tool(r#"{"command":"make deploy"}"#));
@@ -65,8 +92,9 @@ fn a_blocked_session_shows_what_it_waits_for_not_its_last_tool_call() {
         r#"{{"status":"waiting","waitingFor":"permission prompt","sessionId":"{ID}"}}"#
     ));
     screen.press('n');
+    screen.press('n');
 
-    let shown = screen.wait_for("Deploy acme-api");
+    let shown = screen.wait_for("permission prompt");
 
     assert_eq!(below(&shown, "Deploy acme-api"), "permission prompt");
 }
@@ -141,7 +169,7 @@ fn an_exited_session_keeps_its_title() {
     let before = screen.wait_for("Short lived");
     assert!(before.contains("Short lived"), "{before}");
 
-    let shown = screen.wait_for("exited 3");
+    let shown = screen.wait_for("sessions ○ 1");
     sleep(Duration::from_millis(600));
     let again = screen.draw();
 
@@ -185,7 +213,7 @@ fn an_exited_session_counts_no_subagent() {
     let before = screen.wait_for("1 subagent");
     assert!(before.contains("1 subagent"), "{before}");
 
-    let shown = screen.wait_for("exited 3");
+    let shown = screen.wait_for("sessions ○ 1");
 
     assert!(!shown.contains("subagent"), "{shown}");
 }

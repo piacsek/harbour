@@ -13,12 +13,17 @@ fn a_stopped_card_whose_directory_is_gone_says_so() {
     let scratch = Scratch::new();
     scratch.remember(ID, TITLE, 0);
     scratch.transcript(ID, r#"{"type":"user","message":{}}"#);
+    another(&scratch);
     fs::remove_dir_all(scratch.checkout()).unwrap();
     let mut screen = scratch.watching(resuming_agent());
+    let before = screen.wait_for(SECOND);
+    assert!(before.contains(SECOND), "{before}");
 
-    let shown = screen.wait_for(TITLE);
+    screen.press('j');
 
+    let shown = screen.wait_for("directory gone");
     assert_eq!(below(&shown, TITLE), "directory gone");
+    assert_eq!(below(&shown, SECOND), "");
 }
 
 #[test]
@@ -53,11 +58,16 @@ fn a_stopped_card_whose_transcript_exists_is_shown() {
     let scratch = Scratch::new();
     scratch.remember(ID, TITLE, 0);
     scratch.transcript(ID, r#"{"type":"user","message":{}}"#);
+    another(&scratch);
     let mut screen = scratch.watching(resuming_agent());
+    let before = screen.wait_for(SECOND);
+    assert!(before.contains(SECOND), "{before}");
 
-    let shown = screen.wait_for(TITLE);
+    screen.press('j');
 
+    let shown = screen.wait_for_all(&[TITLE, "stopped"]);
     assert_eq!(below(&shown, TITLE), "stopped");
+    assert_eq!(below(&shown, SECOND), "");
 }
 
 #[test]
@@ -83,12 +93,17 @@ fn a_stopped_card_open_elsewhere_says_so() {
     let scratch = Scratch::new();
     scratch.remember(ID, TITLE, 0);
     scratch.transcript(ID, r#"{"type":"user","message":{}}"#);
+    another(&scratch);
     let _other = Elsewhere::open(&scratch.sessions(), ID);
     let mut screen = scratch.watching(resuming_agent());
+    let before = screen.wait_for(SECOND);
+    assert!(before.contains(SECOND), "{before}");
+
+    screen.press('j');
 
     let shown = screen.wait_for("open elsewhere");
-
     assert_eq!(below(&shown, TITLE), "open elsewhere");
+    assert_eq!(below(&shown, SECOND), "");
 }
 
 #[test]
@@ -98,8 +113,8 @@ fn enter_on_a_card_open_elsewhere_starts_no_second_copy() {
     scratch.transcript(ID, r#"{"type":"user","message":{}}"#);
     let _other = Elsewhere::open(&scratch.sessions(), ID);
     let mut screen = scratch.watching(resuming_agent());
-    let before = screen.wait_for("open elsewhere");
-    assert!(before.contains("open elsewhere"), "{before}");
+    let before = screen.wait_for(CLOSE_IT_THERE);
+    assert!(before.contains(CLOSE_IT_THERE), "{before}");
 
     screen.key(KeyCode::Enter, KeyModifiers::NONE);
 
@@ -118,8 +133,8 @@ fn x_on_a_card_open_elsewhere_hides_it_and_keeps_its_file() {
     scratch.transcript(ID, r#"{"type":"user","message":{}}"#);
     let _other = Elsewhere::open(&scratch.sessions(), ID);
     let mut screen = scratch.watching(resuming_agent());
-    let before = screen.wait_for("open elsewhere");
-    assert!(before.contains("open elsewhere"), "{before}");
+    let before = screen.wait_for(CLOSE_IT_THERE);
+    assert!(before.contains(CLOSE_IT_THERE), "{before}");
 
     screen.press('x');
 
@@ -133,10 +148,14 @@ fn a_card_open_elsewhere_says_stopped_once_the_other_one_ends() {
     let scratch = Scratch::new();
     scratch.remember(ID, TITLE, 0);
     scratch.transcript(ID, r#"{"type":"user","message":{}}"#);
+    another(&scratch);
     let other = Elsewhere::open(&scratch.sessions(), ID);
     let mut screen = scratch.watching(resuming_agent());
-    let before = screen.wait_for("open elsewhere");
-    assert!(before.contains("open elsewhere"), "{before}");
+    let before = screen.wait_for(SECOND);
+    assert!(before.contains(SECOND), "{before}");
+    screen.press('j');
+    let held = screen.wait_for("open elsewhere");
+    assert_eq!(below(&held, TITLE), "open elsewhere");
 
     drop(other);
 
@@ -157,10 +176,14 @@ fn a_registry_file_of_an_ended_process_does_not_hold_a_card() {
         format!(r#"{{"status":"busy","sessionId":"{ID}"}}"#),
     )
     .unwrap();
+    another(&scratch);
     let mut screen = scratch.watching(resuming_agent());
+    let before = screen.wait_for(SECOND);
+    assert!(before.contains(SECOND), "{before}");
 
-    let shown = screen.wait_for(TITLE);
+    screen.press('j');
 
+    let shown = screen.wait_for_all(&[TITLE, "stopped"]);
     assert_eq!(below(&shown, TITLE), "stopped");
 }
 
@@ -205,8 +228,8 @@ fn the_held_message_goes_once_another_card_is_selected() {
     scratch.transcript(OTHER_ID, r#"{"type":"user","message":{}}"#);
     let _other = Elsewhere::open(&scratch.sessions(), ID);
     let mut screen = scratch.watching(resuming_agent());
-    let before = screen.wait_for("open elsewhere");
-    assert!(before.contains("open elsewhere"), "{before}");
+    let before = screen.wait_for(CLOSE_IT_THERE);
+    assert!(before.contains(CLOSE_IT_THERE), "{before}");
     screen.key(KeyCode::Enter, KeyModifiers::NONE);
     let held = screen.wait_for("This conversation is open elsewhere");
     assert!(
@@ -230,8 +253,8 @@ fn the_held_message_goes_once_the_card_can_be_resumed() {
     scratch.transcript(ID, r#"{"type":"user","message":{}}"#);
     let other = Elsewhere::open(&scratch.sessions(), ID);
     let mut screen = scratch.watching(resuming_agent());
-    let before = screen.wait_for("open elsewhere");
-    assert!(before.contains("open elsewhere"), "{before}");
+    let before = screen.wait_for(CLOSE_IT_THERE);
+    assert!(before.contains(CLOSE_IT_THERE), "{before}");
     screen.key(KeyCode::Enter, KeyModifiers::NONE);
     let held = screen.wait_for("This conversation is open elsewhere");
     assert!(
@@ -241,12 +264,16 @@ fn the_held_message_goes_once_the_card_can_be_resumed() {
 
     drop(other);
 
-    let shown = screen.wait_for("stopped");
-    assert_eq!(below(&shown, TITLE), "stopped");
+    let shown = screen.wait_until(
+        "the card can resume and the held message is gone",
+        |shown| shown.contains(RESUMES) && !shown.contains("This conversation is open elsewhere"),
+    );
+    assert!(shown.contains(RESUMES), "{shown}");
     assert!(
         !shown.contains("This conversation is open elsewhere"),
         "{shown}"
     );
+    assert_eq!(below(&shown, TITLE), "");
 }
 
 #[test]
@@ -382,6 +409,15 @@ impl Drop for Elsewhere {
         let _ = self.child.kill();
         let _ = self.child.wait();
     }
+}
+
+const SECOND: &str = "The second one";
+const CLOSE_IT_THERE: &str = "Open elsewhere: close it there";
+const RESUMES: &str = "Stopped. Enter resumes it, x forgets it.";
+
+fn another(scratch: &Scratch) {
+    scratch.remember(OTHER_ID, SECOND, 1);
+    scratch.transcript(OTHER_ID, r#"{"type":"user","message":{}}"#);
 }
 
 fn resuming_agent() -> Vec<String> {

@@ -353,7 +353,6 @@ fn the_demo_shows_a_made_up_session_in_each_state() {
     let rows = [
         " sessions ● 1 ◉ 1 ○ 2 · 1 ",
         "● Fix the flaky retry test",
-        "Run the retry tests",
         "acme-api · fix-retry · #128 · 2 subagents",
         "◉ Publish the acme-api crate",
         "permission prompt",
@@ -382,8 +381,8 @@ fn the_demo_shows_a_made_up_session_in_each_state() {
     assert!(screen.contains(rows[11]), "{screen}");
     assert!(screen.contains(rows[12]), "{screen}");
     assert!(screen.contains(rows[13]), "{screen}");
-    assert!(screen.contains(rows[14]), "{screen}");
     assert!(!screen.contains("acme-local-branch"), "{screen}");
+    assert!(!screen.contains("Run the retry tests"), "{screen}");
 }
 
 #[test]

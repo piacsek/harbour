@@ -303,7 +303,7 @@ fn after_claude_code_exits_the_editor_stays_at_the_directory_last_seen() {
     screen.wait_for("acme editor at acme-two");
     screen.key(KeyCode::Char('h'), KeyModifiers::CONTROL);
     end_agent(scratch.path());
-    screen.wait_for("exited");
+    screen.wait_for("sessions ○ 1");
 
     screen.key(KeyCode::Char('l'), KeyModifiers::CONTROL);
 

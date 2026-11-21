@@ -52,10 +52,7 @@ impl Card {
             (None, State::Blocked) => record
                 .and_then(|record| record.waiting_for.as_deref())
                 .map(|reason| (clean(reason), state.style())),
-            (None, State::Working) => {
-                fact(|facts| facts.activity.as_ref()).map(|activity| (activity, Style::default()))
-            }
-            (None, State::Idle) => fact(|facts| facts.prompt.as_ref())
+            (None, State::Working | State::Idle) => fact(|facts| facts.prompt.as_ref())
                 .map(|prompt| (prompt, Style::default().add_modifier(Modifier::DIM))),
             _ => None,
         };
@@ -86,10 +83,10 @@ impl Card {
         }
     }
 
-    fn lines(&self, width: usize) -> [Line<'static>; HEIGHT] {
+    fn lines(&self, width: usize, selected: bool) -> [Line<'static>; HEIGHT] {
         let room = width.saturating_sub(INDENT.len());
         let first = self.first_line(width);
-        let second = match &self.doing {
+        let second = match self.doing.as_ref().filter(|_| !selected) {
             Some((text, style)) => Line::from(vec![
                 Span::from(INDENT),
                 Span::styled(fit(text, room), *style),
@@ -136,7 +133,7 @@ impl Sidebar {
                 break;
             }
             let chosen = index == selected;
-            for (line_index, line) in card.lines(width).iter().enumerate() {
+            for (line_index, line) in card.lines(width, chosen).iter().enumerate() {
                 let Some(row) = u16::try_from(top + line_index)
                     .ok()
                     .filter(|row| *row < area.height)

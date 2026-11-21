@@ -172,8 +172,8 @@ fn removing_the_last_session_moves_the_pane_path_back_where_harbour_was_opened()
     assert_eq!(server.wait_for_path(&web), web);
 
     server.send_keys(&["x", "y"]);
-    let screen = server.wait_for_screen("exited");
-    assert!(screen.contains("exited"), "{screen}");
+    let screen = server.wait_for_screen("sessions ○ 1");
+    assert!(screen.contains("sessions ○ 1"), "{screen}");
     server.send_keys(&["x"]);
 
     assert_eq!(server.wait_for_path(&opened_at), opened_at);

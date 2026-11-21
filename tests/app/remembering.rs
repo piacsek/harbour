@@ -20,11 +20,16 @@ pub(crate) const TITLE: &str = "Fix the flaky login test";
 fn a_remembered_session_comes_back_as_a_stopped_card() {
     let scratch = Scratch::new();
     scratch.remember(ID, TITLE, 0);
+    scratch.remember(OTHER_ID, SECOND, 1);
     let mut screen = scratch.screen(started_agent());
+    let before = screen.wait_for(SECOND);
+    assert!(before.contains(SECOND), "{before}");
 
-    let shown = screen.wait_for(TITLE);
+    screen.press('j');
 
+    let shown = screen.wait_for_all(&[TITLE, "stopped"]);
     assert_eq!(below(&shown, TITLE), "stopped");
+    assert_eq!(below(&shown, SECOND), "");
     assert!(!shown.contains("acme agent started"), "{shown}");
 }
 
@@ -32,7 +37,11 @@ fn a_remembered_session_comes_back_as_a_stopped_card() {
 fn a_stopped_card_says_stopped_dimmed() {
     let scratch = Scratch::new();
     scratch.remember(ID, TITLE, 0);
+    scratch.remember(OTHER_ID, SECOND, 1);
     let mut screen = scratch.screen(started_agent());
+    let before = screen.wait_for(SECOND);
+    assert!(before.contains(SECOND), "{before}");
+    screen.press('j');
 
     let shown = screen.wait_for("stopped");
     let row = shown
@@ -144,9 +153,9 @@ fn a_resumed_session_that_exits_resumes_again_with_enter() {
     scratch.remember(ID, TITLE, 0);
     let mut screen = scratch.screen(numbered_resuming_agent(scratch.dir.path()));
     screen.key(KeyCode::Enter, KeyModifiers::NONE);
-    let exited = screen.wait_for_all(&["acme agent run 1", "exited"]);
+    let exited = screen.wait_for_all(&["acme agent run 1", "sessions ○ 1"]);
     assert!(exited.contains("acme agent run 1"), "{exited}");
-    assert!(exited.contains("exited"), "{exited}");
+    assert!(exited.contains("sessions ○ 1"), "{exited}");
     screen.key(KeyCode::Char('h'), KeyModifiers::CONTROL);
 
     screen.key(KeyCode::Enter, KeyModifiers::NONE);
@@ -316,6 +325,8 @@ impl Scratch {
         Screen::of(App::new(command).with_memory(self.memory()))
     }
 }
+
+const SECOND: &str = "The second one";
 
 fn started_agent() -> Vec<String> {
     script("echo 'acme agent started'; exec sleep 600")

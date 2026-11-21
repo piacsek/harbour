@@ -23,6 +23,7 @@ file under `plans/`; its time and tokens are a row of [`plans/metrics.md`](plans
 | 13 | [one review coordinator runs each pull request's review loop](plans/phase-13-review-coordinator.md) | |
 | 14 | [a log of what harbour saw and decided, turned on by `HARBOUR_LOG`](plans/phase-14-log.md) | |
 | 16 | [only the session counts above zero in the sidebar title](plans/phase-16-counts-above-zero.md) | |
+| 17 | [a still sidebar: no activity line on the selected card, the last prompt on the others](plans/phase-17-still-sidebar.md) | |
 
 ## Backlog
 

@@ -9,9 +9,12 @@ use harbour::editor::Program;
 
 use crate::keeping::{remembered_soon, titled};
 use crate::remembering::{ID, OTHER_ID, Scratch, TITLE};
-use crate::{Screen, below, script};
+use crate::{Screen, below, script, sidebar_title};
 
 const SECOND: &str = "The second one";
+const THIRD: &str = "The third one";
+const THIRD_ID: &str = "3c4d5e6f-7a8b-4c9d-8e0f-1a2b3c4d5e6f";
+const RESUMES: &str = "Stopped. Enter resumes it";
 
 #[test]
 fn merging_away_the_selected_last_card_selects_the_one_that_stays() {
@@ -63,8 +66,8 @@ fn a_session_that_resumes_an_exited_card_takes_its_place() {
 
     register(&scratch, &first, OTHER_ID);
 
-    let shown = screen.wait_until("the exited card merged", |shown| !shown.contains("exited"));
-    assert!(!shown.contains("exited"), "{shown}");
+    let shown = screen.wait_until("the exited card merged", |shown| exited(shown) == 0);
+    assert_eq!(exited(&shown), 0, "{shown}");
     assert_eq!(shown.matches(SECOND).count(), 1, "{shown}");
     let kept = scratch.memory().recall();
     assert_eq!(kept.len(), 1);
@@ -140,8 +143,9 @@ fn a_stopped_card_forgotten_elsewhere_does_not_come_back() {
     scratch.remember(ID, TITLE, 0);
     scratch.transcript(ID, &titled(TITLE));
     let mut screen = scratch.watching(stoppable(&scratch));
-    let stopped = screen.wait_for("stopped");
+    let stopped = screen.wait_for_all(&[TITLE, RESUMES]);
     assert!(stopped.contains(TITLE), "{stopped}");
+    assert!(stopped.contains(RESUMES), "{stopped}");
 
     scratch.memory().forget(ID);
     settled(&mut screen, |_| scratch.memory().holds(ID));
@@ -162,8 +166,8 @@ fn ending_a_running_session_keeps_its_conversation() {
     screen.press('x');
     screen.press('y');
 
-    let exited = screen.wait_for("exited");
-    assert!(exited.contains("exited"), "{exited}");
+    let exited = screen.wait_for("sessions ○ 1");
+    assert!(exited.contains("sessions ○ 1"), "{exited}");
     let kept = scratch.memory().recall();
     assert_eq!(kept.len(), 1);
     assert_eq!(kept[0].session_id, ID);
@@ -175,8 +179,9 @@ fn a_resumed_session_that_exits_releases_its_conversation() {
     scratch.remember(ID, TITLE, 0);
     scratch.transcript(ID, &titled(TITLE));
     let mut screen = scratch.watching(stoppable(&scratch));
-    let stopped = screen.wait_for("stopped");
+    let stopped = screen.wait_for_all(&[TITLE, RESUMES]);
     assert!(stopped.contains(TITLE), "{stopped}");
+    assert!(stopped.contains(RESUMES), "{stopped}");
     screen.key(KeyCode::Enter, KeyModifiers::NONE);
     let resumed = pids_soon(&mut screen, &scratch, 1);
     screen.key(KeyCode::Char('h'), KeyModifiers::CONTROL);
@@ -258,9 +263,15 @@ fn a_fresh_session_is_open_elsewhere_in_a_second_harbour_without_its_registry_fi
     let mut first = scratch.watching(stoppable(&scratch));
     let pid = started(&mut first, &scratch, ID, TITLE);
     fs::remove_file(scratch.sessions().join(format!("{pid}.json"))).unwrap();
+    aside(&scratch);
     let mut second = scratch.watching(stoppable(&scratch));
+    let listed = second.wait_for(THIRD);
+    assert!(listed.contains(THIRD), "{listed}");
+    second.press('j');
     let held = second.wait_for("open elsewhere");
     assert_eq!(below(&held, TITLE), "open elsewhere");
+    assert_eq!(below(&held, THIRD), "");
+    second.press('k');
 
     second.key(KeyCode::Enter, KeyModifiers::NONE);
 
@@ -282,11 +293,16 @@ fn a_session_whose_id_changes_holds_only_its_new_conversation() {
     register(&scratch, &pid, OTHER_ID);
     remembered_soon(&mut first, &scratch.memory(), OTHER_ID, SECOND);
     fs::remove_file(scratch.sessions().join(format!("{pid}.json"))).unwrap();
+    aside(&scratch);
 
     let mut second = scratch.watching(stoppable(&scratch));
+    let listed = second.wait_for(THIRD);
+    assert!(listed.contains(THIRD), "{listed}");
+    second.press('j');
 
     let held = second.wait_for("open elsewhere");
     assert_eq!(below(&held, SECOND), "open elsewhere");
+    assert_eq!(below(&held, THIRD), "");
     assert!(!scratch.memory().reserved().contains(ID));
     assert!(scratch.memory().reserved().contains(OTHER_ID));
 }
@@ -297,8 +313,9 @@ fn enter_refuses_when_the_conversation_cannot_be_reserved() {
     scratch.remember(ID, TITLE, 0);
     scratch.transcript(ID, &titled(TITLE));
     let mut screen = scratch.watching(stoppable(&scratch));
-    let stopped = screen.wait_for("stopped");
+    let stopped = screen.wait_for_all(&[TITLE, RESUMES]);
     assert!(stopped.contains(TITLE), "{stopped}");
+    assert!(stopped.contains(RESUMES), "{stopped}");
     let folder = scratch.dir.path().join("state/harbour/sessions");
     let moved = scratch.dir.path().join("state/harbour/moved");
     fs::rename(&folder, &moved).unwrap();
@@ -322,8 +339,9 @@ fn a_resumed_card_counts_only_the_subagents_started_after_it() {
         SystemTime::now() - Duration::from_secs(3600),
     );
     let mut screen = scratch.watching(stoppable(&scratch));
-    let stopped = screen.wait_for("stopped");
+    let stopped = screen.wait_for_all(&[TITLE, RESUMES]);
     assert!(stopped.contains(TITLE), "{stopped}");
+    assert!(stopped.contains(RESUMES), "{stopped}");
     screen.key(KeyCode::Enter, KeyModifiers::NONE);
     let resumed = screen.wait_for(&format!("acme agent resumed {ID}"));
     assert!(resumed.contains(TITLE), "{resumed}");
@@ -408,8 +426,9 @@ fn a_stopped_card_a_session_here_switches_to_never_says_open_elsewhere() {
     scratch.transcript(ID, &titled(TITLE));
     scratch.transcript(OTHER_ID, &titled(SECOND));
     let mut screen = scratch.watching(stoppable(&scratch));
-    let stopped = screen.wait_for("stopped");
+    let stopped = screen.wait_for_all(&[TITLE, RESUMES]);
     assert!(stopped.contains(TITLE), "{stopped}");
+    assert!(stopped.contains(RESUMES), "{stopped}");
     let pid = started(&mut screen, &scratch, OTHER_ID, SECOND);
 
     register(&scratch, &pid, ID);
@@ -452,9 +471,22 @@ fn register(scratch: &Scratch, pid: &str, id: &str) {
 }
 
 fn stop(screen: &mut Screen, scratch: &Scratch, pid: &str) {
+    let before = exited(&screen.draw());
     fs::write(stop_file(scratch, pid), "").unwrap();
-    let exited = screen.wait_for("exited");
-    assert!(exited.contains("exited"), "{exited}");
+    let after = screen.wait_until("one more exited session", |shown| exited(shown) > before);
+    assert_eq!(exited(&after), before + 1, "{after}");
+}
+
+fn exited(shown: &str) -> usize {
+    sidebar_title(shown)
+        .split_once('○')
+        .and_then(|(_, rest)| rest.split_whitespace().next())
+        .map_or(0, |count| count.parse().unwrap())
+}
+
+fn aside(scratch: &Scratch) {
+    scratch.remember(THIRD_ID, THIRD, 9);
+    scratch.transcript(THIRD_ID, &titled(THIRD));
 }
 
 fn stop_file(scratch: &Scratch, pid: &str) -> PathBuf {

@@ -6,7 +6,7 @@ use crossterm::event::{KeyCode, KeyModifiers};
 use harbour::editor::Program;
 use ratatui::style::Modifier;
 
-use crate::{Screen, below, reading_agent, region, script};
+use crate::{Screen, reading_agent, region, script};
 
 #[test]
 fn yes_to_ending_a_session_ends_its_editor_too() {
@@ -47,7 +47,6 @@ fn x_on_an_exited_session_whose_editor_runs_asks_first() {
     let shown = screen.draw();
     assert!(shown.contains("End? y/n"), "{shown}");
     assert!(shown.contains("acme-home 1"), "{shown}");
-    assert!(shown.contains("exited"), "{shown}");
 }
 
 #[test]
@@ -157,9 +156,7 @@ fn with_exited_agent(scratch: &Path) -> Screen {
     let mut screen = editing(scratch, agent, "");
     screen.key(KeyCode::Char('h'), KeyModifiers::CONTROL);
     screen.key(KeyCode::Enter, KeyModifiers::NONE);
-    screen.wait_until("the session exited", |shown| {
-        below(shown, "acme-home 1") == "exited"
-    });
+    screen.wait_for("sessions ○ 1");
     screen.key(KeyCode::Char('h'), KeyModifiers::CONTROL);
     screen
 }

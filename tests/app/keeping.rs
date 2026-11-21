@@ -118,8 +118,8 @@ fn a_remembered_session_that_exits_resumes_with_enter() {
     screen.press('n');
     let kept = remembered_soon(&mut screen, &scratch.memory(), ID, TITLE);
     assert_eq!(kept.len(), 1);
-    let exited = screen.wait_for("exited");
-    assert!(exited.contains("exited"), "{exited}");
+    let exited = screen.wait_for("sessions ○ 1");
+    assert!(exited.contains("sessions ○ 1"), "{exited}");
 
     screen.key(KeyCode::Enter, KeyModifiers::NONE);
 
@@ -142,8 +142,8 @@ fn x_on_an_exited_remembered_session_forgets_it() {
     screen.press('n');
     let kept = remembered_soon(&mut screen, &scratch.memory(), ID, TITLE);
     assert_eq!(kept.len(), 1);
-    let exited = screen.wait_for("exited");
-    assert!(exited.contains("exited"), "{exited}");
+    let exited = screen.wait_for("sessions ○ 1");
+    assert!(exited.contains("sessions ○ 1"), "{exited}");
 
     screen.press('x');
 
