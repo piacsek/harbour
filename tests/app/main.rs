@@ -139,8 +139,7 @@ impl Screen {
     }
 
     fn cursor(&self) -> Option<Position> {
-        let backend = self.terminal.backend();
-        backend.cursor_visible().then(|| backend.cursor_position())
+        self.app.cursor_position()
     }
 
     fn cell(&self, x: u16, y: u16) -> Cell {

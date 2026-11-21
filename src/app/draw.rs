@@ -138,6 +138,7 @@ impl App {
                     }
                     if exited {
                         frame.buffer_mut().set_style(self.pane, Modifier::DIM);
+                        cursor = (None, 0);
                     }
                 }
             }
@@ -179,11 +180,7 @@ impl App {
             frame.render_widget(pick.session(), inner);
             cursor = placed(pick.session(), inner);
         }
-        let (at, shape) = cursor;
-        self.shape = shape;
-        if let Some(at) = at {
-            frame.set_cursor_position(at);
-        }
+        (self.cursor, self.shape) = cursor;
     }
 
     fn tabs(&self, width: u16) -> Option<Line<'static>> {

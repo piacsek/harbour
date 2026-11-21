@@ -59,7 +59,7 @@ on top of it, so the one place the real cursor is placed stays easy to make cond
 | Another session shown (`j`/`k`, the editor with `e`, C-h/C-l) | that session's cursor and shape; default when it never set one; the cursor is hidden before the new shape is sent, and shown at its new cell only at the end of that frame |
 | A failure message drawn over the bottom rows of the narrow pane-only layout | no cursor while it sits on a row the message covers; above it, the cursor as before |
 | After a contained vt100 panic | the shape the program set before, on the fresh screen |
-| Exited session, dimmed | its last cursor and shape, as the painted one showed |
+| Exited session, dimmed | no cursor (decided in review round 3: a bright cursor over a dimmed pane reads as live) |
 | Under tmux | harbour's pane takes the shape (`#{cursor_shape}`), and tmux passes it to the outer terminal when that terminal's terminfo has `Ss` |
 | A terminal that ignores DECSCUSR | its own cursor, unchanged: harbour sends only a well-formed `CSI Ps SP q`, and only when the shape changes, so nothing at all while every program keeps the default |
 | Quit | `ESC[0 q`, the terminal's default shape, only when the last shape harbour sent was another; nothing when harbour never sent one, so a shell's own shape survives; then ratatui shows the cursor |
@@ -99,14 +99,23 @@ terminal answers which shape it shows, and the default is what Neovim itself lea
   the terminal, at quit and from the panic hook, only when the last shape it sent was another,
   so a shell that sets its own shape keeps it when harbour never sent one (after harbour sent
   the default back, the terminal already has it).
-- Every frame starts with `ESC[?25l` and ends, through ratatui, with the cursor shown and moved
-  to its cell, so it never jumps while the cells are written. Hiding was chosen over
+- Every frame starts with `ESC[?25l`; ratatui is never handed the cursor, so it hides it too
+  (after the cells, so harbour's own hide stays), and after the frame harbour moves the cursor
+  to its cell and shows it in one write, so it never jumps while the cells are written or shows
+  at the last changed cell. Leaving the terminal, at quit and from the panic hook, shows the
+  cursor, so a panic in the middle of a frame never hands the shell a hidden one. Hiding was chosen over
   synchronized output (`ESC[?2026h`): it is one write every terminal understands, and a terminal
   without synchronized output would still show the cursor jumping.
 - A cursor waiting after the last column (a line that exactly fills the pane) shows on that
   column. After the panic hook resets the shape, the next frame sends the program's shape again.
 - The pane keeps whatever shape the shell left until a program in harbour asks for another,
   since harbour sends nothing while every program keeps the default.
+- An exited session shows no cursor over its dimmed pane.
+- 3 review rounds, the owner's cap. Two findings were left for an issue: every frame hides and
+  shows the cursor even when nothing changed, about 33 times a second, which may stop a blinking
+  cursor from blinking in terminals that restart the blink on show (not checked in a real
+  terminal); and the cursor's position and shape are read under a second lock after the cells
+  are rendered, so during heavy output the cursor can sit one frame off.
 - A failure message over the bottom rows of the narrow pane-only layout hides the cursor while
   it sits on those rows. A full reset (`ESC c`) inside a session keeps the remembered shape:
   vt100 handles it without a callback (the states table).
@@ -125,3 +134,4 @@ terminal answers which shape it shows, and the default is what Neovim itself lea
 - `test-seam` A failing test in `tests/tui.rs` trips the counting panic hook of the test beside it and hides its own message, so the red of the cursor reset showed as the hook test failing → none
 - `review-loop` Round 1 found the shape flickering under a Neovim that hides its cursor around each redraw, the shape written after the frame showed the cursor, and the reset at quit sent even when harbour never sent a shape; a states table row per frame step (what is written, in which order) would have listed them → none
 - `review-loop` Round 2 found the cursor visible while each frame's cells were written, a cursor waiting after the last column hidden, and the panic hook's reset not recorded → none
+- `review-loop` Round 3 found the cursor shown for a moment at the last changed cell (ratatui shows it, then moves it, in two writes), the shell possibly handed a hidden cursor after a panic mid-frame, and a bright cursor over an exited session's dimmed pane; the loop ended at the owner's cap of 3 rounds with two findings left for an issue → none

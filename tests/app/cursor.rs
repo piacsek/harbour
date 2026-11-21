@@ -168,7 +168,7 @@ fn switching_sessions_hides_the_cursor_before_changing_its_shape() {
 }
 
 #[test]
-fn a_frame_hides_the_cursor_before_its_first_cell_and_shows_it_at_its_cell_last() {
+fn a_frame_hides_the_cursor_before_its_first_cell_and_moves_then_shows_it_in_one_write_last() {
     let mut screen = Screen::new(script(
         "printf '\\033[3;5Hacme agent plain'; exec sleep 600",
     ));
@@ -194,9 +194,19 @@ fn a_frame_hides_the_cursor_before_its_first_cell_and_shows_it_at_its_cell_last(
     .unwrap();
 
     let text = written.text();
-    let shown = text.rfind("\x1b[?25h").unwrap();
+    let last = format!("{FLUSH}\x1b[4;{}H\x1b[?25h{FLUSH}", corner + 22);
     assert!(text.starts_with("\x1b[?25l"), "{text:?}");
-    assert_eq!(&text[shown..], format!("\x1b[?25h\x1b[4;{}H", corner + 22));
+    assert!(text.ends_with(&last), "{text:?}");
+    assert_eq!(text.matches("\x1b[?25h").count(), 1, "{text:?}");
+}
+
+#[test]
+fn an_exited_session_shows_no_cursor() {
+    let mut screen = Screen::new(script("printf '\\033[3;5Hacme agent done'; exit 0"));
+    screen.press('n');
+    screen.wait_for_all(&["exited", "acme agent done"]);
+
+    assert_eq!(screen.cursor(), None);
 }
 
 #[test]
@@ -303,6 +313,8 @@ fn bar_then_block_agent(scratch: &Path) -> Vec<String> {
 #[derive(Clone, Default)]
 struct Written(Rc<RefCell<Vec<u8>>>);
 
+const FLUSH: &str = "<flush>";
+
 impl Written {
     fn clear(&self) {
         self.0.borrow_mut().clear();
@@ -320,6 +332,7 @@ impl io::Write for Written {
     }
 
     fn flush(&mut self) -> io::Result<()> {
+        self.0.borrow_mut().extend_from_slice(FLUSH.as_bytes());
         Ok(())
     }
 }

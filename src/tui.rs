@@ -4,11 +4,12 @@ use std::os::fd::AsFd;
 use std::panic::PanicHookInfo;
 use std::time::Duration;
 
+use crossterm::cursor::{MoveTo, Show};
 use crossterm::event::{
     DisableBracketedPaste, DisableMouseCapture, EnableBracketedPaste, EnableMouseCapture, Event,
     KeyEventKind,
 };
-use crossterm::execute;
+use crossterm::{execute, queue};
 use ratatui::Terminal;
 use ratatui::backend::CrosstermBackend;
 
@@ -103,7 +104,7 @@ pub fn enter_terminal(out: &mut impl io::Write) -> io::Result<()> {
 
 pub fn leave_terminal(out: &mut impl io::Write, shape: &Shape) -> io::Result<()> {
     shape.leave(out)?;
-    execute!(out, DisableMouseCapture, DisableBracketedPaste)?;
+    execute!(out, DisableMouseCapture, DisableBracketedPaste, Show)?;
     out.write_all(EXTENDED_KEYS_OFF)?;
     out.flush()
 }
@@ -142,6 +143,10 @@ pub fn frame<W: io::Write>(
         app.draw(frame);
         shape.send(out, app.cursor_shape())
     })?;
+    if let Some(at) = app.cursor_position() {
+        queue!(out, MoveTo(at.x, at.y), Show)?;
+        out.flush()?;
+    }
     Ok(())
 }
 

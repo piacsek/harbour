@@ -56,6 +56,7 @@ pub struct App {
     helping: bool,
     quitting: bool,
     shape: u8,
+    cursor: Option<Position>,
     registry: Option<PathBuf>,
     transcripts: Option<PathBuf>,
     naming: bool,
@@ -172,6 +173,7 @@ impl App {
             helping: false,
             quitting: false,
             shape: 0,
+            cursor: None,
             registry: None,
             transcripts: None,
             naming: false,
@@ -256,6 +258,10 @@ impl App {
 
     pub fn cursor_shape(&self) -> u8 {
         self.shape
+    }
+
+    pub fn cursor_position(&self) -> Option<Position> {
+        self.cursor
     }
 
     pub fn running(&self) -> bool {

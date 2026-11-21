@@ -24,6 +24,16 @@ fn leaving_the_terminal_turns_off_mouse_capture_and_bracketed_paste() {
 }
 
 #[test]
+fn leaving_the_terminal_shows_the_cursor_for_the_shell() {
+    let mut written = Vec::new();
+
+    leave_terminal(&mut written, &Shape::default()).unwrap();
+
+    let written = String::from_utf8(written).unwrap();
+    assert!(written.contains("\x1b[?25h"), "{written:?}");
+}
+
+#[test]
 fn leaving_the_terminal_gives_back_the_default_cursor_shape_after_sending_another() {
     let mut shape = Shape::default();
     shape.send(&mut Vec::new(), 6).unwrap();
