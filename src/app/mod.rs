@@ -4,6 +4,7 @@ use std::time::{Duration, Instant, SystemTime};
 
 use crossterm::event::{MouseEvent, MouseEventKind};
 use ratatui::layout::{Position, Rect};
+use ratatui::style::Color;
 
 mod draw;
 mod handoff;
@@ -49,6 +50,7 @@ pub struct App {
     shown_pane: Rect,
     sidebar: Rect,
     cards: Sidebar,
+    accent: Color,
     pane_focused: bool,
     gesture: Gesture,
     failed: Option<String>,
@@ -166,6 +168,7 @@ impl App {
             shown_pane: Rect::default(),
             sidebar: Rect::default(),
             cards: Sidebar::default(),
+            accent: Color::Cyan,
             pane_focused: false,
             gesture: Gesture::Idle,
             failed: None,
@@ -195,6 +198,11 @@ impl App {
 
     pub fn with_picker(mut self, picker: Picker) -> App {
         self.picker = Some(picker);
+        self
+    }
+
+    pub fn with_accent(mut self, accent: Color) -> App {
+        self.accent = accent;
         self
     }
 

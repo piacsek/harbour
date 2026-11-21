@@ -173,6 +173,32 @@ fn an_fzf_picker_from_the_file_runs_over_the_list_with_its_arguments() {
     );
 }
 
+#[test]
+#[ignore]
+fn the_accent_from_the_file_colours_the_focused_border() {
+    let home = tempfile::tempdir().unwrap();
+    write_config(home.path(), "accent = \"red\"\n");
+    let server = Server::start("config-accent", 160, 20);
+    server.run(home.path(), &[(SESSION_COMMAND, AGENT)], &[]);
+    server.wait_for_screen("press n to start one");
+
+    let first = coloured(&server);
+
+    assert!(first.contains("\u{1b}[38;5;1m┏"), "{first:?}");
+}
+
+fn coloured(server: &Server) -> String {
+    let output = server
+        .tmux(&["capture-pane", "-p", "-e", "-t", "e2e"])
+        .output()
+        .unwrap();
+    String::from_utf8_lossy(&output.stdout)
+        .lines()
+        .next()
+        .unwrap_or_default()
+        .to_string()
+}
+
 fn write_config(home: &Path, text: &str) -> PathBuf {
     let path = home.join(".config/harbour/config.toml");
     std::fs::create_dir_all(path.parent().unwrap()).unwrap();
