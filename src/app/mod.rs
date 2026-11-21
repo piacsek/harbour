@@ -14,6 +14,7 @@ mod logging;
 mod read;
 mod remember;
 mod split;
+mod usage;
 mod zoom;
 
 use draw::exit_note;
@@ -43,6 +44,7 @@ pub struct App {
     editor: Option<Program>,
     picking: Option<Pick>,
     picking_area: Rect,
+    usage: usage::Usage,
     screen: Rect,
     sessions: Vec<Entry>,
     selected: usize,
@@ -157,6 +159,7 @@ impl App {
             .ok()
             .or_else(|| std::env::var_os("PWD").map(PathBuf::from))
             .unwrap_or_default();
+        let usage = usage::Usage::new(&command);
         App {
             command,
             home,
@@ -164,6 +167,7 @@ impl App {
             editor: None,
             picking: None,
             picking_area: Rect::default(),
+            usage,
             screen: Rect::new(0, 0, 80, 24),
             sessions: Vec::new(),
             selected: 0,
@@ -266,6 +270,8 @@ impl App {
             .with_transcripts(registry.join("projects"))
             .with_picker(demo::picker())
             .with_editor(demo::editor())
+            .with_usage(demo::usage())
+            .with_usage_place(Some(registry.join("usage")))
             .with_memory(demo::stopped(&registry));
         app.start_with(&demo::working(&registry));
         app.start_with(&demo::blocked(&registry));
@@ -300,6 +306,9 @@ impl App {
     }
 
     fn paste_handled(&mut self, text: &str) {
+        if self.usage_paste(text) {
+            return;
+        }
         if let Some(pick) = &self.picking {
             let bytes = pick.session().paste(text);
             self.log_input(Input::Picker, bytes);
@@ -321,6 +330,9 @@ impl App {
     }
 
     fn mouse_handled(&mut self, event: MouseEvent) {
+        if self.usage_mouse(event) {
+            return;
+        }
         if let Some(pick) = &self.picking {
             let (mode, encoding) = pick.session().mouse_protocol();
             let target = Target {

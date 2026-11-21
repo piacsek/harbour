@@ -47,8 +47,9 @@ harbour config      # the settings file's path and where each setting comes from
 | `C-1..C-9` | focus or resume that card; C-9 the last |
 | `M-z` | zoom the session to the whole screen, or back |
 | `M--/M-=` | narrow / widen the sidebar by 2 columns |
-| `e` | show the session's next editor, one per directory |
+| `e` | show the next editor, one per directory |
 | `x` | end it and its editors, or forget an ended one |
+| `u` | show Claude Code's usage and limits |
 | `?` | show or hide the help |
 | `q` | quit, after a yes while anything runs |
 

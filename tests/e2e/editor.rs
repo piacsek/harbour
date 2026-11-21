@@ -221,6 +221,24 @@ fn c_l_in_the_demo_opens_a_made_up_editor() {
     assert!(screen.contains("claude | nvim: "), "{screen}");
 }
 
+#[test]
+#[ignore]
+fn u_in_the_demo_shows_a_made_up_usage_report() {
+    let home = tempfile::tempdir().unwrap();
+    let server = Server::start("demo-usage", 160, 26);
+    server.run(home.path(), &[], &["--demo"]);
+    server.wait_for_screen("acme agent");
+
+    server.send_keys(&["u"]);
+
+    let screen = server.wait_for_screen("Current session: 12% used");
+    assert!(screen.contains(" usage "), "{screen}");
+    assert!(
+        screen.contains("Current week (all models): 31% used"),
+        "{screen}"
+    );
+}
+
 fn harbours_tmux(server: &Server) -> (String, String) {
     let output = server
         .tmux(&[

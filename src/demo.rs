@@ -62,6 +62,15 @@ pub fn editor() -> Program {
 const UNKNOWN: &str = r#"printf 'acme shell in ~/%s\n' "${PWD##*/}"
 exec sleep 86400"#;
 
+const USAGE: &str = r#"printf 'Your usage is billed to the acme team plan.\n\n'
+printf 'Current session: 12%% used · resets 3:40pm\n'
+printf 'Current week (all models): 31%% used · resets Mon 9:00am\n'
+printf 'Current week (acme-large): 18%% used · resets Mon 9:00am\n\n'
+printf '\033[1mWhat'"'"'s contributing to your usage?\033[0m\n\n'
+printf '  Last 5 hours: 84 requests across 4 sessions\n'
+printf '  Top skills: tdd (21), review (9)\n'
+printf '  Subagents: 7 runs, most of them Explore\n'"#;
+
 pub fn fresh() -> Vec<String> {
     script(WORKING)
 }
@@ -148,6 +157,10 @@ pub fn checkout(registry: &Path, name: &str, branch: &str) -> PathBuf {
     let _ = fs::create_dir_all(&git)
         .and_then(|()| fs::write(git.join("HEAD"), format!("ref: refs/heads/{branch}\n")));
     directory
+}
+
+pub fn usage() -> Vec<String> {
+    script(USAGE)
 }
 
 pub fn failed() -> Vec<String> {

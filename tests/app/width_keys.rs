@@ -2,8 +2,9 @@ use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use harbour::app::App;
 use harbour::input::ESCAPED;
 
+use crate::usage_states::place;
 use crate::zoom::{editing_session, raw_reader};
-use crate::{Screen, home, numbered_agent, pane_corner, reading_agent, sized_agent};
+use crate::{Screen, home, numbered_agent, pane_corner, reading_agent, script, sized_agent};
 
 #[test]
 fn alt_minus_from_the_sidebar_makes_it_two_columns_narrower() {
@@ -186,6 +187,28 @@ fn with_a_question_shown_the_width_keys_do_nothing() {
     screen.press('q');
 
     wider(&mut screen);
+
+    assert_eq!(pane_corner(&screen.draw()), 30);
+}
+
+#[test]
+fn with_the_usage_popup_shown_the_width_keys_do_nothing() {
+    let scratch = tempfile::tempdir().unwrap();
+    let mut screen = Screen::at(
+        App::new(numbered_agent(scratch.path()))
+            .with_sidebar_width(30)
+            .with_usage_place(Some(place()))
+            .with_usage(script("echo 'acme session: 12% used'")),
+        home(),
+        120,
+    );
+    screen.press('n');
+    screen.wait_for("acme agent 1");
+    screen.press('u');
+    screen.wait_for("acme session: 12% used");
+
+    wider(&mut screen);
+    screen.key(KeyCode::Esc, KeyModifiers::NONE);
 
     assert_eq!(pane_corner(&screen.draw()), 30);
 }

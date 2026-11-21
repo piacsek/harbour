@@ -196,7 +196,7 @@ pub(crate) fn remembered_soon(
     }
 }
 
-fn remembered_after_a_while(screen: &mut Screen, memory: &Memory) -> Vec<Remembered> {
+pub(crate) fn remembered_after_a_while(screen: &mut Screen, memory: &Memory) -> Vec<Remembered> {
     let deadline = Instant::now() + Duration::from_secs(3);
     loop {
         screen.draw();

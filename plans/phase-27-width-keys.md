@@ -102,7 +102,7 @@ never receives either key.
 | Terminal under 60 columns (one side shown) | nothing happens; the number kept is unchanged |
 | Zoomed | nothing happens; the width from before the zoom is back when it ends |
 | A question, the help view or the picker shown | nothing happens (the question and help view are dismissed by any key; the picker takes every key) |
-| The usage popup (#99) shown | nothing happens: it is dismissed by any key like the help view; checked once #99 is merged |
+| The usage popup shown | nothing happens: the popup takes every key first (Esc and `q` close it, the rest go to its report) |
 | No session | the border moves; the empty pane takes the rest |
 | The terminal narrowed below the adjusted width's half | the sidebar is cut to half the new width; the number is kept |
 | The terminal widened again | the sidebar is back at the adjusted width, or half the new width when smaller |
@@ -165,15 +165,18 @@ Each ship is whole: the new items ship with their caller.
 - The log names the keys `M--` and `M-=`.
 - The help gained the row `M--/M-=    narrow / widen the sidebar by 2 columns`. To keep the
   help whole at 59 by 20, the `x` row was shortened to `end it and its editors, or forget an
-  ended one` (46 characters, the most a row holds at 59 columns), and the headroom test now
-  leaves 2 rows, not 3. The README key table mirrors both.
+  ended one` (46 characters, the most a row holds at 59 columns). After the merge of phase 26,
+  which added the `u` row and shortened the `e` row, the help leaves 1 spare row on a 20-row
+  terminal, not 2, and the headroom test says so. The README key table mirrors both.
 - Task 2's tests live in `tests/app/width_keys.rs`, not `tests/app/width.rs`. Its last guard
   was shown red by taking the width from the stored number instead of the drawn one, not by a
   cut when stored.
 - The issue's "from the editor" was declined: Alt-minus and Alt-equals reach Neovim there, as
   Alt-z does, so the rule stays one rule.
-- Not checked: the usage popup of #99, not merged while this phase ran; Claude Code's own
-  Meta bindings were read from its docs, not run.
+- Phase 26 (the usage popup) merged while this phase ran; after `git merge origin/main` the
+  popup takes the width keys like every other key, which a test shows (red with the width
+  hook ahead of the popup). Not checked: Claude Code's own Meta bindings, read from its docs,
+  not run.
 
 ## Hurdles
 
@@ -185,3 +188,6 @@ Each ship is whole: the new items ship with their caller.
   several minutes with the e2e tests); the next task waits on it → none
 - `tooling` one help test asserting the old `x` row text was missed in the red run of task 4
   and only failed once the row changed → none
+- `process` phase 26 merged mid-phase and touched the same help rows, headroom test, README
+  table and `docs/keys.png`; the merge needed a recount of the spare rows and a new States row
+  → none

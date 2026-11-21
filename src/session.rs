@@ -3,6 +3,7 @@ use std::ffi::OsStr;
 use std::io::{self, Read, Write};
 use std::panic::{self, AssertUnwindSafe};
 use std::path::Path;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{self, Sender};
 use std::sync::{Arc, Mutex};
 use std::thread;
@@ -32,6 +33,7 @@ pub struct Session {
     master: Box<dyn MasterPty + Send>,
     child: Box<dyn Child + Send + Sync>,
     exit: Option<ExitStatus>,
+    drained: Arc<AtomicBool>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -111,6 +113,8 @@ impl Session {
         )));
         let shared = Arc::clone(&parser);
         let replier = writer.clone();
+        let drained = Arc::new(AtomicBool::new(false));
+        let read_to_end = Arc::clone(&drained);
         thread::spawn(move || {
             let mut buffer = [0; 65536];
             let mut escaped = false;
@@ -132,6 +136,7 @@ impl Session {
                 }
             }
             shared.lock().unwrap().callbacks_mut().forget_asked();
+            read_to_end.store(true, Ordering::Release);
         });
         Ok(Session {
             parser,
@@ -139,6 +144,7 @@ impl Session {
             master: pty.master,
             child,
             exit: None,
+            drained,
         })
     }
 
@@ -246,6 +252,21 @@ impl Session {
         let col = col.min(screen.size().1.saturating_sub(1));
         let at = Position::new(area.x.checked_add(col)?, area.y.checked_add(row)?);
         area.contains(at).then_some(at)
+    }
+
+    pub fn drained(&self) -> bool {
+        self.drained.load(Ordering::Acquire)
+    }
+
+    pub fn printed(&self) -> bool {
+        !self
+            .parser
+            .lock()
+            .unwrap()
+            .screen()
+            .contents()
+            .trim()
+            .is_empty()
     }
 
     pub fn take_panics(&self) -> usize {

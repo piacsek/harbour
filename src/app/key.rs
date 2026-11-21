@@ -17,6 +17,9 @@ impl App {
     fn key_handled(&mut self, key: KeyEvent) {
         let key = ctrl_backspace_as_ctrl_h(key);
         let acted = ctrl_shift_as_ctrl(key);
+        if self.usage_key(key) {
+            return;
+        }
         if let Some(pick) = &self.picking {
             let session = pick.session();
             let bytes = beside(session, key);
@@ -87,6 +90,9 @@ impl App {
             KeyCode::Char('x') => self.end_or_remove(),
             KeyCode::Char('e') => self.next_editor(),
             KeyCode::Char('?') => self.helping = true,
+            KeyCode::Char('u' | 'U') if (acted.modifiers - KeyModifiers::SHIFT).is_empty() => {
+                self.open_usage()
+            }
             KeyCode::Char('j') => {
                 self.select((self.selected + 1).min(self.sessions.len().saturating_sub(1)))
             }
@@ -190,7 +196,7 @@ fn ctrl_shift_as_ctrl(key: KeyEvent) -> KeyEvent {
     }
 }
 
-fn beside(session: &Session, key: KeyEvent) -> Vec<u8> {
+pub(super) fn beside(session: &Session, key: KeyEvent) -> Vec<u8> {
     match session.keyboard() {
         Keyboard::Legacy => keys::encode(plain_enter(key), session.application_cursor()),
         keyboard => keys::encode_as(key, session.application_cursor(), keyboard),
