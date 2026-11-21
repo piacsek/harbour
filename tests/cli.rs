@@ -376,6 +376,10 @@ M-- and M-= make the sidebar 2 columns narrower or wider, from 15 columns to
 half the terminal, until harbour quits; like M-z, only as extended keys and
 never from an editor. Under tmux, Esc then - or = typed fast in Claude Code
 arrives as the Alt key and changes the width.
+M-\\ shows Claude Code on the left and its editor on the right, each in half the
+terminal, and back; C-l and C-h move between the halves. It needs 120 columns;
+narrower, the focused half fills the screen until the terminal widens. Like M-z,
+only as an extended key and never from the editor half: C-h first.
 status prints how many sessions of every running harbour are blocked, working,
 idle or unknown. For tmux, put #(harbour status) in your status-right, for example
   set -g status-right '#(harbour status) %H:%M'

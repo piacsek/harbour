@@ -27,10 +27,7 @@ fn question_mark_shows_the_editor_keys() {
     screen.press('?');
 
     let shown = screen.draw();
-    assert!(
-        shown.contains("from Claude Code, C-l opens its editor"),
-        "{shown}"
-    );
+    assert!(shown.contains("from Claude Code, its editor"), "{shown}");
     assert!(shown.contains("end it and its editors"), "{shown}");
     assert!(
         shown.contains("show the next editor, one per directory"),
@@ -47,6 +44,19 @@ fn question_mark_shows_the_zoom_key() {
     let shown = screen.draw();
     assert!(
         shown.contains("M-z        zoom the session to the whole screen, or back"),
+        "{shown}"
+    );
+}
+
+#[test]
+fn question_mark_shows_the_side_by_side_key() {
+    let mut screen = Screen::new(reading_agent());
+
+    screen.press('?');
+
+    let shown = screen.draw();
+    assert!(
+        shown.contains("M-\\        Claude Code beside its editor (120+ columns)"),
         "{shown}"
     );
 }
@@ -72,7 +82,7 @@ fn question_mark_says_how_to_resume_and_forget_a_stopped_session() {
     screen.press('?');
 
     let shown = screen.draw();
-    assert!(shown.contains("focus the pane or resume;"), "{shown}");
+    assert!(shown.contains("focus or resume;"), "{shown}");
     assert!(shown.contains("or forget an ended one"), "{shown}");
     assert!(shown.contains("○ idle, exited, or stopped"), "{shown}");
 }
@@ -133,13 +143,13 @@ fn the_whole_help_shows_on_a_20_row_terminal() {
 }
 
 #[test]
-fn the_help_leaves_one_row_for_new_keys_on_a_20_row_terminal() {
+fn the_help_fills_every_row_of_a_20_row_terminal() {
     let mut screen = Screen::new(reading_agent());
 
     screen.press('?');
 
     let shown = screen.draw();
-    assert_eq!(spare_rows(&shown), 1, "{shown}");
+    assert_eq!(spare_rows(&shown), 0, "{shown}");
 }
 
 #[test]

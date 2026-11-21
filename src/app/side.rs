@@ -174,7 +174,7 @@ impl App {
     }
 }
 
-fn is_side(key: KeyEvent) -> bool {
+pub(super) fn is_side(key: KeyEvent) -> bool {
     key.code == KeyCode::Char('\\')
         && key.modifiers == KeyModifiers::ALT
         && key.kind == KeyEventKind::Press
