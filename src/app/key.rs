@@ -180,9 +180,10 @@ fn beside(session: &Session, key: KeyEvent) -> Vec<u8> {
 }
 
 fn agent(session: &Session, key: KeyEvent) -> Vec<u8> {
-    match key.code {
-        KeyCode::Enter => keys::encode(key, session.application_cursor()),
-        _ => keys::encode_as(key, session.application_cursor(), session.keyboard()),
+    if key.code == KeyCode::Enter || is_ctrl(key, 'm') {
+        keys::encode(key, session.application_cursor())
+    } else {
+        keys::encode_as(key, session.application_cursor(), session.keyboard())
     }
 }
 

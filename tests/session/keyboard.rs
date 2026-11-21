@@ -32,6 +32,18 @@ fn a_session_whose_program_reset_modify_other_keys_gets_legacy_keys() {
 }
 
 #[test]
+fn a_session_whose_program_disabled_modify_other_keys_gets_legacy_keys() {
+    let session = start("printf '\\033[>4;2m\\033[>4n'; echo ready; sleep 5");
+    assert_eq!(keyboard_once(&session, "ready"), Keyboard::Legacy);
+}
+
+#[test]
+fn a_session_whose_program_disabled_modify_function_keys_keeps_the_xterm_form() {
+    let session = start("printf '\\033[>4;2m\\033[>n\\033[>2n'; echo ready; sleep 5");
+    assert_eq!(keyboard_once(&session, "ready"), Keyboard::Xterm);
+}
+
+#[test]
 fn a_session_whose_program_set_modify_other_keys_to_zero_gets_legacy_keys() {
     let session = start("printf '\\033[>4;2m\\033[>4;0m'; echo ready; sleep 5");
     assert_eq!(keyboard_once(&session, "ready"), Keyboard::Legacy);

@@ -18,8 +18,16 @@ pub fn encode_as(key: KeyEvent, application_cursor: bool, keyboard: Keyboard) ->
         (Keyboard::Kitty, _, Some((code, modifier))) => {
             format!("\x1b[{code};{modifier}u").into_bytes()
         }
-        (Keyboard::Xterm, KeyCode::F(number @ 13..=24), None) if modifier == 1 => encode(
-            KeyEvent::new(KeyCode::F(number - 12), KeyModifiers::SHIFT),
+        (Keyboard::Xterm, KeyCode::F(number @ 13..=24), None)
+            if !key.modifiers.contains(KeyModifiers::SHIFT) =>
+        {
+            encode(
+                KeyEvent::new(KeyCode::F(number - 12), key.modifiers | KeyModifiers::SHIFT),
+                application_cursor,
+            )
+        }
+        (Keyboard::Xterm, KeyCode::F(number @ 25..=35), None) if modifier == 1 => encode(
+            KeyEvent::new(KeyCode::F(number - 24), KeyModifiers::CONTROL),
             application_cursor,
         ),
         (Keyboard::Kitty, KeyCode::F(number @ 13..=35), None) => {
@@ -53,6 +61,7 @@ fn unexpressed(key: KeyEvent) -> Option<(u32, u8)> {
         KeyCode::Char(c) if ctrl && shift && c.is_ascii_lowercase() => {
             Some((u32::from(c), modifier))
         }
+        KeyCode::Char(c @ ('i' | 'm' | '[')) if ctrl => Some((u32::from(c), modifier)),
         KeyCode::Char(c) if ctrl && !has_control_byte(c) => Some((u32::from(c), modifier)),
         _ => None,
     }
@@ -180,6 +189,7 @@ impl Asked {
             (Some(b'>'), 'm') if matches!(value(0), None | Some(4)) => {
                 self.level = value(1).unwrap_or(0);
             }
+            (Some(b'>'), 'n') if value(0) == Some(4) => self.level = 0,
             (Some(b'>'), 'u') => {
                 if self.pushed.len() == KITTY_DEPTH {
                     self.pushed.remove(0);

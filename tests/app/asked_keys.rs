@@ -76,6 +76,29 @@ fn ctrl_enter_reaches_claude_code_that_asked_for_the_kitty_protocol_as_a_new_lin
 }
 
 #[test]
+fn ctrl_m_reaches_claude_code_that_asked_for_the_kitty_protocol_as_enter() {
+    let mut screen = focused(KITTY, 1);
+
+    screen.key(KeyCode::Char('m'), KeyModifiers::CONTROL);
+
+    let shown = screen.wait_for("acme agent read:");
+    assert!(shown.contains("acme agent read: 0d"), "{shown}");
+}
+
+#[test]
+fn ctrl_i_reaches_claude_code_that_asked_for_the_kitty_protocol_as_ctrl_i() {
+    let mut screen = focused(KITTY, 8);
+
+    screen.key(KeyCode::Char('i'), KeyModifiers::CONTROL);
+
+    let shown = screen.wait_for("acme agent read:");
+    assert!(
+        shown.contains("acme agent read: 1b 5b 31 30 35 3b 35 75"),
+        "{shown}"
+    );
+}
+
+#[test]
 fn ctrl_h_in_claude_code_that_asked_for_modify_other_keys_gives_the_keys_back_to_the_sidebar() {
     let mut screen = focused(XTERM, 1);
 
@@ -124,6 +147,29 @@ fn ctrl_enter_reaches_an_editor_that_asked_for_the_kitty_protocol_as_ctrl_enter(
         shown.contains("acme editor read: 1b 5b 31 33 3b 35 75"),
         "{shown}"
     );
+}
+
+#[test]
+fn ctrl_m_reaches_an_editor_that_asked_for_the_kitty_protocol_as_ctrl_m() {
+    let mut screen = editing(KITTY, 8);
+
+    screen.key(KeyCode::Char('m'), KeyModifiers::CONTROL);
+
+    let shown = screen.wait_for("acme editor read:");
+    assert!(
+        shown.contains("acme editor read: 1b 5b 31 30 39 3b 35 75"),
+        "{shown}"
+    );
+}
+
+#[test]
+fn ctrl_closing_bracket_reaches_an_editor_that_asked_for_the_kitty_protocol_as_its_control_byte() {
+    let mut screen = editing(KITTY, 1);
+
+    screen.key(KeyCode::Char(']'), KeyModifiers::CONTROL);
+
+    let shown = screen.wait_for("acme editor read:");
+    assert!(shown.contains("acme editor read: 1d"), "{shown}");
 }
 
 #[test]

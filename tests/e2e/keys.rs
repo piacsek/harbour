@@ -187,6 +187,47 @@ fn ctrl_h_gives_the_keys_back_to_the_sidebar_from_a_session_that_asked_for_modif
     assert!(screen.contains("acme-api 2"), "{screen}");
 }
 
+#[test]
+#[ignore]
+fn ctrl_closing_bracket_reaches_a_session_that_asked_as_its_control_byte_with_extended_keys_off() {
+    let Some((_home, server)) =
+        started_raw_agent("asked-kitty-ctrl-bracket-off", "off", "csi-u", KITTY)
+    else {
+        return;
+    };
+
+    server.send_keys(&["C-]", "z"]);
+
+    let screen = server.wait_for_screen("read:&z");
+    assert!(screen.contains("read:&z"), "{screen}");
+}
+
+#[test]
+#[ignore]
+fn ctrl_opening_bracket_reaches_a_session_that_asked_for_the_kitty_protocol_apart_from_escape() {
+    let Some((_home, server)) = asking_raw_agent("asked-kitty-ctrl-bracket", "csi-u", KITTY) else {
+        return;
+    };
+
+    server.send_keys(&["C-[", "z"]);
+
+    let screen = server.wait_for_screen("read:^[91;5uz");
+    assert!(screen.contains("read:^[91;5uz"), "{screen}");
+}
+
+#[test]
+#[ignore]
+fn ctrl_i_reaches_a_session_that_asked_for_modify_other_keys_apart_from_tab() {
+    let Some((_home, server)) = asking_raw_agent("asked-xterm-ctrl-i", "xterm", XTERM) else {
+        return;
+    };
+
+    server.send_keys(&["C-i", "z"]);
+
+    let screen = server.wait_for_screen("read:^[27;5;105~z");
+    assert!(screen.contains("read:^[27;5;105~z"), "{screen}");
+}
+
 fn focused_raw_agent(name: &str, extended: &str, format: &str) -> Option<(TempDir, Server)> {
     started_raw_agent(name, extended, format, "")
 }

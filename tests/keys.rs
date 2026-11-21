@@ -308,6 +308,174 @@ fn f13_is_sent_in_the_kitty_form_to_a_session_that_asked_for_it() {
 }
 
 #[test]
+fn ctrl_and_f13_is_sent_as_ctrl_shift_and_f1_to_a_session_that_asked_for_the_xterm_form() {
+    assert_eq!(
+        xterm(with(KeyCode::F(13), KeyModifiers::CONTROL)),
+        b"\x1b[1;6P"
+    );
+}
+
+#[test]
+fn alt_and_f17_is_sent_as_alt_shift_and_f5_to_a_session_that_asked_for_the_xterm_form() {
+    assert_eq!(
+        xterm(with(KeyCode::F(17), KeyModifiers::ALT)),
+        b"\x1b[15;4~"
+    );
+}
+
+#[test]
+fn shift_and_f13_is_sent_as_nothing_to_a_session_that_asked_for_the_xterm_form() {
+    assert_eq!(xterm(with(KeyCode::F(13), KeyModifiers::SHIFT)), b"");
+}
+
+#[test]
+fn f25_is_sent_as_ctrl_and_f1_to_a_session_that_asked_for_the_xterm_form() {
+    assert_eq!(xterm(key(KeyCode::F(25))), b"\x1b[1;5P");
+}
+
+#[test]
+fn f30_is_sent_as_ctrl_and_f6_to_a_session_that_asked_for_the_xterm_form() {
+    assert_eq!(xterm(key(KeyCode::F(30))), b"\x1b[17;5~");
+}
+
+#[test]
+fn ctrl_and_f25_is_sent_as_nothing_to_a_session_that_asked_for_the_xterm_form() {
+    assert_eq!(xterm(with(KeyCode::F(25), KeyModifiers::CONTROL)), b"");
+}
+
+#[test]
+fn ctrl_and_i_is_sent_as_a_tab_to_a_session_that_did_not_ask() {
+    assert_eq!(
+        legacy(with(KeyCode::Char('i'), KeyModifiers::CONTROL)),
+        b"\t"
+    );
+}
+
+#[test]
+fn ctrl_and_i_is_sent_in_the_xterm_form_to_a_session_that_asked_for_it() {
+    assert_eq!(
+        xterm(with(KeyCode::Char('i'), KeyModifiers::CONTROL)),
+        b"\x1b[27;5;105~"
+    );
+}
+
+#[test]
+fn ctrl_and_i_is_sent_in_the_kitty_form_to_a_session_that_asked_for_it() {
+    assert_eq!(
+        kitty(with(KeyCode::Char('i'), KeyModifiers::CONTROL)),
+        b"\x1b[105;5u"
+    );
+}
+
+#[test]
+fn ctrl_and_m_is_sent_as_a_carriage_return_to_a_session_that_did_not_ask() {
+    assert_eq!(
+        legacy(with(KeyCode::Char('m'), KeyModifiers::CONTROL)),
+        b"\r"
+    );
+}
+
+#[test]
+fn ctrl_and_m_is_sent_in_the_xterm_form_to_a_session_that_asked_for_it() {
+    assert_eq!(
+        xterm(with(KeyCode::Char('m'), KeyModifiers::CONTROL)),
+        b"\x1b[27;5;109~"
+    );
+}
+
+#[test]
+fn ctrl_and_m_is_sent_in_the_kitty_form_to_a_session_that_asked_for_it() {
+    assert_eq!(
+        kitty(with(KeyCode::Char('m'), KeyModifiers::CONTROL)),
+        b"\x1b[109;5u"
+    );
+}
+
+#[test]
+fn ctrl_and_a_bracket_is_sent_in_the_xterm_form_to_a_session_that_asked_for_it() {
+    assert_eq!(
+        xterm(with(KeyCode::Char('['), KeyModifiers::CONTROL)),
+        b"\x1b[27;5;91~"
+    );
+}
+
+#[test]
+fn ctrl_and_a_bracket_is_sent_in_the_kitty_form_to_a_session_that_asked_for_it() {
+    assert_eq!(
+        kitty(with(KeyCode::Char('['), KeyModifiers::CONTROL)),
+        b"\x1b[91;5u"
+    );
+}
+
+#[test]
+fn tab_and_enter_stay_themselves_for_a_session_that_asked() {
+    assert_eq!(kitty(key(KeyCode::Tab)), b"\t");
+    assert_eq!(kitty(key(KeyCode::Enter)), b"\r");
+    assert_eq!(xterm(key(KeyCode::Tab)), b"\t");
+    assert_eq!(xterm(key(KeyCode::Enter)), b"\r");
+}
+
+#[test]
+fn ctrl_and_a_backslash_stays_its_control_byte_for_a_session_that_asked() {
+    assert_eq!(
+        kitty(with(KeyCode::Char('\\'), KeyModifiers::CONTROL)),
+        [0x1c]
+    );
+    assert_eq!(
+        xterm(with(KeyCode::Char('\\'), KeyModifiers::CONTROL)),
+        [0x1c]
+    );
+}
+
+#[test]
+fn ctrl_and_a_closing_bracket_stays_its_control_byte_for_a_session_that_asked() {
+    assert_eq!(
+        kitty(with(KeyCode::Char(']'), KeyModifiers::CONTROL)),
+        [0x1d]
+    );
+    assert_eq!(
+        xterm(with(KeyCode::Char(']'), KeyModifiers::CONTROL)),
+        [0x1d]
+    );
+}
+
+#[test]
+fn ctrl_and_a_caret_stays_its_control_byte_for_a_session_that_asked() {
+    assert_eq!(
+        kitty(with(KeyCode::Char('^'), KeyModifiers::CONTROL)),
+        [0x1e]
+    );
+    assert_eq!(
+        xterm(with(KeyCode::Char('^'), KeyModifiers::CONTROL)),
+        [0x1e]
+    );
+}
+
+#[test]
+fn ctrl_and_an_underscore_stays_its_control_byte_for_a_session_that_asked() {
+    assert_eq!(
+        kitty(with(KeyCode::Char('_'), KeyModifiers::CONTROL)),
+        [0x1f]
+    );
+    assert_eq!(
+        xterm(with(KeyCode::Char('_'), KeyModifiers::CONTROL)),
+        [0x1f]
+    );
+}
+
+#[test]
+fn ctrl_and_a_space_stays_its_control_byte_for_a_session_that_asked() {
+    assert_eq!(
+        kitty(with(KeyCode::Char(' '), KeyModifiers::CONTROL)),
+        [0x00]
+    );
+    assert_eq!(
+        xterm(with(KeyCode::Char(' '), KeyModifiers::CONTROL)),
+        [0x00]
+    );
+}
+
+#[test]
 fn ctrl_and_a_letter_stays_its_control_byte_for_a_session_that_asked() {
     assert_eq!(
         xterm(with(KeyCode::Char('c'), KeyModifiers::CONTROL)),

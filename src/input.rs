@@ -114,7 +114,10 @@ fn parse(buffer: &[u8], more: bool) -> Step {
         [b'\t', ..] => key(KeyCode::Tab),
         [0x7f, ..] => key(KeyCode::Backspace),
         [c @ 0x01..=0x1a, ..] => ctrl(char::from(c - 0x01 + b'a')),
-        [c @ 0x1c..=0x1f, ..] => ctrl(char::from(c - 0x1c + b'4')),
+        [0x1c, ..] => ctrl('\\'),
+        [0x1d, ..] => ctrl(']'),
+        [0x1e, ..] => ctrl('^'),
+        [0x1f, ..] => ctrl('_'),
         [0, ..] => ctrl(' '),
         _ => utf8(buffer),
     }

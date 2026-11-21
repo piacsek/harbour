@@ -171,6 +171,70 @@ fn ctrl_three_in_neovims_insert_mode_stays_in_insert_mode_with_extended_keys_on(
     neovim.shows("-- INSERT --");
 }
 
+#[test]
+#[ignore]
+fn ctrl_backslash_ctrl_n_leaves_neovims_terminal_mode_with_extended_keys_off() {
+    let Some(neovim) = Neovim::start_with("nvim-ctrl-backslash", &[&["extended-keys", "off"]])
+    else {
+        return;
+    };
+    neovim.server.send_keys(&[":terminal", "Enter", "i"]);
+    neovim.shows("-- TERMINAL --");
+
+    neovim.server.send_keys(&["C-\\", "C-n"]);
+
+    let left = neovim.server.wait_until("terminal mode left", |screen| {
+        !screen.contains("-- TERMINAL --")
+    });
+    assert!(!left.contains("-- TERMINAL --"), "{left}");
+}
+
+#[test]
+#[ignore]
+fn a_ctrl_closing_bracket_mapping_in_neovim_fires_with_extended_keys_off() {
+    let Some(neovim) = Neovim::start_with("nvim-ctrl-bracket", &[&["extended-keys", "off"]]) else {
+        return;
+    };
+    neovim.mapped("<C-]>", "jumped");
+
+    neovim.server.send_keys(&["C-]"]);
+
+    neovim.shows("acme-jumped");
+}
+
+#[test]
+#[ignore]
+fn ctrl_opening_bracket_leaves_neovims_insert_mode_with_extended_keys_on() {
+    let Some(neovim) = Neovim::start_with("nvim-ctrl-escape", &[&["extended-keys", "on"]]) else {
+        return;
+    };
+    neovim.server.send_keys(&["i", "acme-one"]);
+    neovim.shows("-- INSERT --");
+
+    neovim.server.send_keys(&["C-["]);
+
+    let left = neovim.server.wait_until("insert mode left", |screen| {
+        !screen.contains("-- INSERT --")
+    });
+    assert!(!left.contains("-- INSERT --"), "{left}");
+}
+
+#[test]
+#[ignore]
+fn ctrl_i_and_tab_are_two_keys_in_neovim_with_extended_keys_on() {
+    let Some(neovim) = Neovim::start_with("nvim-ctrl-i", &[&["extended-keys", "on"]]) else {
+        return;
+    };
+    neovim.mapped("<Tab>", "tabbed");
+    neovim.mapped("<C-i>", "ctrl-i");
+
+    neovim.server.send_keys(&["C-i"]);
+    neovim.shows("acme-ctrl-i");
+    neovim.server.send_keys(&["Tab"]);
+
+    neovim.shows("acme-tabbed");
+}
+
 struct Neovim {
     server: Server,
     home: TempDir,

@@ -36,7 +36,10 @@ fn legacy_control_keys_read_as_before() {
     assert_eq!(parsed(b"\x08"), [ctrl('h')]);
     assert_eq!(parsed(b"\x0c"), [ctrl('l')]);
     assert_eq!(parsed(b"\n"), [ctrl('j')]);
-    assert_eq!(parsed(b"\x1c"), [ctrl('4')]);
+    assert_eq!(parsed(b"\x1c"), [ctrl('\\')]);
+    assert_eq!(parsed(b"\x1d"), [ctrl(']')]);
+    assert_eq!(parsed(b"\x1e"), [ctrl('^')]);
+    assert_eq!(parsed(b"\x1f"), [ctrl('_')]);
     assert_eq!(parsed(b"\0"), [ctrl(' ')]);
 }
 
