@@ -1,0 +1,163 @@
+use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+
+use super::logging::Input;
+use super::{App, Entry, Question, draw, refusal};
+use crate::editor::{Changes, Editor};
+use crate::keys;
+use crate::mouse::Gesture;
+use crate::picker::Pick;
+
+impl App {
+    pub fn key(&mut self, key: KeyEvent) {
+        self.key_handled(key);
+        self.log_key(key);
+    }
+
+    fn key_handled(&mut self, key: KeyEvent) {
+        if let Some(pick) = &self.picking {
+            let session = pick.session();
+            let bytes = keys::encode(key, session.application_cursor());
+            session.send(&bytes);
+            self.log_input(Input::Picker, bytes.len());
+            return;
+        }
+        if self.dismiss(is_yes(key)) {
+            return;
+        }
+        if self.sidebar.is_empty() && !self.sessions.is_empty() {
+            self.failed = None;
+        }
+        if self.pane_focused && is_ctrl(key, 'h') {
+            match self.sessions.get_mut(self.selected) {
+                Some(entry) if entry.on_editor => {
+                    match entry
+                        .showing_editor()
+                        .filter(|editor| editor.wants_ctrl_h())
+                    {
+                        Some(editor) => {
+                            let bytes = keys::encode(key, false);
+                            editor.session.send(&bytes);
+                            self.log_input(Input::Shown, bytes.len());
+                        }
+                        None => entry.on_editor = false,
+                    }
+                }
+                _ => self.pane_focused = false,
+            }
+            return;
+        }
+        if self.pane_focused
+            && is_ctrl(key, 'l')
+            && self
+                .sessions
+                .get(self.selected)
+                .is_some_and(|entry| !entry.on_editor)
+        {
+            self.open_editor();
+            self.touch();
+            return;
+        }
+        if let Some(session) = self.focused() {
+            let bytes = keys::encode(key, session.application_cursor());
+            session.send(&bytes);
+            self.log_input(Input::Shown, bytes.len());
+            self.touch();
+            return;
+        }
+        match key.code {
+            _ if is_ctrl(key, 'l') => self.focus_or_resume(),
+            KeyCode::Enter => self.focus_or_resume(),
+            KeyCode::Char('q') => self.quit(),
+            KeyCode::Char('n') => self.pick_or_start(),
+            KeyCode::Char('x') => self.end_or_remove(),
+            KeyCode::Char('e') => self.next_editor(),
+            KeyCode::Char('?') => self.helping = true,
+            KeyCode::Char('j') => {
+                self.select((self.selected + 1).min(self.sessions.len().saturating_sub(1)))
+            }
+            KeyCode::Char('k') => self.select(self.selected.saturating_sub(1)),
+            _ => {}
+        }
+    }
+
+    fn focus_or_resume(&mut self) {
+        if !self.resume() {
+            self.pane_focused = !self.sessions.is_empty();
+        }
+    }
+
+    fn next_editor(&mut self) {
+        let Some(entry) = self.sessions.get_mut(self.selected) else {
+            return;
+        };
+        if entry.editors.is_empty() {
+            return;
+        }
+        let next = entry
+            .editor
+            .map_or(0, |shown| (shown + 1) % entry.editors.len());
+        entry.editor = Some(next);
+        entry.on_editor = true;
+        self.pane_focused = true;
+    }
+
+    fn end_or_remove(&mut self) {
+        let Some(entry) = self.sessions.get_mut(self.selected) else {
+            return;
+        };
+        if entry.running() {
+            let changes = changes(&entry.editors);
+            self.asking = Some(Question::End(changes));
+        } else {
+            self.remove_selected();
+        }
+    }
+
+    fn quit(&mut self) {
+        if self.sessions.iter_mut().any(Entry::running) {
+            let changes = changes(self.sessions.iter().flat_map(|entry| &entry.editors));
+            self.asking = Some(Question::Quit(changes));
+        } else {
+            self.settle_all();
+            self.quitting = true;
+        }
+    }
+
+    fn pick_or_start(&mut self) {
+        let Some(picker) = &self.picker else {
+            self.start();
+            return;
+        };
+        let popup = draw::popup(self.screen);
+        match Pick::open(
+            picker,
+            &self.home,
+            &self.temporary,
+            popup.height,
+            popup.width,
+        ) {
+            Ok(Some(pick)) => {
+                self.gesture = Gesture::Idle;
+                self.picking = Some(pick);
+            }
+            Ok(None) => self.start(),
+            Err(error) => self.failed = Some(refusal(picker.program(), &error)),
+        }
+    }
+}
+
+fn changes<'a>(editors: impl IntoIterator<Item = &'a Editor>) -> Changes {
+    editors
+        .into_iter()
+        .map(Editor::changes)
+        .max()
+        .unwrap_or(Changes::Saved)
+}
+
+fn is_ctrl(key: KeyEvent, c: char) -> bool {
+    key.code == KeyCode::Char(c) && key.modifiers == KeyModifiers::CONTROL
+}
+
+fn is_yes(key: KeyEvent) -> bool {
+    matches!(key.code, KeyCode::Char('y' | 'Y')) && KeyModifiers::SHIFT.contains(key.modifiers)
+}

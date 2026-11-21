@@ -2,12 +2,12 @@ use std::time::Instant;
 
 use portable_pty::ExitStatus;
 use ratatui::Frame;
-use ratatui::layout::{Constraint, Layout, Rect};
+use ratatui::layout::{Constraint, Rect};
 use ratatui::style::{Color, Modifier, Stylize};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, BorderType, Clear, Paragraph, Wrap};
 
-use super::{App, Entry, HINT, NARROW, Question, remember, user_home};
+use super::{App, Entry, HINT, Question, remember, user_home};
 use crate::card::{Card, Ended};
 use crate::editor::Changes;
 use crate::help;
@@ -209,18 +209,6 @@ impl App {
                 .block(Block::bordered().title(" help ")),
             frame.area(),
         );
-    }
-
-    fn areas(&self, area: Rect) -> (Rect, Rect) {
-        if area.width >= NARROW {
-            let [sidebar, pane] =
-                Layout::horizontal([Constraint::Ratio(1, 3), Constraint::Ratio(2, 3)]).areas(area);
-            (sidebar, pane)
-        } else if self.pane_focused {
-            (Rect::default(), area)
-        } else {
-            (area, Rect::default())
-        }
     }
 }
 
