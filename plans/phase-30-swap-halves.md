@@ -149,4 +149,27 @@ builder's notices ran 121014 to 162549 tokens and the reviewer's rounds 87098 to
 no trend across phases 26 to 29. The orchestrator's context grew from 684129 to 825147 over phases
 26 to 29 in one shared session.
 
+### Phase
+
+- Alt-} and Alt-{ swap Claude Code and its editor side by side through one `swapped` flag on
+  `App`; `halves` gives the halves in program order, so the mouse, the cursor, the sizes and a
+  jump follow each program without their own change.
+- Swapped, C-h and C-l keep their left and right; `wants_ctrl_l` mirrors `wants_ctrl_h` for
+  Neovim's rightmost window, checked against a real clean Neovim.
+- The borders keep the headline on the left and the counts on the right, whichever program sits
+  there.
+- The help row deviates from the plan: the key column is padded to 10 columns, and
+  `M-\ M-{ M-}` takes 11, so the key stays `M-\` and its text says `side by side (120+
+  columns); M-{/M-} swap`, which still fits the 20 rows. `harbour --help` gained one line, the
+  log names `M-{` and `M-}`, and `docs/side-swapped.png` is the new shot.
+- Verified facts: tmux 3.7c with `extended-keys` on sends Alt-{ and Alt-} in both forms (with
+  Shift as modifier 4), and Claude Code 2.1.330 binds neither key.
+
 ## Hurdles
+
+- `design` the help's key column is 10 columns wide, so the planned `M-\ M-{ M-}` key did not
+  fit and the keys moved into the row's text → code
+- `test-seam` the mouse, jump and end-to-end tests of the swap passed before the change, since
+  the halves already followed the programs; each was shown red by breaking the code → none
+- `process` the end-to-end tests were written while a ship waited on the other worktree's gates
+  lock, and had to be set aside before its `git add -A` → none
