@@ -8,7 +8,7 @@ use harbour::app::App;
 use harbour::summary::Summary;
 
 use crate::remembering::{ID, OTHER_ID, Scratch, TITLE};
-use crate::{Screen, below, reading_agent, script};
+use crate::{Screen, below, reading_agent, script, sidebar_title};
 
 const COME_BACK: &str = "Conversations come back stopped";
 const CJK_TITLE: &str = "修复登录测试的不稳定问题";
@@ -64,7 +64,7 @@ fn a_stopped_card_is_counted_nowhere_in_the_title() {
 
     let shown = screen.wait_for(TITLE);
 
-    assert!(shown.contains(" sessions ● 0 ◉ 0 ○ 0 · 0 "), "{shown}");
+    assert_eq!(sidebar_title(&shown), " sessions ", "{shown}");
 }
 
 #[test]

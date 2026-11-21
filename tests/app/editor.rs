@@ -2,7 +2,7 @@ use crossterm::event::{KeyCode, KeyModifiers, MouseButton, MouseEventKind};
 use harbour::editor::Program;
 use ratatui::style::Modifier;
 
-use crate::{Screen, reading_agent, script};
+use crate::{Screen, reading_agent, script, sidebar_title};
 
 #[test]
 fn ctrl_l_in_claude_code_starts_the_editor_in_the_session_directory_and_shows_it() {
@@ -195,8 +195,7 @@ fn a_session_with_an_editor_keeps_its_card_and_counts_once() {
 
     let shown = screen.draw();
 
-    let top = shown.lines().next().unwrap();
-    assert!(top.contains("○ 0 · 1 "), "{top}");
+    assert_eq!(sidebar_title(&shown), " sessions · 1 ", "{shown}");
     assert_eq!(shown.matches("acme-home 1").count(), 1, "{shown}");
     assert!(shown.contains("▌   acme-home"), "{shown}");
 }

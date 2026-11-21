@@ -93,6 +93,8 @@ pub fn title(counts: Counts, width: usize) -> Line<'static> {
     let full = counted(" sessions ", counts, " ");
     if full.width() <= width {
         full
+    } else if counts == Counts::default() {
+        Line::default()
     } else {
         counted(" ", counts, "")
     }
@@ -106,8 +108,10 @@ fn counted(lead: &str, counts: Counts, gap: &str) -> Line<'static> {
         ("○", Style::default(), counts.idle),
         ("·", Style::default(), counts.unknown),
     ] {
-        spans.push(Span::styled(glyph, style));
-        spans.push(Span::from(format!("{gap}{count} ")));
+        if count > 0 {
+            spans.push(Span::styled(glyph, style));
+            spans.push(Span::from(format!("{gap}{count} ")));
+        }
     }
     Line::from(spans)
 }

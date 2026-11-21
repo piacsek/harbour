@@ -11,7 +11,7 @@ use harbour::summary::Summary;
 use ratatui::buffer::Cell;
 use ratatui::style::{Color, Modifier};
 
-use crate::{Screen, below, directory, failure, script};
+use crate::{Screen, below, directory, failure, script, sidebar_title};
 
 #[test]
 fn a_wait_for_a_dot_that_never_shows_fails_showing_the_last_dot() {
@@ -318,9 +318,8 @@ fn the_narrowest_sidebar_keeps_every_count_in_the_title_even_past_nine() {
         wait_for_files(registry.path(), started + 1);
     }
 
-    let shown = screen.wait_for("●10 ◉1 ○1 ·0");
-    let title = shown.lines().next().unwrap();
-    assert!(title.contains(" ●10 ◉1 ○1 ·0 "), "{shown}");
+    let shown = screen.wait_for("●10 ◉1 ○1 ");
+    assert_eq!(sidebar_title(&shown), " ●10 ◉1 ○1 ", "{shown}");
 }
 
 #[test]
@@ -331,7 +330,7 @@ fn a_wide_sidebar_names_the_sessions_in_the_title() {
 
     let shown = screen.draw();
 
-    assert!(shown.contains(" sessions ● 0 ◉ 0 ○ 0 · 0 "), "{shown}");
+    assert_eq!(sidebar_title(&shown), " sessions ", "{shown}");
 }
 
 #[test]
@@ -373,13 +372,13 @@ fn a_short_waiting_reason_shows_whole() {
 }
 
 #[test]
-fn with_no_session_the_title_counts_zero_of_each() {
+fn with_no_session_the_title_names_the_sessions_alone() {
     let registry = tempfile::tempdir().unwrap();
     let mut screen = watching(registry.path(), registered(registry.path(), "busy"));
 
     let shown = screen.draw();
 
-    assert!(shown.contains(" sessions ● 0 ◉ 0 ○ 0 · 0 "), "{shown}");
+    assert_eq!(sidebar_title(&shown), " sessions ", "{shown}");
 }
 
 #[test]

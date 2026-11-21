@@ -23,6 +23,7 @@ file under `plans/`; its time and tokens are a row of [`plans/metrics.md`](plans
 | 13 | [one review coordinator runs each pull request's review loop](plans/phase-13-review-coordinator.md) | |
 | 14 | [a log of what harbour saw and decided, turned on by `HARBOUR_LOG`](plans/phase-14-log.md) | [v0.11.0](https://github.com/piacsek/harbour/releases/tag/v0.11.0) |
 | 15 | [room for the key and layout features: keys, the split and `KEYS` each in a place of their own](plans/phase-15-room-for-keys-and-layout.md) | |
+| 16 | [only the session counts above zero in the sidebar title](plans/phase-16-counts-above-zero.md) | [v0.12.0](https://github.com/piacsek/harbour/releases/tag/v0.12.0) |
 
 ## Backlog
 

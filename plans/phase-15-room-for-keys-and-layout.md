@@ -110,4 +110,25 @@ phase 13 ran a review coordinator and phase 14's session carried four other pull
 no two rows compare and no trend can be read. Process drift: none; every phase had a worktree,
 a review and a metrics row.
 
+### Built
+
+- Keys moved to `src/app/key.rs` (163 lines): `key_handled` keeps its order (picker, question,
+  C-h, C-l, the shown session), then one line per sidebar key calling its handler. Only the
+  imports differ from the code it replaced, checked by diffing the sorted lines.
+  `src/app/mod.rs` went from 667 to 512 lines.
+- The split moved to `src/app/split.rs` (29 lines): `areas` calls `two_columns` from `NARROW`
+  (60) columns and `one_side` below it. `src/app/draw.rs` went from 287 to 275 lines.
+- `KEYS` is `&[(&str, &str)]`; `src/help.rs` stays at 25 lines. Red run: a ninth row in the old
+  array failed with `error[E0308]: mismatched types`; with the slice it compiled, and the row was
+  taken out again.
+- No test changed. Before the moves the `app` target passed 465 tests and `readme` 16; after
+  each move the same counts passed, with `dead_code` (3) and `source_size` (2), and every ship
+  ran the full gates, the end-to-end tests included.
+- `scripts/screenshots.sh` rewrote all nine images under `docs/`, each byte-identical to `main`'s.
+- Phase 16 (#65) landed on `main` first and was merged in; only `PLAN.md` and
+  `plans/metrics.md` conflicted, and its after-merge cells were backfilled from GitHub.
+
 ## Hurdles
+
+- `tooling` One ship failed in `tests/session.rs` with `failed to openpty: Unknown error -6` beside other worktrees' load, in a test the phase did not touch; it passed on the one rerun → none
+- `process` The first ship was piped into `tail` against the brief's rule to run `ship.sh` unpiped; every later ship wrote to a log file instead, and the gates had passed → none
