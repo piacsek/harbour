@@ -10,6 +10,7 @@ use nix::unistd::Pid;
 
 use crate::helpers::{calls, git, link_script, recorder, repository, sandbox_bin, stderr, which};
 
+mod ship;
 mod takeover;
 
 #[test]
@@ -162,12 +163,46 @@ fn gates_wait_for_a_lock_they_cannot_read_say_so_and_give_up() {
     );
     assert!(
         stderr(&output).contains(&format!(
-            "gates: gave up after 0 s waiting for whoever holds {}\n",
+            "gates: gave up after 0 s waiting for whoever holds {0}; if no gates run, remove it with: rm {0}\n",
             canonical(&lock(&work))
         )),
         "{}",
         stderr(&output)
     );
+}
+
+#[test]
+fn gates_refuse_a_wait_too_long_to_compare() {
+    let dir = tempfile::tempdir().unwrap();
+    let work = locking_repository(dir.path());
+
+    let output = gates(
+        dir.path(),
+        &work,
+        &[("HARBOUR_GATES_WAIT", "99999999999999999999")],
+    );
+
+    assert!(!output.status.success());
+    assert!(
+        stderr(&output).contains(
+            "gates: HARBOUR_GATES_WAIT must be a whole number of seconds, not 99999999999999999999\n"
+        ),
+        "{}",
+        stderr(&output)
+    );
+    assert!(calls(dir.path()).is_empty());
+}
+
+#[test]
+fn gates_that_find_the_lock_gone_after_a_failed_claim_claim_it_again() {
+    let dir = tempfile::tempdir().unwrap();
+    let work = locking_repository(dir.path());
+    failing_once(dir.path(), "ln");
+
+    let output = gates(dir.path(), &work, &[("HARBOUR_GATES_WAIT", "0")]);
+
+    assert!(output.status.success(), "{}", stderr(&output));
+    assert!(!stderr(&output).contains("waiting"), "{}", stderr(&output));
 }
 
 #[test]
@@ -181,6 +216,14 @@ fn gates_wait_for_a_directory_at_the_lock_instead_of_linking_inside_it() {
     assert!(!output.status.success());
     assert!(calls(dir.path()).is_empty());
     assert_eq!(fs::read_dir(lock(&work)).unwrap().count(), 0);
+    assert!(
+        stderr(&output).contains(&format!(
+            "gates: gave up after 0 s waiting for whoever holds {0}; if no gates run, remove it with: rmdir {0}\n",
+            canonical(&lock(&work))
+        )),
+        "{}",
+        stderr(&output)
+    );
 }
 
 #[test]
@@ -230,6 +273,7 @@ fn gates_outside_a_repository_take_no_lock_and_say_so() {
     let dir = tempfile::tempdir().unwrap();
     sandbox_bin(dir.path());
     link_script(dir.path(), "gates.sh");
+    link_script(dir.path(), "gates-lock.sh");
     link_script(dir.path(), "script-tests-skippable.sh");
     link_script(dir.path(), "docs-only.sh");
     symlink(recorder(), dir.path().join("scripts/scrub-check.sh")).unwrap();
@@ -306,6 +350,7 @@ fn locking_repository(root: &Path) -> PathBuf {
     sandbox_bin(root);
     let work = repository(root);
     link_script(&work, "gates.sh");
+    link_script(&work, "gates-lock.sh");
     link_script(&work, "script-tests-skippable.sh");
     link_script(&work, "docs-only.sh");
     symlink(held_gate(), work.join("scripts/scrub-check.sh")).unwrap();
@@ -320,7 +365,17 @@ fn held_gate() -> PathBuf {
 }
 
 fn gating(root: &Path, work: &Path, calls_root: &Path, env: &[(&str, &str)]) -> Command {
-    let mut command = Command::new(work.join("scripts/gates.sh"));
+    running_script(root, work, "gates.sh", calls_root, env)
+}
+
+fn running_script(
+    root: &Path,
+    work: &Path,
+    script: &str,
+    calls_root: &Path,
+    env: &[(&str, &str)],
+) -> Command {
+    let mut command = Command::new(work.join("scripts").join(script));
     command
         .env_clear()
         .env("PATH", root.join("bin"))
@@ -468,6 +523,23 @@ fn terminate(pid: u32) {
         .status()
         .unwrap();
     assert!(status.success());
+}
+
+fn failing_once(root: &Path, program: &str) {
+    let link = root.join("bin").join(program);
+    let real = fs::read_link(&link).unwrap();
+    fs::remove_file(&link).unwrap();
+    let marker = root.join(format!("{program}.failed"));
+    fs::write(
+        &link,
+        format!(
+            "#!/bin/sh\nif [ ! -e '{0}' ]; then : > '{0}'; exit 1; fi\nexec '{1}' \"$@\"\n",
+            marker.display(),
+            real.display()
+        ),
+    )
+    .unwrap();
+    fs::set_permissions(&link, fs::Permissions::from_mode(0o755)).unwrap();
 }
 
 fn hold_by_hand(work: &Path, pid: u32) {

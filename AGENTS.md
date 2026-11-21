@@ -80,6 +80,7 @@ CLAUDE.md                     a symlink to `AGENTS.md`, for tools that read only
 rust-toolchain.toml           the one Rust version (rustfmt and clippy with it) that local gates and CI run; see Development
 flake.nix, flake.lock         the Nix flake: the binary built from `Cargo.toml`, `Cargo.lock`, `CHANGELOG.md` and `src/` with the Rust `rust-toolchain.toml` names, through the locked `rust-overlay`, without the components it lists (rustfmt, clippy); feeds the binary
 scripts/gates.sh              the quality gates, one run at a time across the worktrees of the repository (a lock in its git common directory); fails loudly, never pipe it through tail
+scripts/gates-lock.sh         sourced, not run: the gates lock `gates.sh` takes, and `ship.sh` holds across its gates and its dev install
 scripts/scrub-check.sh        denylist grep over what a commit would take (see "This repository is public")
 scripts/dev-install.sh        release build symlinked as ~/.local/bin/harbour-dev
 scripts/ship.sh               gates + dev-install (unless skippable) + stage + scrub + commit (none when nothing is staged and commits are unpushed) + scrub of the outgoing commits and branch name + push, aborts on any failure; the first push of a branch opens the draft PR (commit subject as title, the template as body)
@@ -625,7 +626,8 @@ any Rust version itself, or the file loses `profile = "minimal"` (the default pr
 `rust-docs` doubled conveyor's macOS `flake` job).
 
 Outside CI (`CI` unset), `gates.sh` runs one at a time per repository, so two ships on one
-machine queue instead of loading each other's tests. Before its first gate it takes a lock that
+machine queue instead of loading each other's tests. Before its first gate it takes a lock
+(`scripts/gates-lock.sh`) that
 every worktree shares: a symlink `harbour-gates.lock` in the git common directory
 (`git rev-parse --git-common-dir`), made with `ln -sn`, which fails when the link exists, its
 target the holder's pid and worktree. It removes the link when it exits: passed, failed, or on
@@ -634,19 +636,26 @@ effect once the running gate ends (bash runs the trap after its foreground child
 Ctrl-C reaches the whole foreground group and ends both at once. A second run prints
 `==> waiting for the gates of pid <pid> in <worktree> to finish` once per holder, checks again
 every second, and gives up after 30 minutes with `gates: gave up after 1800 s waiting for ...`
-and exit 1; `HARBOUR_GATES_WAIT` sets that bound in seconds, and a value that is not all digits
-is refused before anything runs. A holder whose pid no longer runs, or now runs a command that
-does not name `gates.sh` (`ps -ww -p <pid> -o command=`; a `ps` that fails counts as running),
+and exit 1; `HARBOUR_GATES_WAIT` sets that bound in seconds, and a value that is not all digits,
+or has more than 9, is refused before anything runs. A holder whose pid no longer runs, or now
+runs a command that names neither `gates.sh` nor `ship.sh` (`ps -ww -p <pid> -o command=`; a
+`ps` that fails counts as running),
 as a run killed with SIGKILL leaves, is taken over with
 `==> taking over the gates lock of pid <pid> in <worktree>, whose gates no longer run`. The taker
 first makes a guard link named for that pid, `harbour-gates.lock.takeover-<pid>`, so two waiters
 never both take one stale lock; a guard whose own holder is gone is taken over the same way, by a
 guard named for that pid (`...takeover-<pid>.takeover-<pid>`), never deleted by a run that does
 not hold the guard above it. A lock it cannot read (a regular file or a directory at that path)
-is waited for like a held one, as `whoever holds <path>`. Outside a repository, or when the
-common directory cannot be written, it takes no lock and says so in one line; the uncontended
-path prints nothing. The `cargo fmt` and `dev-install.sh` of a ship run outside the lock, and a
-branch made before the lock does not queue.
+is waited for like a held one, as `whoever holds <path>`, and the give-up line names the `rm` or
+`rmdir` that clears it; a failed claim that then finds the path gone claims again at once.
+Outside a repository, or when the common directory cannot be written, it takes no lock and says
+so in one line; the uncontended path prints nothing. `ship.sh` takes the same lock after its
+`cargo fmt` (quick, so left outside) and holds it across `gates.sh` and `dev-install.sh`, so the
+next run never starts its tests beside a release build; it exports `HARBOUR_GATES_HELD`, its pid
+and worktree, and `gates.sh` takes no lock of its own only while that names its parent pid and
+the link still names it, so a stale value is never trusted. A worktree branched before the lock
+reached `main` runs gates that neither take nor respect it, so it merges `origin/main` before its
+next ship.
 
 Outside CI (`CI` unset), a docs-only branch skips most gates: when `scripts/docs-only.sh` finds
 that every path between the merge base with `origin/main` and the working tree, untracked files
@@ -684,7 +693,9 @@ with `$FAILING_STDERR` on stderr for a call whose argv starts with `$FAILING_CAL
 every file in `$REPLIES` whose name is part of its argv. `tests/scripts/gates_lock.rs` holds a
 gate open with `tests/fixtures/held-gate.sh`, which records its call the same way, then, with
 `GATE_HELD` set, creates that file and waits until `<GATE_HELD>.release` exists, and exits with
-`GATE_STATUS` (it also stops once that file is gone); so the lock tests wait on files the test
+`GATE_STATUS` (it also stops once that file is gone), and `tests/fixtures/held-install.sh`
+stands in for the dev install of a ship the same way with `INSTALL_HELD`; so the lock tests wait
+on files the test
 controls, never on time; with `GATE_ALONE` set it also records, in `<GATE_ALONE>.overlaps`,
 every call that found another run inside the gate, which the race of eight runs over a dead lock
 and a dead guard reads. Each run there is a `Gates` that starts in a process group of its own,

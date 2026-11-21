@@ -233,6 +233,7 @@ fn gates_in_ci_never_skip_the_tests_of_a_docs_only_branch() {
 fn gates_sandbox(root: &Path) -> PathBuf {
     let bin = sandbox_bin(root);
     link_script(root, "gates.sh");
+    link_script(root, "gates-lock.sh");
     link_script(root, "script-tests-skippable.sh");
     link_script(root, "docs-only.sh");
     symlink(recorder(), root.join("scripts/scrub-check.sh")).unwrap();
@@ -253,6 +254,7 @@ fn gates_repository(root: &Path) -> PathBuf {
     let bin = sandbox_bin(root);
     let work = repository(root);
     link_script(&work, "gates.sh");
+    link_script(&work, "gates-lock.sh");
     link_script(&work, "script-tests-skippable.sh");
     link_script(&work, "docs-only.sh");
     symlink(recorder(), work.join("scripts/scrub-check.sh")).unwrap();

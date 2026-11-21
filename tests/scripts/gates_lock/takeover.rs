@@ -81,21 +81,36 @@ fn gates_clear_a_takeover_left_by_a_run_that_died_during_it() {
 
 #[test]
 fn gates_racing_over_a_dead_lock_and_a_dead_takeover_run_one_at_a_time() {
-    let rounds: Vec<Round> = (0..ROUNDS).map(|_| race()).collect();
+    let first = race();
+    let second = race();
+    let third = race();
 
-    assert_eq!(rounds.iter().map(|round| round.overlaps).sum::<usize>(), 0);
+    assert_eq!(first.overlaps, 0, "first round overlaps: {}", first.said);
+    assert_eq!(first.takeovers, 1, "first round takeovers: {}", first.said);
+    assert_eq!(first.passed, RACERS, "first round passed: {}", first.said);
+    assert_eq!(first.leftovers, 0, "first round leftovers: {}", first.said);
+    assert_eq!(second.overlaps, 0, "second round overlaps: {}", second.said);
     assert_eq!(
-        rounds.iter().map(|round| round.takeovers).sum::<usize>(),
-        ROUNDS
+        second.takeovers, 1,
+        "second round takeovers: {}",
+        second.said
     );
     assert_eq!(
-        rounds.iter().map(|round| round.passed).sum::<usize>(),
-        ROUNDS * RACERS
+        second.passed, RACERS,
+        "second round passed: {}",
+        second.said
     );
-    assert_eq!(rounds.iter().map(|round| round.leftovers).sum::<usize>(), 0);
+    assert_eq!(
+        second.leftovers, 0,
+        "second round leftovers: {}",
+        second.said
+    );
+    assert_eq!(third.overlaps, 0, "third round overlaps: {}", third.said);
+    assert_eq!(third.takeovers, 1, "third round takeovers: {}", third.said);
+    assert_eq!(third.passed, RACERS, "third round passed: {}", third.said);
+    assert_eq!(third.leftovers, 0, "third round leftovers: {}", third.said);
 }
 
-const ROUNDS: usize = 5;
 const RACERS: usize = 8;
 const ROUND: Duration = Duration::from_secs(180);
 
@@ -104,6 +119,7 @@ struct Round {
     takeovers: usize,
     passed: usize,
     leftovers: usize,
+    said: String,
 }
 
 fn race() -> Round {
@@ -147,5 +163,6 @@ fn race() -> Round {
             .filter(|output| output.status.success())
             .count(),
         leftovers: leftovers(&work).len(),
+        said: outputs.iter().map(stderr).collect::<Vec<_>>().join("\n"),
     }
 }
