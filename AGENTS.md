@@ -164,10 +164,11 @@ next to the code; read the one for a directory before changing anything in it.
 
 Accepted limits, one line each, with where they are written down. The orchestrator treats them
 as decided when it rates review findings, and the `adversarial-review` skill when it reads this
-file; the `/code-review` agent may read them through the root `CLAUDE.md`, but filtering its
-findings against them stays the orchestrator's job. Pointing reviewers here is not priming,
-since the list is in the repo. A limit joins it when a review finding is declined for good; a finding on one still
-counts as must when it shows new impact.
+file; the `/code-review` agent may read them through the root `CLAUDE.md` of the checkout its
+session runs in, usually `main`'s and not the pull request head's, but filtering its findings
+against them stays the orchestrator's job. Pointing reviewers here is not priming, since the
+list is in the repo. A limit joins it when a review finding is declined for good; a finding on
+one still counts as must when it shows new impact.
 
 - **The `version` check judges "feeds the binary" by path only**, can be pointed by cargo at
   manifests outside its copy, and refuses a fragment name git would quote
@@ -313,9 +314,11 @@ nearest the code the guideline is about.
   3. The orchestrator runs the `/code-review` loop on the PR itself (see "Review before ready":
      how it runs, what counts as must or should, when to redesign, who fixes). Every must and
      should finding is fixed, TDD like any change, one ship per round, and reviewed again
-     (a docs-only pull request gets one round, see "Review before ready").
-     Minor findings are fixed when cheap, else listed in the PR body. The loop ends as "Review
-     before ready" says. The reviewer is **unprimed** by construction: the skill gets only the level and the PR number, never the list of earlier findings or what
+     (a docs-only pull request gets one round, see "Review before ready"), except a
+     `pre_existing` one the PR does not make reachable or worse, which becomes an issue or a
+     backlog line. Minor findings are fixed when cheap, else listed in the PR body. The loop
+     ends as "Review before ready" says. The reviewer is **unprimed** by construction: the
+     skill gets only the level and the PR number, never the list of earlier findings or what
      was decided about them. The orchestrator's memory of earlier rounds is no reason to drop
      a finding; only "Known limits" or another rule of this file is. Never post the review on
      the PR.
@@ -325,9 +328,9 @@ nearest the code the guideline is about.
      the PR title and body, fix what went stale, read the owner's messages (see "Merging and
      releasing"), `gh pr ready`, wait for CI green.
   5. Read the owner's messages again and scrub the PR title and commit messages (see "Review
-     before ready"), then squash-merge, the only method `main` allows. Watch the `release` run the merge starts to
-     green; with a fragment, check the release holds the six assets and the tap formula names
-     the new version (see "Releasing"). Never tag by hand.
+     before ready"), then squash-merge, the only method `main` allows. Watch the `release`
+     run the merge starts to green; with a fragment, check the release holds the six assets
+     and the tap formula names the new version (see "Releasing"). Never tag by hand.
   6. Remove the worktree and report what shipped, with the release link and the times the
      branch could not record (see "Time and tokens").
   Stop and ask instead of proceeding when: a gate fails for a reason the change did not
@@ -397,6 +400,9 @@ nearest the code the guideline is about.
   `.claude/worktrees/` is gitignored. Each worktree builds its own `target/` from cold the first
   time. `harbour-dev` points at the worktree that last ran `dev-install.sh`, so re-run it in the
   worktree you are testing. Remove the worktree (`git worktree remove`) once its PR is merged.
+  A session started inside a worktree loads the worktree's `CLAUDE.md`, not the main
+  checkout's, though the worktree sits inside it (seen with `claude -p` on 2026-11-21), so a
+  builder holds only its branch's rules.
 - **TDD is never skipped.** Every change to `src/` starts with a failing test, run and seen
   red, before the production code is touched; then the smallest change that goes green, then
   refactor. This holds for one-line fixes, security patches, patch releases and "obvious"
@@ -450,9 +456,9 @@ nearest the code the guideline is about.
   orchestrator rates each by reachability whatever its label, except that a `pre_existing`
   finding is fixed in the PR only when the PR makes it reachable or worse, and otherwise
   becomes an issue or a backlog line, whatever its reachability. The skill's conventions pass
-  reads `CLAUDE.md` files; the root `CLAUDE.md` links to this file, so it reads the root rules of the
-  checkout it runs in, but `tests/AGENTS.md` and `.github/AGENTS.md` have no such link, so each
-  round the orchestrator also checks the diff against the rules of every `AGENTS.md` (the
+  reads `CLAUDE.md` files; the root `CLAUDE.md` links to this file, so it reads the root rules
+  of the checkout it runs in, but `tests/AGENTS.md` and `.github/AGENTS.md` have no such link,
+  so each round the orchestrator also checks the diff against the rules of every `AGENTS.md` (the
   fragment, the screenshot of a visible change, TDD shown red, read from the builder's reports
   since the red run is not in the diff, the public-repo rule, the README shape) and reports a
   break as a finding like any other. No reviewer runs the gates: `scripts/ship.sh` runs them,
@@ -461,8 +467,12 @@ nearest the code the guideline is about.
   or should finding is a failing required check, it also ends without another round once that
   check passes, but only if the fix added nothing a reviewer has not seen: a rerun of the
   check, taking a change back out of the pull request, or adding the fragment the `version`
-  check asked for. Any other fix, whatever file it touches, gets another round. `gh pr ready`
-  comes after the findings are addressed, not before.
+  check asked for. Any other fix, whatever file it touches, gets another round. When the loop
+  ends on an added fragment, which no reviewer saw and the `version` check reads only for its
+  shape, the orchestrator reads it itself before `gh pr ready`: its `kind` against the diff
+  (`feat` when a user sees a new subcommand, flag or behaviour) and each bullet against what
+  changed, and fixes it in the same way before going on. `gh pr ready` comes after the findings
+  are addressed, not before.
   - **A docs-only pull request gets one round at `medium`.** When `scripts/docs-only.sh` says
     the branch is docs-only (every path it changes a `.md` file that does not feed the binary,
     outside `changes/` and `.github/`), the orchestrator runs one round of
@@ -491,7 +501,9 @@ nearest the code the guideline is about.
     Only `scrub: clean` is a clean result; a failed `gh` call is not one, and nothing is grepped
     unless both calls succeeded. The commits come from `gh api`, since `gh pr view` cuts a long
     subject in two. It does not read the PR body, and unlike the script it does not refuse an
-    empty list.
+    empty list. On a machine with no denylist, where `scripts/scrub-check.sh` skips, it prints
+    `scrub: list unreadable, not clean`: that is not clean by design, and the merge waits for a
+    machine that has the list.
   - **Severity by reachability.** A finding is must or should only when the user hits it while
     using harbour, the release pipeline hits it in normal operation, or a pull request could
     execute code or reach a token or secret. A bypass that needs a deliberately forged file,
