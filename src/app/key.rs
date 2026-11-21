@@ -14,6 +14,7 @@ impl App {
     }
 
     fn key_handled(&mut self, key: KeyEvent) {
+        let key = ctrl_backspace_as_ctrl_h(key);
         if let Some(pick) = &self.picking {
             let session = pick.session();
             let bytes = keys::encode(key, session.application_cursor());
@@ -152,6 +153,14 @@ fn changes<'a>(editors: impl IntoIterator<Item = &'a Editor>) -> Changes {
         .map(Editor::changes)
         .max()
         .unwrap_or(Changes::Saved)
+}
+
+fn ctrl_backspace_as_ctrl_h(key: KeyEvent) -> KeyEvent {
+    if key.code == KeyCode::Backspace && key.modifiers == KeyModifiers::CONTROL {
+        KeyEvent::new(KeyCode::Char('h'), KeyModifiers::CONTROL)
+    } else {
+        key
+    }
 }
 
 fn is_ctrl(key: KeyEvent, c: char) -> bool {
