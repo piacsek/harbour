@@ -15,6 +15,7 @@ const LONGEST: u64 = 64 * 1024;
 const PROGRAM: &str = "expected a list of strings: the program, then its arguments";
 const WIDTH: &str = "expected a whole number of columns above 0";
 const ACCENT: &str = "expected one of the 16 colour names or #rrggbb";
+const BOOLEAN: &str = "expected true or false";
 
 #[derive(Debug, PartialEq)]
 pub enum Source {
@@ -44,6 +45,7 @@ pub struct Config {
     session_command: Setting<Vec<String>>,
     sidebar_width: Setting<Option<u16>>,
     accent: Setting<Color>,
+    nerd_font: Setting<bool>,
     ignored: Vec<&'static str>,
 }
 
@@ -55,6 +57,7 @@ struct Written {
     session_command: Option<Spanned<Value>>,
     sidebar_width: Option<Spanned<Value>>,
     accent: Option<Spanned<Value>>,
+    nerd_font: Option<Spanned<Value>>,
 }
 
 struct Reader<'a> {
@@ -127,6 +130,9 @@ impl Config {
             accent: reader
                 .accent(written.accent)?
                 .map_or_else(|| default(Color::Cyan), from_file),
+            nerd_font: reader
+                .boolean("nerd_font", written.nerd_font)?
+                .map_or_else(|| default(false), from_file),
             path,
             ignored,
         })
@@ -172,6 +178,11 @@ impl Config {
                 "accent",
                 &quoted(&named(self.accent.value)),
                 &self.accent.source,
+            ),
+            line(
+                "nerd_font",
+                &self.nerd_font.value.to_string(),
+                &self.nerd_font.source,
             ),
         ]
         .map(|line| line + "\n")
@@ -220,6 +231,10 @@ impl Config {
 
     pub fn accent(&self) -> &Setting<Color> {
         &self.accent
+    }
+
+    pub fn nerd_font(&self) -> &Setting<bool> {
+        &self.nerd_font
     }
 }
 
@@ -314,6 +329,16 @@ impl Reader<'_> {
         match color {
             Some(color) => Ok(Some(color)),
             None => Err(self.refusal(&value.span(), "accent", ACCENT)),
+        }
+    }
+
+    fn boolean(&self, key: &str, value: Option<Spanned<Value>>) -> Result<Option<bool>, Refusal> {
+        let Some(value) = value else {
+            return Ok(None);
+        };
+        match value.get_ref() {
+            Value::Boolean(on) => Ok(Some(*on)),
+            _ => Err(self.refusal(&value.span(), key, BOOLEAN)),
         }
     }
 
