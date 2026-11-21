@@ -224,3 +224,38 @@ fn a_release_after_selecting_another_session_does_not_reach_it() {
     let shown = screen.wait_for("acme agent read:[<0;5;3M");
     assert!(shown.contains("acme agent read:[<0;5;3M"), "{shown}");
 }
+
+#[test]
+fn shift_enter_reaches_the_session_as_a_new_line() {
+    let mut screen = Screen::new(hex_agent(2));
+    screen.press('n');
+    screen.wait_for("acme agent ready");
+    screen.key(KeyCode::Enter, KeyModifiers::NONE);
+
+    screen.key(KeyCode::Enter, KeyModifiers::SHIFT);
+
+    let shown = screen.wait_for("acme agent read: 1b 0d");
+    assert!(shown.contains("acme agent read: 1b 0d"), "{shown}");
+}
+
+#[test]
+fn ctrl_enter_reaches_the_session_as_a_new_line() {
+    let mut screen = Screen::new(hex_agent(2));
+    screen.press('n');
+    screen.wait_for("acme agent ready");
+    screen.key(KeyCode::Enter, KeyModifiers::NONE);
+
+    screen.key(KeyCode::Enter, KeyModifiers::CONTROL);
+
+    let shown = screen.wait_for("acme agent read: 1b 0d");
+    assert!(shown.contains("acme agent read: 1b 0d"), "{shown}");
+}
+
+fn hex_agent(length: usize) -> Vec<String> {
+    let script = format!(
+        "stty raw -echo; echo 'acme agent ready'; \
+         dd bs=1 count={length} 2>/dev/null | od -An -tx1 | tr -s ' \\n' '  ' | \
+         sed 's/^/acme agent read:/'; exec sleep 600"
+    );
+    vec!["/bin/sh".into(), "-c".into(), script]
+}

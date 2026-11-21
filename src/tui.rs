@@ -1,10 +1,12 @@
+use std::collections::VecDeque;
 use std::io;
+use std::os::fd::AsFd;
 use std::panic::PanicHookInfo;
 use std::time::Duration;
 
 use crossterm::event::{
-    self, DisableBracketedPaste, DisableMouseCapture, EnableBracketedPaste, EnableMouseCapture,
-    Event, KeyEventKind,
+    DisableBracketedPaste, DisableMouseCapture, EnableBracketedPaste, EnableMouseCapture, Event,
+    KeyEventKind,
 };
 use crossterm::execute;
 use ratatui::Terminal;
@@ -15,12 +17,16 @@ use crate::cursor::Shape;
 use crate::demo::Registry;
 use crate::editor::Program;
 use crate::handoff::{self, Listener};
+use crate::input::Input;
 use crate::log::{self, Log};
 use crate::memory::Memory;
 use crate::picker::Picker;
 use crate::registry;
 use crate::session;
 use crate::summary::{self, Summary};
+
+const EXTENDED_KEYS_ON: &[u8] = b"\x1b[>4;1m";
+const EXTENDED_KEYS_OFF: &[u8] = b"\x1b[>4m";
 
 type PanicHook = dyn Fn(&PanicHookInfo<'_>) + Send + Sync + 'static;
 
@@ -72,8 +78,8 @@ fn show(app: App) -> io::Result<()> {
     let mut terminal = ratatui::init();
     let shape = Shape::default();
     std::panic::set_hook(panic_hook(shape.clone(), std::panic::take_hook()));
-    let result = execute!(io::stdout(), EnableBracketedPaste, EnableMouseCapture)
-        .and_then(|()| drive(&mut terminal, app, shape.clone()));
+    let result =
+        enter_terminal(&mut io::stdout()).and_then(|()| drive(&mut terminal, app, shape.clone()));
     let _ = leave_terminal(&mut io::stdout(), &shape);
     ratatui::restore();
     result
@@ -89,9 +95,17 @@ pub fn panic_hook(shape: Shape, restore_terminal: Box<PanicHook>) -> Box<PanicHo
     })
 }
 
+pub fn enter_terminal(out: &mut impl io::Write) -> io::Result<()> {
+    execute!(out, EnableBracketedPaste, EnableMouseCapture)?;
+    out.write_all(EXTENDED_KEYS_ON)?;
+    out.flush()
+}
+
 pub fn leave_terminal(out: &mut impl io::Write, shape: &Shape) -> io::Result<()> {
     shape.leave(out)?;
-    execute!(out, DisableMouseCapture, DisableBracketedPaste)
+    execute!(out, DisableMouseCapture, DisableBracketedPaste)?;
+    out.write_all(EXTENDED_KEYS_OFF)?;
+    out.flush()
 }
 
 fn drive(
@@ -99,15 +113,19 @@ fn drive(
     mut app: App,
     mut shape: Shape,
 ) -> io::Result<()> {
+    let stdin = io::stdin();
+    let mut input = Input::default();
+    let mut pending = VecDeque::new();
     while app.running() {
         frame(terminal, &mut app, &mut shape, &mut io::stdout())?;
-        if event::poll(Duration::from_millis(30))? {
-            match event::read()? {
-                Event::Key(key) if key.kind != KeyEventKind::Release => app.key(key),
-                Event::Paste(text) => app.paste(&text),
-                Event::Mouse(mouse) => app.mouse(mouse),
-                _ => {}
-            }
+        if pending.is_empty() {
+            pending.extend(input.read(stdin.as_fd(), Duration::from_millis(30))?);
+        }
+        match pending.pop_front() {
+            Some(Event::Key(key)) if key.kind != KeyEventKind::Release => app.key(key),
+            Some(Event::Paste(text)) => app.paste(&text),
+            Some(Event::Mouse(mouse)) => app.mouse(mouse),
+            _ => {}
         }
     }
     Ok(())
