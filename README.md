@@ -52,7 +52,7 @@ harbour config      # the settings file's path and where each setting comes from
 | `e` | show the next editor, one per directory |
 | `x` | end it and its editors, or forget an ended one |
 | `u` | show Claude Code's usage and limits |
-| `?` | show or hide the help |
+| `?/c` | show or hide the help / the changelog |
 | `q` | quit, after a yes while anything runs |
 
 `n` picks the directory with fzf, from the directory harbour was opened in and the ones

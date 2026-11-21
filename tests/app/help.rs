@@ -186,6 +186,20 @@ fn question_mark_shows_the_usage_key_on_one_row_beside_the_narrowest_sidebar() {
 }
 
 #[test]
+fn question_mark_shows_the_changelog_key_on_one_row_beside_the_narrowest_sidebar() {
+    let mut screen = Screen::new(reading_agent());
+    screen.resize(60, 20);
+
+    screen.press('?');
+
+    let shown = screen.draw();
+    assert!(
+        shown.contains("?/c        show or hide the help / the changelog"),
+        "{shown}"
+    );
+}
+
+#[test]
 fn question_mark_shows_the_find_key_on_one_row_beside_the_narrowest_sidebar() {
     let mut screen = Screen::new(reading_agent());
     screen.resize(60, 20);
