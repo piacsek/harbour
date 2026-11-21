@@ -187,6 +187,20 @@ fn the_accent_from_the_file_colours_the_focused_border() {
     assert!(first.contains("\u{1b}[38;5;1m┏"), "{first:?}");
 }
 
+#[test]
+#[ignore]
+fn the_sidebar_width_from_the_file_sets_the_sidebar_columns() {
+    let home = tempfile::tempdir().unwrap();
+    write_config(home.path(), "sidebar_width = 30\n");
+    let server = Server::start("config-width", 160, 20);
+    server.run(home.path(), &[(SESSION_COMMAND, AGENT)], &[]);
+
+    let screen = server.wait_for_screen("press n to start one");
+
+    let top = screen.lines().next().unwrap_or_default();
+    assert_eq!(top.chars().position(|c| c == '┌'), Some(30), "{top}");
+}
+
 fn coloured(server: &Server) -> String {
     let output = server
         .tmux(&["capture-pane", "-p", "-e", "-t", "e2e"])

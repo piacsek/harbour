@@ -7,7 +7,7 @@ const NARROW: u16 = 60;
 impl App {
     pub(super) fn areas(&self, area: Rect) -> (Rect, Rect) {
         if area.width >= NARROW {
-            two_columns(area)
+            two_columns(area, self.sidebar_width)
         } else {
             self.one_side(area)
         }
@@ -22,8 +22,11 @@ impl App {
     }
 }
 
-fn two_columns(area: Rect) -> (Rect, Rect) {
-    let [sidebar, pane] =
-        Layout::horizontal([Constraint::Ratio(1, 3), Constraint::Ratio(2, 3)]).areas(area);
+fn two_columns(area: Rect, width: Option<u16>) -> (Rect, Rect) {
+    let sidebar = match width {
+        Some(width) => Constraint::Length(width.min(area.width / 2)),
+        None => Constraint::Ratio(1, 3),
+    };
+    let [sidebar, pane] = Layout::horizontal([sidebar, Constraint::Fill(1)]).areas(area);
     (sidebar, pane)
 }
