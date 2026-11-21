@@ -1,6 +1,7 @@
 mod ci_workflow;
 mod delete_closed_branch_workflow;
 mod dev_install;
+mod docs_only;
 mod feeds_binary;
 mod flake_build_needed;
 mod flake_inputs;
