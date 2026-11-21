@@ -1,5 +1,6 @@
 #!/bin/sh
 printf '\033[?2004h\033[?1000h\033[?1006h'
+printf "${ACME_KEYS_ASKED:-}"
 echo "acme agent ready"
 stty raw -echo
 printf 'read:'

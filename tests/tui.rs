@@ -29,7 +29,7 @@ fn entering_the_terminal_asks_for_extended_keys() {
     enter_terminal(&mut written).unwrap();
 
     let written = String::from_utf8(written).unwrap();
-    assert!(written.contains("\x1b[>4;1m"), "{written:?}");
+    assert!(written.contains("\x1b[>4;2m"), "{written:?}");
     assert!(written.contains("\x1b[?1000h"), "{written:?}");
     assert!(written.contains("\x1b[?2004h"), "{written:?}");
 }

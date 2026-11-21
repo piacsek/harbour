@@ -130,6 +130,47 @@ fn shift_enter_in_insert_mode_with_extended_keys_on_starts_a_line_and_stays_in_i
     neovim.shows("-- INSERT --");
 }
 
+#[test]
+#[ignore]
+fn a_ctrl_escape_mapping_in_neovim_fires_with_extended_keys_on() {
+    let Some(neovim) = Neovim::start_with("nvim-ctrl-esc", &[&["extended-keys", "on"]]) else {
+        return;
+    };
+    neovim.mapped("<C-Esc>", "fired");
+
+    neovim.server.send_keys(&["C-Escape"]);
+
+    neovim.shows("acme-fired");
+}
+
+#[test]
+#[ignore]
+fn ctrl_shift_p_and_ctrl_p_are_two_keys_in_neovim_with_extended_keys_on() {
+    let Some(neovim) = Neovim::start_with("nvim-ctrl-shift-p", &[&["extended-keys", "on"]]) else {
+        return;
+    };
+    neovim.mapped("<C-S-p>", "shifted");
+
+    neovim.server.send_keys(&["C-S-p"]);
+
+    neovim.shows("acme-shifted");
+}
+
+#[test]
+#[ignore]
+fn ctrl_three_in_neovims_insert_mode_stays_in_insert_mode_with_extended_keys_on() {
+    let Some(neovim) = Neovim::start_with("nvim-ctrl-3", &[&["extended-keys", "on"]]) else {
+        return;
+    };
+
+    neovim
+        .server
+        .send_keys(&["i", "acme-one", "C-3", "acme-two"]);
+
+    neovim.shows("acme-one3acme-two");
+    neovim.shows("-- INSERT --");
+}
+
 struct Neovim {
     server: Server,
     home: TempDir,
@@ -209,6 +250,14 @@ impl Neovim {
         });
         assert!(!cleared.contains("acme-settled"), "{cleared}");
         assert!(!cleared.contains(":echo"), "{cleared}");
+    }
+
+    fn mapped(&self, key: &str, word: &str) {
+        self.server.send_keys(&[
+            &format!(":nnoremap {key} <Cmd>echo 'acme-' . '{word}'<CR>"),
+            "Enter",
+        ]);
+        self.settled();
     }
 
     fn shows(&self, text: &str) {
