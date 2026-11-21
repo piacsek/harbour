@@ -108,4 +108,15 @@ The setting is the one new thing read from outside: a key of the config file.
 
 ## Outcome
 
+- The setting is `nerd_font` (`true` or `false`, from the file only, `false` by default). It names the one fact harbour cannot detect, that the terminal draws with a Nerd Font, which is why it is off by default, and it reads the same for the card icons of #44, which only add their glyphs to `src/icons.rs` and draw them where `nerd_font` is on.
+- Code points checked two ways: Nerd Fonts' `glyphnames.json` (v3.5.1) gives `md-creation` as `f0674` and `custom-neovim` as `e6ae`; the cmap of FiraCode Nerd Font maps U+F0674 and U+E6AE to glyphs with the advance of `c`.
+- Width: unicode-width (ratatui's measure) counts both glyphs as one column, and tmux 3.7c moves the cursor one column for each, so the border's fit needed no special case.
+- `tabs::iconed` fits the names with the glyphs: the directory's start goes first, then the directory, then both glyphs together, then the rest exactly as `strip` fits it. A glyph never shows without its whole name, and once the glyphs go the directory does not come back.
+- With `nerd_font` off the app still calls `strip`: the `tests/tabs.rs` table is unchanged, and an app test pins the drawn top border character for character.
+- `docs/icons.png` is the new shot (a scratch config with `nerd_font = true` and an editor script named `nvim`); `docs/help.png` changed because `--help` names the setting; every other shot is byte for byte the same.
+- Task 2 could not ship alone: the dead-code gate refused `iconed` before the app called it, so tasks 2 and 3 shipped as one commit.
+
 ## Hurdles
+
+- `process` The task split put `tabs::iconed` in a ship of its own, before anything in `src/` called it, and `tests/dead_code.rs` refused the ship; tasks 2 and 3 shipped together → none
+- `test-seam` The fallback tests of `iconed` and the icons-off border test passed on their first run (the stub already fell back to `strip`, and the off path did not change); each was shown red by breaking the code it covers, then restored → none
