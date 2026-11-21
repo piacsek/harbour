@@ -191,4 +191,37 @@ default is shown red by breaking the code it covers, then restored, and said so.
 
 ## Outcome
 
+- Alt-\ hides the sidebar and splits the terminal in two even halves: Claude Code on the left,
+  its editor (opened as C-l opens it, sized to its half) on the right, Claude Code focused. Alt-\
+  again, or C-h from the Claude Code half, brings the sidebar back.
+- The key rule is Alt-z's: harbour takes Alt-\ only as an extended key (`CSI 27;3;92~` or
+  `CSI 92;3u`), never the legacy `ESC \`, and never while the editor half has focus. From the
+  editor half: C-h first (Neovim in normal mode, leftmost window); from Neovim insert mode, Esc,
+  then C-h, then Alt-\.
+- C-l and C-h move the focus between the halves; a click focuses the half it lands in and a
+  gesture stays with the half it began in; only the focused half draws a cursor.
+- Under 120 columns Alt-\ does nothing; a terminal that shrinks below 120 while side by side
+  shows the focused half alone with the zoom border, and the split comes back when it widens.
+- Each frame drops the mode once the pane loses focus, the session ends or no session is
+  selected; with no editor left it turns into a zoom. Ctrl-1 to Ctrl-9 keep the mode for the
+  session they show.
+- The borders: the headline and `claude` over the left half, the editor's name and directory and
+  the counts over the right, the focused half's names bold. The mode lives in `src/app/side.rs`;
+  `src/tabs.rs` gained `claude` and `editor_named`.
+- The help gained one row (`M-\`), so the C-l/Enter row was shortened to "focus or resume; from
+  Claude Code, its editor", the wording phase 28 uses, and the help again fills all 20 rows of a
+  20-row terminal; issue #98 tracks the lasting fix. The log names the key `M-\`.
+- `docs/side-by-side.png` is the new `side-by-side` shot; `docs/keys.png` and `docs/help.png`
+  changed with the help.
+- Not covered by a test: `harbour edit` opening a file while side by side keeps the mode (read
+  from the code: the holder's editor is shown and the selection kept, and the settle keeps the
+  mode while that editor runs).
+
 ## Hurdles
+
+- `design` the new help row overflowed the 20-row help beside the narrowest sidebar, so an
+  existing row had to be shortened → code
+- `process` phase 28, built in parallel, edits the same help rows, README table, screenshots and
+  AGENTS.md lines, so this branch waits for its merge to resolve them → none
+- `tooling` foreground waits are blocked or moved to the background, so a ship is waited on with
+  an until-loop, with no edits while `ship.sh` stages → none
