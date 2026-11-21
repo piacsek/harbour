@@ -156,6 +156,22 @@ fn switching_views_is_logged_as_the_popups_own_event_and_not_as_a_key() {
     assert_eq!(count(&lines, "acme"), 0);
 }
 
+#[cfg(target_os = "linux")]
+#[test]
+fn the_bars_stay_once_shown_though_something_the_report_started_prints_later() {
+    let late = "trap '' HUP; (sleep 1.5; printf '\\033[2J\\033[Hacme later\\n') &";
+    let mut screen = Screen::of(app().with_usage(report(late)));
+    screen.press('u');
+    screen.wait_for(ROW);
+    screen.press('t');
+    screen.wait_for("acme later");
+
+    screen.press('t');
+
+    let shown = screen.draw();
+    assert!(shown.contains(ROW), "{shown}");
+}
+
 fn report(then: &str) -> Vec<String> {
     script(&format!(
         "printf 'You are on the acme team plan\\n\\n'; \

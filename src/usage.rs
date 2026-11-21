@@ -15,7 +15,6 @@ const HINT: &str = "  t raw text · Esc close";
 pub struct Report {
     pub limits: Vec<Limit>,
     pub breakdowns: Vec<Breakdown>,
-    pub notes: Vec<String>,
 }
 
 #[derive(Debug)]
@@ -86,7 +85,8 @@ impl Section {
 
     fn read(&mut self, line: &str) {
         self.indented = true;
-        if let Some(share) = share(line) {
+        let topped = matches!(self.last, Some(Part::Top)) && percentage(line).is_some();
+        if let Some(share) = share(line).filter(|_| !topped) {
             self.breakdown.shares.push(share);
             self.last = Some(Part::Share);
         } else if let Some(top) = top(line) {
@@ -99,7 +99,9 @@ impl Section {
                 None => None,
             };
             if let Some(text) = continued {
-                text.push(' ');
+                if !text.is_empty() {
+                    text.push(' ');
+                }
                 text.push_str(&text::clean(line));
             }
         }
@@ -109,13 +111,13 @@ impl Section {
 fn close(report: &mut Report, section: Option<Section>) {
     let Some(mut section) = section else { return };
     let breakdown = &mut section.breakdown;
-    if !breakdown.shares.is_empty() || !breakdown.tops.is_empty() {
+    let read = !breakdown.shares.is_empty() || !breakdown.tops.is_empty();
+    let alone = !section.indented && !breakdown.heading.ends_with('?');
+    if read || alone {
         for top in &mut breakdown.tops {
             top.values = top.values.replace(", ", " · ");
         }
         report.breakdowns.push(section.breakdown);
-    } else if !section.indented && !breakdown.heading.ends_with('?') {
-        report.notes.push(section.breakdown.heading);
     }
 }
 
@@ -147,7 +149,7 @@ pub fn lines(report: &Report, width: u16, height: u16, accent: Color) -> Vec<Lin
             .flat_map(|breakdown| &breakdown.shares)
             .map(|share| share.percent.as_str()),
     );
-    let mut rows = vec![Line::default()];
+    let mut rows = Vec::new();
     for limit in &report.limits {
         let mut spans = vec![Span::raw(format!("  {}   ", padded(&limit.label, label)))];
         spans.extend(filled(&limit.percent, bar, fullness(&limit.percent)));
@@ -184,19 +186,14 @@ pub fn lines(report: &Report, width: u16, height: u16, accent: Color) -> Vec<Lin
             )));
         }
     }
-    if !report.notes.is_empty() {
-        rows.push(Line::default());
-        rows.extend(
-            report
-                .notes
-                .iter()
-                .map(|note| Line::raw(format!("  {note}"))),
-        );
-    }
     let height = usize::from(height);
-    rows.truncate(height.saturating_sub(2));
-    if height > 1 {
+    let above = height.saturating_sub(1);
+    rows.truncate(above);
+    if rows.len() < above {
         rows.push(Line::default());
+    }
+    if rows.len() < above {
+        rows.insert(0, Line::default());
     }
     if height > 0 {
         rows.push(Line::raw(HINT));

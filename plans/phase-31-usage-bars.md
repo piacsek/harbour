@@ -126,3 +126,7 @@ shapes below are written in invented wording and numbers; nothing the probe prin
   `~5%` or `12,5%` glued onto the tip above, its text drawn without `text::clean`, wider
   percentages out of line; plus `t` logged as a key and two tests judging the screen too early
   → code
+- `review-loop` Round 2 found a short popup cut to its hint, a day without activity moved out of
+  order, a wrapped share or `Top` line read wrongly, and bars that later output could undo → code
+- `test-seam` macOS ends a PTY's output once its session leader exits, so the test of output
+  printed after the report's exit runs on Linux only (in Docker locally) → code

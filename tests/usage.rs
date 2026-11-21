@@ -105,8 +105,8 @@ fn a_limit_row_shows_its_label_bar_percentage_and_reset_at_80_columns() {
 fn a_breakdown_keeps_its_heading_shares_and_tops() {
     let report = parsed(FULL);
 
-    assert_eq!(report.breakdowns.len(), 1);
-    let breakdown = &report.breakdowns[0];
+    assert_eq!(report.breakdowns.len(), 2);
+    let breakdown = &report.breakdowns[1];
     assert_eq!(breakdown.heading, "Last 24h · 310 requests · 7 sessions");
     assert_eq!(breakdown.shares.len(), 2);
     assert_eq!(breakdown.shares[0].percent, "64");
@@ -124,10 +124,31 @@ fn a_breakdown_keeps_its_heading_shares_and_tops() {
 }
 
 #[test]
-fn a_line_with_nothing_indented_under_it_is_a_note_unless_it_asks_a_question() {
+fn a_line_with_nothing_indented_under_it_is_a_heading_alone_unless_it_asks_a_question() {
     let report = parsed(FULL);
 
-    assert_eq!(report.notes, vec!["Estimates only · this machine only"]);
+    assert_eq!(report.breakdowns.len(), 2);
+    assert_eq!(
+        report.breakdowns[0].heading,
+        "Estimates only · this machine only"
+    );
+    assert_eq!(report.breakdowns[0].shares.len(), 0);
+    assert_eq!(report.breakdowns[0].tops.len(), 0);
+}
+
+#[test]
+fn a_period_without_activity_stays_where_the_report_printed_it() {
+    let text = format!(
+        "{LIMITS}\nLast 24h · 0 requests · 0 sessions\n\nLast 7d · 9 requests · 2 sessions\n  40%  Long sessions\n"
+    );
+
+    let report = parsed(&text);
+    let rows = drawn(&report, 78, 30);
+
+    assert_eq!(rows[4], "");
+    assert_eq!(rows[5], "  Last 24h · 0 requests · 0 sessions");
+    assert_eq!(rows[6], "");
+    assert_eq!(rows[7], "  Last 7d · 9 requests · 2 sessions");
 }
 
 #[test]
@@ -137,7 +158,6 @@ fn a_section_whose_lines_do_not_parse_is_left_out() {
     let report = parsed(&text);
 
     assert_eq!(report.breakdowns.len(), 0);
-    assert_eq!(report.notes.len(), 0);
 }
 
 #[test]
@@ -169,15 +189,38 @@ fn an_indented_line_that_is_no_share_continues_the_line_before() {
 }
 
 #[test]
+fn a_line_continuing_a_share_without_a_tip_becomes_its_tip() {
+    let text = format!("{LIMITS}\nLast 7d\n  5%\n    wrapped tip\n");
+
+    let report = parsed(&text);
+
+    assert_eq!(report.breakdowns[0].shares[0].label, "wrapped tip");
+}
+
+#[test]
+fn a_top_line_continued_with_a_percentage_stays_one_top_line() {
+    let text = format!("{LIMITS}\nLast 7d\n  Top skills: tdd 12%, review\n    6%, plan 2%\n");
+
+    let report = parsed(&text);
+
+    let breakdown = &report.breakdowns[0];
+    assert_eq!(breakdown.shares.len(), 0);
+    assert_eq!(breakdown.tops.len(), 1);
+    assert_eq!(breakdown.tops[0].values, "tdd 12% · review 6% · plan 2%");
+}
+
+#[test]
 fn a_breakdown_draws_a_short_bar_per_share_and_its_tops_under_its_heading() {
     let report = parsed(FULL);
 
     let rows = drawn(&report, 78, 30);
 
     assert_eq!(rows[4], "");
-    assert_eq!(rows[5], "  Last 24h · 310 requests · 7 sessions");
+    assert_eq!(rows[5], "  Estimates only · this machine only");
+    assert_eq!(rows[6], "");
+    assert_eq!(rows[7], "  Last 24h · 310 requests · 7 sessions");
     assert_eq!(
-        rows[6],
+        rows[8],
         format!(
             "   {}{}   64%  Long sessions keep their whole context",
             full(8),
@@ -185,17 +228,15 @@ fn a_breakdown_draws_a_short_bar_per_share_and_its_tops_under_its_heading() {
         )
     );
     assert_eq!(
-        rows[7],
+        rows[9],
         format!(
             "   {}{}   25%  Restart when the task changes",
             full(3),
             empty(9)
         )
     );
-    assert_eq!(rows[8], "   skills      tdd 12% · review 4%");
-    assert_eq!(rows[9], "   subagents   Explore 31%");
-    assert_eq!(rows[10], "");
-    assert_eq!(rows[11], "  Estimates only · this machine only");
+    assert_eq!(rows[10], "   skills      tdd 12% · review 4%");
+    assert_eq!(rows[11], "   subagents   Explore 31%");
 }
 
 #[test]
@@ -225,7 +266,7 @@ fn breakdown_bars_take_the_accent() {
 
     let lines = usage::lines(&report, 78, 30, Color::Magenta);
 
-    assert_eq!(lines[6].spans[1].style.fg, Some(Color::Magenta));
+    assert_eq!(lines[8].spans[1].style.fg, Some(Color::Magenta));
 }
 
 #[test]
@@ -246,10 +287,34 @@ fn a_short_popup_keeps_the_hint_on_its_last_row() {
     let rows = drawn(&report, 78, 5);
 
     assert_eq!(rows.len(), 5);
-    assert!(rows[1].starts_with("  Session   "), "{rows:?}");
-    assert!(rows[2].starts_with("  Week   "), "{rows:?}");
+    assert!(rows[0].starts_with("  Session   "), "{rows:?}");
+    assert!(rows[1].starts_with("  Week   "), "{rows:?}");
+    assert!(rows[2].starts_with("  Week, acme-large   "), "{rows:?}");
     assert_eq!(rows[3], "");
     assert_eq!(rows[4], "  t raw text · Esc close");
+}
+
+#[test]
+fn a_popup_of_three_rows_gives_them_to_the_limit_bars_and_the_hint() {
+    let report = parsed(FULL);
+
+    let rows = drawn(&report, 78, 3);
+
+    assert_eq!(rows.len(), 3);
+    assert!(rows[0].starts_with("  Session   "), "{rows:?}");
+    assert!(rows[1].starts_with("  Week   "), "{rows:?}");
+    assert_eq!(rows[2], "  t raw text · Esc close");
+}
+
+#[test]
+fn a_popup_of_two_rows_shows_the_first_limit_bar_and_the_hint() {
+    let report = parsed(FULL);
+
+    let rows = drawn(&report, 78, 2);
+
+    assert_eq!(rows.len(), 2);
+    assert!(rows[0].starts_with("  Session   "), "{rows:?}");
+    assert_eq!(rows[1], "  t raw text · Esc close");
 }
 
 #[test]
@@ -258,7 +323,8 @@ fn a_popup_of_one_row_shows_the_hint_alone() {
 
     let rows = drawn(&report, 78, 1);
 
-    assert_eq!(rows, vec!["  t raw text · Esc close"]);
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0], "  t raw text · Esc close");
 }
 
 #[test]
@@ -276,7 +342,7 @@ fn a_narrower_popup_shrinks_the_bars_first() {
         )
     );
     assert_eq!(
-        rows[6],
+        rows[8],
         format!(
             "   {}{}   64%  Long sessions keep their whole context",
             full(3),
@@ -292,14 +358,14 @@ fn a_line_too_long_for_the_popup_is_cut_with_an_ellipsis() {
     let rows = drawn(&report, 40, 30);
 
     assert_eq!(
-        rows[6],
+        rows[8],
         format!(
             "   {}{}   64%  Long sessions keep their…",
             full(3),
             empty(1)
         )
     );
-    assert_eq!(harbour::text::columns(&rows[6]), 40);
+    assert_eq!(harbour::text::columns(&rows[8]), 40);
 }
 
 #[test]
@@ -318,7 +384,7 @@ fn the_narrowest_popup_cuts_every_line_to_its_width() {
     let rows = drawn(&report, 10, 30);
 
     assert_eq!(rows[1], "  Session…");
-    assert_eq!(rows[5], "  Last 24…");
+    assert_eq!(rows[7], "  Last 24…");
     assert_eq!(rows[rows.len() - 1], "  t raw t…");
 }
 
@@ -442,7 +508,7 @@ fn every_text_the_report_gives_is_cleaned_of_hidden_characters() {
     assert_eq!(report.breakdowns[0].shares[0].label, "Long sessions");
     assert_eq!(report.breakdowns[0].tops[0].label, "skills");
     assert_eq!(report.breakdowns[0].tops[0].values, "tdd 3%");
-    assert_eq!(report.notes, vec!["Estimates only"]);
+    assert_eq!(report.breakdowns[1].heading, "Estimates only");
 }
 
 const SHAPED: &str = "\
