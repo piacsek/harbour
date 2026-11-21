@@ -8,7 +8,7 @@ use std::path::{Path, PathBuf};
 
 use tempfile::TempDir;
 
-use crate::session::Session;
+use crate::session::{Role, Session};
 
 const PRINTING_TO: &str = r#"out=$1; shift; "$@" >"$out""#;
 const FZF_PRINTS_ONE_LINE: [&str; 4] = [
@@ -107,7 +107,7 @@ impl Pick {
             (_, Ok(())) => {}
         }
         let wrapped = picker.command(from, &output);
-        let session = Session::start(&wrapped, from, rows, cols)?;
+        let session = Session::start_as(Role::Picker, &wrapped, from, rows, cols)?;
         Ok(Some(Pick {
             session,
             program: picker.program().to_string(),

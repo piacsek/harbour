@@ -290,6 +290,18 @@ fn q_names_unsaved_changes_in_neovim() {
     assert!(shown.contains("Unsaved changes. Quit? y/n"), "{shown}");
 }
 
+#[test]
+fn ctrl_h_kept_by_a_neovim_that_asked_for_the_kitty_protocol_reaches_it_in_the_kitty_form() {
+    let scratch = tempfile::tempdir().unwrap();
+    let mut screen = open_with(kitty_neovim(scratch.path()));
+    let _asked = ready(&socket(scratch.path()), Some(0));
+
+    screen.key(KeyCode::Char('h'), KeyModifiers::CONTROL);
+
+    let shown = screen.wait_for("acme nvim read:1b5b3130343b3575");
+    assert!(shown.contains("acme nvim read:1b5b3130343b3575"), "{shown}");
+}
+
 fn in_the_sidebar(scratch: &Path) -> Screen {
     in_the_sidebar_of(fake_neovim(scratch, "exec sleep 600").with_patience(Duration::from_secs(5)))
 }
@@ -326,6 +338,20 @@ fn fake_neovim(scratch: &Path, then: &str) -> Program {
              printf 'acme nvim read:%s' \"$r\"; {then}"
         )),
     )
+}
+
+fn kitty_neovim(scratch: &Path) -> Program {
+    let scratch = scratch.display();
+    Program::neovim(
+        "nvim",
+        script(&format!(
+            "printf '%s\\n' \"$1\" > '{scratch}/socket'; \
+             stty raw -echo; printf '\\033[>1u'; echo 'acme nvim ready'; \
+             r=$(dd bs=1 count=8 2>/dev/null | od -An -tx1 | tr -d ' \\n'); \
+             printf 'acme nvim read:%s' \"$r\"; exec sleep 600"
+        )),
+    )
+    .with_patience(Duration::from_secs(5))
 }
 
 fn socket(scratch: &Path) -> PathBuf {

@@ -3,9 +3,10 @@ use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use super::logging::Input;
 use super::{App, Entry, Question, draw, refusal};
 use crate::editor::{Changes, Editor};
-use crate::keys;
+use crate::keys::{self, Keyboard};
 use crate::mouse::Gesture;
 use crate::picker::Pick;
+use crate::session::Session;
 
 impl App {
     pub fn key(&mut self, key: KeyEvent) {
@@ -15,9 +16,10 @@ impl App {
 
     fn key_handled(&mut self, key: KeyEvent) {
         let key = ctrl_backspace_as_ctrl_h(key);
+        let acted = ctrl_shift_as_ctrl(key);
         if let Some(pick) = &self.picking {
             let session = pick.session();
-            let bytes = keys::encode(plain_enter(key), session.application_cursor());
+            let bytes = beside(session, key);
             session.send(&bytes);
             self.log_input(Input::Picker, bytes.len());
             return;
@@ -28,7 +30,7 @@ impl App {
         if self.sidebar.is_empty() && !self.sessions.is_empty() {
             self.failed = None;
         }
-        if self.pane_focused && is_ctrl(key, 'h') {
+        if self.pane_focused && is_ctrl(acted, 'h') {
             match self.sessions.get_mut(self.selected) {
                 Some(entry) if entry.on_editor => {
                     match entry
@@ -36,7 +38,7 @@ impl App {
                         .filter(|editor| editor.wants_ctrl_h())
                     {
                         Some(editor) => {
-                            let bytes = keys::encode(key, false);
+                            let bytes = beside(&editor.session, key);
                             editor.session.send(&bytes);
                             self.log_input(Input::Shown, bytes.len());
                         }
@@ -48,7 +50,7 @@ impl App {
             return;
         }
         if self.pane_focused
-            && is_ctrl(key, 'l')
+            && is_ctrl(acted, 'l')
             && self
                 .sessions
                 .get(self.selected)
@@ -63,15 +65,19 @@ impl App {
             .get(self.selected)
             .is_some_and(|entry| entry.showing_editor().is_some());
         if let Some(session) = self.focused() {
-            let key = if on_editor { plain_enter(key) } else { key };
-            let bytes = keys::encode(key, session.application_cursor());
+            let bytes = if on_editor {
+                beside(session, key)
+            } else {
+                keys::encode(key, session.application_cursor())
+            };
             session.send(&bytes);
             self.log_input(Input::Shown, bytes.len());
             self.touch();
             return;
         }
-        match key.code {
-            _ if is_ctrl(key, 'l') => self.focus_or_resume(),
+        match acted.code {
+            _ if is_ctrl(acted, 'l') => self.focus_or_resume(),
+            _ if is_ctrl(acted, 'm') => self.focus_or_resume(),
             KeyCode::Enter => self.focus_or_resume(),
             KeyCode::Char('q') => self.quit(),
             KeyCode::Char('n') => self.pick_or_start(),
@@ -165,6 +171,24 @@ fn ctrl_backspace_as_ctrl_h(key: KeyEvent) -> KeyEvent {
         KeyEvent::new(KeyCode::Char('h'), KeyModifiers::CONTROL)
     } else {
         key
+    }
+}
+
+fn ctrl_shift_as_ctrl(key: KeyEvent) -> KeyEvent {
+    match key.code {
+        KeyCode::Char(c @ ('h' | 'H' | 'l' | 'L'))
+            if key.modifiers - KeyModifiers::SHIFT == KeyModifiers::CONTROL =>
+        {
+            KeyEvent::new(KeyCode::Char(c.to_ascii_lowercase()), KeyModifiers::CONTROL)
+        }
+        _ => key,
+    }
+}
+
+fn beside(session: &Session, key: KeyEvent) -> Vec<u8> {
+    match session.keyboard() {
+        Keyboard::Legacy => keys::encode(plain_enter(key), session.application_cursor()),
+        keyboard => keys::encode_as(key, session.application_cursor(), keyboard),
     }
 }
 

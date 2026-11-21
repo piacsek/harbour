@@ -9,6 +9,8 @@ use ratatui::layout::{Position, Rect};
 use ratatui::widgets::Widget;
 use vt100::{MouseProtocolEncoding, MouseProtocolMode};
 
+mod keyboard;
+
 const ROWS: u16 = 10;
 const COLS: u16 = 200;
 
