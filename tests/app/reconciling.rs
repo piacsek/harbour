@@ -44,6 +44,23 @@ fn a_title_written_just_before_quitting_is_remembered() {
 }
 
 #[test]
+fn a_title_written_just_before_a_signal_stops_harbour_is_remembered() {
+    let scratch = Scratch::new();
+    scratch.transcript(ID, &titled(TITLE));
+    let mut screen = scratch.watching(registered(&scratch.sessions(), ID));
+    screen.press('n');
+    let first = remembered_soon(&mut screen, &scratch.memory(), ID, TITLE);
+    assert_eq!(first.len(), 1);
+    scratch.transcript(ID, &titled("The last word"));
+
+    screen.app.stop("signal name=TERM");
+
+    let kept = scratch.memory().recall();
+    assert_eq!(kept.len(), 1);
+    assert_eq!(kept[0].title, "The last word");
+}
+
+#[test]
 fn a_remembered_file_deleted_from_outside_is_written_again() {
     let scratch = Scratch::new();
     scratch.transcript(ID, &titled(TITLE));

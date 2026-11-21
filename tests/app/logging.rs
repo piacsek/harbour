@@ -358,6 +358,21 @@ fn q_with_no_session_logs_the_quit() {
     only(&read(&lines), " quit sessions=0\n");
 }
 
+#[test]
+fn a_stop_logs_its_cause_before_the_quit() {
+    let (app, lines) = logged(App::new(reading_agent()));
+    let mut screen = Screen::of(app);
+    screen.draw();
+    read(&lines);
+
+    screen.app.stop("signal name=TERM");
+
+    let lines = read(&lines);
+    assert_eq!(lines.len(), 2, "{lines:#?}");
+    assert!(lines[0].ends_with(" signal name=TERM\n"), "{lines:#?}");
+    assert!(lines[1].ends_with(" quit sessions=0\n"), "{lines:#?}");
+}
+
 pub(crate) fn focused(app: App) -> Screen {
     let mut screen = Screen::of(app);
     screen.press('n');
