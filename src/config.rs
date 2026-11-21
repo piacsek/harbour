@@ -8,12 +8,15 @@ use ratatui::style::Color;
 use serde::Deserialize;
 use toml::{Spanned, Value};
 
+use crate::tui::{DIR_PICKER, EDITOR, SESSION_COMMAND};
+
 const PROGRAM: &str = "expected a list of strings: the program, then its arguments";
 const WIDTH: &str = "expected a whole number of columns above 0";
 const ACCENT: &str = "expected one of the 16 colour names or #rrggbb";
 
 #[derive(Debug, PartialEq)]
 pub enum Source {
+    Variable(&'static str),
     File,
     Default,
 }
@@ -74,17 +77,42 @@ impl Config {
             home: home.as_deref(),
         };
         let written: Written = toml::from_str(&text).map_err(|error| reader.syntax(&error))?;
+        let set = |name: &'static str| {
+            variable(name)
+                .filter(|value| !value.is_empty())
+                .map(|value| Setting {
+                    value,
+                    source: Source::Variable(name),
+                })
+        };
+        let set_text = |name| {
+            set(name).and_then(|setting| {
+                Some(Setting {
+                    value: vec![setting.value.into_string().ok()?],
+                    source: setting.source,
+                })
+            })
+        };
+        let editor = reader.program("editor", written.editor)?;
+        let picker = reader.program("picker", written.picker)?;
+        let session_command = reader.program("session_command", written.session_command)?;
         Ok(Config {
-            editor: match reader.program("editor", written.editor)? {
-                Some(command) => from_file(command.into_iter().map(OsString::from).collect()),
-                None => default(vec![OsString::from("nvim")]),
+            editor: match (set(EDITOR), editor) {
+                (Some(setting), _) => Setting {
+                    value: vec![setting.value],
+                    source: setting.source,
+                },
+                (None, Some(command)) => {
+                    from_file(command.into_iter().map(OsString::from).collect())
+                }
+                (None, None) => default(vec![OsString::from("nvim")]),
             },
-            picker: reader
-                .program("picker", written.picker)?
-                .map_or_else(|| default(vec!["fzf".to_string()]), from_file),
-            session_command: reader
-                .program("session_command", written.session_command)?
-                .map_or_else(|| default(vec!["claude".to_string()]), from_file),
+            picker: set_text(DIR_PICKER).unwrap_or_else(|| {
+                picker.map_or_else(|| default(vec!["fzf".to_string()]), from_file)
+            }),
+            session_command: set_text(SESSION_COMMAND).unwrap_or_else(|| {
+                session_command.map_or_else(|| default(vec!["claude".to_string()]), from_file)
+            }),
             sidebar_width: match reader.width(written.sidebar_width)? {
                 Some(width) => from_file(Some(width)),
                 None => default(None),
@@ -275,8 +303,9 @@ impl Reader<'_> {
 
 fn line(key: &str, value: &str, source: &Source) -> String {
     let source = match source {
-        Source::File => "file",
-        Source::Default => "default",
+        Source::Variable(name) => format!("variable {name}"),
+        Source::File => "file".to_string(),
+        Source::Default => "default".to_string(),
     };
     format!("{key} = {value}  ({source})")
 }

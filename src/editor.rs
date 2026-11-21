@@ -49,16 +49,17 @@ impl Program {
         }
     }
 
-    pub fn named(program: OsString) -> Program {
-        let name = Path::new(&program)
+    pub fn command(command: Vec<OsString>) -> Program {
+        let program = Path::new(&command[0]);
+        let name = program
             .file_name()
-            .unwrap_or(&program)
+            .unwrap_or(program.as_os_str())
             .to_string_lossy()
             .into_owned();
         Program {
             neovim: name == "nvim",
             name,
-            command: vec![program],
+            command,
             patience: nvim::PATIENCE,
         }
     }

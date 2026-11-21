@@ -53,6 +53,26 @@ fn harbour_config_names_a_light_accent_as_the_file_may_write_it() {
 }
 
 #[test]
+fn harbour_config_names_the_variable_a_setting_comes_from() {
+    let home = tempfile::tempdir().unwrap();
+    write_config(home.path(), "editor = [\"nvim\", \"--clean\"]\n");
+
+    let output = Command::new(env!("CARGO_BIN_EXE_harbour"))
+        .arg("config")
+        .env("HOME", home.path())
+        .env_remove("XDG_CONFIG_HOME")
+        .env("HARBOUR_EDITOR", "acme-vim")
+        .output()
+        .unwrap();
+
+    assert!(
+        stdout(&output).contains("\neditor = [\"acme-vim\"]  (variable HARBOUR_EDITOR)\n"),
+        "{}",
+        stdout(&output)
+    );
+}
+
+#[test]
 fn harbour_config_without_a_home_says_there_is_no_file() {
     let output = Command::new(env!("CARGO_BIN_EXE_harbour"))
         .arg("config")

@@ -6,6 +6,7 @@ use harbour::config::{Config, Refusal, Source};
 use ratatui::style::Color;
 
 mod command;
+mod precedence;
 mod refusals;
 
 #[test]
@@ -228,6 +229,22 @@ fn read_at(home: &Path, xdg: Option<&str>) -> Result<Config, Refusal> {
         "XDG_CONFIG_HOME" => xdg.clone(),
         _ => None,
     })
+}
+
+fn read_with(home: &Path, variables: &[(&str, &str)]) -> Config {
+    let home = home.as_os_str().to_owned();
+    let variables: Vec<(String, OsString)> = variables
+        .iter()
+        .map(|(name, value)| (name.to_string(), OsString::from(value)))
+        .collect();
+    Config::read(move |name| match name {
+        "HOME" => Some(home.clone()),
+        _ => variables
+            .iter()
+            .find(|(variable, _)| variable == name)
+            .map(|(_, value)| value.clone()),
+    })
+    .unwrap()
 }
 
 fn config_path(home: &Path) -> PathBuf {

@@ -66,7 +66,7 @@ fn main() -> ExitCode {
         [Some("edit"), Some("--"), file] if file != Some("") => edit(&args[2]),
         [Some("edit"), file] if !matches!(file, Some("--" | "")) => edit(&args[1]),
         [] if on_a_terminal() => match Config::from_env() {
-            Ok(_) => shown(harbour::tui::run()),
+            Ok(config) => shown(harbour::tui::run(config)),
             Err(refusal) => refused(&refusal),
         },
         [Some("--demo")] if on_a_terminal() => shown(harbour::tui::demo()),
