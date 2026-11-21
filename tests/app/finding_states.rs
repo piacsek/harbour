@@ -14,7 +14,7 @@ use harbour::picker::Picker;
 use crate::finding::FINDER;
 use crate::handoff::soon;
 use crate::remembering::{ID, OTHER_ID, Scratch, TITLE};
-use crate::{Screen, home, script};
+use crate::{Screen, home, pane_corner, script};
 
 const GONE: &str = "That session is gone";
 const WAITING: &str = "harbour is waiting for an answer; try again after it";
@@ -239,6 +239,25 @@ fn the_keys_harbour_binds_go_to_fzf_while_the_list_is_open() {
     assert!(selected_line(&shown).contains("acme-home 3"), "{shown}");
     assert_eq!(corners(&shown), 2, "{shown}");
     assert!(!shown.contains("acme usage open"), "{shown}");
+}
+
+#[test]
+fn the_width_keys_do_nothing_while_the_list_is_open() {
+    let scratch = tempfile::tempdir().unwrap();
+    let app = App::new(stoppable_agent(scratch.path()))
+        .with_picker(finder())
+        .with_sidebar_width(30);
+    let mut screen = started(app, 2);
+    alt_s(&mut screen);
+    screen.wait_for("acme fzf ready");
+
+    screen.key(KeyCode::Char('='), KeyModifiers::ALT);
+    screen.key(KeyCode::Char('='), KeyModifiers::ALT);
+    screen.key(KeyCode::Char('-'), KeyModifiers::ALT);
+    screen.type_text("\r");
+
+    let shown = screen.wait_until("the popup to close", |shown| !shown.contains("acme fzf"));
+    assert_eq!(pane_corner(&shown), 30, "{shown}");
 }
 
 #[test]

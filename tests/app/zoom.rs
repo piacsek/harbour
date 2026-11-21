@@ -366,7 +366,7 @@ fn lined_agent(scratch: &Path) -> Vec<String> {
     ))
 }
 
-fn raw_reader(length: usize) -> Vec<String> {
+pub(crate) fn raw_reader(length: usize) -> Vec<String> {
     script(&format!(
         "stty raw -echo; echo 'acme agent ready' >&2; \
          dd bs=1 count={length} 2>/dev/null | od -An -tx1 | tr -s ' \\n' '  ' | \
@@ -382,7 +382,7 @@ fn asking_editor() -> Vec<String> {
     )
 }
 
-fn editing_session(scratch: &Path) -> Screen {
+pub(crate) fn editing_session(scratch: &Path) -> Screen {
     let editor = Program::new("acme-edit", asking_editor());
     let mut screen = Screen::editing(lined_agent(scratch), editor);
     screen.press('n');

@@ -11,6 +11,7 @@ mod config;
 mod cursor;
 mod edit;
 mod editor;
+mod finding;
 mod keys;
 mod log;
 mod moving;

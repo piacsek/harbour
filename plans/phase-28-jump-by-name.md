@@ -83,14 +83,14 @@ Esc closes it and changes nothing. It works from the sidebar and from a Claude C
   focused, as a refused jump does. Zoom stays on after a pick of a live session.
 - **The popup is the directory picker's**: every key, paste and mouse event goes to fzf;
   `harbour edit` answers `none` or refuses while it is open; Ctrl-1 to Ctrl-9, Alt-z, `u` and
-  every other harbour key do nothing. It is never a card and never remembered. Its border's
+  the width keys and every other harbour key do nothing. It is never a card and never remembered. Its border's
   title is ` sessions `.
 - **The log** names the key `M-s` when harbour acts on it. What is typed into the popup is
   logged as `input to=picker bytes=<n>`, never its text.
 - **The help view** gets one row, `M-s  jump to a session by part of its name`. To keep the
   whole help on 20 rows beside the narrowest sidebar (59 and 60 columns), the `C-l/Enter` row
   becomes `focus or resume; from Claude Code, its editor` (45 columns, one row at 59). The
-  headroom test goes from 2 spare rows to 1 on purpose.
+  headroom test goes from 2 spare rows to 1 on purpose, and to 0 once phase 27's width row is merged.
 
 ## States
 
@@ -119,6 +119,7 @@ Esc closes it and changes nothing. It works from the sidebar and from a Claude C
 | Alt-s as legacy `ESC s` | the session gets it |
 | Alt-s with Caps Lock (`CSI 27;3;83~`, `CSI 83;3u`) | opens, as Alt-s |
 | While open: Ctrl-1 to Ctrl-9, Alt-z, `u`, `n`, `q`, a paste, a click | all go to fzf; harbour does nothing else |
+| While open: the width keys (`M--`, `M-=`) | nothing happens; the sidebar keeps its width |
 | While open: `harbour edit <file>` | answered `none` to an ask, refused to an open, as for the directory picker |
 | `--demo` | lists the made-up sessions and the stopped card |
 

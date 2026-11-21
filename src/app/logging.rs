@@ -6,6 +6,7 @@ use ratatui::layout::Rect;
 
 use super::find::is_find;
 use super::jump::position;
+use super::split::widens;
 use super::zoom::is_zoom;
 use super::{App, Entry};
 use crate::handoff::{Reply, Verb};
@@ -21,6 +22,7 @@ pub(super) struct Logging {
     slow: Option<Duration>,
     started: bool,
     forwarded: bool,
+    resized: bool,
     selected: Option<Selected>,
     lives: Vec<(usize, bool)>,
     editors: Vec<(usize, usize)>,
@@ -127,12 +129,17 @@ impl App {
     }
 
     pub(super) fn log_key(&mut self, key: KeyEvent) {
+        let resized = std::mem::take(&mut self.logging.resized);
         if !std::mem::take(&mut self.logging.forwarded) {
             self.logging
                 .log
-                .write(|| format!("key name={}", named(key)));
+                .write(|| format!("key name={}", named(key, resized)));
         }
         self.log_changes();
+    }
+
+    pub(super) fn log_resized(&mut self) {
+        self.logging.resized = true;
     }
 
     pub(super) fn log_usage_closed(&mut self) {
@@ -335,7 +342,7 @@ fn named_entry(entry: &Entry) -> String {
     }
 }
 
-fn named(key: KeyEvent) -> String {
+fn named(key: KeyEvent, resized: bool) -> String {
     let name = match key.code {
         KeyCode::Char(c) if key.modifiers == KeyModifiers::CONTROL && matches!(c, 'h' | 'l') => {
             format!("C-{c}")
@@ -343,6 +350,7 @@ fn named(key: KeyEvent) -> String {
         _ if let Some(position) = position(key) => format!("C-{position}"),
         _ if is_zoom(key) => "M-z".to_string(),
         _ if is_find(key) => "M-s".to_string(),
+        KeyCode::Char(c) if resized && widens(key).is_some() => format!("M-{c}"),
         KeyCode::Char(c) if BOUND.contains(&c) && KeyModifiers::SHIFT.contains(key.modifiers) => {
             c.to_string()
         }

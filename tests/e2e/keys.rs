@@ -369,6 +369,52 @@ fn alt_z_reaches_the_session_as_escape_z_with_extended_keys_off() {
     assert_eq!(corners(&screen), 2, "{screen}");
 }
 
+#[test]
+#[ignore]
+fn alt_equals_widens_the_sidebar_with_extended_keys_on() {
+    let Some((_home, server)) = focused_raw_agent("ext-xterm-wider", "on", "xterm") else {
+        return;
+    };
+
+    server.send_keys(&["M-=", "a"]);
+
+    let screen = server.wait_until("the wider sidebar", |screen| {
+        pane_corner(screen) == Some(55) && screen.contains("read:a")
+    });
+    assert_eq!(pane_corner(&screen), Some(55), "{screen}");
+    assert!(screen.contains("read:a"), "{screen}");
+}
+
+#[test]
+#[ignore]
+fn alt_minus_narrows_the_sidebar_in_the_csi_u_form() {
+    let Some((_home, server)) = focused_raw_agent("ext-csi-u-narrower", "on", "csi-u") else {
+        return;
+    };
+
+    server.send_keys(&["M--", "a"]);
+
+    let screen = server.wait_until("the narrower sidebar", |screen| {
+        pane_corner(screen) == Some(51) && screen.contains("read:a")
+    });
+    assert_eq!(pane_corner(&screen), Some(51), "{screen}");
+    assert!(screen.contains("read:a"), "{screen}");
+}
+
+#[test]
+#[ignore]
+fn alt_minus_reaches_the_session_as_escape_minus_with_extended_keys_off() {
+    let Some((_home, server)) = focused_raw_agent("ext-off-alt-minus", "off", "xterm") else {
+        return;
+    };
+
+    server.send_keys(&["M--"]);
+
+    let screen = server.wait_for_screen("read:^-");
+    assert!(screen.contains("read:^-"), "{screen}");
+    assert_eq!(pane_corner(&screen), Some(53), "{screen}");
+}
+
 fn two_raw_agents(name: &str, format: &str) -> Option<(TempDir, Server)> {
     let (home, server) = raw_harbour(name, "on", format, "")?;
     server.send_keys(&["n"]);
@@ -451,4 +497,14 @@ fn corners(screen: &str) -> usize {
         .chars()
         .filter(|c| matches!(c, '┌' | '┏'))
         .count()
+}
+
+fn pane_corner(screen: &str) -> Option<usize> {
+    screen
+        .lines()
+        .next()?
+        .chars()
+        .skip(1)
+        .position(|c| matches!(c, '┌' | '┏'))
+        .map(|column| column + 1)
 }
