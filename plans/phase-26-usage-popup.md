@@ -92,4 +92,17 @@ scratch tmux server at 78 by 28:
 
 ## Outcome
 
+- `u` opens the usage popup as planned, on the `-p` snapshot route; the interactive Usage screen
+  stays unverified, since a trusted folder was never probed.
+- The program comes from the session command, so a non-`claude` command refuses with a message
+  instead of opening a popup; the demo hands the app its own made-up report.
+- The help view's `q` row is shortened to keep the help on 20 rows beside the narrowest sidebar,
+  and the headroom test now asks for 3 free rows.
+- `docs/usage.png` is new and `docs/keys.png` is shot again; `docs/help.png` did not change.
+- Whether `-p /usage` makes a model call or counts against the limits stays unknown.
+
 ## Hurdles
+
+- `design` the `u` row pushed the help view past 20 rows beside the narrowest sidebar, so the `q` row was shortened → code
+- `test-seam` the interactive `/usage` screen could not be probed past the trust question, so the popup settled on the `-p` snapshot → none
+- `test-seam` seven of the popup's state tests were green on their first run and had to be shown red by breaking the code → none
