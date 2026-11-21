@@ -139,6 +139,65 @@ fn nvim_starts_without_a_socket_once_its_temporary_directory_is_gone() {
     assert!(!screen.contains("Could not start"), "{screen}");
 }
 
+#[test]
+#[ignore]
+fn nvim_inside_tmux_keeps_the_tmux_of_harbour_and_its_session_does_not() {
+    let home = tempfile::tempdir().unwrap();
+    let nvim = Path::new(&tools(home.path())).join("nvim");
+    std::os::unix::fs::symlink(FIXTURE_EDITOR, nvim).unwrap();
+    let server = Server::start("nvim-tmux", 200, 20);
+    server.run(home.path(), &[(SESSION_COMMAND, AGENT)], &[]);
+    server.wait_for_screen("press n to start one");
+    server.send_keys(&["n"]);
+    let session = server.wait_for_screen("acme agent in acme-api, tmux:[");
+    assert!(
+        session.contains("acme agent in acme-api, tmux:[] pane:[]"),
+        "{session}"
+    );
+
+    server.send_keys(&["Enter", "C-l"]);
+
+    let expected = editor_line(&harbours_tmux(&server));
+    let screen = server.wait_for_screen(&expected);
+    assert!(screen.contains(&expected), "{screen}");
+}
+
+#[test]
+#[ignore]
+fn the_editor_harbour_editor_names_keeps_the_tmux_of_harbour() {
+    let home = tempfile::tempdir().unwrap();
+    let server = Server::start("named-editor-tmux", 200, 20);
+
+    server.run(
+        home.path(),
+        &[(SESSION_COMMAND, AGENT), (EDITOR, FIXTURE_EDITOR)],
+        &[],
+    );
+    editing(&server);
+
+    let expected = editor_line(&harbours_tmux(&server));
+    let screen = server.wait_for_screen(&expected);
+    assert!(screen.contains(&expected), "{screen}");
+}
+
+#[test]
+#[ignore]
+fn an_editor_of_a_harbour_outside_tmux_sees_no_tmux() {
+    let home = tempfile::tempdir().unwrap();
+    let server = Server::start("editor-no-tmux", 200, 20);
+
+    server.launch(
+        home.path(),
+        "env -u TMUX -u TMUX_PANE",
+        &[(SESSION_COMMAND, AGENT), (EDITOR, FIXTURE_EDITOR)],
+        &[],
+    );
+    editing(&server);
+
+    let screen = server.wait_for_screen("acme editor tmux:[");
+    assert!(screen.contains("acme editor tmux:[] pane:[]"), "{screen}");
+}
+
 fn editing(server: &Server) -> String {
     server.wait_for_screen("press n to start one");
     server.send_keys(&["n"]);
@@ -160,4 +219,26 @@ fn c_l_in_the_demo_opens_a_made_up_editor() {
     let screen = server.wait_for_screen("src/retry.rs");
     assert!(screen.contains("pub fn retry"), "{screen}");
     assert!(screen.contains("claude | nvim: "), "{screen}");
+}
+
+fn harbours_tmux(server: &Server) -> (String, String) {
+    let output = server
+        .tmux(&[
+            "display-message",
+            "-p",
+            "-t",
+            "e2e",
+            "#{socket_path},#{pid},#{session_id} #{pane_id}",
+        ])
+        .output()
+        .unwrap();
+    let line = String::from_utf8_lossy(&output.stdout)
+        .trim_end()
+        .replace('$', "");
+    let (tmux, pane) = line.split_once(' ').unwrap();
+    (tmux.to_string(), pane.to_string())
+}
+
+fn editor_line((tmux, pane): &(String, String)) -> String {
+    format!("acme editor tmux:[{tmux}] pane:[{pane}]")
 }
