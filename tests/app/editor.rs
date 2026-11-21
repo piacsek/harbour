@@ -241,8 +241,60 @@ fn with_icons_an_editor_that_is_not_neovim_gets_no_glyph() {
     assert!(top.contains(&expected), "{top}");
 }
 
+#[test]
+fn with_icons_a_card_ends_with_the_neovim_glyph_while_its_editor_is_open() {
+    let editor = Program::neovim("nvim", reading_editor_script());
+    let mut screen = editor_open_in(
+        App::new(reading_agent())
+            .with_editor(editor)
+            .with_nerd_font(),
+    );
+
+    let shown = screen.draw();
+
+    let card = format!("▌   {REPOSITORY} acme-home {NEOVIM}");
+    assert!(shown.contains(&card), "{shown}");
+}
+
+#[test]
+fn with_icons_a_card_shows_no_glyph_for_an_editor_that_is_not_neovim() {
+    let mut screen = editor_open_in(
+        App::new(reading_agent())
+            .with_editor(reading_editor())
+            .with_nerd_font(),
+    );
+
+    let shown = screen.draw();
+
+    let card = format!("▌   {REPOSITORY} acme-home ");
+    assert!(shown.contains(&card), "{shown}");
+    assert!(!shown.contains(NEOVIM), "{shown}");
+}
+
+#[test]
+fn without_icons_a_card_with_neovim_open_is_drawn_as_before() {
+    let editor = Program::neovim("nvim", reading_editor_script());
+    let mut screen = editor_open_in(App::new(reading_agent()).with_editor(editor));
+
+    let shown = screen.draw();
+
+    let third: String = shown
+        .lines()
+        .nth(3)
+        .unwrap()
+        .chars()
+        .take(SIDEBAR_COLUMNS)
+        .collect();
+    let expected = format!("│▌   acme-home{}│", " ".repeat(25));
+    assert_eq!(third, expected);
+}
+
 pub(crate) fn editor_open() -> Screen {
-    let mut screen = Screen::editing(reading_agent(), reading_editor());
+    editor_open_in(App::new(reading_agent()).with_editor(reading_editor()))
+}
+
+fn editor_open_in(app: App) -> Screen {
+    let mut screen = Screen::of(app);
     screen.press('n');
     screen.wait_for("acme agent ready");
     screen.key(KeyCode::Enter, KeyModifiers::NONE);
@@ -287,3 +339,4 @@ const SIDEBAR_COLUMNS: usize = 40;
 const BORDER_FILL: usize = 58;
 const SPARKLE: &str = "\u{F0674}";
 const NEOVIM: &str = "\u{E6AE}";
+const REPOSITORY: &str = "\u{F401}";

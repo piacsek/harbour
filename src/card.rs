@@ -2,6 +2,7 @@ use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use std::time::Duration;
 
+use crate::icons;
 use crate::registry::Record;
 use crate::repo::Place;
 use crate::state::State;
@@ -9,6 +10,7 @@ use crate::text::{clean, columns, fit};
 use crate::transcript::Facts;
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
+use unicode_segmentation::UnicodeSegmentation;
 
 const HEIGHT: usize = 3;
 const STEP: usize = HEIGHT + 1;
@@ -25,6 +27,8 @@ pub struct Card {
     doing: Option<(String, Style)>,
     moves: bool,
     place: String,
+    parts: Vec<(&'static str, String)>,
+    iconed: bool,
     age: Option<String>,
 }
 
@@ -63,26 +67,48 @@ impl Card {
                 .and_then(|facts| facts.branch.clone())
                 .or_else(|| place.branch.clone()),
         };
-        let pull_request = facts
-            .and_then(|facts| facts.pull_request)
+        let number = facts.and_then(|facts| facts.pull_request);
+        let pull_request = number
             .map(|number| format!(" · #{number}"))
             .unwrap_or_default();
-        let subagents = match facts
+        let count = facts
             .filter(|_| state != State::Exited)
-            .map_or(0, |facts| facts.subagents)
-        {
+            .map_or(0, |facts| facts.subagents);
+        let subagents = match count {
             0 => String::new(),
             1 => " · 1 subagent".to_string(),
             many => format!(" · {many} subagents"),
         };
+        let parts = [
+            Some((icons::REPOSITORY, clean(&shown.repository))),
+            shown
+                .branch
+                .as_ref()
+                .map(|branch| (icons::BRANCH, clean(branch))),
+            number.map(|number| (icons::PULL_REQUEST, format!("#{number}"))),
+            (count > 0).then(|| (icons::SUBAGENTS, count.to_string())),
+        ]
+        .into_iter()
+        .flatten()
+        .collect();
         Card {
             state,
             title: fact(|facts| facts.title.as_ref()).unwrap_or_else(|| clean(title)),
             doing,
             moves: matches!(state, State::Working | State::Idle),
             place: clean(&format!("{shown}{pull_request}{subagents}")),
+            parts,
+            iconed: false,
             age: elapsed.map(age),
         }
+    }
+
+    pub fn with_icons(mut self, editor: bool) -> Card {
+        if editor && self.state != State::Exited {
+            self.parts.push((icons::NEOVIM, String::new()));
+        }
+        self.iconed = true;
+        self
     }
 
     fn lines(&self, width: usize, selected: bool) -> [Line<'static>; HEIGHT] {
@@ -95,7 +121,12 @@ impl Card {
             ]),
             None => Line::default(),
         };
-        let third = Line::from(vec![Span::from(INDENT), Span::from(fit(&self.place, room))]);
+        let place = if self.iconed {
+            fit_parts(&self.parts, room)
+        } else {
+            fit(&self.place, room)
+        };
+        let third = Line::from(vec![Span::from(INDENT), Span::from(place)]);
         [first, second, third]
     }
 
@@ -170,6 +201,34 @@ impl Sidebar {
         while self.offset > 0 && (count - self.offset + 1) * STEP - 1 <= height {
             self.offset -= 1;
         }
+    }
+}
+
+fn fit_parts(parts: &[(&str, String)], room: usize) -> String {
+    let mut whole = String::new();
+    let mut starts = Vec::new();
+    for (glyph, text) in parts {
+        if !whole.is_empty() {
+            whole.push(' ');
+        }
+        let start = whole.len();
+        whole.push_str(&format!("{glyph} {text}"));
+        let first = text.graphemes(true).next().map_or(whole.len(), |grapheme| {
+            start + glyph.len() + 1 + grapheme.len()
+        });
+        starts.push((start, first));
+    }
+    let cut = fit(&whole, room);
+    if cut == whole {
+        return cut;
+    }
+    let kept = cut.len().saturating_sub('…'.len_utf8());
+    match starts
+        .iter()
+        .find(|(start, first)| *start < kept && kept < *first)
+    {
+        Some((start, _)) => format!("{}…", &whole[..*start]),
+        None => cut,
     }
 }
 
