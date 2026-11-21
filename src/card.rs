@@ -10,7 +10,6 @@ use crate::text::{clean, columns, fit};
 use crate::transcript::Facts;
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
-use unicode_segmentation::UnicodeSegmentation;
 
 const HEIGHT: usize = 3;
 const STEP: usize = HEIGHT + 1;
@@ -213,22 +212,18 @@ fn fit_parts(parts: &[(&str, String)], room: usize) -> String {
         }
         let start = whole.len();
         whole.push_str(&format!("{glyph} {text}"));
-        let first = text.graphemes(true).next().map_or(whole.len(), |grapheme| {
-            start + glyph.len() + 1 + grapheme.len()
-        });
-        starts.push((start, first));
+        starts.push((start, start + glyph.len() + 1));
     }
     let cut = fit(&whole, room);
     if cut == whole {
         return cut;
     }
     let kept = cut.len().saturating_sub('…'.len_utf8());
-    match starts
-        .iter()
-        .find(|(start, first)| *start < kept && kept < *first)
-    {
-        Some((start, _)) => format!("{}…", &whole[..*start]),
-        None => cut,
+    match starts.iter().rev().find(|(start, _)| *start < kept) {
+        Some((start, text)) if columns(&whole[(*text).min(kept)..kept]) == 0 => {
+            format!("{}…", &whole[..*start])
+        }
+        _ => cut,
     }
 }
 

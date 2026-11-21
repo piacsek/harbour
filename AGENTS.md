@@ -314,7 +314,7 @@ lacks `✗ ⊘ ▸`, and Chrome's default fallback is wider, so in conveyor ever
 shifted and the borders jogged. Without the font file the SVG names the family alone and Chrome
 falls back; without Chrome freeze writes the PNG itself; `CHROME` names another browser binary.
 The script runs the release binary in a scratch tmux server with `HOME` a tempdir, through `env`
-with `XDG_CONFIG_HOME` and `XDG_STATE_HOME` unset, since both outrank `HOME`, and `TMPDIR`
+with `XDG_CONFIG_HOME`, `XDG_STATE_HOME` and `CLAUDE_CONFIG_DIR` unset, since all three outrank `HOME`, and `TMPDIR`
 under that `HOME`, the random name of the demo's scratch directory replaced in each capture so
 the editor shot's border reads the same every run. Demo data looks
 real (SHAs like `8c1f2a7d…`, not `33333333`). Do not screenshot real data: this repository is

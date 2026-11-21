@@ -80,7 +80,7 @@ shoot() {
   t respawn-pane -k -t "$shot_window" "exec cat"
   t send-keys -R -t "$shot_window"
   t clear-history -t "$shot_window"
-  t respawn-pane -k -t "$shot_window" "cd $(printf %q "$home/acme-api") && env -u XDG_CONFIG_HOME -u XDG_STATE_HOME -u FZF_DEFAULT_OPTS -u FZF_DEFAULT_OPTS_FILE -u HARBOUR_DIR_PICKER -u HARBOUR_SESSION_COMMAND -u HARBOUR_EDITOR HOME=$(printf %q "$home") TMPDIR=$(printf %q "$home/tmp") $(printf %q "$bin") $args; exec cat"
+  t respawn-pane -k -t "$shot_window" "cd $(printf %q "$home/acme-api") && env -u XDG_CONFIG_HOME -u XDG_STATE_HOME -u FZF_DEFAULT_OPTS -u FZF_DEFAULT_OPTS_FILE -u HARBOUR_DIR_PICKER -u HARBOUR_SESSION_COMMAND -u HARBOUR_EDITOR -u CLAUDE_CONFIG_DIR HOME=$(printf %q "$home") TMPDIR=$(printf %q "$home/tmp") $(printf %q "$bin") $args; exec cat"
   sleep 1.5
   [ "$args" = --demo ] && wait_for "permission prompt"
   local key

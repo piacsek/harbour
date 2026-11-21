@@ -408,6 +408,18 @@ fn place() -> Place {
     }
 }
 
+#[test]
+fn with_icons_a_branch_starting_with_a_combining_mark_drops_its_glyph_with_no_column_of_text() {
+    let facts = Facts {
+        branch: Some("\u{301}fix-retry".to_string()),
+        ..Facts::default()
+    };
+
+    let line = third(card(Status::Idle, None, &facts).with_icons(false), 18);
+
+    assert_eq!(line, format!("    {REPOSITORY} acme-api …"));
+}
+
 fn third(card: Card, width: u16) -> String {
     let area = Rect::new(0, 0, width, 3);
     let mut buffer = Buffer::empty(area);

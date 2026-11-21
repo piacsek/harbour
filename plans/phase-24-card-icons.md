@@ -120,6 +120,11 @@ width minus the card's two-column indent; the narrowest sidebar (20) gives 16.
   an editor is open, none for another editor, and the icons-off card byte for byte as on
   `main`). The existing `tests/card.rs` rows did not change.
 - The `icons` shot shows all five glyphs on one card (`docs/icons.png`); no other image changed.
+- One review round, clean of must and should findings. Three points from it went into a last
+  ship: app tests for a card that never opened Neovim and one whose last Neovim closed (shown
+  red by dropping the editor-open condition), the cut deciding on the columns of the text it
+  actually keeps (a branch starting with U+0301 kept its glyph with no visible text), and the
+  `icons` shot unsetting `CLAUDE_CONFIG_DIR` (no image changed).
 - Phase 23's known limit on one-column glyphs now covers the cards' glyphs too, rather than a
   second line.
 - Phase 22 (#91) merged during the phase; the branch took `main` in with a merge, and its
@@ -133,3 +138,6 @@ width minus the card's two-column indent; the narrowest sidebar (20) gives 16.
 - `process` `scripts/screenshots.sh` was edited while a ship ran, and `ship.sh`'s `git add -A`
   would have taken it into that commit; it was saved as a patch, checked out and applied again
   after the ship → none
+- `review-loop` The cut measured a part's first grapheme on the part alone while cutting the
+  joined line, so a branch starting with a combining mark kept its glyph with no visible text,
+  and no test covered the editor-open half of the editor glyph's condition → code
