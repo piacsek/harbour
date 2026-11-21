@@ -32,6 +32,24 @@ impl App {
         true
     }
 
+    pub(super) fn swap_by_key(&mut self, key: KeyEvent) -> bool {
+        let Some(right) = swaps(key) else {
+            return false;
+        };
+        if self.pane_focused
+            && self
+                .sessions
+                .get(self.selected)
+                .is_some_and(|entry| entry.showing_editor().is_some())
+        {
+            return false;
+        }
+        if self.side_by_side && self.pane_focused {
+            self.swapped = right;
+        }
+        true
+    }
+
     pub(super) fn enter_side(&mut self) {
         let Some(entry) = self.sessions.get(self.selected) else {
             return;
@@ -39,8 +57,8 @@ impl App {
         if entry.ended() || self.screen.width < WIDEST {
             return;
         }
-        let [_, right] = split(self.screen);
-        self.beside = Block::bordered().inner(right);
+        let [_, editor] = self.ordered(split(self.screen));
+        self.beside = Block::bordered().inner(editor);
         self.failed = None;
         self.show_or_open_editor();
         let entry = &mut self.sessions[self.selected];
@@ -186,7 +204,15 @@ impl App {
     }
 
     pub(super) fn halves(&self, area: Rect) -> Option<[Rect; 2]> {
-        (self.side_by_side && area.width >= WIDEST).then(|| split(area))
+        (self.side_by_side && area.width >= WIDEST).then(|| self.ordered(split(area)))
+    }
+
+    fn ordered(&self, [left, right]: [Rect; 2]) -> [Rect; 2] {
+        if self.swapped {
+            [right, left]
+        } else {
+            [left, right]
+        }
     }
 
     pub(super) fn settle_side(&mut self) {
@@ -214,6 +240,20 @@ pub(super) fn is_side(key: KeyEvent) -> bool {
         && key.modifiers == KeyModifiers::ALT
         && key.kind == KeyEventKind::Press
         && !key.state.contains(ESCAPED)
+}
+
+fn swaps(key: KeyEvent) -> Option<bool> {
+    if key.modifiers - KeyModifiers::SHIFT != KeyModifiers::ALT
+        || key.kind != KeyEventKind::Press
+        || key.state.contains(ESCAPED)
+    {
+        return None;
+    }
+    match key.code {
+        KeyCode::Char('{') => Some(false),
+        KeyCode::Char('}') => Some(true),
+        _ => None,
+    }
 }
 
 fn named(name: String, style: Modifier) -> Line<'static> {
