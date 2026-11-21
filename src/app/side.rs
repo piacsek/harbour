@@ -188,8 +188,8 @@ impl App {
 
     pub(super) fn side_borders(
         &self,
-        [left, right]: [Block<'static>; 2],
-        [left_width, right_width]: [u16; 2],
+        [claude_block, editor_block]: [Block<'static>; 2],
+        [claude_width, editor_width]: [u16; 2],
         counts: Counts,
     ) -> [Block<'static>; 2] {
         let on_editor = self
@@ -201,21 +201,36 @@ impl App {
         } else {
             (Modifier::BOLD, Modifier::DIM)
         };
-        let room = usize::from(left_width.saturating_sub(2));
+        let [left_width, right_width] = self.ordered([claude_width, editor_width]);
+        let left_room = usize::from(left_width.saturating_sub(2));
         let headline = self.headline_of(self.selected);
-        let kept = headline.as_ref().map_or(0, guaranteed).min(room);
-        let claude = named(tabs::claude(self.nerd_font), claude_style);
-        let claude = if claude.width() <= room - kept {
-            claude
+        let kept = headline.as_ref().map_or(0, guaranteed).min(left_room);
+        let right_room = usize::from(right_width.saturating_sub(2));
+        let counted = state::title(counts, right_room);
+        let named_room = right_room.saturating_sub(counted.width());
+        let (left_name, right_name) = if self.swapped {
+            (
+                self.editor_title(left_room - kept, editor_style),
+                claude_title(self.nerd_font, named_room, claude_style),
+            )
         } else {
-            Line::default()
+            (
+                claude_title(self.nerd_font, left_room - kept, claude_style),
+                self.editor_title(named_room, editor_style),
+            )
         };
         let mut spans = headline
-            .map(|headline| info(&headline, room - claude.width()))
+            .map(|headline| info(&headline, left_room - left_name.width()))
             .unwrap_or_default();
-        spans.extend(claude.spans);
-        let room = usize::from(right_width.saturating_sub(2));
-        let counted = state::title(counts, room);
+        spans.extend(left_name.spans);
+        let [left_block, right_block] = self.ordered([claude_block, editor_block]);
+        self.ordered([
+            left_block.title(Line::from(spans)),
+            right_block.title(right_name).title(counted.right_aligned()),
+        ])
+    }
+
+    fn editor_title(&self, room: usize, style: Modifier) -> Line<'static> {
         let editor = self.editor.as_ref().map_or_else(String::new, |program| {
             tabs::editor_named(
                 program.name(),
@@ -224,25 +239,21 @@ impl App {
                     .get(self.selected)
                     .and_then(|entry| entry.editor())
                     .map(|editor| editor.label.as_str()),
-                room.saturating_sub(counted.width() + 2),
+                room.saturating_sub(2),
             )
         });
-        let editor = if editor.is_empty() {
+        if editor.is_empty() {
             Line::default()
         } else {
-            named(editor, editor_style)
-        };
-        [
-            left.title(Line::from(spans)),
-            right.title(editor).title(counted.right_aligned()),
-        ]
+            named(editor, style)
+        }
     }
 
     pub(super) fn halves(&self, area: Rect) -> Option<[Rect; 2]> {
         (self.side_by_side && area.width >= WIDEST).then(|| self.ordered(split(area)))
     }
 
-    fn ordered(&self, [left, right]: [Rect; 2]) -> [Rect; 2] {
+    fn ordered<T>(&self, [left, right]: [T; 2]) -> [T; 2] {
         if self.swapped {
             [right, left]
         } else {
@@ -288,6 +299,15 @@ fn swaps(key: KeyEvent) -> Option<bool> {
         KeyCode::Char('{') => Some(false),
         KeyCode::Char('}') => Some(true),
         _ => None,
+    }
+}
+
+fn claude_title(nerd_font: bool, room: usize, style: Modifier) -> Line<'static> {
+    let claude = named(tabs::claude(nerd_font), style);
+    if claude.width() <= room {
+        claude
+    } else {
+        Line::default()
     }
 }
 

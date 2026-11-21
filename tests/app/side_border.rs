@@ -65,6 +65,44 @@ fn a_cjk_title_on_the_claude_code_half_is_cut_by_display_width() {
     assert_eq!(screen.cell(60, 0).symbol(), "┌");
 }
 
+#[test]
+fn swapped_the_left_half_names_the_session_and_the_editor() {
+    let mut screen = swapped("Fix the login");
+
+    let top = top(&screen.draw());
+
+    let left: String = top.chars().take(60).collect();
+    assert!(
+        left.starts_with("┌ ● Fix the login  3m  acme-edit: "),
+        "{left}"
+    );
+    assert!(left.ends_with("─┐"), "{left}");
+}
+
+#[test]
+fn swapped_the_right_half_names_claude_and_the_counts() {
+    let mut screen = swapped("Fix the login");
+
+    let top = top(&screen.draw());
+
+    let right: String = top.chars().skip(60).collect();
+    assert!(right.starts_with("┏ claude ━"), "{right}");
+    assert!(right.ends_with("━ sessions ● 1 ┓"), "{right}");
+}
+
+#[test]
+fn swapped_a_cjk_title_on_the_left_half_is_cut_by_display_width() {
+    let mut screen = swapped("修正ログイン修正ログイン修正ログイン修正ログイン修正ログイン");
+
+    let top = top(&screen.draw());
+
+    assert_eq!(screen.cell(2, 0).symbol(), "●");
+    assert_eq!(screen.cell(4, 0).symbol(), "修");
+    assert!(top.contains(" acme-edit: "), "{top}");
+    assert_eq!(screen.cell(59, 0).symbol(), "┐");
+    assert_eq!(screen.cell(60, 0).symbol(), "┏");
+}
+
 fn side_by_side(title: &str) -> Screen {
     let claude = Claude::new(title);
     let editor = Program::new("acme-edit", script("exec sleep 600"));
@@ -73,5 +111,11 @@ fn side_by_side(title: &str) -> Screen {
     started(&mut screen);
     screen.key(KeyCode::Char('\\'), KeyModifiers::ALT);
     screen.draw();
+    screen
+}
+
+fn swapped(title: &str) -> Screen {
+    let mut screen = side_by_side(title);
+    screen.key(KeyCode::Char('}'), KeyModifiers::ALT);
     screen
 }
