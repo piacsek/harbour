@@ -15,9 +15,12 @@ receives is untouched. Phase 20 is a multiple of 5, so it opens with the sweep o
   `cursor = placed(session, self.pane)` for the shown session (Claude Code or the editor, both
   through `Entry::shown`). After it, an exited session clears it, a failure message over it
   clears it, the help view sets `(None, 0)` and the picker popup sets its own.
-- `pane_focused` (`src/app/mod.rs`) says which side has focus. `n` starts a session and keeps
-  the sidebar focused; Enter, C-l, `e`, a click in the pane and an open from `harbour edit`
-  focus the pane; C-h over Claude Code and a click in the sidebar focus the sidebar.
+- `pane_focused` (`src/app/mod.rs`) says which side has focus. `n` with a directory picker set
+  (fzf, the default) opens the picker, and a session started from its pick has the pane focused
+  (`finish_pick`); a cancelled or refused pick leaves the sidebar focused. `n` with no picker,
+  or with fzf missing, starts a session at once and keeps the sidebar focused. Enter, C-l, `e`,
+  a click in the pane and an open from `harbour edit` focus the pane; C-h over Claude Code and a
+  click in the sidebar focus the sidebar.
 - In the narrow layout (under 60 columns) `one_side` in `src/app/split.rs` shows the pane only
   while it has focus, so the pane is never drawn beside a focused sidebar there.
 - The question (`x`, `q`), the help view (`?`) and the picker (`n`) are opened by sidebar keys
@@ -44,6 +47,8 @@ receives is untouched. Phase 20 is a multiple of 5, so it opens with the sweep o
 | A question at the bottom of the sidebar (`x`, `q`, asked from the sidebar) | none; the question rows never get a cursor (as today) | none |
 | Help view (`?`, from the sidebar) | none, default shape (as today) | none |
 | Picker popup (`n`, from the sidebar) | the picker's own cursor and shape (as today) | the picker's |
+| A session started through the picker (`n`, then a pick) | the pane has focus: cursor shown at its cell, with the program's shape (as today) | none |
+| A session started by `n` with no picker (or fzf missing) | the sidebar keeps focus: none | none |
 | Exited session, dimmed | none (as today) | none |
 | Stopped card or no session | none (as today) | none |
 | A failure message over the pane's bottom rows | none under it, as today; none at all while the sidebar has focus | none |
@@ -83,21 +88,21 @@ this range (the fix branches #72, #73 and #74 have no plan file).
 
 - Phase 19 needed all 3 review rounds, and each round's hurdle says a states table row per
   frame step (what is written to the terminal, in which order) would have listed what it found;
-  the plan rule asks for states, not for the order of writes → issue.
+  the plan rule asks for states, not for the order of writes → issue #83.
 - The round cap (3, then merge with no must left) lets the fixes of the last round reach `main`
   unreviewed: phase 19's round 3 fixes (the cursor at the last changed cell, a panic mid-frame,
-  the dimmed pane) shipped after the last review (phase 19, orchestrator) → issue.
+  the dimmed pane) shipped after the last review (phase 19, orchestrator) → issue #84.
 - `ship.sh` piped against the rule (phase 15's hurdle, three times in the range by the
   orchestrator's count): prose alone does not hold it, and a piped ship can hide a failure, as
-  `gates.sh | tail` once hid one (root `AGENTS.md`, Development) → issue.
+  `gates.sh | tail` once hid one (root `AGENTS.md`, Development) → issue #85.
 - One builder's PR body overwritten by another's, through body files in the one scratchpad
   root parallel builders share (orchestrator); `AGENTS.md` asks to fetch a body back after an
-  edit, which caught it only afterwards → issue.
+  edit, which caught it only afterwards → issue #86.
 - Every local gate failed while the machine ran on battery (orchestrator): the timing tests lose
-  their waits when the machine slows down, and nothing names the cause → issue.
+  their waits when the machine slows down, and nothing names the cause → issue #87.
 - Phase numbers taken out of order: phase 16 merged while 15 was held, so `sweep-issue.sh`
   (highest phase plus one) never announced the phase 15 sweep (phase 16, `→ none`); phases 18
-  and 19 were started in reverse order. Twice in five phases → issue.
+  and 19 were started in reverse order. Twice in five phases → issue #88.
 - The wait rule that deadlocked: builders waited in `pgrep` loops for each other's gates
   (phase 18, `→ none`; orchestrator) → declined: `ship.sh` takes turns by itself since #70
   (#74), and the lock's gaps are #78.
@@ -131,14 +136,29 @@ a worktree, a review and a metrics row.
   at `:140`, and the frame test finding `ESC[?25h` at `:169`); the new end-to-end test
   `the_terminal_hides_the_cursor_while_the_sidebar_has_focus` failed with `#{cursor_flag}` still
   `1` (`tests/e2e/cursor.rs:84`). All passed after the change.
-- Four tests of phase 19 that read the cursor right after `n` now press Enter first, through
-  `focused_on_the_pane`, since `n` keeps the sidebar focused; the frame-order test of a session
-  switch presses Enter after `k`, so its frame shows the cursor.
+- Eight tests of phase 19 that read the cursor right after `n` or `k` now focus the pane first,
+  since `n` with no picker and `k` keep the sidebar focused. Five would have failed after the
+  change: `the_terminal_cursor_sits_on_the_pane_cursor_cell` and
+  `the_narrowest_sidebar_keeps_the_cursor_in_the_pane` (through `focused_on_the_pane`),
+  `a_frame_hides_the_cursor_before_its_first_cell_and_moves_then_shows_it_in_one_write_last`
+  and `a_wide_character_under_the_cursor_is_drawn_whole_and_unstyled` (Enter after `n`), and
+  `switching_sessions_hides_the_cursor_before_changing_its_shape` (Enter after `k`). Three would
+  have passed whatever their rule did, since the focused sidebar already hid the cursor (found
+  by review round 1): `a_program_that_hid_its_cursor_shows_none` and
+  `a_hidden_cursor_keeps_the_shape_the_program_set` (through `focused_on_the_pane`), and
+  `an_exited_session_shows_no_cursor` (the pane focused, then Enter ends the program). Each of
+  the three failed with its rule broken (the hidden-cursor check in `Session::cursor`, the
+  exited branch of `compose`), `left: Some(Position { x: 58, y: 1 })` and `x: 41, y: 4`.
+- `a_session_started_through_the_picker_shows_its_cursor_at_once` covers `n` through the
+  picker: the pane has focus after the pick and shows the cursor at its cell with shape 6. It
+  passed on its first run; with `finish_pick` leaving the sidebar focused it failed waiting for
+  the pane's focus.
 - A question is asked only from the sidebar, so it now shows no cursor; its rows still never get
   one.
 - `scripts/screenshots.sh` rewrote every image under `docs/`, each byte-identical to `main`'s: a
   screenshot cannot show the terminal's real cursor.
+- 1 review round: no must or should finding.
 
 ## Hurdles
 
-- `test-seam` Five cursor tests of phase 19 read a shown cursor right after `n` or `k`, which keep the sidebar focused, so they had to press Enter first before the change could land, the same assumption as phase 19's end-to-end hurdle → code
+- `test-seam` Eight cursor tests of phase 19 read the cursor right after `n` or `k`, which keep the sidebar focused, so they had to focus the pane first: five before the change could land, and three that review round 1 found passing whatever their rule did, the same assumption as phase 19's end-to-end hurdle → code

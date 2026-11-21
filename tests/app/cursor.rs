@@ -40,7 +40,7 @@ fn a_program_that_hid_its_cursor_shows_none() {
     let mut screen = Screen::new(script(
         "printf '\\033[?25lacme agent hidden'; exec sleep 600",
     ));
-    screen.press('n');
+    focused_on_the_pane(&mut screen);
     screen.wait_for("acme agent hidden");
 
     assert_eq!(screen.cursor(), None);
@@ -51,7 +51,7 @@ fn a_hidden_cursor_keeps_the_shape_the_program_set() {
     let mut screen = Screen::new(script(
         "printf '\\033[6 q\\033[?25lacme agent hidden'; exec sleep 600",
     ));
-    screen.press('n');
+    focused_on_the_pane(&mut screen);
     screen.wait_for("acme agent hidden");
 
     assert_eq!(screen.cursor(), None);
@@ -182,6 +182,20 @@ fn the_picker_popup_shows_its_own_cursor_and_shape() {
 }
 
 #[test]
+fn a_session_started_through_the_picker_shows_its_cursor_at_once() {
+    let mut screen = Screen::picking(shaped_agent("6"), Picker::Command(typed_picker()));
+    screen.press('n');
+    screen.wait_for("acme picker");
+
+    screen.type_text(&format!("{}\r", home().display()));
+
+    let shown = screen.wait_for_all(&["acme agent shaped", "┌ sessions"]);
+    let corner = pane_corner(&shown);
+    assert_eq!(screen.cursor(), Some(Position::new(corner + 22, 3)));
+    assert_eq!(screen.app.cursor_shape(), 6);
+}
+
+#[test]
 fn another_session_shown_takes_its_own_shape() {
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = Screen::new(first_shaped_agent(scratch.path()));
@@ -281,9 +295,12 @@ fn a_frame_hides_the_cursor_before_its_first_cell_and_moves_then_shows_it_in_one
 
 #[test]
 fn an_exited_session_shows_no_cursor() {
-    let mut screen = Screen::new(script("printf '\\033[3;5Hacme agent done'; exit 0"));
-    screen.press('n');
-    screen.wait_for_all(&["exited", "acme agent done"]);
+    let mut screen = Screen::new(script(
+        "printf '\\033[3;5Hacme agent done'; read line; exit 0",
+    ));
+    focused_on_the_pane(&mut screen);
+    screen.key(KeyCode::Enter, KeyModifiers::NONE);
+    screen.wait_for_all(&["exited", "acme agent done", "┌ sessions"]);
 
     assert_eq!(screen.cursor(), None);
 }
