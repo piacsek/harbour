@@ -112,6 +112,16 @@ shoot editor 160 26 --demo "Enter C-l" "src/retry.rs"
 echo "wrote $out/editor.png"
 shoot narrow 56 26 --demo ""
 echo "wrote $out/narrow.png"
+mkdir -p "$home/.config/harbour"
+cat >"$home/.config/harbour/config.toml" <<'TOML'
+accent = "#d7875f"
+sidebar_width = 48
+picker = ["pwd"]
+session_command = ["sh", "-c", "printf 'acme agent ready in acme-api\\n'; exec sleep 600"]
+TOML
+shoot accent 160 26 "" "n" "acme agent ready"
+rm -r "$home/.config"
+echo "wrote $out/accent.png"
 usage="$("$bin" --help)"
 usage_rows="$(printf '%s\n' "$usage" | wc -l)"
 shoot help 160 "$((usage_rows + 1))" --help ""

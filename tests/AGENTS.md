@@ -32,6 +32,11 @@ these suites come from; the ones about sessions were hit in harbour.
   to `tests/fixtures/picker.sh` to test the picker; in-process tests hand the builder `.with_picker` of `App` a `Picker` of `/bin/sh -c`
   scripts. A picker script draws on stderr: its stdout is the directory it picks.
 
+- **No test reads the user's config file.** The interface and `harbour config` read
+  `$XDG_CONFIG_HOME/harbour/config.toml`, else `~/.config/harbour/config.toml`, so every launch
+  of the binary sets `XDG_CONFIG_HOME`, or removes it and sets a scratch `HOME`, in the function
+  that launches it; `tests/real_config.rs` names a launch that does neither. A test of a setting
+  writes the file under its scratch `HOME`; in-process tests call `Config::read` with the variables they give it.
 - **A real Neovim runs only clean, in `tests/app/real_neovim.rs` and `tests/e2e/neovim.rs`.**
   Each test looks for `nvim` on the `PATH` the tests run with; without one it prints why and
   passes, so CI, which has no Neovim, runs them as no-ops. With one, it links it as `real-nvim`

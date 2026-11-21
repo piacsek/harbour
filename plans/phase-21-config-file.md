@@ -166,4 +166,35 @@ Each is the smallest option that meets the issue.
 
 ## Outcome
 
+- Shipped on PR #90 in six ships, one per task. Every decision above held as written; none
+  needed the owner.
+- `toml` moved from dev-dependencies to `[dependencies]` as `"1.2.1"`, the version the lock
+  already held, with its default features. `Cargo.lock` did not change, so the flake's
+  `cargoLock` and the `audit` job saw the same crates as `main`: `audit`, both `flake` legs and
+  `version` passed on every push.
+- The variables keep today's meaning and outrank the file; the file is still parsed when a
+  variable is set, so a bad file is refused whatever the environment holds.
+- The accent replaces `Color::Cyan` in the three places it marked focus: the focused border
+  (`bordered` in `src/app/draw.rs`, the picker popup's border included) and the selected card's
+  bar (`Sidebar::draw` takes it). The state dots keep their colours.
+- `sidebar_width` is a `Constraint::Length` of the width cut to half the window, the pane a
+  `Fill`; below 60 columns one side shows at a time, as before.
+- `tests/real_config.rs` scans `tests/` for every launch of the binary and fails while its
+  function neither sets `XDG_CONFIG_HOME` nor removes it with a scratch `HOME`; it named 13
+  launchers when written, all fixed in the same ship. It checks the launch line of
+  `scripts/screenshots.sh` too.
+- `docs/accent.png` is a new shot: the interface without `--demo` over a config file written into
+  the screenshot script's scratch `HOME` (accent `#d7875f`, width 48, `pwd` as the picker, a
+  `sh` session command), removed after the shot. `docs/help.png` changed with `--help`, which now
+  names the file and `harbour config`; `docs/details.png` did not change.
+- Red runs, each seen before the code: the config reading and refusals (task 1), the 13
+  launchers and the startup refusals (task 2), the precedence and the three programs (task 3),
+  the accent in process and through tmux's colour capture (task 4), the width in process and in
+  the e2e (task 5), the README usage line (task 6). Tests green on their first run (empty
+  variables, a variable over a bad file, the dots under an accent, one side below 60 columns)
+  were shown red by breaking the code they cover, then restored.
+
 ## Hurdles
+
+- `test-seam` A first width test asked for 40 columns of a 120-column window, a third, so it passed before the code existed; changed to 30 → none
+- `test-seam` The tmux colour capture writes an indexed colour as `38;5;N`, not `3N`; the first accent e2e assertion used the wrong form and was corrected, then shown red again without the wiring → none
