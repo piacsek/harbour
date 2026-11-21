@@ -54,12 +54,17 @@ fn c_with_alt_shows_nothing() {
 #[test]
 fn the_view_shows_the_bundled_changelog_by_default() {
     let mut screen = Screen::new(reading_agent());
-    let first = shown(CHANGELOG, 118).remove(0).to_string();
+    let expected: Vec<String> = shown(CHANGELOG, 118)
+        .iter()
+        .take(18)
+        .map(|line| format!("│{:<118}│", line.to_string()))
+        .collect();
 
     screen.press('c');
 
-    let shown = screen.draw();
-    assert!(shown.contains(&format!("│{first}")), "{shown}");
+    let drawn = screen.draw();
+    let rows: Vec<&str> = drawn.lines().skip(1).take(expected.len()).collect();
+    assert_eq!(rows, expected, "{drawn}");
 }
 
 #[test]

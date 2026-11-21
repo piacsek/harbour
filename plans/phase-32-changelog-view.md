@@ -104,3 +104,4 @@ screen, as `?` shows the help, so what changed in a release can be read without 
 - `process` phase 31 was built in parallel and both branches added rows to `PLAN.md` and `plans/metrics.md`, so the merge of `main` conflicted there → none
 - `review-loop` round 1 found the wording "in place of the pane" for a view drawn over the whole screen, the wheel and PageDown and PageUp closing it, the backticks of code spans shown, no log of its close, and four `AGENTS.md` lines that did not name it → code
 - `review-loop` round 2 found Caps Lock closing the view on its scroll keys, backticks kept in a heading, the `jump.rs` line of `AGENTS.md` not naming the view, and `docs/keys.png` missing from the PR body → code
+- `review-loop` round 3 was clean; the orchestrator's own reading found a test of the bundled text that could never fail, rewritten to compare the drawn rows with `shown` → code
