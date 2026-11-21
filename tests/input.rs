@@ -310,6 +310,31 @@ fn a_read_with_nothing_arriving_returns_nothing_after_the_timeout() {
     assert_eq!(events, []);
 }
 
+#[test]
+fn a_read_after_the_terminal_hung_up_ends_the_input() {
+    let (reader, writer) = std::io::pipe().unwrap();
+    drop(writer);
+    let mut input = Input::default();
+
+    let error = input
+        .read(reader.as_fd(), Duration::from_secs(5))
+        .unwrap_err();
+
+    assert_eq!(error.kind(), std::io::ErrorKind::UnexpectedEof);
+}
+
+#[test]
+fn keys_that_arrived_before_the_hangup_are_read_first() {
+    let (reader, mut writer) = std::io::pipe().unwrap();
+    writer.write_all(b"q").unwrap();
+    drop(writer);
+    let mut input = Input::default();
+
+    let events = input.read(reader.as_fd(), Duration::from_secs(5)).unwrap();
+
+    assert_eq!(events, [key(KeyCode::Char('q'))]);
+}
+
 const CTRL_SHIFT: KeyModifiers = KeyModifiers::CONTROL.union(KeyModifiers::SHIFT);
 const ALT_CTRL: KeyModifiers = KeyModifiers::ALT.union(KeyModifiers::CONTROL);
 

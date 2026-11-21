@@ -82,7 +82,7 @@ fn shift_tab_alt_and_ctrl_letters_reach_the_session_unchanged_in_the_xterm_form(
 
 #[test]
 #[ignore]
-fn ctrl_h_gives_the_keys_back_to_the_sidebar_in_the_xterm_form() {
+fn ctrl_h_gives_the_keys_back_to_the_sidebar_with_extended_keys_on() {
     let Some((_home, server)) = focused_raw_agent("ext-xterm-ctrl-h", "on", "xterm") else {
         return;
     };

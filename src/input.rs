@@ -79,6 +79,7 @@ fn read_fd(fd: BorrowedFd, chunk: &mut [u8], timeout: Duration) -> io::Result<us
         Err(error) => return Err(error.into()),
     }
     match nix::unistd::read(fd.as_raw_fd(), chunk) {
+        Ok(0) => Err(io::ErrorKind::UnexpectedEof.into()),
         Ok(read) => Ok(read),
         Err(Errno::EINTR | Errno::EAGAIN) => Ok(0),
         Err(error) => Err(error.into()),
