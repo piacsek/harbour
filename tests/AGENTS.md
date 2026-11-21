@@ -143,9 +143,11 @@ these suites come from; the ones about sessions were hit in harbour.
 - **Tests that write an executable and run it in the same test binary race on fork.** On Linux
   CI one test's `fs::write` was still open when another test's `Command` forked, the child
   inherited the fd and `exec` failed with `ExecutableFileBusy` ("Text file busy"); it never
-  showed on macOS. `tests/scripts/` needs no mutex because it writes no executable: every shim
-  is a symlink to a tracked script under `tests/fixtures/`, and the scripts under test are
-  symlinked into the scratch directory. A new test that does write an executable takes a mutex
+  showed on macOS. `tests/scripts/` takes no mutex: its shims are symlinks to tracked scripts
+  under `tests/fixtures/` (an `ln` that fails is `tests/fixtures/failing-ln.sh`, driven by
+  `LN_FAILS`, `LN_FAILS_ONCE` and `REAL_LN`), and the scripts under test are symlinked into the
+  scratch directory, except `a_grep_that_cannot_run_fails_the_filter` in `flake_inputs.rs`,
+  which still writes its `grep` and runs it without one. A new test that does write an executable takes a mutex
   shared by every such test for its whole body. Treat a green PR run as no proof against this
   class: it is timing-dependent.
 - **A blocked `gates.sh` outlives a test that panics.** Early lock tests left `gates.sh` runs

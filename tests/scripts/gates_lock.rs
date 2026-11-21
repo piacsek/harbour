@@ -163,7 +163,7 @@ fn gates_wait_for_a_lock_they_cannot_read_say_so_and_give_up() {
     );
     assert!(
         stderr(&output).contains(&format!(
-            "gates: gave up after 0 s waiting for whoever holds {0}; if no gates run, remove it with: rm {0}\n",
+            "gates: gave up after 0 s waiting for whoever holds {0}; if no gates run, remove it with: rm '{0}'\n",
             canonical(&lock(&work))
         )),
         "{}",
@@ -197,12 +197,49 @@ fn gates_refuse_a_wait_too_long_to_compare() {
 fn gates_that_find_the_lock_gone_after_a_failed_claim_claim_it_again() {
     let dir = tempfile::tempdir().unwrap();
     let work = locking_repository(dir.path());
-    failing_once(dir.path(), "ln");
+    let real = failing_ln(dir.path());
+    let once = dir.path().join("ln.failed").display().to_string();
 
-    let output = gates(dir.path(), &work, &[("HARBOUR_GATES_WAIT", "0")]);
+    let output = gates(
+        dir.path(),
+        &work,
+        &[
+            ("HARBOUR_GATES_WAIT", "0"),
+            ("REAL_LN", &real),
+            ("LN_FAILS_ONCE", &once),
+        ],
+    );
 
     assert!(output.status.success(), "{}", stderr(&output));
     assert!(!stderr(&output).contains("waiting"), "{}", stderr(&output));
+}
+
+#[test]
+fn gates_that_can_never_make_the_lock_give_up_once_the_wait_runs_out() {
+    let dir = tempfile::tempdir().unwrap();
+    let work = locking_repository(dir.path());
+    let real = failing_ln(dir.path());
+
+    let output = gates(
+        dir.path(),
+        &work,
+        &[
+            ("HARBOUR_GATES_WAIT", "1"),
+            ("REAL_LN", &real),
+            ("LN_FAILS", "1"),
+        ],
+    );
+
+    assert!(!output.status.success());
+    assert!(
+        stderr(&output).contains(&format!(
+            "gates: gave up after 1 s: could not create the lock link '{}/harbour-gates.lock'\n",
+            canonical(&work.join(".git"))
+        )),
+        "{}",
+        stderr(&output)
+    );
+    assert!(calls(dir.path()).is_empty());
 }
 
 #[test]
@@ -218,7 +255,7 @@ fn gates_wait_for_a_directory_at_the_lock_instead_of_linking_inside_it() {
     assert_eq!(fs::read_dir(lock(&work)).unwrap().count(), 0);
     assert!(
         stderr(&output).contains(&format!(
-            "gates: gave up after 0 s waiting for whoever holds {0}; if no gates run, remove it with: rmdir {0}\n",
+            "gates: gave up after 0 s waiting for whoever holds {0}; if no gates run, remove it with: rmdir '{0}'\n",
             canonical(&lock(&work))
         )),
         "{}",
@@ -525,21 +562,16 @@ fn terminate(pid: u32) {
     assert!(status.success());
 }
 
-fn failing_once(root: &Path, program: &str) {
-    let link = root.join("bin").join(program);
+fn failing_ln(root: &Path) -> String {
+    let link = root.join("bin/ln");
     let real = fs::read_link(&link).unwrap();
     fs::remove_file(&link).unwrap();
-    let marker = root.join(format!("{program}.failed"));
-    fs::write(
+    symlink(
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/failing-ln.sh"),
         &link,
-        format!(
-            "#!/bin/sh\nif [ ! -e '{0}' ]; then : > '{0}'; exit 1; fi\nexec '{1}' \"$@\"\n",
-            marker.display(),
-            real.display()
-        ),
     )
     .unwrap();
-    fs::set_permissions(&link, fs::Permissions::from_mode(0o755)).unwrap();
+    real.display().to_string()
 }
 
 fn hold_by_hand(work: &Path, pid: u32) {

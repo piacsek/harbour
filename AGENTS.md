@@ -637,7 +637,7 @@ Ctrl-C reaches the whole foreground group and ends both at once. A second run pr
 `==> waiting for the gates of pid <pid> in <worktree> to finish` once per holder, checks again
 every second, and gives up after 30 minutes with `gates: gave up after 1800 s waiting for ...`
 and exit 1; `HARBOUR_GATES_WAIT` sets that bound in seconds, and a value that is not all digits,
-or has more than 9, is refused before anything runs. A holder whose pid no longer runs, or now
+or has more than 9, is refused before the first gate. A holder whose pid no longer runs, or now
 runs a command that names neither `gates.sh` nor `ship.sh` (`ps -ww -p <pid> -o command=`; a
 `ps` that fails counts as running),
 as a run killed with SIGKILL leaves, is taken over with
@@ -647,7 +647,9 @@ never both take one stale lock; a guard whose own holder is gone is taken over t
 guard named for that pid (`...takeover-<pid>.takeover-<pid>`), never deleted by a run that does
 not hold the guard above it. A lock it cannot read (a regular file or a directory at that path)
 is waited for like a held one, as `whoever holds <path>`, and the give-up line names the `rm` or
-`rmdir` that clears it; a failed claim that then finds the path gone claims again at once.
+`rmdir` that clears it, the path quoted; a failed claim that then finds the path gone claims
+again at once, but only once: after that it waits a second between tries and gives up at the
+bound with `could not create the lock link '<path>'`.
 Outside a repository, or when the common directory cannot be written, it takes no lock and says
 so in one line; the uncontended path prints nothing. `ship.sh` takes the same lock after its
 `cargo fmt` (quick, so left outside) and holds it across `gates.sh` and `dev-install.sh`, so the

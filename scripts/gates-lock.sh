@@ -26,9 +26,9 @@ described() {
 clearing() {
   [ -z "$1" ] || return 0
   if [ -d "$lock" ] && [ ! -L "$lock" ]; then
-    echo "; if no gates run, remove it with: rmdir $lock"
+    echo "; if no gates run, remove it with: rmdir '$lock'"
   else
-    echo "; if no gates run, remove it with: rm $lock"
+    echo "; if no gates run, remove it with: rm '$lock'"
   fi
 }
 
@@ -71,7 +71,7 @@ inherited() {
 
 lock_gates() {
   [ -z "${CI:-}" ] || return 0
-  local bound="${HARBOUR_GATES_WAIT:-1800}" common told='' asked='' held
+  local bound="${HARBOUR_GATES_WAIT:-1800}" common told='' asked='' retried='' held
   case "$bound" in
     *[!0-9]* | ??????????*)
       echo "gates: HARBOUR_GATES_WAIT must be a whole number of seconds, not $bound" >&2
@@ -99,6 +99,15 @@ lock_gates() {
   SECONDS=0
   until claim; do
     if [ ! -e "$lock" ] && [ ! -L "$lock" ]; then
+      if [ -z "$retried" ]; then
+        retried=1
+        continue
+      fi
+      if [ "$SECONDS" -ge "$bound" ]; then
+        echo "gates: gave up after $bound s: could not create the lock link '$lock'" >&2
+        exit 1
+      fi
+      sleep 1
       continue
     fi
     held="$(holder "$lock")"
