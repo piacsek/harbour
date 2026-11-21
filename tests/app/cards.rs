@@ -3,6 +3,7 @@ use std::path::{Path, PathBuf};
 use std::thread::sleep;
 use std::time::Duration;
 
+use crossterm::event::{KeyCode, KeyModifiers};
 use harbour::picker::Picker;
 use ratatui::style::{Color, Modifier};
 
@@ -144,6 +145,29 @@ fn a_taller_terminal_shows_the_cards_scrolled_away_again() {
         top_card(&shown).contains(&format!("· {} 1", directory())),
         "{shown}"
     );
+}
+
+#[test]
+fn the_narrow_sidebar_comes_back_scrolled_where_it_was() {
+    let scratch = tempfile::tempdir().unwrap();
+    let mut screen = Screen::new(numbered_agent(scratch.path()));
+    screen.resize(50, 26);
+    for started in 1..=12 {
+        screen.press('n');
+        screen.wait_for(&format!("acme-home {started} "));
+    }
+    for _ in 0..9 {
+        screen.press('k');
+    }
+    screen.press('j');
+    screen.press('j');
+    let before = screen.draw();
+
+    screen.key(KeyCode::Enter, KeyModifiers::NONE);
+    screen.key(KeyCode::Char('h'), KeyModifiers::CONTROL);
+
+    let shown = screen.draw();
+    assert_eq!(top_card(&shown), top_card(&before));
 }
 
 #[test]

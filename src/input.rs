@@ -12,6 +12,7 @@ use nix::poll::{PollFd, PollFlags, PollTimeout};
 const CHUNK: usize = 1024;
 const PENDING_CAP: usize = 64;
 const PASTE_START: &[u8] = b"\x1b[200~";
+pub const ESCAPED: KeyEventState = KeyEventState::from_bits_retain(0x80);
 
 #[derive(Default)]
 pub struct Input {
@@ -106,6 +107,7 @@ fn parse(buffer: &[u8], more: bool) -> Step {
         [0x1b, rest @ ..] => match parse(rest, more) {
             Step::Emit(Event::Key(mut alt)) => {
                 alt.modifiers |= KeyModifiers::ALT;
+                alt.state |= ESCAPED;
                 Step::Emit(Event::Key(alt))
             }
             step => step,
