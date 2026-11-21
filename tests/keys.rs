@@ -1,5 +1,5 @@
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-use harbour::keys::encode;
+use harbour::keys::{Keyboard, encode, encode_as};
 
 #[test]
 fn a_letter_is_sent_as_itself() {
@@ -133,10 +133,232 @@ fn ctrl_and_a_bracket_is_sent_as_an_escape() {
     );
 }
 
+#[test]
+fn ctrl_and_escape_is_sent_as_escape_to_a_session_that_did_not_ask() {
+    assert_eq!(legacy(with(KeyCode::Esc, KeyModifiers::CONTROL)), b"\x1b");
+}
+
+#[test]
+fn ctrl_and_escape_is_sent_in_the_xterm_form_to_a_session_that_asked_for_it() {
+    assert_eq!(
+        xterm(with(KeyCode::Esc, KeyModifiers::CONTROL)),
+        b"\x1b[27;5;27~"
+    );
+}
+
+#[test]
+fn ctrl_and_escape_is_sent_in_the_kitty_form_to_a_session_that_asked_for_it() {
+    assert_eq!(
+        kitty(with(KeyCode::Esc, KeyModifiers::CONTROL)),
+        b"\x1b[27;5u"
+    );
+}
+
+#[test]
+fn ctrl_and_enter_is_sent_as_an_escaped_carriage_return_to_a_session_that_did_not_ask() {
+    assert_eq!(
+        legacy(with(KeyCode::Enter, KeyModifiers::CONTROL)),
+        b"\x1b\r"
+    );
+}
+
+#[test]
+fn ctrl_and_enter_is_sent_in_the_xterm_form_to_a_session_that_asked_for_it() {
+    assert_eq!(
+        xterm(with(KeyCode::Enter, KeyModifiers::CONTROL)),
+        b"\x1b[27;5;13~"
+    );
+}
+
+#[test]
+fn shift_and_enter_is_sent_in_the_kitty_form_to_a_session_that_asked_for_it() {
+    assert_eq!(
+        kitty(with(KeyCode::Enter, KeyModifiers::SHIFT)),
+        b"\x1b[13;2u"
+    );
+}
+
+#[test]
+fn ctrl_and_tab_is_sent_as_a_tab_to_a_session_that_did_not_ask() {
+    assert_eq!(legacy(with(KeyCode::Tab, KeyModifiers::CONTROL)), b"\t");
+}
+
+#[test]
+fn ctrl_and_tab_is_sent_in_the_xterm_form_to_a_session_that_asked_for_it() {
+    assert_eq!(
+        xterm(with(KeyCode::Tab, KeyModifiers::CONTROL)),
+        b"\x1b[27;5;9~"
+    );
+}
+
+#[test]
+fn ctrl_and_tab_is_sent_in_the_kitty_form_to_a_session_that_asked_for_it() {
+    assert_eq!(
+        kitty(with(KeyCode::Tab, KeyModifiers::CONTROL)),
+        b"\x1b[9;5u"
+    );
+}
+
+#[test]
+fn ctrl_and_one_is_sent_as_the_digit_to_a_session_that_did_not_ask() {
+    assert_eq!(
+        legacy(with(KeyCode::Char('1'), KeyModifiers::CONTROL)),
+        b"1"
+    );
+}
+
+#[test]
+fn ctrl_and_one_is_sent_in_the_xterm_form_to_a_session_that_asked_for_it() {
+    assert_eq!(
+        xterm(with(KeyCode::Char('1'), KeyModifiers::CONTROL)),
+        b"\x1b[27;5;49~"
+    );
+}
+
+#[test]
+fn ctrl_and_zero_is_sent_in_the_kitty_form_to_a_session_that_asked_for_it() {
+    assert_eq!(
+        kitty(with(KeyCode::Char('0'), KeyModifiers::CONTROL)),
+        b"\x1b[48;5u"
+    );
+}
+
+#[test]
+fn ctrl_and_a_semicolon_is_sent_as_the_character_to_a_session_that_did_not_ask() {
+    assert_eq!(
+        legacy(with(KeyCode::Char(';'), KeyModifiers::CONTROL)),
+        b";"
+    );
+}
+
+#[test]
+fn ctrl_and_a_semicolon_is_sent_in_the_xterm_form_to_a_session_that_asked_for_it() {
+    assert_eq!(
+        xterm(with(KeyCode::Char(';'), KeyModifiers::CONTROL)),
+        b"\x1b[27;5;59~"
+    );
+}
+
+#[test]
+fn ctrl_and_a_quote_is_sent_in_the_kitty_form_to_a_session_that_asked_for_it() {
+    assert_eq!(
+        kitty(with(KeyCode::Char('\''), KeyModifiers::CONTROL)),
+        b"\x1b[39;5u"
+    );
+}
+
+#[test]
+fn ctrl_and_three_is_sent_as_an_escape_to_a_session_that_did_not_ask() {
+    assert_eq!(
+        legacy(with(KeyCode::Char('3'), KeyModifiers::CONTROL)),
+        [0x1b]
+    );
+}
+
+#[test]
+fn ctrl_and_three_is_sent_in_the_xterm_form_to_a_session_that_asked_for_it() {
+    assert_eq!(
+        xterm(with(KeyCode::Char('3'), KeyModifiers::CONTROL)),
+        b"\x1b[27;5;51~"
+    );
+}
+
+#[test]
+fn ctrl_and_eight_is_sent_in_the_kitty_form_to_a_session_that_asked_for_it() {
+    assert_eq!(
+        kitty(with(KeyCode::Char('8'), KeyModifiers::CONTROL)),
+        b"\x1b[56;5u"
+    );
+}
+
+#[test]
+fn ctrl_shift_and_a_letter_is_sent_as_ctrl_and_the_letter_to_a_session_that_did_not_ask() {
+    assert_eq!(legacy(with(KeyCode::Char('p'), ctrl_shift())), [0x10]);
+}
+
+#[test]
+fn ctrl_shift_and_a_letter_is_sent_in_the_xterm_form_to_a_session_that_asked_for_it() {
+    assert_eq!(
+        xterm(with(KeyCode::Char('p'), ctrl_shift())),
+        b"\x1b[27;6;112~"
+    );
+}
+
+#[test]
+fn ctrl_shift_and_an_upper_case_letter_is_sent_in_the_kitty_form_with_the_lower_case_code() {
+    assert_eq!(
+        kitty(with(KeyCode::Char('P'), ctrl_shift())),
+        b"\x1b[112;6u"
+    );
+}
+
+#[test]
+fn f13_is_sent_as_nothing_to_a_session_that_did_not_ask() {
+    assert_eq!(legacy(key(KeyCode::F(13))), b"");
+}
+
+#[test]
+fn f13_is_sent_as_shift_and_f1_to_a_session_that_asked_for_the_xterm_form() {
+    assert_eq!(xterm(key(KeyCode::F(13))), b"\x1b[1;2P");
+}
+
+#[test]
+fn f13_is_sent_in_the_kitty_form_to_a_session_that_asked_for_it() {
+    assert_eq!(kitty(key(KeyCode::F(13))), b"\x1b[57376u");
+}
+
+#[test]
+fn ctrl_and_a_letter_stays_its_control_byte_for_a_session_that_asked() {
+    assert_eq!(
+        xterm(with(KeyCode::Char('c'), KeyModifiers::CONTROL)),
+        [0x03]
+    );
+    assert_eq!(
+        kitty(with(KeyCode::Char('c'), KeyModifiers::CONTROL)),
+        [0x03]
+    );
+}
+
+#[test]
+fn escape_stays_itself_for_a_session_that_asked() {
+    assert_eq!(xterm(key(KeyCode::Esc)), b"\x1b");
+    assert_eq!(kitty(key(KeyCode::Esc)), b"\x1b");
+}
+
+#[test]
+fn alt_and_a_letter_stays_escaped_for_a_session_that_asked() {
+    assert_eq!(xterm(with(KeyCode::Char('b'), KeyModifiers::ALT)), b"\x1bb");
+    assert_eq!(kitty(with(KeyCode::Char('b'), KeyModifiers::ALT)), b"\x1bb");
+}
+
+#[test]
+fn an_arrow_in_application_cursor_mode_stays_an_ss3_sequence_for_a_session_that_asked() {
+    assert_eq!(
+        encode_as(key(KeyCode::Left), true, Keyboard::Kitty),
+        b"\x1bOD"
+    );
+}
+
 fn key(code: KeyCode) -> KeyEvent {
     KeyEvent::new(code, KeyModifiers::NONE)
 }
 
 fn with(code: KeyCode, modifiers: KeyModifiers) -> KeyEvent {
     KeyEvent::new(code, modifiers)
+}
+
+fn ctrl_shift() -> KeyModifiers {
+    KeyModifiers::CONTROL | KeyModifiers::SHIFT
+}
+
+fn legacy(key: KeyEvent) -> Vec<u8> {
+    encode_as(key, false, Keyboard::Legacy)
+}
+
+fn xterm(key: KeyEvent) -> Vec<u8> {
+    encode_as(key, false, Keyboard::Xterm)
+}
+
+fn kitty(key: KeyEvent) -> Vec<u8> {
+    encode_as(key, false, Keyboard::Kitty)
 }

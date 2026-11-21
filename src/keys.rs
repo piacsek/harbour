@@ -1,5 +1,67 @@
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum Keyboard {
+    #[default]
+    Legacy,
+    Xterm,
+    Kitty,
+}
+
+pub fn encode_as(key: KeyEvent, application_cursor: bool, keyboard: Keyboard) -> Vec<u8> {
+    let modifier = modifier_parameter(key.modifiers);
+    match (keyboard, key.code, unexpressed(key)) {
+        (Keyboard::Legacy, ..) => encode(key, application_cursor),
+        (Keyboard::Xterm, _, Some((code, modifier))) => {
+            format!("\x1b[27;{modifier};{code}~").into_bytes()
+        }
+        (Keyboard::Kitty, _, Some((code, modifier))) => {
+            format!("\x1b[{code};{modifier}u").into_bytes()
+        }
+        (Keyboard::Xterm, KeyCode::F(number @ 13..=24), None) if modifier == 1 => encode(
+            KeyEvent::new(KeyCode::F(number - 12), KeyModifiers::SHIFT),
+            application_cursor,
+        ),
+        (Keyboard::Kitty, KeyCode::F(number @ 13..=35), None) => {
+            let code = 57363 + u32::from(number);
+            if modifier > 1 {
+                format!("\x1b[{code};{modifier}u").into_bytes()
+            } else {
+                format!("\x1b[{code}u").into_bytes()
+            }
+        }
+        _ => encode(key, application_cursor),
+    }
+}
+
+fn unexpressed(key: KeyEvent) -> Option<(u32, u8)> {
+    let ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
+    let shift = key.modifiers.contains(KeyModifiers::SHIFT);
+    let modifier = modifier_parameter(key.modifiers);
+    match key.code {
+        KeyCode::Esc if ctrl || shift => Some((27, modifier)),
+        KeyCode::Enter if ctrl || shift => Some((13, modifier)),
+        KeyCode::Tab if ctrl || shift => Some((9, modifier)),
+        KeyCode::BackTab if ctrl => {
+            Some((9, modifier_parameter(key.modifiers | KeyModifiers::SHIFT)))
+        }
+        KeyCode::Backspace if shift => Some((127, modifier)),
+        KeyCode::Char(c) if ctrl && c.is_ascii_uppercase() => Some((
+            u32::from(c.to_ascii_lowercase()),
+            modifier_parameter(key.modifiers | KeyModifiers::SHIFT),
+        )),
+        KeyCode::Char(c) if ctrl && shift && c.is_ascii_lowercase() => {
+            Some((u32::from(c), modifier))
+        }
+        KeyCode::Char(c) if ctrl && !has_control_byte(c) => Some((u32::from(c), modifier)),
+        _ => None,
+    }
+}
+
+fn has_control_byte(c: char) -> bool {
+    c.is_ascii_alphabetic() || matches!(c, ' ' | '@' | '[' | '\\' | ']' | '^' | '_')
+}
+
 pub fn encode(key: KeyEvent, application_cursor: bool) -> Vec<u8> {
     let modifier = modifier_parameter(key.modifiers);
     let cursor = |letter: char| {
