@@ -122,3 +122,7 @@ shapes below are written in invented wording and numbers; nothing the probe prin
   raw text that the bars now replace → code
 - `design` Two expected rows of the drawing tests were counted by hand wrongly (a 4-cell bar's
   rounding, a 58-column inside taken for 60) and fixed in the test before the code → none
+- `review-loop` Round 1 found the parser trusting the report's shape: a share printed as `<1%`,
+  `~5%` or `12,5%` glued onto the tip above, its text drawn without `text::clean`, wider
+  percentages out of line; plus `t` logged as a key and two tests judging the screen too early
+  → code

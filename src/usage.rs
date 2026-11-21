@@ -80,7 +80,7 @@ pub fn parse(text: &str) -> Option<Report> {
 impl Section {
     fn headed(heading: &str) -> Self {
         let mut section = Self::default();
-        section.breakdown.heading = heading.to_string();
+        section.breakdown.heading = text::clean(heading);
         section
     }
 
@@ -100,7 +100,7 @@ impl Section {
             };
             if let Some(text) = continued {
                 text.push(' ');
-                text.push_str(line);
+                text.push_str(&text::clean(line));
             }
         }
     }
@@ -121,15 +121,15 @@ fn close(report: &mut Report, section: Option<Section>) {
 
 fn share(line: &str) -> Option<Share> {
     let (percent, rest) = percentage(line)?;
-    let label = rest.trim().to_string();
-    (rest.is_empty() || rest.starts_with(char::is_whitespace)).then_some(Share { percent, label })
+    let label = text::clean(rest);
+    Some(Share { percent, label })
 }
 
 fn top(line: &str) -> Option<Top> {
     let (kind, values) = line.strip_prefix("Top ")?.split_once(": ")?;
     (!kind.trim().is_empty()).then(|| Top {
-        label: kind.trim().to_string(),
-        values: values.trim().to_string(),
+        label: text::clean(kind),
+        values: text::clean(values),
     })
 }
 
@@ -139,11 +139,22 @@ pub fn lines(report: &Report, width: u16, height: u16, accent: Color) -> Vec<Lin
     let bar = LIMIT_BAR.saturating_sub(shrink).max(NARROWEST_BAR);
     let short = SHARE_BAR.saturating_sub(shrink).max(NARROWEST_BAR);
     let label = widest(report.limits.iter().map(|limit| limit.label.as_str()));
+    let used = shown(report.limits.iter().map(|limit| limit.percent.as_str()));
+    let spent = shown(
+        report
+            .breakdowns
+            .iter()
+            .flat_map(|breakdown| &breakdown.shares)
+            .map(|share| share.percent.as_str()),
+    );
     let mut rows = vec![Line::default()];
     for limit in &report.limits {
         let mut spans = vec![Span::raw(format!("  {}   ", padded(&limit.label, label)))];
         spans.extend(filled(&limit.percent, bar, fullness(&limit.percent)));
-        spans.push(Span::raw(format!("  {:>4}", format!("{}%", limit.percent))));
+        spans.push(Span::raw(format!(
+            "  {:>used$}",
+            format!("{}%", limit.percent)
+        )));
         if !limit.resets.is_empty() {
             spans.push(Span::raw(format!("   {}", limit.resets)));
         }
@@ -155,7 +166,10 @@ pub fn lines(report: &Report, width: u16, height: u16, accent: Color) -> Vec<Lin
         for share in &breakdown.shares {
             let mut spans = vec![Span::raw("   ")];
             spans.extend(filled(&share.percent, short, accent));
-            spans.push(Span::raw(format!("  {:>4}", format!("{}%", share.percent))));
+            spans.push(Span::raw(format!(
+                "  {:>spent$}",
+                format!("{}%", share.percent)
+            )));
             if !share.label.is_empty() {
                 spans.push(Span::raw(format!("  {}", share.label)));
             }
@@ -221,9 +235,10 @@ fn limit(line: &str) -> Option<Limit> {
     let rest = rest.strip_prefix(" used")?;
     let resets = rest
         .find("resets ")
-        .map_or(String::new(), |at| zoneless(&rest[at..]).to_string());
-    (!name.trim().is_empty()).then(|| Limit {
-        label: labelled(name.trim()),
+        .map_or(String::new(), |at| text::clean(zoneless(&rest[at..])));
+    let name = text::clean(name);
+    (!name.is_empty()).then(|| Limit {
+        label: labelled(&name),
         percent,
         resets,
     })
@@ -231,7 +246,8 @@ fn limit(line: &str) -> Option<Limit> {
 
 fn percentage(text: &str) -> Option<(String, &str)> {
     let (number, rest) = text.split_once('%')?;
-    let (whole, part) = number.split_once('.').unwrap_or((number, "0"));
+    let unsigned = number.strip_prefix(['<', '~', '>']).unwrap_or(number);
+    let (whole, part) = unsigned.split_once(['.', ',']).unwrap_or((unsigned, "0"));
     let digits = |text: &str| !text.is_empty() && text.chars().all(|c| c.is_ascii_digit());
     let valid = digits(whole) && digits(part);
     valid.then(|| (number.to_string(), rest))
@@ -264,6 +280,14 @@ fn widest<'a>(labels: impl Iterator<Item = &'a str>) -> usize {
     labels.map(text::columns).max().unwrap_or(0)
 }
 
+fn shown<'a>(percents: impl Iterator<Item = &'a str>) -> usize {
+    percents
+        .map(|percent| text::columns(percent) + 1)
+        .max()
+        .unwrap_or(0)
+        .max(4)
+}
+
 fn padded(label: &str, width: usize) -> String {
     format!(
         "{label}{}",
@@ -272,7 +296,8 @@ fn padded(label: &str, width: usize) -> String {
 }
 
 fn hundredths(percent: &str) -> usize {
-    let (whole, part) = percent.split_once('.').unwrap_or((percent, ""));
+    let percent = percent.trim_start_matches(['<', '~', '>']);
+    let (whole, part) = percent.split_once(['.', ',']).unwrap_or((percent, ""));
     let part = format!("{part:0<2}");
     let whole: usize = whole.parse().unwrap_or(0);
     let part: usize = part.get(..2).and_then(|two| two.parse().ok()).unwrap_or(0);

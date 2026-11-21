@@ -148,6 +148,12 @@ impl App {
         self.logging.log.write(|| "usage closed".to_string());
     }
 
+    pub(super) fn log_usage_view(&mut self, raw: bool) {
+        self.logging.forwarded = true;
+        let view = if raw { "raw" } else { "bars" };
+        self.logging.log.write(|| format!("usage view={view}"));
+    }
+
     pub(super) fn log_stop(&self, cause: &str) {
         self.logging.log.write(|| cause.to_string());
     }

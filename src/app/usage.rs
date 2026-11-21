@@ -110,6 +110,7 @@ impl App {
             && key.modifiers - KeyModifiers::SHIFT == KeyModifiers::NONE
         {
             self.usage.raw = !self.usage.raw;
+            self.log_usage_view(self.usage.raw);
             return true;
         }
         let bytes = super::key::beside(session, key);

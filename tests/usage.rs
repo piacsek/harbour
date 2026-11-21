@@ -370,6 +370,89 @@ fn a_percentage_above_100_fills_a_red_bar_and_prints_as_given() {
     assert_eq!(lines[1].spans[1].style.fg, Some(Color::Red));
 }
 
+#[test]
+fn a_share_shaped_like_a_percentage_is_its_own_row_and_not_part_of_the_tip_above() {
+    let report = parsed(&format!("{LIMITS}\n{SHAPED}"));
+
+    let shares = &report.breakdowns[0].shares;
+    assert_eq!(shares.len(), 4);
+    assert_eq!(shares[0].label, "Long sessions");
+    assert_eq!(shares[1].percent, "<1");
+    assert_eq!(shares[1].label, "Rare tools");
+    assert_eq!(shares[2].percent, "~5");
+    assert_eq!(shares[2].label, "Some tools");
+    assert_eq!(shares[3].percent, "12,5");
+    assert_eq!(shares[3].label, "Comma tools");
+}
+
+#[test]
+fn shares_shaped_like_percentages_draw_their_bars_and_line_up_with_the_widest() {
+    let report = parsed(&format!("{LIMITS}\n{SHAPED}"));
+
+    let rows = drawn(&report, 78, 30);
+
+    assert_eq!(
+        rows[6],
+        format!("   {}{}    40%  Long sessions", full(5), empty(7))
+    );
+    assert_eq!(rows[7], format!("   {}    <1%  Rare tools", empty(12)));
+    assert_eq!(
+        rows[8],
+        format!("   {}{}    ~5%  Some tools", full(1), empty(11))
+    );
+    assert_eq!(
+        rows[9],
+        format!("   {}{}  12,5%  Comma tools", full(2), empty(10))
+    );
+}
+
+#[test]
+fn limit_percentages_line_up_with_the_widest() {
+    let report = parsed(
+        "Current session: 12.5% used · resets 7pm\nCurrent week (all models): 9% used · resets Sun 5am\n",
+    );
+
+    let rows = drawn(&report, 78, 30);
+
+    assert_eq!(
+        rows[1],
+        format!("  Session   {}{}  12.5%   resets 7pm", full(3), empty(21))
+    );
+    assert_eq!(
+        rows[2],
+        format!(
+            "  Week      {}{}     9%   resets Sun 5am",
+            full(2),
+            empty(22)
+        )
+    );
+}
+
+#[test]
+fn every_text_the_report_gives_is_cleaned_of_hidden_characters() {
+    let text = "Current\u{200b} session: 12% used · resets 7:20pm\u{202e}\n\
+        \nLast 7d\u{202e}\n  40%  Long\u{202e} sessions\u{200b}\n  Top skills\u{200b}: tdd\u{202e} 3%\n\
+        \nEstimates\u{200b} only\n";
+
+    let report = parsed(text);
+
+    assert_eq!(report.limits[0].label, "Session");
+    assert_eq!(report.limits[0].resets, "resets 7:20pm");
+    assert_eq!(report.breakdowns[0].heading, "Last 7d");
+    assert_eq!(report.breakdowns[0].shares[0].label, "Long sessions");
+    assert_eq!(report.breakdowns[0].tops[0].label, "skills");
+    assert_eq!(report.breakdowns[0].tops[0].values, "tdd 3%");
+    assert_eq!(report.notes, vec!["Estimates only"]);
+}
+
+const SHAPED: &str = "\
+Last 7d
+  40%  Long sessions
+  <1%  Rare tools
+  ~5%  Some tools
+  12,5%  Comma tools
+";
+
 fn parsed(text: &str) -> Report {
     usage::parse(text).unwrap()
 }

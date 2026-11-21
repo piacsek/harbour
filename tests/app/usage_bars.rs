@@ -1,5 +1,6 @@
 use crossterm::event::{KeyCode, KeyModifiers};
 
+use crate::logging::{count, logged, read};
 use crate::usage_states::app;
 use crate::{Screen, script};
 
@@ -106,10 +107,10 @@ fn t_while_the_report_loads_goes_to_its_process() {
 
 #[test]
 fn t_on_a_report_that_does_not_parse_changes_nothing() {
-    let mut screen = Screen::of(app().with_usage(script("echo 'acme usage: not logged in'")));
+    let failing = script("echo 'acme usage: not logged in'; exit 3");
+    let mut screen = Screen::of(app().with_usage(failing));
     screen.press('u');
-    screen.wait_for("acme usage: not logged in");
-    std::thread::sleep(std::time::Duration::from_millis(600));
+    screen.wait_for(" exit 3 ");
 
     screen.press('t');
 
@@ -135,6 +136,24 @@ fn the_bars_are_drawn_again_for_each_width_while_open() {
         "{narrow}"
     );
     assert!(wide.contains(ROW), "{wide}");
+}
+
+#[test]
+fn switching_views_is_logged_as_the_popups_own_event_and_not_as_a_key() {
+    let (app, lines) = logged(app().with_usage(report("")));
+    let mut screen = Screen::of(app);
+    screen.press('u');
+    screen.wait_for(ROW);
+
+    screen.press('t');
+    screen.press('t');
+    screen.draw();
+
+    let lines = read(&lines);
+    assert_eq!(count(&lines, " usage view=raw\n"), 1);
+    assert_eq!(count(&lines, " usage view=bars\n"), 1);
+    assert_eq!(count(&lines, " key name="), 1);
+    assert_eq!(count(&lines, "acme"), 0);
 }
 
 fn report(then: &str) -> Vec<String> {
