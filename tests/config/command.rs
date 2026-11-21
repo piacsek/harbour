@@ -63,6 +63,9 @@ fn harbour_config_names_the_variable_a_setting_comes_from() {
         .arg("config")
         .env("HOME", home.path())
         .env_remove("XDG_CONFIG_HOME")
+        .env_remove("HARBOUR_EDITOR")
+        .env_remove("HARBOUR_DIR_PICKER")
+        .env_remove("HARBOUR_SESSION_COMMAND")
         .env("HARBOUR_EDITOR", "acme-vim")
         .output()
         .unwrap();
@@ -80,6 +83,9 @@ fn harbour_config_without_a_home_says_there_is_no_file() {
         .arg("config")
         .env_remove("HOME")
         .env_remove("XDG_CONFIG_HOME")
+        .env_remove("HARBOUR_EDITOR")
+        .env_remove("HARBOUR_DIR_PICKER")
+        .env_remove("HARBOUR_SESSION_COMMAND")
         .output()
         .unwrap();
 
@@ -187,6 +193,9 @@ fn harbour_config_says_a_variable_that_is_not_utf8_was_ignored() {
         .arg("config")
         .env("HOME", home.path())
         .env_remove("XDG_CONFIG_HOME")
+        .env_remove("HARBOUR_EDITOR")
+        .env_remove("HARBOUR_DIR_PICKER")
+        .env_remove("HARBOUR_SESSION_COMMAND")
         .env("HARBOUR_DIR_PICKER", OsStr::from_bytes(b"acme-\xffpicker"))
         .output()
         .unwrap();
@@ -200,11 +209,40 @@ fn harbour_config_says_a_variable_that_is_not_utf8_was_ignored() {
     );
 }
 
+#[test]
+fn harbour_config_shows_a_file_path_with_a_newline_escaped_on_one_line() {
+    let home = tempfile::tempdir().unwrap();
+    let folder = home.path().join("acme\nconfig");
+
+    let output = Command::new(env!("CARGO_BIN_EXE_harbour"))
+        .arg("config")
+        .env("HOME", home.path())
+        .env("XDG_CONFIG_HOME", &folder)
+        .env_remove("HARBOUR_EDITOR")
+        .env_remove("HARBOUR_DIR_PICKER")
+        .env_remove("HARBOUR_SESSION_COMMAND")
+        .output()
+        .unwrap();
+
+    assert!(
+        stdout(&output).starts_with(&format!(
+            "file: {}/acme\\nconfig/harbour/config.toml (none there)\n",
+            home.path().display()
+        )),
+        "{}",
+        stdout(&output)
+    );
+    assert_eq!(stdout(&output).lines().count(), 6);
+}
+
 fn config_command(home: &Path) -> Output {
     Command::new(env!("CARGO_BIN_EXE_harbour"))
         .arg("config")
         .env("HOME", home)
         .env_remove("XDG_CONFIG_HOME")
+        .env_remove("HARBOUR_EDITOR")
+        .env_remove("HARBOUR_DIR_PICKER")
+        .env_remove("HARBOUR_SESSION_COMMAND")
         .output()
         .unwrap()
 }

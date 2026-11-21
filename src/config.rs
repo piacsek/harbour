@@ -1,5 +1,6 @@
 use std::ffi::OsString;
 use std::fmt;
+use std::io::Read;
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
@@ -10,6 +11,7 @@ use toml::{Spanned, Value};
 
 use crate::tui::{DIR_PICKER, EDITOR, SESSION_COMMAND};
 
+const LONGEST: u64 = 64 * 1024;
 const PROGRAM: &str = "expected a list of strings: the program, then its arguments";
 const WIDTH: &str = "expected a whole number of columns above 0";
 const ACCENT: &str = "expected one of the 16 colour names or #rrggbb";
@@ -136,8 +138,8 @@ impl Config {
 
     pub fn report(&self) -> String {
         let file = match &self.path {
-            Some(path) if path.exists() => format!("file: {}", path.display()),
-            Some(path) => format!("file: {} (none there)", path.display()),
+            Some(path) if path.exists() => format!("file: {}", escaped(&path.to_string_lossy())),
+            Some(path) => format!("file: {} (none there)", escaped(&path.to_string_lossy())),
             None => "file: none (HOME is not set)".to_string(),
         };
         let editor: Vec<String> = self
@@ -201,6 +203,15 @@ impl Config {
 
     pub fn session_command(&self) -> &Setting<Vec<String>> {
         &self.session_command
+    }
+
+    pub fn names_sessions(&self) -> bool {
+        let command = &self.session_command;
+        !matches!(command.source, Source::Variable(_))
+            && Path::new(&command.value[0]).file_name() == Some("claude".as_ref())
+            && !command.value[1..]
+                .iter()
+                .any(|word| chooses_a_conversation(word))
     }
 
     pub fn sidebar_width(&self) -> &Setting<Option<u16>> {
@@ -343,22 +354,25 @@ fn listed(words: &[String]) -> String {
 }
 
 fn quoted(word: &str) -> String {
-    let mut quoted = String::from("\"");
+    format!("\"{}\"", escaped(word))
+}
+
+fn escaped(word: &str) -> String {
+    let mut text = String::new();
     for character in word.chars() {
         match character {
-            '"' => quoted.push_str("\\\""),
-            '\\' => quoted.push_str("\\\\"),
-            '\n' => quoted.push_str("\\n"),
-            '\t' => quoted.push_str("\\t"),
-            '\r' => quoted.push_str("\\r"),
+            '"' => text.push_str("\\\""),
+            '\\' => text.push_str("\\\\"),
+            '\n' => text.push_str("\\n"),
+            '\t' => text.push_str("\\t"),
+            '\r' => text.push_str("\\r"),
             character if character.is_control() => {
-                quoted.push_str(&format!("\\u{:04X}", u32::from(character)));
+                text.push_str(&format!("\\u{:04X}", u32::from(character)));
             }
-            character => quoted.push(character),
+            character => text.push(character),
         }
     }
-    quoted.push('"');
-    quoted
+    text
 }
 
 fn named(color: Color) -> String {
@@ -378,11 +392,35 @@ fn colour(name: &str) -> Option<Color> {
 }
 
 fn written(path: &Path) -> Result<String, Refusal> {
-    match std::fs::read_to_string(path) {
-        Ok(text) => Ok(text),
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(String::new()),
-        Err(error) => Err(Refusal(format!("{}: {error}", path.display()))),
+    let refused = |reason: String| Refusal(format!("{}: {reason}", path.display()));
+    let metadata = match std::fs::metadata(path) {
+        Ok(metadata) => metadata,
+        Err(error)
+            if matches!(
+                error.kind(),
+                std::io::ErrorKind::NotFound | std::io::ErrorKind::NotADirectory
+            ) =>
+        {
+            return Ok(String::new());
+        }
+        Err(error) => return Err(refused(error.to_string())),
+    };
+    if !metadata.is_file() {
+        return Err(refused("not a regular file".to_string()));
     }
+    let mut bytes = Vec::new();
+    std::fs::File::open(path)
+        .and_then(|file| file.take(LONGEST + 1).read_to_end(&mut bytes))
+        .map_err(|error| refused(error.to_string()))?;
+    if bytes.len() as u64 > LONGEST {
+        return Err(refused("larger than 64 KiB".to_string()));
+    }
+    String::from_utf8(bytes).map_err(|_| refused("stream did not contain valid UTF-8".to_string()))
+}
+
+fn chooses_a_conversation(word: &str) -> bool {
+    let flag = word.split_once('=').map_or(word, |(flag, _)| flag);
+    matches!(flag, "--continue" | "--resume" | "--session-id") || matches!(word, "-c" | "-r")
 }
 
 fn absolute(value: Option<OsString>) -> Option<PathBuf> {

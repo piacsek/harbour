@@ -14,7 +14,7 @@ use ratatui::Terminal;
 use ratatui::backend::CrosstermBackend;
 
 use crate::app::App;
-use crate::config::{Config, Setting, Source};
+use crate::config::{Config, Source};
 use crate::cursor::Shape;
 use crate::demo::Registry;
 use crate::editor::Program;
@@ -51,7 +51,7 @@ pub fn run(config: Config) -> io::Result<()> {
     if let Some(dir) = claude_projects() {
         app = app.with_transcripts(dir);
     }
-    if named_like_claude(config.session_command()) {
+    if config.names_sessions() {
         app = app.naming_sessions();
     }
     if let Some(summary) = published() {
@@ -168,11 +168,6 @@ fn dir_picker(config: &Config) -> Picker {
             required: *source == Source::File,
         },
     }
-}
-
-fn named_like_claude(command: &Setting<Vec<String>>) -> bool {
-    !matches!(command.source, Source::Variable(_))
-        && std::path::Path::new(&command.value[0]).file_name() == Some("claude".as_ref())
 }
 
 fn claude_sessions() -> Option<std::path::PathBuf> {

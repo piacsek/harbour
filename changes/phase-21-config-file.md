@@ -11,4 +11,5 @@ kind: feat
   start.
 - A `picker` or `session_command` from the file whose program is named `fzf` or `claude` runs
   as the default does (fzf over the list, claude with its session id), with the arguments given;
-  a configured picker that cannot start says so instead of being skipped.
+  a configured picker that cannot start says so instead of being skipped. A `claude` whose own
+  arguments already pick a conversation (`--continue`, `--resume`, `--session-id`) runs as given.

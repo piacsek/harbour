@@ -1,8 +1,11 @@
 use std::fs;
 use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
+use std::process::Command;
+use std::sync::mpsc;
+use std::time::Duration;
 
-use harbour::config::Config;
+use harbour::config::{Config, Source};
 
 use crate::{config_path, read_at, write_config};
 
@@ -299,6 +302,72 @@ fn a_file_that_is_not_utf8_is_refused() {
     assert_eq!(
         refusal(home.path()),
         format!("{}: stream did not contain valid UTF-8", path.display())
+    );
+}
+
+#[test]
+fn a_config_folder_that_is_a_file_counts_as_no_file() {
+    let home = tempfile::tempdir().unwrap();
+    fs::write(home.path().join(".config"), "").unwrap();
+
+    let config = read_at(home.path(), None).unwrap();
+
+    assert_eq!(config.accent().source, Source::Default);
+}
+
+#[test]
+fn a_fifo_in_place_of_the_file_is_refused_without_waiting() {
+    let home = tempfile::tempdir().unwrap();
+    let path = config_path(home.path());
+    fs::create_dir_all(path.parent().unwrap()).unwrap();
+    let made = Command::new("mkfifo").arg(&path).status().unwrap();
+    assert!(made.success());
+
+    let (sender, receiver) = mpsc::channel();
+    let folder = home.path().to_owned();
+    std::thread::spawn(move || sender.send(refusal(&folder)).unwrap());
+
+    assert_eq!(
+        receiver.recv_timeout(Duration::from_secs(5)).unwrap(),
+        format!("{}: not a regular file", path.display())
+    );
+}
+
+#[test]
+fn a_file_over_64_kib_is_refused() {
+    let home = tempfile::tempdir().unwrap();
+    let path = write_config(home.path(), &"#".repeat(64 * 1024 + 1));
+
+    assert_eq!(
+        refusal(home.path()),
+        format!("{}: larger than 64 KiB", path.display())
+    );
+}
+
+#[test]
+fn a_file_of_64_kib_is_read() {
+    let home = tempfile::tempdir().unwrap();
+    let padding = "#".repeat(64 * 1024 - "accent = \"red\"\n".len());
+    write_config(home.path(), &format!("accent = \"red\"\n{padding}"));
+
+    let config = read_at(home.path(), None).unwrap();
+
+    assert_eq!(config.accent().source, Source::File);
+}
+
+#[test]
+fn a_config_folder_that_cannot_be_searched_is_refused() {
+    let home = tempfile::tempdir().unwrap();
+    let path = write_config(home.path(), "accent = \"red\"\n");
+    let folder = path.parent().unwrap().to_owned();
+    fs::set_permissions(&folder, fs::Permissions::from_mode(0o000)).unwrap();
+
+    let found = refusal(home.path());
+    fs::set_permissions(&folder, fs::Permissions::from_mode(0o700)).unwrap();
+
+    assert_eq!(
+        found,
+        format!("{}: Permission denied (os error 13)", path.display())
     );
 }
 

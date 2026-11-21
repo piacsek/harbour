@@ -6,6 +6,7 @@ use harbour::config::{Config, Refusal, Source};
 use ratatui::style::Color;
 
 mod command;
+mod naming;
 mod precedence;
 mod refusals;
 

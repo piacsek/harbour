@@ -79,6 +79,28 @@ fn the_scan_reads_only_the_function_that_launches() {
 }
 
 #[test]
+fn the_scan_names_a_config_launch_that_keeps_the_harbour_variables() {
+    let found = scan_text(
+        "tests/acme.rs",
+        "fn acme(home: &Path) {\n    Command::new(env!(\"CARGO_BIN_EXE_harbour\"))\n        .arg(\"config\")\n        .env(\"HOME\", home)\n        .env_remove(\"XDG_CONFIG_HOME\")\n        .env_remove(\"HARBOUR_EDITOR\")\n        .output();\n}\n",
+    );
+
+    assert_eq!(found.len(), 2);
+    assert!(found[0].contains("HARBOUR_DIR_PICKER"), "{found:?}");
+    assert!(found[1].contains("HARBOUR_SESSION_COMMAND"), "{found:?}");
+}
+
+#[test]
+fn the_scan_leaves_a_config_launch_that_clears_the_harbour_variables_alone() {
+    let found = scan_text(
+        "tests/acme.rs",
+        "fn acme(home: &Path) {\n    Command::new(env!(\"CARGO_BIN_EXE_harbour\"))\n        .arg(\"config\")\n        .env(\"HOME\", home)\n        .env_remove(\"XDG_CONFIG_HOME\")\n        .env_remove(\"HARBOUR_EDITOR\")\n        .env_remove(\"HARBOUR_DIR_PICKER\")\n        .env_remove(\"HARBOUR_SESSION_COMMAND\")\n        .output();\n}\n",
+    );
+
+    assert!(found.is_empty(), "{found:?}");
+}
+
+#[test]
 fn the_screenshot_check_names_a_launch_that_keeps_xdg_config_home() {
     let found = unisolated_screenshots(
         "t respawn-pane -k -t \"$shot_window\" \"env HOME=$(printf %q \"$home\") $(printf %q \"$bin\") $args\"\n",
@@ -110,6 +132,12 @@ fn collect(directory: &Path, root: &Path, found: &mut Vec<String>) {
     }
 }
 
+const HARBOUR_VARIABLES: [&str; 3] = [
+    "HARBOUR_EDITOR",
+    "HARBOUR_DIR_PICKER",
+    "HARBOUR_SESSION_COMMAND",
+];
+
 fn scan_text(name: &str, text: &str) -> Vec<String> {
     let lines: Vec<&str> = text.lines().collect();
     lines
@@ -124,6 +152,35 @@ fn scan_text(name: &str, text: &str) -> Vec<String> {
                 line.trim()
             )
         })
+        .chain(
+            lines
+                .iter()
+                .enumerate()
+                .filter(|(_, line)| line.contains(LAUNCH))
+                .flat_map(|(index, line)| {
+                    let function = function_around(&lines, index);
+                    kept_variables(&function)
+                        .into_iter()
+                        .map(move |variable| {
+                            format!(
+                                "{name}:{}: runs harbour config without removing {variable}: {}",
+                                index + 1,
+                                line.trim()
+                            )
+                        })
+                        .collect::<Vec<_>>()
+                }),
+        )
+        .collect()
+}
+
+fn kept_variables(function: &str) -> Vec<&'static str> {
+    if !function.contains(".arg(\"config\")") {
+        return Vec::new();
+    }
+    HARBOUR_VARIABLES
+        .into_iter()
+        .filter(|variable| !function.contains(&format!("\"{variable}\"")))
         .collect()
 }
 

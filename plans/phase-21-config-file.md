@@ -76,8 +76,11 @@ Each is the smallest option that meets the issue.
 - **`--session-id` is passed to a `session_command` from the file whose program's file name is
   `claude`, after its own arguments**, as with the default, so writing the default into the file
   changes nothing (decided in review round 1); any other program from the file, and the
-  variable as today, runs as given, its transcript found through the registry. A resume runs
-  the configured program and its arguments, then `--resume <id>`.
+  variable as today, runs as given, its transcript found through the registry. A `claude` whose
+  own arguments already pick a conversation (`--continue`, `-c`, `--resume`, `-r`,
+  `--session-id`, or the `--flag=value` form) gets no `--session-id` either (review round 2).
+  A resume runs the configured program and its arguments, then `--resume <id>`, such a command
+  included: that it then names two conversations is left as it is and listed in the PR body.
 - **`editor` from the file is Neovim when its program's file name is `nvim`**, as
   `HARBOUR_EDITOR` is.
 - **The accent takes every place cyan marks focus**: the focused side's border, the selected
@@ -106,7 +109,10 @@ Each is the smallest option that meets the issue.
 | config path | missing | today's defaults, nothing printed; `harbour config` says `(none there)` |
 | config path | empty file | today's defaults |
 | config path | unreadable (permissions) | `harbour: <path>: Permission denied (os error 13)`, exit 1, no interface |
-| config path | a directory in its place | `harbour: <path>: Is a directory (os error 21)`, exit 1 |
+| config path | a directory, FIFO or device in its place | `harbour: <path>: not a regular file`, exit 1, never waiting on it |
+| config path | larger than 64 KiB | `harbour: <path>: larger than 64 KiB`, exit 1 |
+| a parent of the config path | a file, not a directory (`~/.config` is a file) | as missing: today's defaults |
+| a parent of the config path | cannot be searched (permissions) | `harbour: <path>: Permission denied (os error 13)`, exit 1: the file may exist, so it is not taken as missing |
 | config path | not UTF-8 | `harbour: <path>: stream did not contain valid UTF-8`, exit 1 |
 | config path | a symlink to a file | read through it |
 | config path | changed after start | ignored until the next start; `harbour config` reads it again each run |
@@ -141,7 +147,8 @@ Each is the smallest option that meets the issue.
 | `sidebar_width = 40`, window 160 | sidebar 40 columns, pane 120 |
 | `sidebar_width = 100`, window 160 | sidebar 80 (half), pane 80 |
 | `sidebar_width = 40`, resized to 100, then 59 | 40 then one side at a time, as today |
-| `harbour config` | the path, then one line per setting with `(file)`, `(variable <NAME>)` or `(default)`; exit 0; a bad file prints the same one line as at start and exits 1 |
+| `session_command = ["claude", "--continue"]` (or `-c`, `--resume`, `-r`, `--session-id`, `--flag=value`) | a new session runs it as given, no `--session-id` |
+| `harbour config` | the path, escaped as the words are, then one line per setting with `(file)`, `(variable <NAME>)` or `(default)`; exit 0; a bad file prints the same one line as at start and exits 1 |
 
 ## What the user sees: a configured width that draws text
 
@@ -196,6 +203,12 @@ Each is the smallest option that meets the issue.
   variable was ignored for not being UTF-8. A `~` program with no `HOME` is refused as such, and
   the selected card's bar is left out when the sidebar has no inner column. Its premise that a
   resume did not use the configured arguments was false: it already ran them.
+- 2 review rounds. Round 2 had no must or should finding; its last ship read the file only as a
+  regular file of at most 64 KiB (a parent that is a file counts as no file, a parent that cannot
+  be searched stays a refusal), escaped the path on `harbour config`'s `file:` line, gave no
+  `--session-id` to a `claude` whose arguments already pick a conversation, and made every
+  `harbour config` launch in the tests remove the three `HARBOUR_` variables, which
+  `tests/real_config.rs` now checks.
 - Red runs, each seen before the code: the config reading and refusals (task 1), the 13
   launchers and the startup refusals (task 2), the precedence and the three programs (task 3),
   the accent in process and through tmux's colour capture (task 4), the width in process and in
