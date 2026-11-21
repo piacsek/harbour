@@ -99,7 +99,7 @@ scripts/homebrew-formula.sh   prints the tap formula for a released version
 scripts/formula-version.sh    the `tap` job's decision; never a version below the formula's
 scripts/stable-version.sh     the `stable-build` and `stable` jobs' decision, asked by both: the release the `stable` branch moves to, never below the version it holds
 scripts/sweep-report.sh       `[<first phase>]`: the sweep's data from `plans/`, as Markdown; counts and groups, judges nothing
-scripts/screenshots.sh        renders docs/details.png from `harbour --demo` and docs/help.png from `harbour --help`, plus one `shoot` per extra view (keys, pane, question, editor, narrow, picker; truecolor.py converts ANSI)
+scripts/screenshots.sh        renders docs/details.png from `harbour --demo` and docs/help.png from `harbour --help`, plus one `shoot` per extra view (keys, pane, question, quit, ended (the demo with its blocked session ended, a count gone from the title), editor, narrow, picker; truecolor.py converts ANSI)
 scripts/sweep-issue.sh        the `issue` job of `sweep.yml`: opens "Sweep due before phase N" with the report once the next phase is a multiple of 5, never twice
 docs/                         the screenshots `scripts/screenshots.sh` writes (see "Documentation rule")
 changes/                      one fragment per pull request that feeds the binary (`kind:` and the changelog bullets); add-only, see Releasing

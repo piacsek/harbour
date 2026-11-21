@@ -43,4 +43,16 @@ this phase is 16.
 
 ## Outcome
 
+- The sidebar title shows only the counts above zero, in the same order and colours:
+  `sessions ● 1 ○ 2`, `sessions ◉ 1`, `sessions` alone with none; the narrow form drops the
+  zeros too, and with none and no room for the word there is no title, so the border stays
+  whole (a lone space would have cut it).
+- The title and `harbour status` now follow one rule. The help legend still explains all four
+  glyphs.
+- `docs/details.png` and every other shot came out the same, since the demo counts one of each
+  state; `docs/ended.png`, a new shot of the demo with its blocked session ended, shows the title
+  without `◉`.
+
 ## Hurdles
+
+- `design` The demo counts one session in each state, so no existing screenshot could show a zero left out; the orchestrator chose a new shot that ends the blocked session over changing the demo's sessions → code
