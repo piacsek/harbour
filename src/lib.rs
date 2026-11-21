@@ -26,4 +26,5 @@ pub mod tabs;
 pub mod text;
 pub mod transcript;
 pub mod tui;
+pub mod usage;
 pub mod zoom;

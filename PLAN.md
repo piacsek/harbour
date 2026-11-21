@@ -37,6 +37,7 @@ file under `plans/`; its time and tokens are a row of [`plans/metrics.md`](plans
 | 27 | [Alt-minus and Alt-equals change the sidebar's width](plans/phase-27-width-keys.md) | [v0.23.0](https://github.com/piacsek/harbour/releases/tag/v0.23.0) |
 | 28 | [jump to any session by typing part of its name](plans/phase-28-jump-by-name.md) | |
 | 29 | [Claude Code and its editor side by side](plans/phase-29-side-by-side.md) | |
+| 31 | [the usage popup draws its report as bars](plans/phase-31-usage-bars.md) | |
 
 ## Backlog
 

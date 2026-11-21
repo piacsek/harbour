@@ -45,6 +45,7 @@ mod stopping;
 mod switching;
 mod transcripts;
 mod usage;
+mod usage_bars;
 mod usage_states;
 mod waits;
 mod width;

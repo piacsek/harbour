@@ -156,7 +156,13 @@ impl App {
         }
         frame.render_widget(Clear, area);
         frame.render_widget(block, area);
-        if printed {
+        let report = finished
+            .as_ref()
+            .and_then(|_| crate::usage::parse(&session.text()));
+        if let Some(report) = report {
+            let lines = crate::usage::lines(&report, inner.width, inner.height, self.accent);
+            frame.render_widget(Paragraph::new(lines), inner);
+        } else if printed {
             frame.render_widget(&*session, inner);
         } else {
             let note = if finished.is_some() {

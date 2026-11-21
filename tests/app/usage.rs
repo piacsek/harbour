@@ -18,7 +18,7 @@ fn u_opens_a_popup_with_the_usage_report() {
 
     screen.press('u');
 
-    let shown = screen.wait_for("acme session: 12% used");
+    let shown = screen.wait_for("acme session: 12% spent");
     assert!(shown.contains(" usage "), "{shown}");
     assert!(shown.contains("No session yet"), "{shown}");
 }
@@ -27,20 +27,20 @@ fn u_opens_a_popup_with_the_usage_report() {
 fn esc_closes_the_popup() {
     let mut screen = Screen::of(app().with_usage(report()));
     screen.press('u');
-    screen.wait_for("acme session: 12% used");
+    screen.wait_for("acme session: 12% spent");
 
     screen.key(KeyCode::Esc, KeyModifiers::NONE);
 
     let shown = screen.draw();
     assert!(!shown.contains(" usage "), "{shown}");
-    assert!(!shown.contains("acme session: 12% used"), "{shown}");
+    assert!(!shown.contains("acme session: 12% spent"), "{shown}");
 }
 
 #[test]
 fn q_closes_the_popup_and_does_not_quit() {
     let mut screen = Screen::of(app().with_usage(report()));
     screen.press('u');
-    screen.wait_for("acme session: 12% used");
+    screen.wait_for("acme session: 12% spent");
 
     screen.press('q');
 
@@ -196,10 +196,10 @@ fn closing_the_popup_is_logged_as_the_popups_own_event_and_not_as_a_key() {
     let (app, lines) = logged(app().with_usage(report()));
     let mut screen = Screen::of(app);
     screen.press('u');
-    screen.wait_for("acme session: 12% used");
+    screen.wait_for("acme session: 12% spent");
     screen.press('q');
     screen.press('u');
-    screen.wait_for("acme session: 12% used");
+    screen.wait_for("acme session: 12% spent");
 
     screen.key(KeyCode::Esc, KeyModifiers::NONE);
     screen.draw();
@@ -216,7 +216,7 @@ fn shift_u_opens_the_popup() {
 
     screen.key(KeyCode::Char('U'), KeyModifiers::SHIFT);
 
-    let shown = screen.wait_for("acme session: 12% used");
+    let shown = screen.wait_for("acme session: 12% spent");
     assert!(shown.contains(" usage "), "{shown}");
 }
 
@@ -226,7 +226,7 @@ fn u_with_caps_lock_opens_the_popup() {
 
     screen.press('U');
 
-    let shown = screen.wait_for("acme session: 12% used");
+    let shown = screen.wait_for("acme session: 12% spent");
     assert!(shown.contains(" usage "), "{shown}");
 }
 
@@ -234,7 +234,7 @@ fn u_with_caps_lock_opens_the_popup() {
 fn shift_q_closes_the_popup_and_does_not_quit() {
     let mut screen = Screen::of(app().with_usage(report()));
     screen.press('u');
-    screen.wait_for("acme session: 12% used");
+    screen.wait_for("acme session: 12% spent");
 
     screen.key(KeyCode::Char('Q'), KeyModifiers::SHIFT);
 
@@ -247,7 +247,7 @@ fn shift_q_closes_the_popup_and_does_not_quit() {
 fn q_with_caps_lock_closes_the_popup_and_does_not_quit() {
     let mut screen = Screen::of(app().with_usage(report()));
     screen.press('u');
-    screen.wait_for("acme session: 12% used");
+    screen.wait_for("acme session: 12% spent");
 
     screen.press('Q');
 
@@ -302,7 +302,7 @@ fn leaves_nothing_behind(width: u16) {
         .with_usage(registered_report(&scratch.sessions(), scratch.dir.path()));
     let mut screen = Screen::at(app, home(), width);
     screen.press('u');
-    screen.wait_for("acme session: 12% used");
+    screen.wait_for("acme session: 12% spent");
     let pid = std::fs::read_to_string(scratch.dir.path().join("pid")).unwrap();
     let kept = remembered_after_a_while(&mut screen, &scratch.memory());
     assert_eq!(kept, Vec::new());
@@ -337,14 +337,14 @@ fn clicked_report() -> Vec<String> {
 }
 
 fn report() -> Vec<String> {
-    script("echo 'acme session: 12% used'; echo 'acme week: 30% used'")
+    script("echo 'acme session: 12% spent'; echo 'acme week: 30% spent'")
 }
 
 fn registered_report(sessions: &Path, scratch: &Path) -> Vec<String> {
     script(&format!(
         "echo $$ > '{}/pid'; \
          printf '%s' '{{\"status\":\"busy\",\"sessionId\":\"{ID}\"}}' > '{}'/$$.json; \
-         echo 'acme session: 12% used'; exec sleep 600",
+         echo 'acme session: 12% spent'; exec sleep 600",
         scratch.display(),
         sessions.display()
     ))
