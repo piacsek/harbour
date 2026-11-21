@@ -3,7 +3,7 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime};
 
-use harbour::transcript::Transcript;
+use harbour::transcript::{Facts, Transcript};
 
 const ID: &str = "0f1e2d3c-4b5a-6978-8a9b-0c1d2e3f4a5b";
 
@@ -15,7 +15,24 @@ fn no_transcript_yet_knows_nothing() {
     transcript.read();
 
     assert_eq!(transcript.facts().title, None);
-    assert_eq!(transcript.facts().activity, None);
+}
+
+#[test]
+fn a_tool_call_is_never_read() {
+    let projects = tempfile::tempdir().unwrap();
+    let file = transcript_file(projects.path(), "-home-acme-api");
+    append(
+        &file,
+        &tool(
+            "Bash",
+            r#"{"description":"Run the tests","command":"cargo test"}"#,
+        ),
+    );
+    let mut transcript = Transcript::new(projects.path(), ID);
+
+    transcript.read();
+
+    assert_eq!(transcript.facts(), &Facts::default());
 }
 
 #[test]
@@ -67,131 +84,6 @@ fn the_last_prompt_branch_directory_and_pull_request_are_read() {
         Some(PathBuf::from("/home/acme/api"))
     );
     assert_eq!(transcript.facts().pull_request, Some(42));
-}
-
-#[test]
-fn a_tool_call_shows_its_description_first() {
-    let projects = tempfile::tempdir().unwrap();
-    let file = transcript_file(projects.path(), "-home-acme-api");
-    append(
-        &file,
-        &tool(
-            "Bash",
-            r#"{"description":"Run the tests","command":"cargo test"}"#,
-        ),
-    );
-    let mut transcript = Transcript::new(projects.path(), ID);
-
-    transcript.read();
-
-    assert_eq!(
-        transcript.facts().activity.as_deref(),
-        Some("Run the tests")
-    );
-}
-
-#[test]
-fn a_tool_call_without_a_description_shows_its_command_then_its_file_then_its_name() {
-    let projects = tempfile::tempdir().unwrap();
-    let file = transcript_file(projects.path(), "-home-acme-api");
-    let mut transcript = Transcript::new(projects.path(), ID);
-
-    append(&file, &tool("Bash", r#"{"command":"cargo test"}"#));
-    transcript.read();
-    let command = transcript.facts().activity.clone();
-    append(
-        &file,
-        &tool("Edit", r#"{"file_path":"/home/acme/api/src/login.rs"}"#),
-    );
-    transcript.read();
-    let path = transcript.facts().activity.clone();
-    append(&file, &tool("ToolSearch", r#"{"query":"select:Read"}"#));
-    transcript.read();
-    let name = transcript.facts().activity.clone();
-
-    assert_eq!(command.as_deref(), Some("cargo test"));
-    assert_eq!(path.as_deref(), Some("/home/acme/api/src/login.rs"));
-    assert_eq!(name.as_deref(), Some("ToolSearch"));
-}
-
-#[test]
-fn a_new_prompt_clears_the_last_tool_call() {
-    let projects = tempfile::tempdir().unwrap();
-    let file = transcript_file(projects.path(), "-home-acme-api");
-    append(&file, &tool("Bash", r#"{"command":"cargo test"}"#));
-    append(
-        &file,
-        r#"{"type":"user","message":{"role":"user","content":"now fix the docs"}}"#,
-    );
-    let mut transcript = Transcript::new(projects.path(), ID);
-
-    transcript.read();
-
-    assert_eq!(transcript.facts().activity, None);
-}
-
-#[test]
-fn a_prompt_written_as_text_items_clears_the_last_tool_call_too() {
-    let projects = tempfile::tempdir().unwrap();
-    let file = transcript_file(projects.path(), "-home-acme-api");
-    append(&file, &tool("Bash", r#"{"command":"cargo test"}"#));
-    append(
-        &file,
-        r#"{"type":"user","message":{"role":"user","content":[{"type":"text","text":"now fix the docs"}]}}"#,
-    );
-    let mut transcript = Transcript::new(projects.path(), ID);
-
-    transcript.read();
-
-    assert_eq!(transcript.facts().activity, None);
-}
-
-#[test]
-fn a_prompt_with_text_and_an_image_clears_the_last_tool_call() {
-    let projects = tempfile::tempdir().unwrap();
-    let file = transcript_file(projects.path(), "-home-acme-api");
-    append(&file, &tool("Bash", r#"{"command":"cargo test"}"#));
-    append(
-        &file,
-        r#"{"type":"user","message":{"role":"user","content":[{"type":"text","text":"why is this red"},{"type":"image","source":{"type":"base64","media_type":"image/png","data":"iVBORw0K"}}]}}"#,
-    );
-    let mut transcript = Transcript::new(projects.path(), ID);
-
-    transcript.read();
-
-    assert_eq!(transcript.facts().activity, None);
-}
-
-#[test]
-fn a_prompt_of_an_image_alone_clears_the_last_tool_call() {
-    let projects = tempfile::tempdir().unwrap();
-    let file = transcript_file(projects.path(), "-home-acme-api");
-    append(&file, &tool("Bash", r#"{"command":"cargo test"}"#));
-    append(
-        &file,
-        r#"{"type":"user","message":{"role":"user","content":[{"type":"image","source":{"type":"base64","media_type":"image/png","data":"iVBORw0K"}}]}}"#,
-    );
-    let mut transcript = Transcript::new(projects.path(), ID);
-
-    transcript.read();
-
-    assert_eq!(transcript.facts().activity, None);
-}
-
-#[test]
-fn a_tool_result_keeps_the_last_tool_call() {
-    let projects = tempfile::tempdir().unwrap();
-    let file = transcript_file(projects.path(), "-home-acme-api");
-    append(&file, &tool("Bash", r#"{"command":"cargo test"}"#));
-    append(
-        &file,
-        r#"{"type":"user","message":{"role":"user","content":[{"type":"tool_result","content":"ok"}]}}"#,
-    );
-    let mut transcript = Transcript::new(projects.path(), ID);
-
-    transcript.read();
-
-    assert_eq!(transcript.facts().activity.as_deref(), Some("cargo test"));
 }
 
 #[test]
@@ -279,21 +171,12 @@ fn a_bad_line_or_a_field_of_the_wrong_type_keeps_the_last_good_value() {
     append(&file, "not json at all");
     append(&file, r#"{"type":"ai-title","aiTitle":12}"#);
     append(&file, r#"{"type":"pr-link","prNumber":"seven"}"#);
-    append(
-        &file,
-        r#"{"type":"assistant","message":{"content":"text"}}"#,
-    );
-    append(
-        &file,
-        r#"{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Bash","input":[]}]}}"#,
-    );
     let mut transcript = Transcript::new(projects.path(), ID);
 
     transcript.read();
 
     assert_eq!(transcript.facts().title.as_deref(), Some("Good"));
     assert_eq!(transcript.facts().pull_request, Some(7));
-    assert_eq!(transcript.facts().activity.as_deref(), Some("Bash"));
 }
 
 #[test]

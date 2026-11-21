@@ -22,6 +22,20 @@ fn a_stopped_card_whose_directory_is_gone_says_so() {
 }
 
 #[test]
+fn the_narrow_layout_says_the_selected_cards_directory_is_gone() {
+    let scratch = Scratch::new();
+    scratch.remember(ID, TITLE, 0);
+    scratch.transcript(ID, r#"{"type":"user","message":{}}"#);
+    fs::remove_dir_all(scratch.checkout()).unwrap();
+    let mut screen = scratch.watching(resuming_agent());
+    screen.resize(50, 20);
+
+    let shown = screen.wait_for("directory gone");
+
+    assert_eq!(below(&shown, TITLE), "directory gone");
+}
+
+#[test]
 fn enter_on_a_card_whose_directory_is_gone_says_why_and_starts_nothing() {
     let scratch = Scratch::new();
     scratch.remember(ID, TITLE, 0);
