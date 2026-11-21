@@ -14,7 +14,7 @@ fn question_mark_shows_the_keys_and_where_the_notes_went() {
     let shown = screen.draw();
     assert!(shown.contains("j/k"), "{shown}");
     assert!(
-        shown.contains("end the session and its editors, or forget it once it has ended"),
+        shown.contains("end it and its editors, or forget an ended one"),
         "{shown}"
     );
     assert!(shown.contains(POINTER), "{shown}");
@@ -31,7 +31,7 @@ fn question_mark_shows_the_editor_keys() {
         shown.contains("from Claude Code, C-l opens its editor"),
         "{shown}"
     );
-    assert!(shown.contains("the session and its editors"), "{shown}");
+    assert!(shown.contains("end it and its editors"), "{shown}");
     assert!(
         shown.contains("show the session's next editor, one per directory"),
         "{shown}"
@@ -52,6 +52,19 @@ fn question_mark_shows_the_zoom_key() {
 }
 
 #[test]
+fn question_mark_shows_the_width_keys() {
+    let mut screen = Screen::new(reading_agent());
+
+    screen.press('?');
+
+    let shown = screen.draw();
+    assert!(
+        shown.contains("M--/M-=    narrow / widen the sidebar by 2 columns"),
+        "{shown}"
+    );
+}
+
+#[test]
 fn question_mark_says_how_to_resume_and_forget_a_stopped_session() {
     let mut screen = Screen::new(reading_agent());
     screen.resize(80, 24);
@@ -60,7 +73,7 @@ fn question_mark_says_how_to_resume_and_forget_a_stopped_session() {
 
     let shown = screen.draw();
     assert!(shown.contains("focus the pane or resume;"), "{shown}");
-    assert!(shown.contains("or forget it once it has ended"), "{shown}");
+    assert!(shown.contains("or forget an ended one"), "{shown}");
     assert!(shown.contains("○ idle, exited, or stopped"), "{shown}");
 }
 
@@ -120,13 +133,13 @@ fn the_whole_help_shows_on_a_20_row_terminal() {
 }
 
 #[test]
-fn the_help_leaves_three_rows_for_new_keys_on_a_20_row_terminal() {
+fn the_help_leaves_two_rows_for_new_keys_on_a_20_row_terminal() {
     let mut screen = Screen::new(reading_agent());
 
     screen.press('?');
 
     let shown = screen.draw();
-    assert_eq!(spare_rows(&shown), 3, "{shown}");
+    assert_eq!(spare_rows(&shown), 2, "{shown}");
 }
 
 #[test]
