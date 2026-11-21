@@ -63,6 +63,10 @@ selected.
 
 ## Outcome
 
+- 2 review rounds. The second found that the selected working or idle card shows no prompt in
+  the narrow layout and behind the editor too, where the pane is hidden; that is the owner's
+  rule, so it was not acted on (the prompt is still there on the card once another one is
+  selected).
 - The owner changed the issue's table after the first review: the first build hid line 2 of the
   selected card in every state, which also hid three lines that never move and that the pane
   does not always repeat: what a blocked session waits for, `exited` and its note, and why a
