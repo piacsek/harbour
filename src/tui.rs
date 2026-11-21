@@ -2,6 +2,7 @@ use std::io;
 use std::panic::PanicHookInfo;
 use std::time::Duration;
 
+use crossterm::cursor::SetCursorStyle;
 use crossterm::event::{
     self, DisableBracketedPaste, DisableMouseCapture, EnableBracketedPaste, EnableMouseCapture,
     Event, KeyEventKind,
@@ -9,6 +10,7 @@ use crossterm::event::{
 use crossterm::execute;
 
 use crate::app::App;
+use crate::cursor::Shape;
 use crate::demo::Registry;
 use crate::editor::Program;
 use crate::handoff::{self, Listener};
@@ -86,12 +88,19 @@ pub fn panic_hook(restore_terminal: Box<PanicHook>) -> Box<PanicHook> {
 }
 
 pub fn leave_terminal(out: &mut impl io::Write) -> io::Result<()> {
-    execute!(out, DisableMouseCapture, DisableBracketedPaste)
+    execute!(
+        out,
+        DisableMouseCapture,
+        DisableBracketedPaste,
+        SetCursorStyle::DefaultUserShape
+    )
 }
 
 fn drive(terminal: &mut ratatui::DefaultTerminal, mut app: App) -> io::Result<()> {
+    let mut shape = Shape::default();
     while app.running() {
         terminal.draw(|frame| app.draw(frame))?;
+        shape.send(&mut io::stdout(), app.cursor_shape())?;
         if event::poll(Duration::from_millis(30))? {
             match event::read()? {
                 Event::Key(key) if key.kind != KeyEventKind::Release => app.key(key),

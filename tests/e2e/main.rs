@@ -7,6 +7,7 @@ use std::time::{Duration, Instant};
 use harbour::tui::{DIR_PICKER, EDITOR, SESSION_COMMAND};
 
 mod cards;
+mod cursor;
 mod edit;
 mod editor;
 mod log;

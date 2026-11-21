@@ -23,6 +23,16 @@ fn leaving_the_terminal_turns_off_mouse_capture_and_bracketed_paste() {
 }
 
 #[test]
+fn leaving_the_terminal_gives_back_the_default_cursor_shape() {
+    let mut written = Vec::new();
+
+    leave_terminal(&mut written).unwrap();
+
+    let written = String::from_utf8(written).unwrap();
+    assert!(written.contains("\x1b[0 q"), "{written:?}");
+}
+
+#[test]
 fn the_panic_hook_is_silent_for_a_contained_panic_and_restores_for_another() {
     panic::set_hook(panic_hook(Box::new(|_| {
         RESTORED.fetch_add(1, Ordering::SeqCst);
