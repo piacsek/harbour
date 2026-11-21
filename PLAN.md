@@ -37,7 +37,8 @@ file under `plans/`; its time and tokens are a row of [`plans/metrics.md`](plans
 | 27 | [Alt-minus and Alt-equals change the sidebar's width](plans/phase-27-width-keys.md) | [v0.23.0](https://github.com/piacsek/harbour/releases/tag/v0.23.0) |
 | 28 | [jump to any session by typing part of its name](plans/phase-28-jump-by-name.md) | [v0.24.0](https://github.com/piacsek/harbour/releases/tag/v0.24.0) |
 | 29 | [Claude Code and its editor side by side](plans/phase-29-side-by-side.md) | [v0.24.0](https://github.com/piacsek/harbour/releases/tag/v0.24.0) |
-| 30 | [swap Claude Code and the editor in side by side](plans/phase-30-swap-halves.md), with the sweep of phases 25 to 29 | |
+| 30 | [swap Claude Code and the editor in side by side](plans/phase-30-swap-halves.md), with the sweep of phases 25 to 29 | [v0.25.0](https://github.com/piacsek/harbour/releases/tag/v0.25.0) |
+| 32 | [read the changelog inside harbour with c](plans/phase-32-changelog-view.md) | |
 
 ## Backlog
 
