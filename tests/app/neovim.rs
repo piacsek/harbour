@@ -13,6 +13,7 @@ use rmpv::Value;
 use crate::{Screen, reading_agent, script};
 
 const LEFTMOST: &str = "winnr('h') == winnr()";
+const RIGHTMOST: &str = "winnr('l') == winnr()";
 const UNSAVED: &str = "len(filter(getbufinfo({'bufmodified': 1}), \
                        {_, b -> index(['', 'acwrite'], getbufvar(b.bufnr, '&buftype')) >= 0}))";
 
@@ -302,6 +303,45 @@ fn ctrl_h_kept_by_a_neovim_that_asked_for_the_kitty_protocol_reaches_it_in_the_k
     assert!(shown.contains("acme nvim read:1b5b3130343b3575"), "{shown}");
 }
 
+#[test]
+fn swapped_ctrl_l_asks_neovim_its_mode_then_whether_its_window_is_rightmost() {
+    let scratch = tempfile::tempdir().unwrap();
+    let mut screen = swapped(scratch.path());
+    let asked = ready(&socket(scratch.path()), Some(1));
+
+    screen.key(KeyCode::Char('l'), KeyModifiers::CONTROL);
+
+    let first = asked.recv_timeout(Duration::from_secs(5)).unwrap();
+    let second = asked.recv_timeout(Duration::from_secs(5)).unwrap();
+    assert_eq!(first, "nvim_get_mode");
+    assert_eq!(second, format!("nvim_eval {RIGHTMOST}"));
+}
+
+#[test]
+fn swapped_ctrl_l_with_a_window_to_the_right_reaches_neovim() {
+    let scratch = tempfile::tempdir().unwrap();
+    let mut screen = swapped(scratch.path());
+    let _asked = ready(&socket(scratch.path()), Some(0));
+
+    screen.key(KeyCode::Char('l'), KeyModifiers::CONTROL);
+
+    let shown = screen.wait_for("acme nvim read:0c");
+    assert!(shown.contains("acme nvim read:0c"), "{shown}");
+}
+
+#[test]
+fn swapped_ctrl_l_in_the_rightmost_window_focuses_claude_code() {
+    let scratch = tempfile::tempdir().unwrap();
+    let mut screen = swapped(scratch.path());
+    let _asked = ready(&socket(scratch.path()), Some(1));
+
+    screen.key(KeyCode::Char('l'), KeyModifiers::CONTROL);
+    screen.type_text("hi\r");
+
+    let shown = screen.wait_for("acme agent got: hi");
+    assert!(!shown.contains("acme nvim read:"), "{shown}");
+}
+
 fn in_the_sidebar(scratch: &Path) -> Screen {
     in_the_sidebar_of(fake_neovim(scratch, "exec sleep 600").with_patience(Duration::from_secs(5)))
 }
@@ -419,4 +459,16 @@ fn serving(
         }
     });
     requests
+}
+
+fn swapped(scratch: &Path) -> Screen {
+    let neovim = fake_neovim(scratch, "exec sleep 600").with_patience(Duration::from_secs(5));
+    let mut screen = Screen::editing(reading_agent(), neovim);
+    screen.press('n');
+    screen.wait_for("acme agent ready");
+    screen.key(KeyCode::Char('\\'), KeyModifiers::ALT);
+    screen.wait_for("acme nvim ready");
+    screen.key(KeyCode::Char('}'), KeyModifiers::ALT);
+    screen.key(KeyCode::Char('h'), KeyModifiers::CONTROL);
+    screen
 }

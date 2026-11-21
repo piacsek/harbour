@@ -5,6 +5,8 @@ use ratatui::text::{Line, Span};
 use ratatui::widgets::Block;
 
 use super::App;
+use super::key::beside;
+use super::logging::Input;
 use crate::input::ESCAPED;
 use crate::mouse::{self, Gesture, Target};
 use crate::state::{self, Counts};
@@ -46,6 +48,39 @@ impl App {
         }
         if self.side_by_side && self.pane_focused {
             self.swapped = right;
+        }
+        true
+    }
+
+    pub(super) fn swapped_ctrl(&mut self, key: KeyEvent, ctrl_h: bool) -> bool {
+        let Some(entry) = self.sessions.get_mut(self.selected) else {
+            return false;
+        };
+        if !entry.on_editor {
+            if ctrl_h {
+                self.open_editor();
+                self.touch();
+            }
+            return ctrl_h;
+        }
+        match entry.showing_editor().filter(|editor| {
+            if ctrl_h {
+                editor.wants_ctrl_h()
+            } else {
+                editor.wants_ctrl_l()
+            }
+        }) {
+            Some(editor) => {
+                let bytes = beside(&editor.session, key);
+                editor.session.send(&bytes);
+                self.log_input(Input::Shown, bytes.len());
+            }
+            None => {
+                entry.on_editor = false;
+                if ctrl_h {
+                    self.pane_focused = false;
+                }
+            }
         }
         true
     }

@@ -66,6 +66,31 @@ fn a_window_on_the_left_makes_neovim_want_ctrl_h_and_its_mapping_moves_there() {
 }
 
 #[test]
+fn normal_mode_in_the_rightmost_window_lets_ctrl_l_go_to_claude_code() {
+    let Some(neovim) = Neovim::start("rightmost") else {
+        return;
+    };
+
+    let wants = neovim.editor.wants_ctrl_l();
+
+    assert!(!wants);
+}
+
+#[test]
+fn a_window_on_the_right_makes_neovim_want_ctrl_l() {
+    let Some(neovim) = Neovim::start("split-right") else {
+        return;
+    };
+    neovim.types(":vsplit\r");
+    neovim.holds("winnr('$') == 2");
+    neovim.holds("winnr() == 1");
+
+    let wants = neovim.editor.wants_ctrl_l();
+
+    assert!(wants);
+}
+
+#[test]
 fn an_operator_pending_keeps_ctrl_h_in_neovim() {
     let Some(neovim) = Neovim::start("operator") else {
         return;

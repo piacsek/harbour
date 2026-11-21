@@ -192,6 +192,66 @@ fn the_order_set_is_kept_when_the_mode_is_left_and_entered_again() {
     );
 }
 
+#[test]
+fn swapped_ctrl_h_from_claude_code_focuses_the_editor_on_the_left() {
+    let scratch = tempfile::tempdir().unwrap();
+    let mut screen = split(scratch.path());
+    right(&mut screen);
+
+    ctrl(&mut screen, 'h');
+    screen.type_text("hi\r");
+
+    let shown = screen.wait_for("acme editor got: hi");
+    assert!(
+        region(&shown, 0, 60).contains("acme editor got: hi"),
+        "{shown}"
+    );
+}
+
+#[test]
+fn swapped_ctrl_l_from_the_editor_focuses_claude_code_on_the_right() {
+    let scratch = tempfile::tempdir().unwrap();
+    let mut screen = split(scratch.path());
+    right(&mut screen);
+    ctrl(&mut screen, 'h');
+
+    ctrl(&mut screen, 'l');
+    screen.type_text("hi\r");
+
+    let shown = screen.wait_for("acme agent 1 got: hi");
+    assert!(
+        region(&shown, 60, 60).contains("acme agent 1 got: hi"),
+        "{shown}"
+    );
+}
+
+#[test]
+fn swapped_ctrl_l_from_claude_code_reaches_claude_code() {
+    let scratch = tempfile::tempdir().unwrap();
+    let mut screen = split(scratch.path());
+    right(&mut screen);
+
+    ctrl(&mut screen, 'l');
+    screen.type_text("hi\r");
+
+    let shown = screen.wait_for("acme agent 1 got:");
+    assert!(region(&shown, 60, 60).contains("hi"), "{shown}");
+    assert!(!shown.contains("acme editor got"), "{shown}");
+}
+
+#[test]
+fn swapped_ctrl_h_from_the_editor_brings_the_sidebar_back() {
+    let scratch = tempfile::tempdir().unwrap();
+    let mut screen = split(scratch.path());
+    right(&mut screen);
+    ctrl(&mut screen, 'h');
+
+    ctrl(&mut screen, 'h');
+
+    let shown = screen.draw();
+    assert_eq!(pane_corner(&shown), 40, "{shown}");
+}
+
 fn split(scratch: &std::path::Path) -> Screen {
     let mut screen = editing(scratch);
     side(&mut screen);
@@ -205,4 +265,8 @@ fn right(screen: &mut Screen) {
 
 fn left(screen: &mut Screen) {
     screen.key(KeyCode::Char('{'), KeyModifiers::ALT);
+}
+
+fn ctrl(screen: &mut Screen, c: char) {
+    screen.key(KeyCode::Char(c), KeyModifiers::CONTROL);
 }

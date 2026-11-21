@@ -42,6 +42,14 @@ impl App {
         {
             return;
         }
+        if self.pane_focused
+            && self.side_by_side
+            && self.swapped
+            && (is_ctrl(acted, 'h') || is_ctrl(acted, 'l'))
+            && self.swapped_ctrl(key, is_ctrl(acted, 'h'))
+        {
+            return;
+        }
         if self.pane_focused && is_ctrl(acted, 'h') {
             match self.sessions.get_mut(self.selected) {
                 Some(entry) if entry.on_editor => {
@@ -63,6 +71,7 @@ impl App {
         }
         if self.pane_focused
             && is_ctrl(acted, 'l')
+            && !(self.side_by_side && self.swapped)
             && self
                 .sessions
                 .get(self.selected)
