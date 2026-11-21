@@ -159,7 +159,7 @@ pub fn shown(changelog: &str, width: usize) -> Vec<Line<'static>> {
         } else if let Some(heading) = heading(line) {
             released |= line.starts_with("## ");
             lines.extend(
-                text::wrap(heading, width)
+                text::wrap(&unquoted(heading), width)
                     .into_iter()
                     .map(|part| Line::from(part).bold()),
             );

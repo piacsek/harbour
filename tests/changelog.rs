@@ -348,6 +348,13 @@ fn the_view_keeps_a_lone_backtick() {
 }
 
 #[test]
+fn the_view_drops_the_backticks_of_code_spans_in_a_heading() {
+    let lines = shown("## `acme` v0.1.0\n", 40);
+
+    assert_eq!(text(&lines[0]), "acme v0.1.0");
+}
+
+#[test]
 fn the_view_wraps_a_heading_wider_than_its_room() {
     let lines = shown("## v0.1.0 (2026-11-01)\n- acme\n", 10);
 

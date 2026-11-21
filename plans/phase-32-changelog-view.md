@@ -67,7 +67,8 @@ screen, as `?` shows the help, so what changed in a release can be read without 
 | A click or a paste while open | closes it, as the help |
 | The mouse wheel while open | scrolls a line a notch, down and up |
 | PageDown or PageUp while open | scrolls a whole view, clamped at both ends |
-| A code span in a bullet | its backticks dropped, its text kept; a lone backtick stays |
+| A code span in a bullet or a heading | its backticks dropped, its text kept; a lone backtick stays |
+| Caps Lock on (`J`, `K`, Ctrl-D, Ctrl-U with Shift) | scrolls as `j`, `k`, Ctrl-d and Ctrl-u |
 | A line of wide characters (CJK) | wrapped by display width (`src/text.rs`), never wider than the view |
 | A word wider than the view | cut by grapheme onto the next line |
 
@@ -102,3 +103,4 @@ screen, as `?` shows the help, so what changed in a release can be read without 
 - `ci` an unrelated `harbour edit` test (`an_open_harbour_could_not_take_is_printed_and_exits_three`) failed once under load in a ship's gates and passed on every rerun → none
 - `process` phase 31 was built in parallel and both branches added rows to `PLAN.md` and `plans/metrics.md`, so the merge of `main` conflicted there → none
 - `review-loop` round 1 found the wording "in place of the pane" for a view drawn over the whole screen, the wheel and PageDown and PageUp closing it, the backticks of code spans shown, no log of its close, and four `AGENTS.md` lines that did not name it → code
+- `review-loop` round 2 found Caps Lock closing the view on its scroll keys, backticks kept in a heading, the `jump.rs` line of `AGENTS.md` not naming the view, and `docs/keys.png` missing from the PR body → code

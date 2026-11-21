@@ -24,11 +24,11 @@ impl App {
         };
         let half = (reading.rows / 2).max(1);
         let page = reading.rows.max(1);
-        match (key.code, key.modifiers) {
-            (KeyCode::Char('j') | KeyCode::Down, KeyModifiers::NONE) => reading.down(1),
-            (KeyCode::Char('k') | KeyCode::Up, KeyModifiers::NONE) => reading.up(1),
-            (KeyCode::Char('d'), KeyModifiers::CONTROL) => reading.down(half),
-            (KeyCode::Char('u'), KeyModifiers::CONTROL) => reading.up(half),
+        match (key.code, key.modifiers - KeyModifiers::SHIFT) {
+            (KeyCode::Char('j' | 'J') | KeyCode::Down, KeyModifiers::NONE) => reading.down(1),
+            (KeyCode::Char('k' | 'K') | KeyCode::Up, KeyModifiers::NONE) => reading.up(1),
+            (KeyCode::Char('d' | 'D'), KeyModifiers::CONTROL) => reading.down(half),
+            (KeyCode::Char('u' | 'U'), KeyModifiers::CONTROL) => reading.up(half),
             (KeyCode::PageDown, KeyModifiers::NONE) => reading.down(page),
             (KeyCode::PageUp, KeyModifiers::NONE) => reading.up(page),
             _ => self.close_changelog(),

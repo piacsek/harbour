@@ -162,6 +162,62 @@ fn up_scrolls_one_line_back() {
 }
 
 #[test]
+fn shift_j_scrolls_one_line_on_under_caps_lock() {
+    let mut screen = reader(&long());
+    screen.key(KeyCode::Char('C'), KeyModifiers::SHIFT);
+
+    screen.key(KeyCode::Char('J'), KeyModifiers::SHIFT);
+
+    let shown = screen.draw();
+    assert!(!shown.contains("│Changelog"), "{shown}");
+    assert!(shown.contains("- acme step 16"), "{shown}");
+}
+
+#[test]
+fn shift_k_scrolls_one_line_back_under_caps_lock() {
+    let mut screen = reader(&long());
+    screen.key(KeyCode::Char('C'), KeyModifiers::SHIFT);
+    screen.press('j');
+
+    screen.key(KeyCode::Char('K'), KeyModifiers::SHIFT);
+
+    let shown = screen.draw();
+    assert!(shown.contains("│Changelog"), "{shown}");
+    assert!(!shown.contains("- acme step 16"), "{shown}");
+}
+
+#[test]
+fn ctrl_shift_d_scrolls_half_the_view_on_under_caps_lock() {
+    let mut screen = reader(&long());
+    screen.key(KeyCode::Char('C'), KeyModifiers::SHIFT);
+
+    screen.key(
+        KeyCode::Char('D'),
+        KeyModifiers::CONTROL | KeyModifiers::SHIFT,
+    );
+
+    let shown = screen.draw();
+    assert!(!shown.contains("- acme step 06"), "{shown}");
+    assert!(shown.contains("- acme step 07"), "{shown}");
+}
+
+#[test]
+fn ctrl_shift_u_scrolls_half_the_view_back_under_caps_lock() {
+    let mut screen = reader(&long());
+    screen.key(KeyCode::Char('C'), KeyModifiers::SHIFT);
+    screen.key(KeyCode::Char('d'), KeyModifiers::CONTROL);
+
+    screen.key(
+        KeyCode::Char('U'),
+        KeyModifiers::CONTROL | KeyModifiers::SHIFT,
+    );
+
+    let shown = screen.draw();
+    assert!(shown.contains("│Changelog"), "{shown}");
+    assert!(!shown.contains("- acme step 16"), "{shown}");
+}
+
+#[test]
 fn k_at_the_top_keeps_the_view_open() {
     let mut screen = reader(&long());
     screen.press('c');
