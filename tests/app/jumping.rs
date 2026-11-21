@@ -219,6 +219,30 @@ fn a_stopped_card_whose_directory_is_gone_says_why_as_enter_would() {
     assert!(!shown.contains("acme agent --resume"), "{shown}");
 }
 
+#[test]
+fn the_keys_a_terminal_without_extended_keys_sends_for_ctrl_one_to_ctrl_nine_reach_the_session() {
+    let mut screen = Screen::new(raw_reader(9));
+    screen.press('n');
+    screen.wait_for("acme agent ready");
+    screen.key(KeyCode::Enter, KeyModifiers::NONE);
+
+    screen.press('1');
+    screen.key(KeyCode::Char(' '), KeyModifiers::CONTROL);
+    screen.key(KeyCode::Esc, KeyModifiers::NONE);
+    screen.key(KeyCode::Char('\\'), KeyModifiers::CONTROL);
+    screen.key(KeyCode::Char(']'), KeyModifiers::CONTROL);
+    screen.key(KeyCode::Char('^'), KeyModifiers::CONTROL);
+    screen.key(KeyCode::Char('_'), KeyModifiers::CONTROL);
+    screen.key(KeyCode::Backspace, KeyModifiers::NONE);
+    screen.press('9');
+
+    let shown = screen.wait_for("acme agent read:");
+    assert!(
+        shown.contains("acme agent read: 31 00 1b 1c 1d 1e 1f 7f 39"),
+        "{shown}"
+    );
+}
+
 fn ctrl(screen: &mut Screen, digit: char) {
     screen.key(KeyCode::Char(digit), KeyModifiers::CONTROL);
 }
@@ -255,4 +279,12 @@ fn resuming_agent() -> Vec<String> {
         "echo \"acme agent $0 $1 in $(basename \"$PWD\")\"; \
          while :; do read -r line || continue; echo \"acme agent got: $line\"; done",
     )
+}
+
+fn raw_reader(length: usize) -> Vec<String> {
+    script(&format!(
+        "stty raw -echo; echo 'acme agent ready' >&2; \
+         dd bs=1 count={length} 2>/dev/null | od -An -tx1 | tr -s ' \\n' '  ' | \
+         sed 's/^/acme agent read:/' >&2; exec sleep 600"
+    ))
 }
