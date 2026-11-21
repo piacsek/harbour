@@ -37,8 +37,9 @@ pane, as `?` shows the help, so what changed in a release can be read without le
   write nothing.
 - **The screenshot**: the `changelog` shot runs a scratch build whose `CHANGELOG.md` holds three
   made-up releases in the release format, built from a copy of `src/`, `Cargo.toml`,
-  `Cargo.lock` and `rust-toolchain.toml` into the script's scratch `HOME`, with the worktree's
-  `target/` as its target directory, so only harbour itself compiles again.
+  `Cargo.lock` and `rust-toolchain.toml` into the script's scratch `HOME`, built into
+  `target/released/`, a target directory of its own, so it never replaces the binary of
+  `target/release/` and only its first run compiles the dependencies.
 
 ## States
 
