@@ -261,6 +261,115 @@ fn a_popup_of_one_row_shows_the_hint_alone() {
     assert_eq!(rows, vec!["  t raw text · Esc close"]);
 }
 
+#[test]
+fn a_narrower_popup_shrinks_the_bars_first() {
+    let report = parsed(FULL);
+
+    let rows = drawn(&report, 60, 30);
+
+    assert_eq!(
+        rows[1],
+        format!(
+            "  Session            {}{}   12%   resets 7:20pm",
+            full(1),
+            empty(5)
+        )
+    );
+    assert_eq!(
+        rows[6],
+        format!(
+            "   {}{}   64%  Long sessions keep their whole context",
+            full(3),
+            empty(1)
+        )
+    );
+}
+
+#[test]
+fn a_line_too_long_for_the_popup_is_cut_with_an_ellipsis() {
+    let report = parsed(FULL);
+
+    let rows = drawn(&report, 40, 30);
+
+    assert_eq!(
+        rows[6],
+        format!(
+            "   {}{}   64%  Long sessions keep their…",
+            full(3),
+            empty(1)
+        )
+    );
+    assert_eq!(harbour::text::columns(&rows[6]), 40);
+}
+
+#[test]
+fn a_span_that_fills_the_room_exactly_still_ends_with_an_ellipsis() {
+    let report = parsed(FULL);
+
+    let rows = drawn(&report, 21, 30);
+
+    assert_eq!(rows[1], "  Session           …");
+}
+
+#[test]
+fn the_narrowest_popup_cuts_every_line_to_its_width() {
+    let report = parsed(FULL);
+
+    let rows = drawn(&report, 10, 30);
+
+    assert_eq!(rows[1], "  Session…");
+    assert_eq!(rows[5], "  Last 24…");
+    assert_eq!(rows[rows.len() - 1], "  t raw t…");
+}
+
+#[test]
+fn a_cjk_tip_is_cut_by_its_display_width() {
+    let report = parsed(&format!("{LIMITS}\nLast 7d\n  30%  長いセッションが続く\n"));
+
+    let rows = drawn(&report, 30, 30);
+
+    assert_eq!(
+        rows[6],
+        format!("   {}{}   30%  長いセッション…", full(1), empty(3))
+    );
+    assert_eq!(harbour::text::columns(&rows[6]), 30);
+}
+
+#[test]
+fn a_limit_bar_is_green_under_70_percent() {
+    let lines = limit_lines("69.9");
+
+    assert_eq!(lines[1].spans[1].style.fg, Some(Color::Green));
+}
+
+#[test]
+fn a_limit_bar_is_yellow_from_70_percent() {
+    let lines = limit_lines("70");
+
+    assert_eq!(lines[1].spans[1].style.fg, Some(Color::Yellow));
+}
+
+#[test]
+fn a_limit_bar_is_red_from_90_percent() {
+    let lines = limit_lines("90");
+
+    assert_eq!(lines[1].spans[1].style.fg, Some(Color::Red));
+}
+
+#[test]
+fn a_percentage_above_100_fills_a_red_bar_and_prints_as_given() {
+    let report = parsed("Current session: 130% used · resets 7:20pm\n");
+
+    let rows = drawn(&report, 78, 30);
+    let lines = usage::lines(&report, 78, 30, Color::Cyan);
+
+    assert_eq!(
+        rows[1],
+        format!("  Session   {}  130%   resets 7:20pm", full(24))
+    );
+    assert_eq!(lines[1].spans[1].style.fg, Some(Color::Red));
+}
+
 fn parsed(text: &str) -> Report {
     usage::parse(text).unwrap()
 }
@@ -283,4 +392,9 @@ fn full(cells: usize) -> String {
 
 fn empty(cells: usize) -> String {
     "░".repeat(cells)
+}
+
+fn limit_lines(percent: &str) -> Vec<ratatui::text::Line<'static>> {
+    let report = parsed(&format!("Current session: {percent}% used\n"));
+    usage::lines(&report, 78, 30, Color::Cyan)
 }

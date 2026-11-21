@@ -187,7 +187,32 @@ pub fn lines(report: &Report, width: u16, height: u16, accent: Color) -> Vec<Lin
     if height > 0 {
         rows.push(Line::raw(HINT));
     }
-    rows
+    rows.into_iter().map(|row| cut(row, width)).collect()
+}
+
+fn cut(line: Line<'static>, width: usize) -> Line<'static> {
+    let total: usize = line
+        .spans
+        .iter()
+        .map(|span| text::columns(&span.content))
+        .sum();
+    if total <= width {
+        return line;
+    }
+    let mut room = width;
+    let mut spans = Vec::new();
+    for span in line.spans {
+        let columns = text::columns(&span.content);
+        if columns < room {
+            room -= columns;
+            spans.push(span);
+        } else {
+            let kept = text::fit(&format!("{} ", span.content), room);
+            spans.push(Span::styled(kept, span.style));
+            break;
+        }
+    }
+    Line::from(spans)
 }
 
 fn limit(line: &str) -> Option<Limit> {

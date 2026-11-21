@@ -119,6 +119,24 @@ fn t_on_a_report_that_does_not_parse_changes_nothing() {
     assert!(!shown.contains("t raw text"), "{shown}");
 }
 
+#[test]
+fn the_bars_are_drawn_again_for_each_width_while_open() {
+    let mut screen = Screen::of(app().with_usage(report("")));
+    screen.press('u');
+    screen.wait_for(ROW);
+
+    screen.resize(60, 20);
+    let narrow = screen.draw();
+    screen.resize(120, 20);
+    let wide = screen.draw();
+
+    assert!(
+        narrow.contains("  Session   ░░░░   12%   resets 7:20pm"),
+        "{narrow}"
+    );
+    assert!(wide.contains(ROW), "{wide}");
+}
+
 fn report(then: &str) -> Vec<String> {
     script(&format!(
         "printf 'You are on the acme team plan\\n\\n'; \
