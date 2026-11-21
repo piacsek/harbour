@@ -148,7 +148,7 @@ fn running(path: &Path) -> bool {
     path.file_stem()
         .and_then(|stem| stem.to_str())
         .and_then(|stem| stem.parse::<i32>().ok())
-        .is_some_and(registry::alive)
+        .is_some_and(|pid| pid > 0 && registry::alive(pid))
 }
 
 fn logs(dir: &Path) -> impl Iterator<Item = (PathBuf, fs::Metadata)> {

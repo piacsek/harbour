@@ -116,6 +116,18 @@ fn a_log_older_than_seven_days_is_removed_at_the_start() {
 }
 
 #[test]
+fn an_old_log_named_for_pid_zero_is_removed() {
+    let scratch = tempfile::tempdir().unwrap();
+    let dir = private_folder(scratch.path());
+    write_aged(&dir.join("0.log"), days(7) + 60);
+
+    Log::open(&dir).write(|| "start".to_string());
+
+    wait_for_line(&own_file(&dir), "start");
+    assert!(!dir.join("0.log").exists());
+}
+
+#[test]
 fn a_log_younger_than_seven_days_is_kept() {
     let scratch = tempfile::tempdir().unwrap();
     let dir = private_folder(scratch.path());

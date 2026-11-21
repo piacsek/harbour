@@ -125,6 +125,17 @@ where the newest one is. Off by default.
   were shot again; `docs/details.png` did not change.
 - One new seam, `App::with_slow_frame`, on the `SEAMS` list: it lets a test set the slow-frame
   threshold to zero or a minute instead of waiting 100 ms.
+- 2 review rounds.
+
+### Left for a follow-up issue
+
+- A session restarted in place logs a `selected` line.
+- A session removed with `x` leaves no `removed` or `exited` line.
+- An editor closed as silent has Neovim call lines but no start or end line.
+- A bound key with an extra modifier (Alt-q) is logged as `other`.
+- A refusal repeated in a row is logged once.
+- A panic of harbour itself is not written and can lose the queued lines.
+- The bookkeeping still runs with the log off.
 
 ## Hurdles
 
