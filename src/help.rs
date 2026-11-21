@@ -15,11 +15,4 @@ pub const KEYS: &[(&str, &str)] = &[
     ("q", "quit, after a yes while a session or editor runs"),
 ];
 
-pub const NOTES: [&str; 6] = [
-    "n runs fzf over the directory harbour was opened in and zoxide's list; HARBOUR_DIR_PICKER names another picker.",
-    "C-l opens nvim at Claude Code's repository root; HARBOUR_EDITOR names another.",
-    "C-Backspace acts as C-h. In Neovim, C-h goes back only from the leftmost window, in normal mode.",
-    "With vim-tmux-navigator, add harbour to the processes it sends C-h and C-l to.",
-    "Under tmux, a newline is Shift-Enter with extended-keys on, else Alt-Enter.",
-    "HARBOUR_LOG=1 keeps a private log; harbour log prints its path.",
-];
+pub const REST: &str = "harbour --help has the rest.";

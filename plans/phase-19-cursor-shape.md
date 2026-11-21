@@ -7,8 +7,8 @@ tui-term) painted it as a highlighted cell, and the `ESC [ <n> SP q` a program s
 cursor's shape was dropped by `Replies::unhandled_csi` in `src/session.rs`. Neovim's insert
 mode should show a thin bar and its replace mode an underline. Decided in the issue: harbour
 places the terminal's real cursor at the pane's cursor cell and sends it the program's shape,
-and the widget stops painting a cursor. Phase 18 is reserved for another issue; the gap is
-intended. Issue #35 (no pane cursor while the sidebar has focus) is built right after this one,
+and the widget stops painting a cursor.
+Issue #35 (no pane cursor while the sidebar has focus) is built right after this one,
 on top of it, so the one place the real cursor is placed stays easy to make conditional.
 
 ## Verified facts (2026-11-21, `main` at fb3127a)
