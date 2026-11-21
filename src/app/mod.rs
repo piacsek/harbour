@@ -14,6 +14,7 @@ mod logging;
 mod read;
 mod remember;
 mod split;
+mod usage;
 
 use draw::exit_note;
 use logging::Input;
@@ -42,6 +43,7 @@ pub struct App {
     editor: Option<Program>,
     picking: Option<Pick>,
     picking_area: Rect,
+    usage: usage::Usage,
     screen: Rect,
     sessions: Vec<Entry>,
     selected: usize,
@@ -155,6 +157,7 @@ impl App {
             .ok()
             .or_else(|| std::env::var_os("PWD").map(PathBuf::from))
             .unwrap_or_default();
+        let usage = usage::Usage::new(&command);
         App {
             command,
             home,
@@ -162,6 +165,7 @@ impl App {
             editor: None,
             picking: None,
             picking_area: Rect::default(),
+            usage,
             screen: Rect::new(0, 0, 80, 24),
             sessions: Vec::new(),
             selected: 0,

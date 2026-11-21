@@ -52,6 +52,7 @@ impl Focus {
 
 pub(super) enum Input {
     Picker,
+    Usage,
     Shown,
 }
 
@@ -109,6 +110,7 @@ impl App {
         self.logging.forwarded = true;
         let to = match input {
             Input::Picker => "to=picker".to_string(),
+            Input::Usage => "to=usage".to_string(),
             Input::Shown => match self.sessions.get(self.selected) {
                 Some(entry) => match entry.showing_editor() {
                     Some(editor) => format!("to=editor session={} editor={}", entry.id, editor.id),

@@ -192,6 +192,9 @@ impl App {
             frame.render_widget(pick.session(), inner);
             cursor = placed(pick.session(), inner);
         }
+        if self.draw_usage(frame) {
+            cursor = (None, 0);
+        }
         (self.cursor, self.shape) = cursor;
     }
 
@@ -279,7 +282,7 @@ pub(super) fn exit_note(status: &ExitStatus) -> String {
     }
 }
 
-fn bordered(focused: bool, accent: Color) -> Block<'static> {
+pub(super) fn bordered(focused: bool, accent: Color) -> Block<'static> {
     if focused {
         Block::bordered()
             .border_type(BorderType::Thick)

@@ -36,6 +36,7 @@ mod status;
 mod stopping;
 mod switching;
 mod transcripts;
+mod usage;
 mod waits;
 mod width;
 
