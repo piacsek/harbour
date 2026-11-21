@@ -34,6 +34,7 @@ mod refusing;
 mod remembering;
 mod reserving;
 mod selection;
+mod settling;
 mod side;
 mod side_border;
 mod side_jump;

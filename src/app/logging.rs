@@ -148,6 +148,10 @@ impl App {
         self.logging.log.write(|| "usage closed".to_string());
     }
 
+    pub(super) fn log_stop(&self, cause: &str) {
+        self.logging.log.write(|| cause.to_string());
+    }
+
     pub(super) fn log_paste(&mut self) {
         self.logging.forwarded = false;
         self.log_changes();

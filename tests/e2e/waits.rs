@@ -1,6 +1,7 @@
 use std::path::Path;
 
 use crate::log::wait_for_log;
+use crate::signals::wait_for_empty;
 use crate::{Server, WORKING, wait_for_status};
 
 #[test]
@@ -62,6 +63,22 @@ fn a_wait_for_a_log_line_never_written_fails_naming_it_and_the_log() {
 
     assert!(failure.contains(r#""acme never written""#), "{failure}");
     assert!(failure.contains("acme written"), "{failure}");
+}
+
+#[test]
+#[ignore]
+fn a_wait_for_an_empty_folder_that_keeps_a_file_fails_naming_it_and_the_file() {
+    let home = tempfile::tempdir().unwrap();
+    let folder = home.path().join(".local/state/harbour/acme");
+    std::fs::create_dir_all(&folder).unwrap();
+    std::fs::write(folder.join("acme.kept"), "").unwrap();
+
+    let failure = failure(|| {
+        wait_for_empty(home.path(), "acme");
+    });
+
+    assert!(failure.contains("empty acme folder"), "{failure}");
+    assert!(failure.contains("acme.kept"), "{failure}");
 }
 
 fn failure(wait: impl FnOnce()) -> String {

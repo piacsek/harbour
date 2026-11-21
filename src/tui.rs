@@ -2,6 +2,8 @@ use std::collections::VecDeque;
 use std::io;
 use std::os::fd::AsFd;
 use std::panic::PanicHookInfo;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::time::Duration;
 
 use crossterm::cursor::{MoveTo, Show};
@@ -10,8 +12,11 @@ use crossterm::event::{
     KeyEventKind,
 };
 use crossterm::{execute, queue};
+use nix::errno::Errno;
 use ratatui::Terminal;
 use ratatui::backend::CrosstermBackend;
+use signal_hook::consts::{SIGHUP, SIGINT, SIGTERM};
+use signal_hook::low_level::{emulate_default_handler, signal_name};
 
 use crate::app::App;
 use crate::config::{Config, Source};
@@ -75,24 +80,89 @@ pub fn run(config: Config) -> io::Result<()> {
     if let Some(log) = log {
         log.finish(Duration::from_millis(500));
     }
-    shown
+    ended(shown)
 }
 
 pub fn demo() -> io::Result<()> {
     let registry = Registry::create_in(&std::env::temp_dir())?;
-    show(App::demo(registry.path().to_path_buf()))
+    let shown = show(App::demo(registry.path().to_path_buf()));
+    drop(registry);
+    ended(shown)
 }
 
-fn show(app: App) -> io::Result<()> {
+fn ended(shown: io::Result<Option<i32>>) -> io::Result<()> {
+    if let Some(signal) = shown? {
+        emulate_default_handler(signal)?;
+    }
+    Ok(())
+}
+
+fn show(app: App) -> io::Result<Option<i32>> {
+    let caught = caught()?;
     let app = app.with_mover(Box::new(|directory| std::env::set_current_dir(directory)));
     let mut terminal = ratatui::init();
     let shape = Shape::default();
     std::panic::set_hook(panic_hook(shape.clone(), std::panic::take_hook()));
-    let result =
-        enter_terminal(&mut io::stdout()).and_then(|()| drive(&mut terminal, app, shape.clone()));
+    let result = enter_terminal(&mut io::stdout())
+        .and_then(|()| drive(&mut terminal, app, shape.clone(), &caught));
     let _ = leave_terminal(&mut io::stdout(), &shape);
-    ratatui::restore();
-    result
+    let _ = ratatui::try_restore();
+    std::mem::forget(terminal);
+    result.map(|ended| ended.or_else(|| signalled(&caught)))
+}
+
+fn caught() -> io::Result<Arc<AtomicUsize>> {
+    let caught = Arc::new(AtomicUsize::new(0));
+    let armed = Arc::new(AtomicBool::new(false));
+    for signal in [SIGINT, SIGTERM] {
+        signal_hook::flag::register_conditional_default(signal, Arc::clone(&armed))?;
+        signal_hook::flag::register_usize(signal, Arc::clone(&caught), number(signal)?)?;
+        signal_hook::flag::register(signal, Arc::clone(&armed))?;
+    }
+    signal_hook::flag::register_usize(SIGHUP, Arc::clone(&caught), number(SIGHUP)?)?;
+    Ok(caught)
+}
+
+fn number(signal: i32) -> io::Result<usize> {
+    usize::try_from(signal).map_err(io::Error::other)
+}
+
+pub fn hung_up(error: &io::Error) -> bool {
+    error.kind() == io::ErrorKind::UnexpectedEof || error.raw_os_error() == Some(Errno::EIO as i32)
+}
+
+pub fn settled(
+    app: &mut App,
+    stepped: io::Result<()>,
+    caught: &AtomicUsize,
+) -> io::Result<Option<i32>> {
+    if let Some(signal) = signalled(caught) {
+        app.stop(&named(signal));
+        return Ok(Some(signal));
+    }
+    match stepped {
+        Ok(()) => Ok(None),
+        Err(error) if hung_up(&error) => {
+            app.stop("hangup");
+            Ok(Some(SIGHUP))
+        }
+        Err(error) => {
+            app.stop("error");
+            Err(error)
+        }
+    }
+}
+
+fn signalled(caught: &AtomicUsize) -> Option<i32> {
+    match caught.load(Ordering::Relaxed) {
+        0 => None,
+        signal => i32::try_from(signal).ok(),
+    }
+}
+
+fn named(signal: i32) -> String {
+    let name = signal_name(signal).unwrap_or("SIG?");
+    format!("signal name={}", name.trim_start_matches("SIG"))
 }
 
 pub fn panic_hook(shape: Shape, restore_terminal: Box<PanicHook>) -> Box<PanicHook> {
@@ -122,21 +192,44 @@ fn drive(
     terminal: &mut ratatui::DefaultTerminal,
     mut app: App,
     mut shape: Shape,
-) -> io::Result<()> {
+    caught: &AtomicUsize,
+) -> io::Result<Option<i32>> {
     let stdin = io::stdin();
     let mut input = Input::default();
     let mut pending = VecDeque::new();
     while app.running() {
-        frame(terminal, &mut app, &mut shape, &mut io::stdout())?;
-        if pending.is_empty() {
-            pending.extend(input.read(stdin.as_fd(), Duration::from_millis(30))?);
+        let stepped = step(
+            terminal,
+            &mut app,
+            &mut shape,
+            &mut input,
+            &mut pending,
+            &stdin,
+        );
+        if let Some(signal) = settled(&mut app, stepped, caught)? {
+            return Ok(Some(signal));
         }
-        match pending.pop_front() {
-            Some(Event::Key(key)) if key.kind != KeyEventKind::Release => app.key(key),
-            Some(Event::Paste(text)) => app.paste(&text),
-            Some(Event::Mouse(mouse)) => app.mouse(mouse),
-            _ => {}
-        }
+    }
+    Ok(None)
+}
+
+fn step(
+    terminal: &mut ratatui::DefaultTerminal,
+    app: &mut App,
+    shape: &mut Shape,
+    input: &mut Input,
+    pending: &mut VecDeque<Event>,
+    stdin: &io::Stdin,
+) -> io::Result<()> {
+    frame(terminal, app, shape, &mut io::stdout())?;
+    if pending.is_empty() {
+        pending.extend(input.read(stdin.as_fd(), Duration::from_millis(30))?);
+    }
+    match pending.pop_front() {
+        Some(Event::Key(key)) if key.kind != KeyEventKind::Release => app.key(key),
+        Some(Event::Paste(text)) => app.paste(&text),
+        Some(Event::Mouse(mouse)) => app.mouse(mouse),
+        _ => {}
     }
     Ok(())
 }

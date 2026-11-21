@@ -1,3 +1,4 @@
+use std::io;
 use std::panic;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::thread::sleep;
@@ -5,7 +6,7 @@ use std::time::{Duration, Instant};
 
 use harbour::cursor::Shape;
 use harbour::session::Session;
-use harbour::tui::{enter_terminal, leave_terminal, panic_hook};
+use harbour::tui::{enter_terminal, hung_up, leave_terminal, panic_hook};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::widgets::Widget;
@@ -125,6 +126,23 @@ fn the_panic_hook_is_silent_for_a_contained_panic_and_restores_for_another() {
     let _ = panic::take_hook();
     assert_eq!(after_the_contained_panic, 0);
     assert_eq!(RESTORED.load(Ordering::SeqCst), 1);
+}
+
+#[test]
+fn an_end_of_input_reads_as_the_terminal_hung_up() {
+    assert!(hung_up(&io::Error::from(io::ErrorKind::UnexpectedEof)));
+}
+
+#[test]
+fn an_input_output_error_reads_as_the_terminal_hung_up() {
+    assert!(hung_up(&io::Error::from_raw_os_error(
+        nix::errno::Errno::EIO as i32
+    )));
+}
+
+#[test]
+fn another_error_does_not_read_as_the_terminal_hung_up() {
+    assert!(!hung_up(&io::Error::from(io::ErrorKind::PermissionDenied)));
 }
 
 fn wide_at_the_edge() -> [String; 3] {
