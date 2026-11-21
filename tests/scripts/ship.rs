@@ -337,6 +337,7 @@ fn ship_sandbox(root: &Path) -> PathBuf {
     git(root, &["init", "-q", "--bare", "origin.git"]);
     git(&work, &["remote", "add", "origin", "../origin.git"]);
     link_script(&work, "ship.sh");
+    link_script(&work, "gates-lock.sh");
     link_script(&work, "scrub-check.sh");
     symlink(recorder(), work.join("scripts/gates.sh")).unwrap();
     symlink(recorder(), work.join("scripts/dev-install.sh")).unwrap();

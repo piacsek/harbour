@@ -8,12 +8,15 @@ if [ "$branch" = "main" ]; then
   exit 1
 fi
 cargo fmt
+. scripts/gates-lock.sh
+lock_gates
 scripts/gates.sh
 if reason="$(scripts/dev-install-skippable.sh)"; then
   echo "skipping dev-install: $reason"
 else
   scripts/dev-install.sh
 fi
+release
 git add -A
 scripts/scrub-check.sh
 if git diff --cached --quiet && [ -n "$(git rev-list HEAD --not --remotes)" ]; then

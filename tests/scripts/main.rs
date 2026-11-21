@@ -9,6 +9,7 @@ mod flake_ok;
 mod flake_workflow;
 mod formula_version;
 mod gates;
+mod gates_lock;
 mod helpers;
 mod homebrew_formula;
 mod next_version;
