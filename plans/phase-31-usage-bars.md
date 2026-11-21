@@ -107,4 +107,18 @@ shapes below are written in invented wording and numbers; nothing the probe prin
 
 ## Outcome
 
+- Shipped as planned, in five tasks: the limit bars, the breakdowns and notes, `t` and the
+  hints, the cut and the colours, the demo and `docs/usage.png`.
+- The bars show only once the report finished; the existing app tests whose made-up reports
+  read `<n>% used` were reworded to `% spent`, so they keep testing the text view.
+- `lines` cuts each line span by span: a span that overflows, or fills the room while more
+  follows, is cut with `text::fit`, so a line that does not fit always ends in `…`.
+- Unverified, as in "Verified facts": the report of an account with no weekly limit, no model
+  line, or an API key.
+
 ## Hurdles
+
+- `test-seam` The first ship failed on the end-to-end demo test, which waited for the report's
+  raw text that the bars now replace → code
+- `design` Two expected rows of the drawing tests were counted by hand wrongly (a 4-cell bar's
+  rounding, a 58-column inside taken for 60) and fixed in the test before the code → none

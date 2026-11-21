@@ -254,7 +254,16 @@ fn u_in_the_demo_shows_a_made_up_usage_report() {
 
     let screen = server.wait_for_screen("12%   resets 3:40pm");
     assert!(screen.contains(" usage "), "{screen}");
-    assert!(screen.contains("31%   resets Mon 9:00am"), "{screen}");
+    assert!(screen.contains("74%   resets Mon 9:00am"), "{screen}");
+    assert!(
+        screen.contains("Last 7d · 6815 requests · 41 sessions"),
+        "{screen}"
+    );
+    assert!(
+        screen.contains("subagents   Explore 22% · Plan 4%"),
+        "{screen}"
+    );
+    assert!(screen.contains("t raw text · Esc close"), "{screen}");
 }
 
 fn harbours_tmux(server: &Server) -> (String, String) {

@@ -62,14 +62,22 @@ pub fn editor() -> Program {
 const UNKNOWN: &str = r#"printf 'acme shell in ~/%s\n' "${PWD##*/}"
 exec sleep 86400"#;
 
-const USAGE: &str = r#"printf 'Your usage is billed to the acme team plan.\n\n'
-printf 'Current session: 12%% used · resets 3:40pm\n'
-printf 'Current week (all models): 31%% used · resets Mon 9:00am\n'
-printf 'Current week (acme-large): 18%% used · resets Mon 9:00am\n\n'
-printf '\033[1mWhat'"'"'s contributing to your usage?\033[0m\n\n'
-printf '  Last 5 hours: 84 requests across 4 sessions\n'
-printf '  Top skills: tdd (21), review (9)\n'
-printf '  Subagents: 7 runs, most of them Explore\n'"#;
+const USAGE: &str = r#"printf 'You are on the acme team plan\n\n'
+printf 'Current session: 12%% used · resets 3:40pm (Acme/Harbour)\n'
+printf 'Current week (all models): 74%% used · resets Mon 9:00am (Acme/Harbour)\n'
+printf 'Current week (acme-large): 93%% used · resets Mon 9:00am (Acme/Harbour)\n\n'
+printf '\033[1mWhat'"'"'s contributing to your usage?\033[0m\n'
+printf 'Estimates from this machine · shares overlap\n\n'
+printf 'Last 24h · 1240 requests · 12 sessions\n'
+printf '  62%%  Long sessions keep their whole context · start fresh more often\n'
+printf '  31%%  Restart when the task changes · run /clear\n'
+printf '  9%%  Run reviews on a smaller model\n'
+printf '  Top skills: tdd 14%%, review 6%%\n'
+printf '  Top subagents: Explore 22%%, Plan 4%%\n\n'
+printf 'Last 7d · 6815 requests · 41 sessions\n'
+printf '  48%%  Long sessions keep their whole context · start fresh more often\n'
+printf '  27%%  Restart when the task changes · run /clear\n'
+printf '  Top skills: tdd 9%%\n'"#;
 
 pub fn fresh() -> Vec<String> {
     script(WORKING)
