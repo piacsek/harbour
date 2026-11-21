@@ -227,6 +227,28 @@ fn an_unknown_colour_name_is_refused() {
 }
 
 #[test]
+fn a_nerd_font_that_is_not_true_or_false_is_refused() {
+    let home = tempfile::tempdir().unwrap();
+    let path = write_config(home.path(), "accent = \"cyan\"\nnerd_font = \"yes\"\n");
+
+    assert_eq!(
+        refusal(home.path()),
+        format!("{}:2: nerd_font: expected true or false", path.display())
+    );
+}
+
+#[test]
+fn a_nerd_font_given_as_a_number_is_refused() {
+    let home = tempfile::tempdir().unwrap();
+    let path = write_config(home.path(), "nerd_font = 1\n");
+
+    assert_eq!(
+        refusal(home.path()),
+        format!("{}:1: nerd_font: expected true or false", path.display())
+    );
+}
+
+#[test]
 fn a_short_hex_colour_is_refused() {
     let home = tempfile::tempdir().unwrap();
     let path = write_config(home.path(), "accent = \"#12345\"\n");

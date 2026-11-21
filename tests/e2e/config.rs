@@ -302,6 +302,22 @@ fn the_sidebar_width_from_the_file_sets_the_sidebar_columns() {
     assert_eq!(top.chars().position(|c| c == '┌'), Some(30), "{top}");
 }
 
+#[test]
+#[ignore]
+fn the_nerd_font_from_the_file_puts_icons_in_the_pane_border() {
+    let home = tempfile::tempdir().unwrap();
+    write_config(home.path(), "nerd_font = true\n");
+    let server = Server::start("config-nerd-font", 160, 20);
+    server.run(home.path(), &[(SESSION_COMMAND, AGENT)], &[]);
+    server.wait_for_screen("press n to start one");
+
+    server.send_keys(&["n"]);
+
+    let screen = server.wait_for_screen("acme agent in acme-api");
+    let top = screen.lines().next().unwrap_or_default();
+    assert!(top.contains(" \u{F0674} claude | \u{E6AE} nvim "), "{top}");
+}
+
 fn coloured(server: &Server) -> String {
     let output = server
         .tmux(&["capture-pane", "-p", "-e", "-t", "e2e"])
