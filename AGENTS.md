@@ -463,13 +463,12 @@ nearest the code the guideline is about.
   check, taking a change back out of the pull request, or adding the fragment the `version`
   check asked for. Any other fix, whatever file it touches, gets another round. `gh pr ready`
   comes after the findings are addressed, not before.
-  - **A docs-only pull request gets one round at `medium`.** When every path it changes is a
-    `.md` file that does not feed the binary (`scripts/feeds-binary.sh`) and is not a fragment
-    under `changes/`, the orchestrator runs one round of `/code-review medium <N>`, fixes what
-    it rates must or should in one ship, and runs no round for those fixes: rule text has no
-    tests, and a review at `high` finds another edge case in its wording every round. A pull
-    request that also touches anything else (a script, a workflow, a test, `src/`) keeps the
-    full loop.
+  - **A docs-only pull request gets one round at `medium`.** When `scripts/docs-only.sh` says
+    the branch is docs-only (every path it changes a `.md` file that does not feed the binary,
+    outside `changes/` and `.github/`), the orchestrator runs one round of
+    `/code-review medium <N>`, fixes what it rates must or should in one ship, and runs no round
+    for those fixes: rule text has no tests, and a review at `high` finds another edge case in
+    its wording every round. Any other pull request keeps the full loop.
   - **Scrub before ready and before the merge.** CI does not run the scrub, and a commit
     pushed without `ship.sh` would otherwise never meet it. Before `gh pr ready` the
     orchestrator runs `scripts/scrub-check.sh` in the branch's worktree at the PR head; without
