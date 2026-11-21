@@ -6,7 +6,7 @@ use harbour::picker::Picker;
 
 use crate::{Screen, script};
 
-const FINDER: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/finder/fzf");
+pub(crate) const FINDER: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/finder/fzf");
 
 #[test]
 fn alt_s_lists_the_sessions_in_fzf_and_enter_jumps_to_the_chosen_one() {

@@ -102,7 +102,7 @@ fn who(entry: &mut Entry) -> Who {
     }
 }
 
-fn is_find(key: KeyEvent) -> bool {
+pub(super) fn is_find(key: KeyEvent) -> bool {
     matches!(key.code, KeyCode::Char('s' | 'S'))
         && key.modifiers == KeyModifiers::ALT
         && key.kind == KeyEventKind::Press

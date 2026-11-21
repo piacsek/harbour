@@ -98,14 +98,14 @@ Esc closes it and changes nothing. It works from the sidebar and from a Claude C
 | --- | --- |
 | Sessions exist, fzf present | the popup opens over the screen, ` sessions ` on its border, one line per card in sidebar order |
 | No session and no stopped card | nothing happens |
-| fzf missing | `Could not start fzf: is it installed and on PATH?`, nothing changes |
+| fzf missing | `Could not start fzf: is it installed and on PATH?` (`not an executable file` for a path), nothing changes |
 | fzf cannot start, or exits 2, 126 or 127 | `Could not start fzf: it exited with <code>`, nothing changes |
 | The picker is not fzf (`HARBOUR_DIR_PICKER=sk`, a config `picker` of another program) | `Could not start the session finder: it needs fzf, not sk`, nothing changes |
 | Esc, or Enter with no match | the popup closes, selection and focus as before |
 | A running session picked | it is selected and its pane focused, as Ctrl-N |
 | An exited session picked (exited before the popup opened) | it is selected and its pane focused, as Ctrl-N |
 | A stopped card picked | it resumes in its directory, as Enter |
-| The picked session exited while the popup was open | nothing is selected, `That session is gone`, focus as before |
+| The picked session exited while the popup was open | nothing is selected, `That session is gone: it ended while the list was open.`, focus as before |
 | A picked stopped card cannot resume (`directory gone`, `open elsewhere`) | its card is selected and says why, the sidebar focused |
 | The list changes while the popup is open (a session exits, a title or branch changes) | the popup keeps the list from when it opened; a pick of an exited session is the row above |
 | 100 stopped cards | 100 lines plus the running sessions; fzf scrolls and filters them |
