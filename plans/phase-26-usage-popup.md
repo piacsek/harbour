@@ -53,6 +53,9 @@ scratch tmux server at 78 by 28:
   `CLAUDE_CONFIG_DIR`), `TMUX` and `TMUX_PANE` removed like the picker's.
 - **Its PTY is 200 rows by the popup's inner width** and never resized in rows, so a short
   popup shows the top of the report rather than its end.
+- **The help row.** `u  show Claude Code's usage and limits` joins `KEYS` before `?`. With it
+  the help view no longer fit 20 rows beside the narrowest sidebar, so the `q` row is shortened
+  to `quit, after a yes while anything runs`; the headroom test drops from 4 rows to 3.
 - The log names `u` when harbour acts on it and `to=usage` with a byte count for what the popup
   receives; it never records what the popup shows.
 

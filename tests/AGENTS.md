@@ -21,7 +21,10 @@ these suites come from; the ones about sessions were hit in harbour.
   `tests/fixtures/registered-agent.sh` or `tests/fixtures/titled-agent.sh` (which write a registry
   file, and the second a transcript, so only under a scratch `HOME`) or `tests/fixtures/shaped-agent.sh`;
   in-process tests hand `App::new` or `Session::start` a `/bin/sh -c` script; the one executable
-  a test writes is a picker whose interpreter is missing.
+  a test writes is a picker whose interpreter is missing. The usage popup of `u` runs the
+  session command's program only when its file name is `claude`: `tests/app/usage.rs` links
+  `tests/fixtures/args-agent.sh` as `claude` in a scratch directory, and every other test hands
+  the report to `App::with_usage` as a script.
 
 - **No test opens the real fzf or reads the real zoxide database.** `n` runs fzf over
   `zoxide query --list` unless `HARBOUR_DIR_PICKER` names another picker, and both are on the

@@ -12,8 +12,9 @@ pub const KEYS: &[(&str, &str)] = &[
         "x",
         "end the session and its editors, or forget it once it has ended",
     ),
+    ("u", "show Claude Code's usage and limits"),
     ("?", "show or hide the help"),
-    ("q", "quit, after a yes while a session or editor runs"),
+    ("q", "quit, after a yes while anything runs"),
 ];
 
 pub const REST: &str = "harbour --help has the rest.";

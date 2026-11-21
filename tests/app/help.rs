@@ -107,13 +107,27 @@ fn the_whole_help_shows_on_a_20_row_terminal() {
 }
 
 #[test]
-fn the_help_leaves_four_rows_for_new_keys_on_a_20_row_terminal() {
+fn the_help_leaves_three_rows_for_new_keys_on_a_20_row_terminal() {
     let mut screen = Screen::new(reading_agent());
 
     screen.press('?');
 
     let shown = screen.draw();
-    assert_eq!(spare_rows(&shown), 4, "{shown}");
+    assert_eq!(spare_rows(&shown), 3, "{shown}");
+}
+
+#[test]
+fn question_mark_shows_the_usage_key_on_one_row_beside_the_narrowest_sidebar() {
+    let mut screen = Screen::new(reading_agent());
+    screen.resize(60, 20);
+
+    screen.press('?');
+
+    let shown = screen.draw();
+    assert!(
+        shown.contains("u          show Claude Code's usage and limits"),
+        "{shown}"
+    );
 }
 
 #[test]
