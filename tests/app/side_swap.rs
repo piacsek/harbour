@@ -252,6 +252,27 @@ fn swapped_ctrl_h_from_the_editor_brings_the_sidebar_back() {
     assert_eq!(pane_corner(&shown), 40, "{shown}");
 }
 
+#[test]
+fn swapped_ctrl_2_shows_the_second_session_in_the_order_set() {
+    let scratch = tempfile::tempdir().unwrap();
+    let mut screen = editing(scratch.path());
+    ctrl(&mut screen, 'h');
+    screen.press('n');
+    screen.wait_for("acme agent 2");
+    ctrl(&mut screen, '1');
+    side(&mut screen);
+    screen.wait_for("acme editor ready");
+    right(&mut screen);
+
+    ctrl(&mut screen, '2');
+
+    let shown = screen.wait_until("the second editor", |shown| {
+        region(shown, 60, 60).contains("acme agent 2")
+            && region(shown, 0, 60).contains("acme editor ready")
+    });
+    assert_eq!(pane_corner(&shown), 60, "{shown}");
+}
+
 fn split(scratch: &std::path::Path) -> Screen {
     let mut screen = editing(scratch);
     side(&mut screen);
