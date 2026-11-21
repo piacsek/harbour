@@ -1,7 +1,10 @@
-use crossterm::event::{KeyCode, KeyModifiers};
+use crossterm::event::{KeyCode, KeyModifiers, MouseButton, MouseEventKind};
 use harbour::app::App;
 use harbour::changelog::{CHANGELOG, shown};
+use harbour::handoff::{Reply, Verb};
 
+use crate::handing::answering;
+use crate::handoff::{file, harbour, soon, start_in};
 use crate::{Screen, directory, reading_agent};
 
 #[test]
@@ -251,6 +254,72 @@ fn a_taller_terminal_keeps_the_last_line_at_the_bottom() {
     assert!(!shown.contains("- acme step 02"), "{shown}");
     assert!(shown.contains("- acme step 03"), "{shown}");
     assert!(shown.contains("- acme step 30"), "{shown}");
+}
+
+#[test]
+fn a_click_closes_the_view() {
+    let mut screen = reader(RELEASES);
+    screen.press('c');
+
+    screen.mouse(MouseEventKind::Down(MouseButton::Left), 45, 3);
+
+    let shown = screen.draw();
+    assert!(!shown.contains(" changelog "), "{shown}");
+}
+
+#[test]
+fn a_paste_closes_the_view() {
+    let mut screen = reader(RELEASES);
+    screen.press('c');
+
+    screen.app.paste("acme");
+
+    let shown = screen.draw();
+    assert!(!shown.contains(" changelog "), "{shown}");
+}
+
+#[test]
+fn c_while_the_help_shows_closes_the_help_only() {
+    let mut screen = reader(RELEASES);
+    screen.press('?');
+
+    screen.press('c');
+
+    let shown = screen.draw();
+    assert!(!shown.contains(" help "), "{shown}");
+    assert!(!shown.contains(" changelog "), "{shown}");
+}
+
+#[test]
+fn c_from_the_pane_goes_to_the_session() {
+    let mut screen = reader(RELEASES);
+    screen.press('n');
+    screen.wait_for("acme agent ready");
+    screen.key(KeyCode::Enter, KeyModifiers::NONE);
+
+    screen.press('c');
+    screen.key(KeyCode::Enter, KeyModifiers::NONE);
+
+    let shown = screen.wait_for("acme agent got: c");
+    assert!(shown.contains("acme agent got: c"), "{shown}");
+    assert!(!shown.contains(" changelog "), "{shown}");
+}
+
+#[test]
+fn an_open_of_harbour_edit_closes_the_view_and_shows_the_file() {
+    let scratch = tempfile::tempdir().unwrap();
+    let _asked = answering(scratch.path());
+    let mut screen = harbour(scratch.path());
+    start_in(&mut screen, scratch.path(), "acme-api", 1);
+    screen.press('c');
+
+    let reply = screen
+        .app
+        .hand(Verb::Open, &file(scratch.path(), "acme-api"), soon());
+
+    assert_eq!(reply, Reply::Opened);
+    let shown = screen.wait_for("acme nvim ready");
+    assert!(!shown.contains(" changelog "), "{shown}");
 }
 
 const RELEASES: &str = "# Changelog\n\n## v0.2.0 (2026-11-02)\n- acme deploys retry twice\n\n## v0.1.0 (2026-11-01)\n- acme starts\n";

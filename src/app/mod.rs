@@ -374,7 +374,7 @@ impl App {
             }
             return;
         }
-        if self.helping || self.asking.is_some() {
+        if self.helping || self.reading.is_some() || self.asking.is_some() {
             self.gesture = Gesture::Idle;
             if matches!(event.kind, MouseEventKind::Down(_)) {
                 self.dismiss(false);
@@ -413,8 +413,9 @@ impl App {
     }
 
     fn dismiss(&mut self, yes: bool) -> bool {
-        if self.helping {
+        if self.helping || self.reading.is_some() {
             self.helping = false;
+            self.reading = None;
             return true;
         }
         let Some(question) = self.asking.take() else {
