@@ -30,6 +30,9 @@ pub fn info(headline: &Headline, room: usize) -> Vec<Span<'static>> {
 }
 
 fn named(headline: &Headline, room: usize) -> String {
+    if headline.title.is_empty() {
+        return fit(&headline.place, room);
+    }
     let title = fit(&headline.title, room);
     let left = room.saturating_sub(columns(&title) + 2);
     if title != headline.title || left < 2 || headline.place.is_empty() {

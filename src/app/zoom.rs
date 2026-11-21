@@ -16,7 +16,7 @@ impl App {
         if !is_zoom(key) {
             return false;
         }
-        let Some(entry) = self.sessions.get(self.selected) else {
+        let Some(entry) = self.sessions.get_mut(self.selected) else {
             return true;
         };
         if self.pane_focused && entry.showing_editor().is_some() {
@@ -25,6 +25,7 @@ impl App {
         if self.zoomed {
             self.zoomed = false;
         } else if !entry.ended() {
+            entry.on_editor &= self.pane_focused;
             self.zoomed = true;
             self.pane_focused = true;
         }
@@ -83,7 +84,7 @@ impl App {
 }
 
 pub(super) fn is_zoom(key: KeyEvent) -> bool {
-    key.code == KeyCode::Char('z')
+    matches!(key.code, KeyCode::Char('z' | 'Z'))
         && key.modifiers == KeyModifiers::ALT
         && key.kind == KeyEventKind::Press
         && !key.state.contains(ESCAPED)

@@ -28,6 +28,11 @@ to 24 (`### Sweep` under `## Outcome`).
   tmux, tmux itself turns a fast Esc then z into Alt-z before harbour reads a byte, and no rule
   over bytes can tell the two apart there. Outside tmux a terminal sends ESC and `z` as two
   keys; harbour's reader takes `ESC z` in one read as the legacy Alt-z.
+- **Alt-z with Caps Lock on**: a terminal sends Alt with `Z` and no Shift (xterm's
+  `CSI 27;3;90~`). Fed by an outer tmux to an inner one with `extended-keys on`, the pane read
+  `CSI 27;3;90~` (format xterm) or `CSI 90;3u` (csi-u); `CSI 90;3u` from outside read the same,
+  and kitty's Caps Lock bit (`CSI 122;67u`) reached the pane as plain Alt-z (tmux drops the bit).
+  Caps Lock itself cannot be pressed in the scratch server; `send-keys M-Z` gives the same bytes.
 - **Harbour's reader** (`src/input.rs`) reads `CSI 27;3;122~`, `CSI 122;3u` and the legacy
   `ESC z` as the same `KeyEvent(Char('z'), ALT)` today.
 - **Claude Code** binds no Alt-z by default: its keybindings page (code.claude.com/docs/en/keybindings,
@@ -88,6 +93,11 @@ to 24 (`### Sweep` under `## Outcome`).
 | Alt-z with no session or on a stopped card | nothing happens |
 | Alt-z on an exited session | nothing happens |
 | Alt-z while the editor has focus | the editor gets it, as today; zoom unchanged |
+| Alt-z from the sidebar on a card showing its editor (the sidebar reached by a click) | zooms the session's Claude Code, as if C-h had been pressed in the editor first |
+| C-l while zoomed | the editor shows, still zoomed; Alt-z there reaches the editor and does nothing else; C-h returns to Claude Code, still zoomed, where Alt-z works. From Neovim in insert mode: Esc, then C-h (from the leftmost window), then Alt-z or C-h; `harbour --help` says "from Neovim, Esc then C-h" |
+| Alt-z with Caps Lock on | the terminal sends Alt with `Z` (tmux passes `CSI 27;3;90~` or `CSI 90;3u`); it zooms like Alt-z |
+| Zoomed, a session with no title | the place alone after the dot, no gap |
+| Leaving zoom with more cards than fit | the sidebar scrolled as it was before the zoom (the cards are neither drawn nor scrolled while their area has no height; the narrow layout showing the pane takes the same path) |
 | Alt-z sent as legacy `ESC z` | the session gets it, as today |
 | C-h from a zoomed Claude Code pane | zoom ends, the sidebar is back and has focus |
 | C-h from a zoomed editor | Claude Code shows, still zoomed (or Neovim takes the key, by today's rule) |
@@ -191,6 +201,12 @@ review and a metrics row.
   to "quit, after a yes while anything runs" (it said "while a session or editor runs" and
   wrapped at 59 to 60 columns), the cheapest row to shorten without losing what it says. The
   headroom test now asserts 3.
+- Review round 1: leaving zoom scrolled a long sidebar to the selected card, since the cards
+  were drawn into an area of no height and the scroll for height 0 forced the offset; the
+  sidebar now neither draws nor scrolls its cards while it has no height, which also keeps the
+  narrow layout's scroll across a visit to the pane. Alt-z from the sidebar on a card that showed
+  its editor now zooms Claude Code; Alt-Z (Caps Lock) zooms; a missing title shows the place
+  alone.
 - `scripts/screenshots.sh` turns on `extended-keys` for the `zoom` shot alone, so `send-keys M-z`
   arrives as the extended Alt-z, and turns it off after it, so the other shots are as before.
 
@@ -199,3 +215,4 @@ review and a metrics row.
 - `test-seam` The leaving-zoom border test and the `ESC z` end-to-end test passed on their first run, being tests of an absence; each was shown red by breaking the code → none
 - `tooling` The tmux socket path under the scratchpad was too long for a Unix socket, so the byte capture ran with `TMUX_TMPDIR` a short folder under `/tmp` → none
 - `process` Phase 24 merged while this phase was being built and was taken in with a merge of `main`, its sweep and metrics rows included → none
+- `review-loop` Round 1 found the long sidebar scrolled to the selected card after a zoom (the cards drawn into an area of no height), a zoom from the sidebar that focused an editor Alt-z cannot leave, Caps Lock's `Z` and a gap before the place without a title → code

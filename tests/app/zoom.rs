@@ -1,7 +1,9 @@
 use std::fs;
 use std::path::Path;
 
-use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
+use crossterm::event::{
+    KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseButton, MouseEventKind,
+};
 use harbour::app::App;
 use harbour::editor::Program;
 use harbour::handoff::Verb;
@@ -10,7 +12,7 @@ use harbour::input::ESCAPED;
 use crate::handing::answering;
 use crate::handoff::{file, harbour, soon, start_in};
 use crate::remembering::{ID, Scratch, TITLE};
-use crate::{Screen, pane_corner, script};
+use crate::{Screen, numbered_agent, pane_corner, script};
 
 #[test]
 fn alt_z_from_the_sidebar_shows_the_selected_pane_alone_and_focuses_it() {
@@ -242,6 +244,76 @@ fn a_refused_jump_while_zoomed_brings_the_sidebar_back() {
     assert_eq!(corners(&shown), 2, "{shown}");
 }
 
+#[test]
+fn alt_z_with_caps_lock_on_zooms() {
+    let scratch = tempfile::tempdir().unwrap();
+    let mut screen = three_sessions(scratch.path());
+
+    screen.key(KeyCode::Char('Z'), KeyModifiers::ALT);
+    screen.type_text("hi\r");
+
+    let shown = screen.wait_for("acme agent 3 got:");
+    assert!(shown.contains("acme agent 3 got: hi"), "{shown}");
+    assert_eq!(corners(&shown), 1, "{shown}");
+}
+
+#[test]
+fn alt_z_from_the_sidebar_on_a_card_showing_its_editor_zooms_claude_code() {
+    let scratch = tempfile::tempdir().unwrap();
+    let mut screen = editing_session(scratch.path());
+    screen.mouse(MouseEventKind::Down(MouseButton::Left), 2, 2);
+    screen.mouse(MouseEventKind::Up(MouseButton::Left), 2, 2);
+
+    zoom(&mut screen);
+    screen.type_text("hi\r");
+
+    let shown = screen.wait_for("acme agent 1 got:");
+    assert!(shown.contains("acme agent 1 got: hi"), "{shown}");
+    assert_eq!(corners(&shown), 1, "{shown}");
+}
+
+#[test]
+fn ctrl_l_while_zoomed_shows_the_editor_zoomed_and_alt_z_reaches_it() {
+    let scratch = tempfile::tempdir().unwrap();
+    let editor = Program::new("acme-edit", asking_editor());
+    let mut screen = Screen::editing(lined_agent(scratch.path()), editor);
+    screen.press('n');
+    screen.wait_for("acme agent 1");
+    zoom(&mut screen);
+
+    screen.key(KeyCode::Char('l'), KeyModifiers::CONTROL);
+    screen.wait_for("acme editor ready");
+    zoom(&mut screen);
+
+    let shown = screen.wait_for("acme editor read:");
+    assert!(shown.contains("acme editor read: 1b"), "{shown}");
+    assert_eq!(corners(&shown), 1, "{shown}");
+}
+
+#[test]
+fn leaving_zoom_keeps_the_sidebar_scrolled_where_it_was() {
+    let scratch = tempfile::tempdir().unwrap();
+    let mut screen = Screen::new(numbered_agent(scratch.path()));
+    screen.resize(120, 26);
+    for started in 1..=12 {
+        screen.press('n');
+        screen.wait_for(&format!("acme agent {started}"));
+    }
+    for _ in 0..9 {
+        screen.press('k');
+    }
+    screen.press('j');
+    screen.press('j');
+    let before = screen.draw();
+    assert!(card_at_top(&before).contains("acme-home 3 "), "{before}");
+
+    zoom(&mut screen);
+    zoom(&mut screen);
+
+    let shown = screen.draw();
+    assert!(card_at_top(&shown).contains("acme-home 3 "), "{shown}");
+}
+
 fn zoom(screen: &mut Screen) {
     screen.key(KeyCode::Char('z'), KeyModifiers::ALT);
 }
@@ -289,4 +361,19 @@ fn asking_editor() -> Vec<String> {
          dd bs=1 count=1 2>/dev/null | od -An -tx1 | tr -s ' \\n' '  ' | \
          sed 's/^/acme editor read:/' >&2; exec sleep 600",
     )
+}
+
+fn editing_session(scratch: &Path) -> Screen {
+    let editor = Program::new("acme-edit", asking_editor());
+    let mut screen = Screen::editing(lined_agent(scratch), editor);
+    screen.press('n');
+    screen.wait_for("acme agent 1");
+    screen.key(KeyCode::Enter, KeyModifiers::NONE);
+    screen.key(KeyCode::Char('l'), KeyModifiers::CONTROL);
+    screen.wait_for("acme editor ready");
+    screen
+}
+
+fn card_at_top(shown: &str) -> String {
+    shown.lines().nth(1).unwrap_or_default().to_string()
 }

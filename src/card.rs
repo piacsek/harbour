@@ -163,6 +163,9 @@ impl Sidebar {
         area: Rect,
         buffer: &mut Buffer,
     ) {
+        if area.height == 0 {
+            return;
+        }
         let height = usize::from(area.height);
         self.scroll(cards.len(), selected, height);
         let width = usize::from(area.width.saturating_sub(2));

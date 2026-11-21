@@ -113,6 +113,18 @@ fn a_cjk_headline_that_fits_shows_whole() {
     assert_eq!(shown, " ● 修正ログイン  acme-api · 機能/ズーム  3m ");
 }
 
+#[test]
+fn without_a_title_the_place_shows_alone() {
+    let headline = Headline {
+        title: String::new(),
+        ..fixing()
+    };
+
+    let shown = text(&info(&headline, 60));
+
+    assert_eq!(shown, " ● acme-api · main  3m ");
+}
+
 fn fixing() -> Headline {
     Headline {
         state: State::Working,

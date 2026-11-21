@@ -32,8 +32,8 @@ extended-keys on. On macOS, Mission Control's Switch to Desktop N shortcuts can
 take them first.
 M-z zooms the selected session to the whole screen, and back. It works only
 where the terminal sends Alt-z as an extended key (under tmux, extended-keys
-on), and never from an editor: C-h first. Under tmux, Esc then z typed fast in
-Claude Code arrives as Alt-z and zooms.
+on), and never from an editor: C-h first (from Neovim, Esc then C-h). Under
+tmux, Esc then z typed fast in Claude Code arrives as Alt-z and zooms.
 status prints how many sessions of every running harbour are blocked, working,
 idle or unknown. For tmux, put #(harbour status) in your status-right, for example
   set -g status-right '#(harbour status) %H:%M'

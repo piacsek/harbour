@@ -97,6 +97,14 @@ fn alt_z_read_after_an_escape_is_marked_and_the_extended_forms_are_not() {
 }
 
 #[test]
+fn alt_z_with_caps_lock_on_reads_as_alt_with_a_capital_z() {
+    assert_eq!(
+        parsed(b"\x1b[27;3;90~"),
+        [with(KeyCode::Char('Z'), KeyModifiers::ALT)]
+    );
+}
+
+#[test]
 fn the_xterm_form_reads_as_the_modified_key() {
     assert_eq!(
         parsed(b"\x1b[27;2;13~"),
