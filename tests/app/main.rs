@@ -1,6 +1,7 @@
 mod ages;
 mod asked_keys;
 mod cards;
+mod cursor;
 mod directory;
 mod editor;
 mod editor_ending;
@@ -48,6 +49,7 @@ use harbour::picker::Picker;
 use ratatui::Terminal;
 use ratatui::backend::TestBackend;
 use ratatui::buffer::Cell;
+use ratatui::layout::Position;
 use tempfile::TempDir;
 
 const HOME: &str = "acme-home";
@@ -135,6 +137,10 @@ impl Screen {
             })
             .collect::<Vec<_>>()
             .join("\n")
+    }
+
+    fn cursor(&self) -> Option<Position> {
+        self.app.cursor_position()
     }
 
     fn cell(&self, x: u16, y: u16) -> Cell {

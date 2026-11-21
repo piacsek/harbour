@@ -12,9 +12,9 @@ use nix::sys::signal::{Signal, killpg};
 use nix::unistd::Pid;
 use portable_pty::{Child, CommandBuilder, ExitStatus, MasterPty, PtySize, native_pty_system};
 use ratatui::buffer::Buffer;
-use ratatui::layout::Rect;
+use ratatui::layout::{Position, Rect};
 use ratatui::widgets::Widget;
-use tui_term::widget::PseudoTerminal;
+use tui_term::widget::{Cursor, PseudoTerminal};
 
 use crate::keys::{Asked, Keyboard};
 
@@ -215,6 +215,22 @@ impl Session {
         self.parser.lock().unwrap().callbacks().asked.keyboard()
     }
 
+    pub fn cursor_shape(&self) -> u8 {
+        self.parser.lock().unwrap().callbacks().shape
+    }
+
+    pub fn cursor(&self, area: Rect) -> Option<Position> {
+        let parser = self.parser.lock().unwrap();
+        let screen = parser.screen();
+        if screen.hide_cursor() {
+            return None;
+        }
+        let (row, col) = screen.cursor_position();
+        let col = col.min(screen.size().1.saturating_sub(1));
+        let at = Position::new(area.x.checked_add(col)?, area.y.checked_add(row)?);
+        area.contains(at).then_some(at)
+    }
+
     pub fn take_panics(&self) -> usize {
         std::mem::take(&mut self.parser.lock().unwrap().callbacks_mut().panics)
     }
@@ -273,6 +289,7 @@ fn contained(parser: &mut Parser, rows: u16, cols: u16, work: impl FnOnce(&mut P
     if failed {
         let panics = parser.callbacks_mut().panics + 1;
         let asked = parser.callbacks_mut().asked.clone();
+        let shape = parser.callbacks().shape;
         *parser = Parser::new_with_callbacks(
             rows,
             cols,
@@ -282,6 +299,7 @@ fn contained(parser: &mut Parser, rows: u16, cols: u16, work: impl FnOnce(&mut P
                 repaint: true,
                 panics,
                 asked,
+                shape,
             },
         );
         parser.process(&modes);
@@ -334,7 +352,9 @@ impl Widget for &Session {
         let mut parser = self.parser.lock().unwrap();
         let (rows, cols) = parser.screen().size();
         contained(&mut parser, rows, cols, |parser| {
-            PseudoTerminal::new(parser.screen()).render(area, buffer);
+            PseudoTerminal::new(parser.screen())
+                .cursor(Cursor::default().visibility(false))
+                .render(area, buffer);
         });
     }
 }
@@ -345,6 +365,7 @@ struct Replies {
     repaint: bool,
     panics: usize,
     asked: Asked,
+    shape: u8,
 }
 
 impl vt100::Callbacks for Replies {
@@ -370,6 +391,11 @@ impl vt100::Callbacks for Replies {
                     .extend(format!("\x1b[{};{}R", row + 1, col + 1).as_bytes());
             }
             (None, 'n') if parameter == Some(&5) => self.bytes.extend(b"\x1b[0n"),
+            (Some(b' '), 'q') => {
+                if let Ok(shape @ 0..=6) = u8::try_from(parameter.copied().unwrap_or(0)) {
+                    self.shape = shape;
+                }
+            }
             _ => {}
         }
     }

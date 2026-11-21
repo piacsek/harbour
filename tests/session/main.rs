@@ -3,12 +3,13 @@ use std::sync::mpsc;
 use std::thread::{self, sleep};
 use std::time::{Duration, Instant};
 
-use harbour::keys::Keyboard;
 use harbour::session::Session;
 use ratatui::buffer::Buffer;
-use ratatui::layout::Rect;
+use ratatui::layout::{Position, Rect};
 use ratatui::widgets::Widget;
 use vt100::{MouseProtocolEncoding, MouseProtocolMode};
+
+mod keyboard;
 
 const ROWS: u16 = 10;
 const COLS: u16 = 200;
@@ -304,139 +305,6 @@ fn a_session_whose_screen_was_reset_keeps_the_modes_its_program_turned_on() {
 }
 
 #[test]
-fn a_session_whose_program_asked_for_nothing_gets_legacy_keys() {
-    let session = start("echo ready; sleep 5");
-    wait_for(&session, "ready");
-    assert_eq!(session.keyboard(), Keyboard::Legacy);
-}
-
-#[test]
-fn a_session_whose_program_asked_for_modify_other_keys_gets_the_xterm_form() {
-    let session = start("printf '\\033[>4;2m'; echo ready; sleep 5");
-    assert_eq!(keyboard_once(&session, "ready"), Keyboard::Xterm);
-}
-
-#[test]
-fn a_session_whose_program_asked_for_modify_other_keys_level_one_gets_the_xterm_form() {
-    let session = start("printf '\\033[>4;1m'; echo ready; sleep 5");
-    assert_eq!(keyboard_once(&session, "ready"), Keyboard::Xterm);
-}
-
-#[test]
-fn a_session_whose_program_reset_modify_other_keys_gets_legacy_keys() {
-    let session = start("printf '\\033[>4;2m\\033[>4m'; echo ready; sleep 5");
-    assert_eq!(keyboard_once(&session, "ready"), Keyboard::Legacy);
-}
-
-#[test]
-fn a_session_whose_program_set_modify_other_keys_to_zero_gets_legacy_keys() {
-    let session = start("printf '\\033[>4;2m\\033[>4;0m'; echo ready; sleep 5");
-    assert_eq!(keyboard_once(&session, "ready"), Keyboard::Legacy);
-}
-
-#[test]
-fn a_session_whose_program_pushed_kitty_disambiguation_gets_the_kitty_form() {
-    let session = start("printf '\\033[>1u'; echo ready; sleep 5");
-    assert_eq!(keyboard_once(&session, "ready"), Keyboard::Kitty);
-}
-
-#[test]
-fn a_session_whose_program_pushed_neovims_kitty_flags_gets_the_kitty_form() {
-    let session = start("printf '\\033[>3u'; echo ready; sleep 5");
-    assert_eq!(keyboard_once(&session, "ready"), Keyboard::Kitty);
-}
-
-#[test]
-fn a_session_whose_program_pushed_kitty_flags_without_disambiguation_gets_legacy_keys() {
-    let session = start("printf '\\033[>8u'; echo ready; sleep 5");
-    assert_eq!(keyboard_once(&session, "ready"), Keyboard::Legacy);
-}
-
-#[test]
-fn a_session_whose_program_popped_its_kitty_flags_gets_legacy_keys() {
-    let session = start("printf '\\033[>1u\\033[<u'; echo ready; sleep 5");
-    assert_eq!(keyboard_once(&session, "ready"), Keyboard::Legacy);
-}
-
-#[test]
-fn a_session_whose_program_popped_one_of_two_kitty_pushes_keeps_the_kitty_form() {
-    let session = start("printf '\\033[>1u\\033[>1u\\033[<1u'; echo ready; sleep 5");
-    assert_eq!(keyboard_once(&session, "ready"), Keyboard::Kitty);
-}
-
-#[test]
-fn a_session_whose_program_set_kitty_disambiguation_gets_the_kitty_form() {
-    let session = start("printf '\\033[=1;1u'; echo ready; sleep 5");
-    assert_eq!(keyboard_once(&session, "ready"), Keyboard::Kitty);
-}
-
-#[test]
-fn a_session_whose_program_cleared_kitty_disambiguation_gets_legacy_keys() {
-    let session = start("printf '\\033[=1u\\033[=1;3u'; echo ready; sleep 5");
-    assert_eq!(keyboard_once(&session, "ready"), Keyboard::Legacy);
-}
-
-#[test]
-fn a_session_whose_program_asked_for_both_forms_gets_the_kitty_form() {
-    let session = start("printf '\\033[>4;2m\\033[>1u'; echo ready; sleep 5");
-    assert_eq!(keyboard_once(&session, "ready"), Keyboard::Kitty);
-}
-
-#[test]
-fn a_kitty_keyboard_query_is_answered_with_no_flags_before_a_push() {
-    let session = start(&replied("\\033[?u", 5));
-    let expected = "reply:[?0u";
-    let screen = wait_for(&session, expected);
-    assert!(screen.contains(expected), "{screen}");
-}
-
-#[test]
-fn a_kitty_keyboard_query_is_answered_with_the_disambiguation_it_pushed() {
-    let session = start(&replied("\\033[>3u\\033[?u", 5));
-    let expected = "reply:[?1u";
-    let screen = wait_for(&session, expected);
-    assert!(screen.contains(expected), "{screen}");
-}
-
-#[test]
-fn a_terminal_reset_forgets_what_the_program_asked_for() {
-    let session = start("printf '\\033[>4;2m\\033[>1u'; printf '\\033c'; echo ready; sleep 5");
-    assert_eq!(keyboard_once(&session, "ready"), Keyboard::Legacy);
-}
-
-#[test]
-fn a_request_after_a_terminal_reset_is_kept() {
-    let session = start("printf '\\033c\\033[>4;2m'; echo ready; sleep 5");
-    assert_eq!(keyboard_once(&session, "ready"), Keyboard::Xterm);
-}
-
-#[test]
-fn a_session_whose_program_exited_forgets_what_it_asked_for() {
-    let mut session = start("printf '\\033[>4;2m'; echo ready; sleep 0.3");
-    wait_for(&session, "ready");
-    let deadline = Instant::now() + Duration::from_secs(5);
-    while session.exit().is_none() && Instant::now() < deadline {
-        sleep(Duration::from_millis(20));
-    }
-    assert_eq!(settled(&session, Keyboard::Legacy), Keyboard::Legacy);
-}
-
-#[test]
-fn a_session_whose_screen_was_reset_keeps_the_keys_its_program_asked_for() {
-    let mut session =
-        Session::start(&asking_wide_at_the_edge(), &std::env::temp_dir(), ROWS, 160).unwrap();
-    wait_for(&session, "ready");
-    session.resize(ROWS, 159);
-    session.send(b"x");
-    sleep(Duration::from_millis(300));
-
-    session.resize(ROWS, 159);
-
-    assert!(session.take_panics() > 0);
-    assert_eq!(session.keyboard(), Keyboard::Xterm);
-}
-
-#[test]
 fn dropping_a_session_ends_a_command_that_ignores_hangup() {
     let session = start("trap '' HUP; echo \"pid:$$ shown\"; while :; do sleep 1; done");
     let pid = pid_shown(&session);
@@ -488,6 +356,119 @@ fn a_large_paste_into_a_command_that_does_not_read_returns_at_once() {
     });
 
     assert!(finished.recv_timeout(Duration::from_secs(2)).is_ok());
+}
+
+#[test]
+fn a_session_remembers_each_cursor_shape_its_program_asks_for() {
+    let session = start(SHAPING);
+    wait_for(&session, "acme shapes ready");
+
+    assert_eq!(shaped(&session, "1"), 1);
+    assert_eq!(shaped(&session, "2"), 2);
+    assert_eq!(shaped(&session, "3"), 3);
+    assert_eq!(shaped(&session, "4"), 4);
+    assert_eq!(shaped(&session, "5"), 5);
+    assert_eq!(shaped(&session, "6"), 6);
+    assert_eq!(shaped(&session, "0"), 0);
+}
+
+#[test]
+fn a_session_starts_with_the_default_cursor_shape() {
+    let session = start(SHAPING);
+    wait_for(&session, "acme shapes ready");
+
+    assert_eq!(session.cursor_shape(), 0);
+}
+
+#[test]
+fn a_cursor_shape_without_a_number_is_the_default() {
+    let session = start(SHAPING);
+    wait_for(&session, "acme shapes ready");
+    shaped(&session, "6");
+
+    assert_eq!(shaped(&session, ""), 0);
+}
+
+#[test]
+fn a_cursor_shape_past_six_keeps_the_shape_before() {
+    let session = start(SHAPING);
+    wait_for(&session, "acme shapes ready");
+    shaped(&session, "4");
+
+    assert_eq!(shaped(&session, "7"), 4);
+}
+
+#[test]
+fn a_session_whose_screen_was_reset_keeps_its_cursor_shape() {
+    let mut session =
+        Session::start(&shaped_wide_at_the_edge(), &std::env::temp_dir(), ROWS, 160).unwrap();
+    wait_for(&session, "ready");
+    session.resize(ROWS, 159);
+    session.send(b"\r");
+    sleep(Duration::from_millis(300));
+    session.send(b"\r");
+    wait_for(&session, "redrew 159");
+
+    assert!(session.take_panics() > 0);
+    assert_eq!(session.cursor_shape(), 5);
+}
+
+#[test]
+fn the_pane_paints_no_cursor_of_its_own() {
+    let session = start("printf 'acme here'; exec sleep 600");
+    wait_for(&session, "acme here");
+
+    let area = Rect::new(0, 0, COLS, ROWS);
+    let mut buffer = Buffer::empty(area);
+    session.render(area, &mut buffer);
+
+    assert_eq!(buffer[(9, 0)].symbol(), " ");
+    assert_eq!(buffer[(9, 0)].fg, ratatui::style::Color::Reset);
+}
+
+#[test]
+fn a_session_says_where_its_cursor_is_in_the_area_it_is_drawn_in() {
+    let session = start("printf '\\033[3;5Hacme here'; exec sleep 600");
+    wait_for(&session, "acme here");
+
+    let cursor = session.cursor(Rect::new(20, 4, COLS, ROWS));
+
+    assert_eq!(cursor, Some(Position::new(33, 6)));
+}
+
+#[test]
+fn a_session_whose_program_hid_its_cursor_has_none() {
+    let session = start("printf '\\033[?25lacme hidden'; exec sleep 600");
+    wait_for(&session, "acme hidden");
+
+    assert_eq!(session.cursor(Rect::new(0, 0, COLS, ROWS)), None);
+}
+
+#[test]
+fn a_cursor_below_the_area_drawn_is_not_shown() {
+    let session = start("printf 'acme\\nlow'; exec sleep 600");
+    wait_for(&session, "low");
+
+    assert_eq!(session.cursor(Rect::new(0, 0, COLS, 1)), None);
+}
+
+#[test]
+fn a_cursor_right_of_the_area_drawn_is_not_shown() {
+    let session = start("printf 'acme wide'; exec sleep 600");
+    wait_for(&session, "acme wide");
+
+    assert_eq!(session.cursor(Rect::new(0, 0, 9, ROWS)), None);
+}
+
+#[test]
+fn a_cursor_waiting_after_a_full_line_sits_on_its_last_column() {
+    let session = start("printf \"acme$(printf '%196s' '' | tr ' ' x)\"; exec sleep 600");
+    wait_for(&session, "acmexxx");
+
+    assert_eq!(
+        session.cursor(Rect::new(0, 0, COLS, ROWS)),
+        Some(Position::new(COLS - 1, 0))
+    );
 }
 
 fn replied(query: &str, length: usize) -> String {
@@ -591,26 +572,16 @@ fn failure(wait: impl FnOnce()) -> String {
         .unwrap_or_default()
 }
 
-fn keyboard_once(session: &Session, text: &str) -> Keyboard {
-    wait_for(session, text);
-    session.keyboard()
+const SHAPING: &str = "echo 'acme shapes ready'; \
+                       while :; do read -r n || continue; printf \"\\033[${n} q\"; echo \"shape:$n.\"; done";
+
+fn shaped(session: &Session, shape: &str) -> u8 {
+    session.send(format!("{shape}\r").as_bytes());
+    wait_for(session, &format!("shape:{shape}."));
+    session.cursor_shape()
 }
 
-fn settled(session: &Session, expected: Keyboard) -> Keyboard {
-    let deadline = Instant::now() + Duration::from_secs(5);
-    while session.keyboard() != expected && Instant::now() < deadline {
-        sleep(Duration::from_millis(20));
-    }
-    session.keyboard()
-}
-
-fn asking_wide_at_the_edge() -> [String; 3] {
-    let script = "printf '\\033[>4;2m'; \
-                  trap 'printf \"\\033[1;1H%*s\" \"$(stty size | cut -d\" \" -f2)\" \"\"' WINCH; \
-                  cols=$(stty size | cut -d' ' -f2); \
-                  printf '\\033[1;%dH\\343\\201\\202' $((cols-1)); \
-                  printf '\\033[3;1Hready\\033[5;1H'; \
-                  stty raw -echo; \
-                  while :; do dd bs=1 count=1 2>/dev/null; done";
-    ["/bin/sh".to_string(), "-c".into(), script.into()]
+fn shaped_wide_at_the_edge() -> [String; 3] {
+    let [shell, flag, script] = wide_at_the_edge();
+    [shell, flag, format!("printf '\\033[5 q'; {script}")]
 }
