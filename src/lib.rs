@@ -1,6 +1,7 @@
 pub mod app;
 pub mod card;
 pub mod changelog;
+pub mod config;
 pub mod cursor;
 pub mod demo;
 pub mod editor;

@@ -345,11 +345,16 @@ fn log_without_a_log_writes_nothing_on_stderr() {
 
 const USAGE: &str = "harbour: Harbour: where shipping begins
 
-usage: harbour [--demo | --help | --version | changelog | status | log | edit [--] <file>]
+usage: harbour [--demo | --help | --version | changelog | status | log | config | edit [--] <file>]
 
 With no argument on a terminal, harbour opens a sidebar of Claude Code sessions
 beside a live pane. --demo opens the same with made-up sessions: no claude needed.
 In harbour, ? shows the keys and what the dots mean.
+Settings come from $XDG_CONFIG_HOME/harbour/config.toml, else
+~/.config/harbour/config.toml, read at start: editor, picker and
+session_command (each a list: the program, then its arguments), sidebar_width
+(columns) and accent (a colour name or #rrggbb). A HARBOUR_ variable outranks
+the file. config prints each setting and where it comes from.
 n runs fzf over the directory harbour was opened in and zoxide's list;
 HARBOUR_DIR_PICKER names another picker.
 C-l opens nvim at Claude Code's repository root; HARBOUR_EDITOR names another.

@@ -1,0 +1,333 @@
+use std::ffi::OsString;
+use std::fmt;
+use std::ops::Range;
+use std::path::{Path, PathBuf};
+use std::str::FromStr;
+
+use ratatui::style::Color;
+use serde::Deserialize;
+use toml::{Spanned, Value};
+
+const PROGRAM: &str = "expected a list of strings: the program, then its arguments";
+const WIDTH: &str = "expected a whole number of columns above 0";
+const ACCENT: &str = "expected one of the 16 colour names or #rrggbb";
+
+#[derive(Debug, PartialEq)]
+pub enum Source {
+    File,
+    Default,
+}
+
+pub struct Setting<T> {
+    pub value: T,
+    pub source: Source,
+}
+
+#[derive(Debug)]
+pub struct Refusal(String);
+
+impl fmt::Display for Refusal {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str(&self.0)
+    }
+}
+
+pub struct Config {
+    path: Option<PathBuf>,
+    editor: Setting<Vec<OsString>>,
+    picker: Setting<Vec<String>>,
+    session_command: Setting<Vec<String>>,
+    sidebar_width: Setting<Option<u16>>,
+    accent: Setting<Color>,
+}
+
+#[derive(Deserialize, Default)]
+#[serde(deny_unknown_fields)]
+struct Written {
+    editor: Option<Spanned<Value>>,
+    picker: Option<Spanned<Value>>,
+    session_command: Option<Spanned<Value>>,
+    sidebar_width: Option<Spanned<Value>>,
+    accent: Option<Spanned<Value>>,
+}
+
+struct Reader<'a> {
+    path: &'a Path,
+    text: &'a str,
+    home: Option<&'a Path>,
+}
+
+impl Config {
+    pub fn read(variable: impl Fn(&str) -> Option<OsString>) -> Result<Config, Refusal> {
+        let home = absolute(variable("HOME"));
+        let path = absolute(variable("XDG_CONFIG_HOME"))
+            .or_else(|| home.as_ref().map(|home| home.join(".config")))
+            .map(|folder| folder.join("harbour/config.toml"));
+        let text = match &path {
+            Some(path) => written(path)?,
+            None => String::new(),
+        };
+        let file = path.as_deref().unwrap_or(Path::new(""));
+        let reader = Reader {
+            path: file,
+            text: &text,
+            home: home.as_deref(),
+        };
+        let written: Written = toml::from_str(&text).map_err(|error| reader.syntax(&error))?;
+        Ok(Config {
+            editor: match reader.program("editor", written.editor)? {
+                Some(command) => from_file(command.into_iter().map(OsString::from).collect()),
+                None => default(vec![OsString::from("nvim")]),
+            },
+            picker: reader
+                .program("picker", written.picker)?
+                .map_or_else(|| default(vec!["fzf".to_string()]), from_file),
+            session_command: reader
+                .program("session_command", written.session_command)?
+                .map_or_else(|| default(vec!["claude".to_string()]), from_file),
+            sidebar_width: match reader.width(written.sidebar_width)? {
+                Some(width) => from_file(Some(width)),
+                None => default(None),
+            },
+            accent: reader
+                .accent(written.accent)?
+                .map_or_else(|| default(Color::Cyan), from_file),
+            path,
+        })
+    }
+
+    pub fn from_env() -> Result<Config, Refusal> {
+        Config::read(|name| std::env::var_os(name))
+    }
+
+    pub fn report(&self) -> String {
+        let file = match &self.path {
+            Some(path) if path.exists() => format!("file: {}", path.display()),
+            Some(path) => format!("file: {} (none there)", path.display()),
+            None => "file: none (HOME is not set)".to_string(),
+        };
+        let editor: Vec<String> = self
+            .editor
+            .value
+            .iter()
+            .map(|word| word.to_string_lossy().into_owned())
+            .collect();
+        let width = match self.sidebar_width.value {
+            Some(width) => width.to_string(),
+            None => "a third".to_string(),
+        };
+        [
+            file,
+            line("editor", &listed(&editor), &self.editor.source),
+            line("picker", &listed(&self.picker.value), &self.picker.source),
+            line(
+                "session_command",
+                &listed(&self.session_command.value),
+                &self.session_command.source,
+            ),
+            line("sidebar_width", &width, &self.sidebar_width.source),
+            line(
+                "accent",
+                &quoted(&named(self.accent.value)),
+                &self.accent.source,
+            ),
+        ]
+        .map(|line| line + "\n")
+        .concat()
+    }
+
+    pub fn path(&self) -> Option<&Path> {
+        self.path.as_deref()
+    }
+
+    pub fn editor(&self) -> &Setting<Vec<OsString>> {
+        &self.editor
+    }
+
+    pub fn picker(&self) -> &Setting<Vec<String>> {
+        &self.picker
+    }
+
+    pub fn session_command(&self) -> &Setting<Vec<String>> {
+        &self.session_command
+    }
+
+    pub fn sidebar_width(&self) -> &Setting<Option<u16>> {
+        &self.sidebar_width
+    }
+
+    pub fn accent(&self) -> &Setting<Color> {
+        &self.accent
+    }
+}
+
+impl Reader<'_> {
+    fn syntax(&self, error: &toml::de::Error) -> Refusal {
+        let span = error.span().unwrap_or(0..0);
+        let message = error.message();
+        if message.starts_with("unknown field") {
+            return self.refusal(&span, &self.text[span.clone()], "unknown key");
+        }
+        let line = self.line_text(span.start);
+        match line.split_once('=') {
+            Some((key, _)) if !key.trim().is_empty() && !key.contains('[') => {
+                self.refusal(&span, key.trim(), message)
+            }
+            _ => Refusal(format!(
+                "{}:{}: {message}",
+                self.path.display(),
+                self.line(span.start)
+            )),
+        }
+    }
+
+    fn program(
+        &self,
+        key: &str,
+        value: Option<Spanned<Value>>,
+    ) -> Result<Option<Vec<String>>, Refusal> {
+        let Some(value) = value else {
+            return Ok(None);
+        };
+        let span = value.span();
+        let words: Option<Vec<String>> = match value.into_inner() {
+            Value::Array(items) => items
+                .into_iter()
+                .map(|item| match item {
+                    Value::String(word) => Some(word),
+                    _ => None,
+                })
+                .collect(),
+            _ => None,
+        };
+        let mut words = match words {
+            Some(words) if words.first().is_some_and(|program| !program.is_empty()) => words,
+            _ => return Err(self.refusal(&span, key, PROGRAM)),
+        };
+        words[0] = self.expanded(&words[0]);
+        if words[0].contains('/') && !Path::new(&words[0]).is_absolute() {
+            let what = format!(
+                "{:?} is a relative path; give an absolute path, ~/... or a bare name",
+                words[0]
+            );
+            return Err(self.refusal(&span, key, &what));
+        }
+        Ok(Some(words))
+    }
+
+    fn expanded(&self, program: &str) -> String {
+        match (self.home, program.strip_prefix('~')) {
+            (Some(home), Some("")) => home.display().to_string(),
+            (Some(home), Some(rest)) if rest.starts_with('/') => {
+                format!("{}{rest}", home.display())
+            }
+            _ => program.to_string(),
+        }
+    }
+
+    fn width(&self, value: Option<Spanned<Value>>) -> Result<Option<u16>, Refusal> {
+        let Some(value) = value else {
+            return Ok(None);
+        };
+        match value.get_ref() {
+            Value::Integer(width) if *width > 0 => {
+                Ok(Some(u16::try_from(*width).unwrap_or(u16::MAX)))
+            }
+            _ => Err(self.refusal(&value.span(), "sidebar_width", WIDTH)),
+        }
+    }
+
+    fn accent(&self, value: Option<Spanned<Value>>) -> Result<Option<Color>, Refusal> {
+        let Some(value) = value else {
+            return Ok(None);
+        };
+        let color = match value.get_ref() {
+            Value::String(name) => colour(name),
+            _ => None,
+        };
+        match color {
+            Some(color) => Ok(Some(color)),
+            None => Err(self.refusal(&value.span(), "accent", ACCENT)),
+        }
+    }
+
+    fn refusal(&self, span: &Range<usize>, key: &str, what: &str) -> Refusal {
+        Refusal(format!(
+            "{}:{}: {key}: {what}",
+            self.path.display(),
+            self.line(span.start)
+        ))
+    }
+
+    fn line(&self, at: usize) -> usize {
+        self.text[..at.min(self.text.len())].matches('\n').count() + 1
+    }
+
+    fn line_text(&self, at: usize) -> &str {
+        let at = at.min(self.text.len());
+        let start = self.text[..at].rfind('\n').map_or(0, |newline| newline + 1);
+        let end = self.text[at..]
+            .find('\n')
+            .map_or(self.text.len(), |newline| at + newline);
+        &self.text[start..end]
+    }
+}
+
+fn line(key: &str, value: &str, source: &Source) -> String {
+    let source = match source {
+        Source::File => "file",
+        Source::Default => "default",
+    };
+    format!("{key} = {value}  ({source})")
+}
+
+fn listed(words: &[String]) -> String {
+    let quoted: Vec<String> = words.iter().map(|word| quoted(word)).collect();
+    format!("[{}]", quoted.join(", "))
+}
+
+fn quoted(word: &str) -> String {
+    Value::String(word.to_string()).to_string()
+}
+
+fn named(color: Color) -> String {
+    match color {
+        Color::Rgb(red, green, blue) => format!("#{red:02x}{green:02x}{blue:02x}"),
+        color => color.to_string().to_lowercase(),
+    }
+}
+
+fn colour(name: &str) -> Option<Color> {
+    let hex = name.len() == 7 && name.starts_with('#');
+    match Color::from_str(name).ok()? {
+        Color::Reset | Color::Indexed(_) => None,
+        Color::Rgb(..) if !hex => None,
+        color => Some(color),
+    }
+}
+
+fn written(path: &Path) -> Result<String, Refusal> {
+    match std::fs::read_to_string(path) {
+        Ok(text) => Ok(text),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(String::new()),
+        Err(error) => Err(Refusal(format!("{}: {error}", path.display()))),
+    }
+}
+
+fn absolute(value: Option<OsString>) -> Option<PathBuf> {
+    value.map(PathBuf::from).filter(|path| path.is_absolute())
+}
+
+fn from_file<T>(value: T) -> Setting<T> {
+    Setting {
+        value,
+        source: Source::File,
+    }
+}
+
+fn default<T>(value: T) -> Setting<T> {
+    Setting {
+        value,
+        source: Source::Default,
+    }
+}
