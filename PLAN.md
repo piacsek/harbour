@@ -29,7 +29,7 @@ file under `plans/`; its time and tokens are a row of [`plans/metrics.md`](plans
 | 19 | [the pane's cursor takes the shape its program asks for](plans/phase-19-cursor-shape.md) | [v0.15.0](https://github.com/piacsek/harbour/releases/tag/v0.15.0) |
 | 20 | [no cursor in the pane while the sidebar has focus](plans/phase-20-no-cursor-beside-the-sidebar.md), with the sweep of phases 15 to 19 | [v0.16.0](https://github.com/piacsek/harbour/releases/tag/v0.16.0) |
 | 21 | [harbour's settings in one config file](plans/phase-21-config-file.md) | [v0.17.0](https://github.com/piacsek/harbour/releases/tag/v0.17.0) |
-| 22 | [jump to a card by its number](plans/phase-22-jump-by-number.md) | |
+| 22 | [jump to a card by its number](plans/phase-22-jump-by-number.md) | [v0.19.0](https://github.com/piacsek/harbour/releases/tag/v0.19.0) |
 | 23 | [icons beside Claude Code and Neovim in the pane's border](plans/phase-23-border-icons.md) | [v0.18.0](https://github.com/piacsek/harbour/releases/tag/v0.18.0) |
 | 24 | [icons on a session's card for its repository, branch, pull request, subagents and editor](plans/phase-24-card-icons.md) | |
 

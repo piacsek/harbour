@@ -123,7 +123,7 @@ width minus the card's two-column indent; the narrowest sidebar (20) gives 16.
 - Phase 23's known limit on one-column glyphs now covers the cards' glyphs too, rather than a
   second line.
 - Phase 22 (#91) merged during the phase; the branch took `main` in with a merge, and its
-  metrics row's ready and merged times were written from GitHub.
+  metrics row's ready, merged and released times (v0.19.0) were written from GitHub.
 
 ## Hurdles
 
