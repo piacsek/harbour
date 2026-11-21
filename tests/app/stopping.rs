@@ -29,6 +29,31 @@ fn q_with_a_running_session_says_its_sessions_come_back_stopped() {
 }
 
 #[test]
+fn a_signal_stops_harbour_with_a_running_session_without_asking() {
+    let mut screen = Screen::new(reading_agent());
+    screen.press('n');
+    let ready = screen.wait_for("acme agent ready");
+    assert!(ready.contains("acme agent ready"), "{ready}");
+
+    screen.app.stop();
+
+    assert!(!screen.app.running());
+}
+
+#[test]
+fn a_signal_while_the_quit_question_shows_stops_harbour() {
+    let mut screen = Screen::new(reading_agent());
+    screen.press('n');
+    let ready = screen.wait_for("acme agent ready");
+    assert!(ready.contains("acme agent ready"), "{ready}");
+    screen.press('q');
+
+    screen.app.stop();
+
+    assert!(!screen.app.running());
+}
+
+#[test]
 fn q_in_a_harbour_that_remembers_nothing_does_not_say_sessions_come_back() {
     let mut screen = Screen::new(reading_agent());
     screen.press('n');

@@ -160,9 +160,9 @@ fn on_a_terminal() -> bool {
     std::io::stdin().is_terminal() && std::io::stdout().is_terminal()
 }
 
-fn shown(result: std::io::Result<()>) -> ExitCode {
+fn shown(result: std::io::Result<u8>) -> ExitCode {
     match result {
-        Ok(()) => ExitCode::SUCCESS,
+        Ok(status) => ExitCode::from(status),
         Err(err) => {
             eprintln!("harbour: {err}");
             ExitCode::FAILURE

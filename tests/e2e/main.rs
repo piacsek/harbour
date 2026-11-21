@@ -17,6 +17,7 @@ mod log;
 mod moving;
 mod neovim;
 mod picker;
+mod signals;
 mod waits;
 
 const AGENT: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/agent.sh");

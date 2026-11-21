@@ -2,6 +2,8 @@ use std::collections::VecDeque;
 use std::io;
 use std::os::fd::AsFd;
 use std::panic::PanicHookInfo;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
 
 use crossterm::cursor::{MoveTo, Show};
@@ -12,6 +14,7 @@ use crossterm::event::{
 use crossterm::{execute, queue};
 use ratatui::Terminal;
 use ratatui::backend::CrosstermBackend;
+use signal_hook::consts::{SIGHUP, SIGINT, SIGTERM};
 
 use crate::app::App;
 use crate::config::{Config, Source};
@@ -37,7 +40,7 @@ pub const DIR_PICKER: &str = "HARBOUR_DIR_PICKER";
 pub const EDITOR: &str = "HARBOUR_EDITOR";
 pub const LOG: &str = "HARBOUR_LOG";
 
-pub fn run(config: Config) -> io::Result<()> {
+pub fn run(config: Config) -> io::Result<u8> {
     let mut app = App::new(config.session_command().value.clone())
         .with_picker(dir_picker(&config))
         .with_editor(Program::command(config.editor().value.clone()))
@@ -78,21 +81,38 @@ pub fn run(config: Config) -> io::Result<()> {
     shown
 }
 
-pub fn demo() -> io::Result<()> {
+pub fn demo() -> io::Result<u8> {
     let registry = Registry::create_in(&std::env::temp_dir())?;
     show(App::demo(registry.path().to_path_buf()))
 }
 
-fn show(app: App) -> io::Result<()> {
+fn show(app: App) -> io::Result<u8> {
+    let caught = caught()?;
     let app = app.with_mover(Box::new(|directory| std::env::set_current_dir(directory)));
     let mut terminal = ratatui::init();
     let shape = Shape::default();
     std::panic::set_hook(panic_hook(shape.clone(), std::panic::take_hook()));
-    let result =
-        enter_terminal(&mut io::stdout()).and_then(|()| drive(&mut terminal, app, shape.clone()));
+    let result = enter_terminal(&mut io::stdout())
+        .and_then(|()| drive(&mut terminal, app, shape.clone(), &caught));
     let _ = leave_terminal(&mut io::stdout(), &shape);
-    ratatui::restore();
+    let _ = ratatui::try_restore();
     result
+}
+
+fn caught() -> io::Result<Arc<AtomicUsize>> {
+    let caught = Arc::new(AtomicUsize::new(0));
+    for signal in [SIGHUP, SIGINT, SIGTERM] {
+        let value = usize::try_from(signal).map_err(io::Error::other)?;
+        signal_hook::flag::register_usize(signal, Arc::clone(&caught), value)?;
+    }
+    Ok(caught)
+}
+
+fn signalled(caught: &AtomicUsize) -> Option<u8> {
+    match caught.load(Ordering::Relaxed) {
+        0 => None,
+        signal => Some(u8::try_from(128 + signal).unwrap_or(u8::MAX)),
+    }
 }
 
 pub fn panic_hook(shape: Shape, restore_terminal: Box<PanicHook>) -> Box<PanicHook> {
@@ -122,21 +142,46 @@ fn drive(
     terminal: &mut ratatui::DefaultTerminal,
     mut app: App,
     mut shape: Shape,
-) -> io::Result<()> {
+    caught: &AtomicUsize,
+) -> io::Result<u8> {
     let stdin = io::stdin();
     let mut input = Input::default();
     let mut pending = VecDeque::new();
     while app.running() {
-        frame(terminal, &mut app, &mut shape, &mut io::stdout())?;
-        if pending.is_empty() {
-            pending.extend(input.read(stdin.as_fd(), Duration::from_millis(30))?);
+        let stepped = step(
+            terminal,
+            &mut app,
+            &mut shape,
+            &mut input,
+            &mut pending,
+            &stdin,
+        );
+        if let Some(status) = signalled(caught) {
+            app.stop();
+            return Ok(status);
         }
-        match pending.pop_front() {
-            Some(Event::Key(key)) if key.kind != KeyEventKind::Release => app.key(key),
-            Some(Event::Paste(text)) => app.paste(&text),
-            Some(Event::Mouse(mouse)) => app.mouse(mouse),
-            _ => {}
-        }
+        stepped?;
+    }
+    Ok(0)
+}
+
+fn step(
+    terminal: &mut ratatui::DefaultTerminal,
+    app: &mut App,
+    shape: &mut Shape,
+    input: &mut Input,
+    pending: &mut VecDeque<Event>,
+    stdin: &io::Stdin,
+) -> io::Result<()> {
+    frame(terminal, app, shape, &mut io::stdout())?;
+    if pending.is_empty() {
+        pending.extend(input.read(stdin.as_fd(), Duration::from_millis(30))?);
+    }
+    match pending.pop_front() {
+        Some(Event::Key(key)) if key.kind != KeyEventKind::Release => app.key(key),
+        Some(Event::Paste(text)) => app.paste(&text),
+        Some(Event::Mouse(mouse)) => app.mouse(mouse),
+        _ => {}
     }
     Ok(())
 }

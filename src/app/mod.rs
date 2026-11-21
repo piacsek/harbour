@@ -308,6 +308,13 @@ impl App {
         !self.quitting
     }
 
+    pub fn stop(&mut self) {
+        self.asking = None;
+        self.settle_all();
+        self.quitting = true;
+        self.log_changes();
+    }
+
     pub fn paste(&mut self, text: &str) {
         self.paste_handled(text);
         self.log_paste();
