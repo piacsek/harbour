@@ -138,15 +138,60 @@ fn ctrl_escape_reaches_an_editor_that_asked_for_the_kitty_protocol_as_ctrl_escap
 
 #[test]
 #[ignore]
-fn ctrl_three_reaches_an_editor_that_asked_for_modify_other_keys_level_two_as_ctrl_three() {
-    let Some((_home, server)) = asking_raw_editor("asked-xterm-ctrl-3", "xterm", XTERM) else {
+fn ctrl_zero_reaches_an_editor_that_asked_for_modify_other_keys_level_two_as_ctrl_zero() {
+    let Some((_home, server)) = asking_raw_editor("asked-xterm-ctrl-0", "xterm", XTERM) else {
         return;
     };
 
-    server.send_keys(&["C-3"]);
+    server.send_keys(&["C-0"]);
 
-    let screen = server.wait_for_screen("read:^[27;5;51~");
-    assert!(screen.contains("read:^[27;5;51~"), "{screen}");
+    let screen = server.wait_for_screen("read:^[27;5;48~");
+    assert!(screen.contains("read:^[27;5;48~"), "{screen}");
+}
+
+#[test]
+#[ignore]
+fn ctrl_one_never_reaches_an_editor_that_asked_for_modify_other_keys_level_two() {
+    let Some((_home, server)) = asking_raw_editor("asked-xterm-jump", "xterm", XTERM) else {
+        return;
+    };
+
+    server.send_keys(&["C-1", "z"]);
+
+    let screen = server.wait_for_screen("read:z");
+    assert!(screen.contains("read:z"), "{screen}");
+}
+
+#[test]
+#[ignore]
+fn ctrl_one_and_ctrl_two_jump_between_cards_with_extended_keys_on() {
+    let Some((_home, server)) = two_raw_agents("ext-xterm-jump", "xterm") else {
+        return;
+    };
+
+    server.send_keys(&["C-1", "a"]);
+    server.wait_for_screen("read:a");
+    server.send_keys(&["C-2", "b"]);
+
+    let screen = server.wait_for_screen("read:b");
+    assert!(screen.contains("read:b"), "{screen}");
+    assert!(!screen.contains("read:a"), "{screen}");
+}
+
+#[test]
+#[ignore]
+fn ctrl_nine_jumps_to_the_last_card_in_the_csi_u_form() {
+    let Some((_home, server)) = two_raw_agents("ext-csi-u-jump", "csi-u") else {
+        return;
+    };
+
+    server.send_keys(&["C-1", "a"]);
+    server.wait_for_screen("read:a");
+    server.send_keys(&["C-9", "b"]);
+
+    let screen = server.wait_for_screen("read:b");
+    assert!(screen.contains("read:b"), "{screen}");
+    assert!(!screen.contains("read:a"), "{screen}");
 }
 
 #[test]
@@ -235,15 +280,15 @@ fn claude_code_that_asked_for_the_kitty_protocol_gets_the_keys_it_gets_without_a
 
 #[test]
 #[ignore]
-fn ctrl_three_reaches_a_session_that_asked_for_nothing_as_escape() {
-    let Some((_home, server)) = asking_raw_agent("asked-nothing-ctrl-3", "xterm", "") else {
+fn ctrl_one_and_ctrl_three_reach_the_session_as_one_and_escape_with_extended_keys_off() {
+    let Some((_home, server)) = focused_raw_agent("ext-off-ctrl-digits", "off", "xterm") else {
         return;
     };
 
-    server.send_keys(&["C-3", "z"]);
+    server.send_keys(&["C-1", "C-3", "z"]);
 
-    let screen = server.wait_for_screen("read:^z");
-    assert!(screen.contains("read:^z"), "{screen}");
+    let screen = server.wait_for_screen("read:1^z");
+    assert!(screen.contains("read:1^z"), "{screen}");
 }
 
 #[test]
@@ -276,6 +321,15 @@ fn ctrl_m_ctrl_shift_h_and_ctrl_shift_l_act_as_enter_ctrl_h_and_ctrl_l_with_exte
 
     let screen = server.wait_for_screen("claude | raw-agent.sh: ");
     assert!(screen.contains("claude | raw-agent.sh: "), "{screen}");
+}
+
+fn two_raw_agents(name: &str, format: &str) -> Option<(TempDir, Server)> {
+    let (home, server) = raw_harbour(name, "on", format, "")?;
+    server.send_keys(&["n"]);
+    server.wait_for_screen("acme agent ready");
+    server.send_keys(&["n"]);
+    server.wait_for_screen("acme-api 2");
+    Some((home, server))
 }
 
 fn focused_raw_agent(name: &str, extended: &str, format: &str) -> Option<(TempDir, Server)> {

@@ -16,6 +16,7 @@ mod handoff;
 mod handoff_socket;
 mod help;
 mod input;
+mod jumping;
 mod keeping;
 mod layout;
 mod logging;

@@ -24,7 +24,7 @@ impl App {
             self.log_input(Input::Picker, bytes.len());
             return;
         }
-        if self.dismiss(is_yes(key)) {
+        if self.dismiss(is_yes(key)) || self.jump_by_key(key) {
             return;
         }
         if self.sidebar.is_empty() && !self.sessions.is_empty() {
@@ -92,7 +92,7 @@ impl App {
         }
     }
 
-    fn focus_or_resume(&mut self) {
+    pub(super) fn focus_or_resume(&mut self) {
         if !self.resume() {
             self.pane_focused = !self.sessions.is_empty();
         }

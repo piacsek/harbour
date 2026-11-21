@@ -7,6 +7,7 @@ use ratatui::layout::{Position, Rect};
 
 mod draw;
 mod handoff;
+mod jump;
 mod key;
 mod logging;
 mod read;

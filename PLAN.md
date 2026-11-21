@@ -27,7 +27,8 @@ file under `plans/`; its time and tokens are a row of [`plans/metrics.md`](plans
 | 17 | [a still sidebar: no activity line on the selected card, the last prompt on the others](plans/phase-17-still-sidebar.md) | [v0.13.0](https://github.com/piacsek/harbour/releases/tag/v0.13.0) |
 | 18 | [the help view keeps the keys, `harbour --help` the notes](plans/phase-18-help-keeps-the-keys.md) | [v0.14.0](https://github.com/piacsek/harbour/releases/tag/v0.14.0) |
 | 19 | [the pane's cursor takes the shape its program asks for](plans/phase-19-cursor-shape.md) | [v0.15.0](https://github.com/piacsek/harbour/releases/tag/v0.15.0) |
-| 20 | [no cursor in the pane while the sidebar has focus](plans/phase-20-no-cursor-beside-the-sidebar.md), with the sweep of phases 15 to 19 | |
+| 20 | [no cursor in the pane while the sidebar has focus](plans/phase-20-no-cursor-beside-the-sidebar.md), with the sweep of phases 15 to 19 | [v0.16.0](https://github.com/piacsek/harbour/releases/tag/v0.16.0) |
+| 22 | [jump to a card by its number](plans/phase-22-jump-by-number.md) | |
 
 ## Backlog
 
