@@ -81,6 +81,7 @@ scripts/dev-install.sh        release build symlinked as ~/.local/bin/harbour-de
 scripts/ship.sh               gates + dev-install (unless skippable) + stage + scrub + commit (none when nothing is staged and commits are unpushed) + scrub of the outgoing commits and branch name + push, aborts on any failure; the first push of a branch opens the draft PR (commit subject as title, the template as body)
 scripts/dev-install-skippable.sh  exit 0 with the reason when `ship.sh` may leave `harbour-dev` alone, else 1 with what needs the install
 scripts/script-tests-skippable.sh exit 0 with the reason when `gates.sh` may leave out the `scripts` test target, else 1 with the first path that needs it
+scripts/docs-only.sh          exit 0 with the reason when `gates.sh` may leave out every test but the ones that read Markdown, else 1 with the first path that needs them
 scripts/feeds-binary.sh       reads paths on stdin, prints the ones that feed the binary; the one list of what does not (`tests/`, `docs/`, `changes/`, …)
 scripts/flake-inputs.sh       reads NUL-separated paths on stdin, prints the ones the flake build reads the same way; the one list of what the `flake` job of `ci.yml` builds for
 scripts/flake-build-needed.sh `<base>`: the `paths` job of `ci.yml`; `build=true` when a flake input changed since the base or nothing can be decided (the reason on stderr), else `build=false`
@@ -311,7 +312,8 @@ nearest the code the guideline is about.
      `scripts/ship.sh` (gates, dev install, commit, push, draft PR on the first push).
   3. The orchestrator runs the `/code-review` loop on the PR itself (see "Review before ready":
      how it runs, what counts as must or should, when to redesign, who fixes). Every must and
-     should finding is fixed, TDD like any change, one ship per round, and reviewed again.
+     should finding is fixed, TDD like any change, one ship per round, and reviewed again
+     (a docs-only pull request gets one round, see "Review before ready").
      Minor findings are fixed when cheap, else listed in the PR body. The loop ends as "Review
      before ready" says. The reviewer is **unprimed** by construction: the skill gets only the level and the PR number, never the list of earlier findings or what
      was decided about them. The orchestrator's memory of earlier rounds is no reason to drop
@@ -461,6 +463,13 @@ nearest the code the guideline is about.
   check, taking a change back out of the pull request, or adding the fragment the `version`
   check asked for. Any other fix, whatever file it touches, gets another round. `gh pr ready`
   comes after the findings are addressed, not before.
+  - **A docs-only pull request gets one round at `medium`.** When every path it changes is a
+    `.md` file that does not feed the binary (`scripts/feeds-binary.sh`) and is not a fragment
+    under `changes/`, the orchestrator runs one round of `/code-review medium <N>`, fixes what
+    it rates must or should in one ship, and runs no round for those fixes: rule text has no
+    tests, and a review at `high` finds another edge case in its wording every round. A pull
+    request that also touches anything else (a script, a workflow, a test, `src/`) keeps the
+    full loop.
   - **Scrub before ready and before the merge.** CI does not run the scrub, and a commit
     pushed without `ship.sh` would otherwise never meet it. Before `gh pr ready` the
     orchestrator runs `scripts/scrub-check.sh` in the branch's worktree at the PR head; without
@@ -582,7 +591,17 @@ only knows the Rust releases up to its locked commit, hence the lock update in e
 any Rust version itself, or the file loses `profile = "minimal"` (the default profile's
 `rust-docs` doubled conveyor's macOS `flake` job).
 
-Outside CI (`CI` unset), `gates.sh` leaves out the `scripts` test target (`tests/scripts/`, most
+Outside CI (`CI` unset), a docs-only branch skips most gates: when `scripts/docs-only.sh` finds
+that every path between the merge base with `origin/main` and the working tree, untracked files
+included, is a `.md` file that does not feed the binary (`scripts/feeds-binary.sh`) and is
+outside `changes/` (the fragments) and `.github/` (the script tests read its pull request
+template), `gates.sh` runs the scrub check, `cargo fmt --check` and
+`cargo test --test readme --test plans`, the only targets that read this repository's Markdown
+otherwise, prints `==> skipping the tests: <reason>; CI runs them`, and skips clippy and every
+other test. A path ending in `.md` counts whatever it is, so the root `CLAUDE.md` symlink does.
+No change, no repository, no `origin/main` or no merge base runs everything. A test that starts
+reading another Markdown file of this repository joins that list in `gates.sh`.
+Otherwise, outside CI, `gates.sh` leaves out the `scripts` test target (`tests/scripts/`, most
 of a warm test run) when `scripts/script-tests-skippable.sh` finds nothing between the merge
 base with `origin/main` and the working tree, untracked files included, under `scripts/`,
 `tests/scripts/`, `tests/fixtures/`, `.github/`, `changes/`, or in `Cargo.toml`, `Cargo.lock`,

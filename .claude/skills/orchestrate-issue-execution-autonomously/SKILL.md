@@ -80,8 +80,8 @@ One task per issue in the task list, in lane order. For each issue:
    merge, never force-push); when to stop and report instead of choosing; and what the final
    report holds (the pull request, the red runs, what it decided, what it skipped, its tokens).
 3. **Review** as "Review before ready" says, within the round limit the owner set. Fixes go
-   back to the same builder (SendMessage), one ship per round. A docs-only pull request takes
-   the lighter path when `AGENTS.md` has one.
+   back to the same builder (SendMessage), one ship per round. A docs-only pull request gets
+   the one `medium` round "Review before ready" gives it, and its ships skip most gates.
 4. **Merge** as steps 4 to 6 of the autonomous flow say: outcome and metrics on the branch,
    scrub, the owner's messages, `gh pr ready`, CI green, the title and commit scrub, the
    owner's messages again, `gh pr merge <N> --squash`. Read the merge's result before any

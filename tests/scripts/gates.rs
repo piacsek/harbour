@@ -185,10 +185,56 @@ fn gates_in_ci_never_skip_the_script_tests() {
     );
 }
 
+#[test]
+fn gates_on_a_docs_only_branch_run_the_scrub_the_format_and_the_markdown_tests_only() {
+    let dir = tempfile::tempdir().unwrap();
+    let bin = docs_only_gates_repository(dir.path());
+    symlink(which("true"), bin.join("tmux")).unwrap();
+
+    let output = repository_gates(dir.path(), None);
+
+    assert!(output.status.success(), "{}", stderr(&output));
+    assert_eq!(calls(dir.path()).len(), 3);
+    assert_eq!(calls(dir.path())[0], "scrub-check.sh ");
+    assert_eq!(calls(dir.path())[1], "cargo fmt --check");
+    assert_eq!(
+        calls(dir.path())[2],
+        "cargo test --test readme --test plans"
+    );
+}
+
+#[test]
+fn gates_that_skip_the_tests_say_why_and_that_ci_runs_them() {
+    let dir = tempfile::tempdir().unwrap();
+    docs_only_gates_repository(dir.path());
+
+    let output = repository_gates(dir.path(), None);
+
+    assert!(output.status.success(), "{}", stderr(&output));
+    assert_eq!(
+        stderr(&output),
+        "==> skipping the tests: only Markdown outside the binary changed on this branch; CI runs them\n"
+    );
+}
+
+#[test]
+fn gates_in_ci_never_skip_the_tests_of_a_docs_only_branch() {
+    let dir = tempfile::tempdir().unwrap();
+    let bin = docs_only_gates_repository(dir.path());
+    symlink(which("true"), bin.join("tmux")).unwrap();
+
+    let output = repository_gates(dir.path(), Some("true"));
+
+    assert!(output.status.success(), "{}", stderr(&output));
+    assert_eq!(calls(dir.path()).len(), 5);
+    assert_eq!(calls(dir.path())[3], "cargo test");
+}
+
 fn gates_sandbox(root: &Path) -> PathBuf {
     let bin = sandbox_bin(root);
     link_script(root, "gates.sh");
     link_script(root, "script-tests-skippable.sh");
+    link_script(root, "docs-only.sh");
     symlink(recorder(), root.join("scripts/scrub-check.sh")).unwrap();
     bin
 }
@@ -208,6 +254,7 @@ fn gates_repository(root: &Path) -> PathBuf {
     let work = repository(root);
     link_script(&work, "gates.sh");
     link_script(&work, "script-tests-skippable.sh");
+    link_script(&work, "docs-only.sh");
     symlink(recorder(), work.join("scripts/scrub-check.sh")).unwrap();
     for target in [
         "tests/cli.rs",
@@ -226,6 +273,14 @@ fn gates_repository(root: &Path) -> PathBuf {
     git(&work, &["commit", "-qm", "the gates"]);
     git(&work, &["update-ref", "refs/remotes/origin/main", "HEAD"]);
     fs::write(work.join("src/main.rs"), "fn main() { }\n").unwrap();
+    bin
+}
+
+fn docs_only_gates_repository(root: &Path) -> PathBuf {
+    let bin = gates_repository(root);
+    let work = root.join("work");
+    git(&work, &["checkout", "--", "src/main.rs"]);
+    fs::write(work.join("AGENTS.md"), "reworded\n").unwrap();
     bin
 }
 
