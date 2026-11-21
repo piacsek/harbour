@@ -233,6 +233,12 @@ default is shown red by breaking the code it covers, then restored, and said so.
   because nothing persists the mode, so there is nothing to read back. `nerd_font` names are
   covered by `tests/tabs.rs`; C-h from a Neovim half rests on `wants_ctrl_h`, covered by the
   Neovim tests outside the mode.
+- Review round 2 found that Alt-\ and a jump while side by side switched the card to the editor
+  for Claude Code's current directory, replacing one chosen with `e`; they now show the card's
+  current editor and open one as C-l would only when none runs. It also found that a session
+  exiting while its editor half had focus kept that editor beside the sidebar; the card now
+  shows the exited Claude Code screen, dimmed, as the States table says.
+- 2 review rounds.
 
 ## Hurdles
 

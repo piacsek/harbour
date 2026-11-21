@@ -4,8 +4,9 @@ use crossterm::event::{KeyCode, KeyModifiers};
 use harbour::app::App;
 use harbour::editor::Program;
 use harbour::picker::Picker;
-use ratatui::style::Color;
+use ratatui::style::{Color, Modifier};
 
+use crate::directory::{cwd, following, repository, write_named_transcript, write_registry};
 use crate::finding::FINDER;
 use crate::side::{agent, editing, editor, side};
 use crate::{Screen, pane_corner, region, script};
@@ -176,6 +177,83 @@ fn a_jump_to_an_exited_session_ends_the_mode_and_brings_the_sidebar_back() {
     assert_eq!(pane_corner(&shown), 40, "{shown}");
 }
 
+#[test]
+fn alt_backslash_shows_the_editor_chosen_with_e_on_the_right() {
+    let scratch = tempfile::tempdir().unwrap();
+    let mut screen = two_editors(scratch.path());
+    to_the_first_editor(&mut screen);
+
+    side(&mut screen);
+
+    let shown = screen.wait_until("side by side", |shown| {
+        region(shown, 0, 100).contains("acme agent ready")
+    });
+    assert!(
+        region(&shown, 100, 100).contains("acme editor at acme-one"),
+        "{shown}"
+    );
+    assert!(
+        !region(&shown, 100, 100).contains("acme editor at acme-two"),
+        "{shown}"
+    );
+}
+
+#[test]
+fn a_jump_away_and_back_side_by_side_still_shows_the_editor_chosen_with_e() {
+    let scratch = tempfile::tempdir().unwrap();
+    let mut screen = two_editors(scratch.path());
+    screen.press('n');
+    screen.wait_until("the second session", |shown| {
+        shown.contains("acme-start 2") && shown.contains("acme agent ready")
+    });
+    screen.key(KeyCode::Char('1'), KeyModifiers::CONTROL);
+    screen.key(KeyCode::Char('h'), KeyModifiers::CONTROL);
+    to_the_first_editor(&mut screen);
+    side(&mut screen);
+    screen.wait_until("side by side", |shown| {
+        region(shown, 100, 100).contains("acme editor at acme-one")
+    });
+    screen.key(KeyCode::Char('2'), KeyModifiers::CONTROL);
+    screen.wait_until("the second session side by side", |shown| {
+        region(shown, 100, 100).contains("acme editor at acme-start")
+    });
+
+    screen.key(KeyCode::Char('1'), KeyModifiers::CONTROL);
+
+    let shown = screen.wait_until("the first session side by side", |shown| {
+        !region(shown, 100, 100).contains("acme editor at acme-start")
+    });
+    assert!(
+        region(&shown, 100, 100).contains("acme editor at acme-one"),
+        "{shown}"
+    );
+    assert!(
+        !region(&shown, 100, 100).contains("acme editor at acme-two"),
+        "{shown}"
+    );
+}
+
+#[test]
+fn the_session_exiting_while_its_editor_has_focus_shows_its_exited_screen_dimmed() {
+    let scratch = tempfile::tempdir().unwrap();
+    let stop = scratch.path().join("stop");
+    let agent = script(&format!(
+        "echo 'acme agent 1'; while [ ! -e '{stop}' ]; do sleep 0.05; done",
+        stop = stop.display()
+    ));
+    let mut screen = split_of(App::new(agent).with_editor(Program::new("acme-edit", editor())));
+    screen.key(KeyCode::Char('l'), KeyModifiers::CONTROL);
+
+    std::fs::write(&stop, "").unwrap();
+
+    let shown = screen.wait_for("exited");
+    assert_eq!(pane_corner(&shown), 40, "{shown}");
+    assert!(region(&shown, 40, 80).contains("acme agent 1"), "{shown}");
+    assert!(!shown.contains("acme editor ready"), "{shown}");
+    assert_eq!(screen.cell(41, 1).symbol(), "a");
+    assert!(screen.cell(41, 1).modifier.contains(Modifier::DIM));
+}
+
 fn split_of(app: App) -> Screen {
     let mut screen = Screen::of(app);
     screen.press('n');
@@ -200,4 +278,28 @@ fn raw_editor_beside(scratch: &Path, asking: &str) -> Screen {
     let mut screen = split_of(App::new(agent(scratch)).with_editor(editor));
     screen.key(KeyCode::Char('l'), KeyModifiers::CONTROL);
     screen
+}
+
+fn two_editors(scratch: &Path) -> Screen {
+    let one = repository(scratch, "acme-one");
+    let two = repository(scratch, "acme-two");
+    let start = repository(scratch, "acme-start");
+    let mut screen = following(scratch, &[&cwd(&one)]);
+    screen.key(KeyCode::Char('l'), KeyModifiers::CONTROL);
+    screen.wait_for("acme editor at acme-one");
+    screen.key(KeyCode::Char('h'), KeyModifiers::CONTROL);
+    write_registry(scratch, "acme-resumed", &start);
+    write_named_transcript(scratch, "acme-resumed", &[&cwd(&two)]);
+    screen.key(KeyCode::Char('l'), KeyModifiers::CONTROL);
+    screen.wait_for("acme editor at acme-two");
+    screen.key(KeyCode::Char('h'), KeyModifiers::CONTROL);
+    screen.key(KeyCode::Char('h'), KeyModifiers::CONTROL);
+    screen
+}
+
+fn to_the_first_editor(screen: &mut Screen) {
+    screen.press('e');
+    screen.wait_for("acme editor at acme-one");
+    screen.key(KeyCode::Char('h'), KeyModifiers::CONTROL);
+    screen.wait_for("acme agent ready");
 }

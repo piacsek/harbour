@@ -192,9 +192,6 @@ fn with_icons_nothing_shows_in_the_narrowest_pane() {
     assert_eq!(editor, "");
 }
 
-const SPARKLE: &str = "\u{F0674}";
-const NEOVIM: &str = "\u{E6AE}";
-
 #[test]
 fn the_claude_name_alone_is_plain_without_icons() {
     assert_eq!(claude(false), "claude");
@@ -202,7 +199,7 @@ fn the_claude_name_alone_is_plain_without_icons() {
 
 #[test]
 fn the_claude_name_alone_has_its_glyph_with_icons() {
-    assert_eq!(claude(true), "\u{F0674} claude");
+    assert_eq!(claude(true), format!("{SPARKLE} claude"));
 }
 
 #[test]
@@ -231,7 +228,10 @@ fn the_editor_name_alone_cuts_a_cjk_directory_by_display_width() {
 
 #[test]
 fn the_editor_name_alone_has_the_neovim_glyph_with_icons() {
-    assert_eq!(editor_named("nvim", true, None, 10), "\u{E6AE} nvim");
+    assert_eq!(
+        editor_named("nvim", true, None, 10),
+        format!("{NEOVIM} nvim")
+    );
 }
 
 #[test]
@@ -248,3 +248,6 @@ fn the_editor_name_alone_is_cut_when_it_does_not_fit() {
 fn the_editor_name_alone_shows_nothing_under_two_columns() {
     assert_eq!(editor_named("acme-edit", false, None, 1), "");
 }
+
+const SPARKLE: &str = "\u{F0674}";
+const NEOVIM: &str = "\u{E6AE}";

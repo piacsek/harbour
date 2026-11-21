@@ -42,7 +42,7 @@ impl App {
         let [_, right] = split(self.screen);
         self.beside = Block::bordered().inner(right);
         self.failed = None;
-        self.open_editor();
+        self.show_or_open_editor();
         let entry = &mut self.sessions[self.selected];
         if self.failed.is_some() || entry.editor().is_none() {
             self.beside = Rect::default();
@@ -64,7 +64,7 @@ impl App {
         }
         let on_editor = entry.on_editor;
         self.failed = None;
-        self.open_editor();
+        self.show_or_open_editor();
         let entry = &mut self.sessions[self.selected];
         if self.failed.is_some() || entry.editor().is_none() {
             entry.on_editor = false;
@@ -74,6 +74,16 @@ impl App {
         entry.on_editor = on_editor;
         self.side_by_side = true;
         self.zoomed = false;
+    }
+
+    fn show_or_open_editor(&mut self) {
+        if self
+            .sessions
+            .get(self.selected)
+            .is_some_and(|entry| entry.editor().is_none())
+        {
+            self.open_editor();
+        }
     }
 
     pub(super) fn side_mouse(&mut self, event: MouseEvent) -> bool {
@@ -187,7 +197,10 @@ impl App {
         if !self.side_by_side {
             return;
         }
-        if !self.pane_focused || entry.ended() {
+        if entry.ended() {
+            self.side_by_side = false;
+            self.sessions[self.selected].on_editor = false;
+        } else if !self.pane_focused {
             self.side_by_side = false;
         } else if entry.editor().is_none() {
             self.side_by_side = false;
