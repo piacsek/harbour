@@ -34,8 +34,9 @@ Under tmux, a newline is Shift-Enter with extended-keys on, else Alt-Enter.
 C-1 to C-8 jump to that card, C-9 to the last; under tmux they need
 extended-keys on. On macOS, Mission Control's Switch to Desktop N shortcuts can
 take them first.
-A terminal tmux does not know (Ghostty for one) also needs extkeys in tmux's
-terminal-features for any extended key, applied after detaching and attaching:
+A terminal tmux does not know (Ghostty for one) also needs this line in
+tmux.conf for any extended key, with its TERM outside tmux before the colon;
+it applies after detaching and attaching again:
   set -as terminal-features 'xterm-ghostty:extkeys'
 M-z zooms the selected session to the whole screen, and back. It works only
 where the terminal sends Alt-z as an extended key (under tmux, extended-keys
