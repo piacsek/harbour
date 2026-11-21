@@ -64,7 +64,9 @@ fn a_stopped_card_is_counted_nowhere_in_the_title() {
 
     let shown = screen.wait_for(TITLE);
 
-    assert!(shown.contains(" sessions ● 0 ◉ 0 ○ 0 · 0 "), "{shown}");
+    let top = shown.lines().next().unwrap();
+    assert!(top.contains(" sessions "), "{shown}");
+    assert!(!top.contains(" 0 "), "{shown}");
 }
 
 #[test]

@@ -196,7 +196,7 @@ fn a_session_with_an_editor_keeps_its_card_and_counts_once() {
     let shown = screen.draw();
 
     let top = shown.lines().next().unwrap();
-    assert!(top.contains("○ 0 · 1 "), "{top}");
+    assert!(top.contains(" sessions · 1 "), "{top}");
     assert_eq!(shown.matches("acme-home 1").count(), 1, "{shown}");
     assert!(shown.contains("▌   acme-home"), "{shown}");
 }

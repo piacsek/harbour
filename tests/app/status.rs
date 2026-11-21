@@ -318,9 +318,10 @@ fn the_narrowest_sidebar_keeps_every_count_in_the_title_even_past_nine() {
         wait_for_files(registry.path(), started + 1);
     }
 
-    let shown = screen.wait_for("●10 ◉1 ○1 ·0");
+    let shown = screen.wait_for("●10 ◉1 ○1 ");
     let title = shown.lines().next().unwrap();
-    assert!(title.contains(" ●10 ◉1 ○1 ·0 "), "{shown}");
+    assert!(title.contains(" ●10 ◉1 ○1 "), "{shown}");
+    assert!(!title.contains('·'), "{shown}");
 }
 
 #[test]
@@ -331,7 +332,9 @@ fn a_wide_sidebar_names_the_sessions_in_the_title() {
 
     let shown = screen.draw();
 
-    assert!(shown.contains(" sessions ● 0 ◉ 0 ○ 0 · 0 "), "{shown}");
+    let top = shown.lines().next().unwrap();
+    assert!(top.contains(" sessions "), "{shown}");
+    assert!(!top.contains(" 0 "), "{shown}");
 }
 
 #[test]
@@ -373,13 +376,15 @@ fn a_short_waiting_reason_shows_whole() {
 }
 
 #[test]
-fn with_no_session_the_title_counts_zero_of_each() {
+fn with_no_session_the_title_names_the_sessions_alone() {
     let registry = tempfile::tempdir().unwrap();
     let mut screen = watching(registry.path(), registered(registry.path(), "busy"));
 
     let shown = screen.draw();
 
-    assert!(shown.contains(" sessions ● 0 ◉ 0 ○ 0 · 0 "), "{shown}");
+    let top = shown.lines().next().unwrap();
+    assert!(top.contains(" sessions "), "{shown}");
+    assert!(!top.contains(" 0 "), "{shown}");
 }
 
 #[test]
