@@ -87,6 +87,14 @@ Zoom is not built yet, so it has no row.
 - A jump does not count as acting on the session for `harbour edit`'s "last used", as Enter
   does not.
 - The help view and a question keep their rule: the next key closes them and does nothing else.
+- The Neovim end-to-end test that typed Ctrl-3 in insert mode under `extended-keys on` now
+  types Ctrl-0: Ctrl-3 jumps there, and Ctrl-0 still pins that an extended key never leaves
+  insert mode.
+- The help row reads `focus or resume that card; C-9 the last` (39 columns): at 59 and 60
+  columns the help already used every row, so a row that wraps there pushes `harbour --help has
+  the rest.` off. For the same reason C-h now reads `from an editor` instead of `from the
+  editor`, one column shorter, so it stops wrapping at 59 columns and frees the row the new key
+  takes. The narrow layout on 20 rows has no spare row left; the wide one keeps four.
 
 ## Tasks
 
@@ -101,4 +109,18 @@ Zoom is not built yet, so it has no row.
 
 ## Outcome
 
+- Ctrl-1 to Ctrl-8 select the card at that position and focus its pane; Ctrl-9 the last card.
+  A stopped card resumes as Enter does, with its refusals. Out of range does nothing; the
+  help, a question and the picker take the key first.
+- A session never gets them when they arrive extended (`\e[27;5;49~` to `\e[27;5;57~`, or
+  `\e[49;5u` to `\e[57;5u`); with extended keys off tmux sends the legacy bytes
+  (`1`, NUL, ESC, `\034` to `\037`, DEL, `9`), which still reach the session.
+- `App::jump(index)` is the one "select, focus, resume" a later pick can call.
+- The log names them `C-1` to `C-9`; `harbour --help` says tmux needs `extended-keys on` and
+  that macOS's Switch to Desktop N shortcuts can take them first.
+
 ## Hurdles
+
+- `api-shape` Three end-to-end tests (two in `tests/e2e/keys.rs`, one in `tests/e2e/neovim.rs`) used Ctrl-3 as the sample extended key and broke once it jumped → code
+- `design` The help on 59 and 60 columns had no spare row, so the new key needed a row freed by shortening the C-h text → code
+- `test-seam` A key sent out of range from a pane looked passed because Ctrl-5's byte (0x1d) draws nothing; the test now checks the pty echo `^]` → code
