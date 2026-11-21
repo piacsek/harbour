@@ -152,4 +152,46 @@ list it read, then reads a line from its terminal and prints the first listed li
 
 ## Outcome
 
+- Alt-s opens the directory picker's popup with the border title ` sessions ` and runs fzf over
+  one line per card, `<n>\t<dot>\t<title>\t<place>\t<age>`, in sidebar order. Typing filters by
+  title, repository and branch, Enter jumps to the pick through `App::jump`, as Ctrl-1 to Ctrl-9
+  do (a stopped card resumes), Esc closes it and changes nothing.
+- The key rule is Alt-z's: taken only in an extended form (`CSI 27;3;115~` or `CSI 115;3u`,
+  Caps Lock's `S` too), never in the legacy `ESC s` form, which reaches the session, and never
+  from an editor. Its cost, under tmux with `extended-keys on`, Esc then `s` typed fast in
+  Claude Code opens the list, is in this plan, the PR body, the fragment and `harbour --help`.
+  `tests/e2e/finding.rs` checks both formats through tmux 3.7c, and `ESC s` with it off.
+- fzf only: the configured picker runs only when its file name is `fzf`; any other says
+  `Could not start the session finder: it needs fzf, not <program>`. fzf's arguments, after the
+  directory picker's: `--delimiter=<TAB> --with-nth=2.. --nth=2,3 --tabstop=1 --no-sort
+  --layout=reverse`. The list goes to fzf through a file in the pick's private directory, so no
+  title is ever part of a shell word, and harbour reads the number before the first tab of what
+  fzf prints (no `--accept-nth`, so an older fzf works).
+- The list is the one from when the popup opened: a running or exited session is kept by its
+  id, a stopped card by its remembered id. A pick of a session that ended while the list was
+  open says `That session is gone: it ended while the list was open.` and selects nothing. A
+  refused resume selects its card and leaves the sidebar focused; zoom stays on after a pick.
+- The popup is modal like the directory picker: every key (Ctrl-1 to Ctrl-9, Alt-z, `u`, the
+  width keys), paste and mouse event goes to fzf, and `harbour edit` is answered `none` or
+  refused. The log names the key `M-s` and logs what is typed into the list as a byte count.
+- The help gained `M-s  jump to a session by part of its name`. To keep it whole at 59 and 60
+  columns by 20 rows, `C-l/Enter` now reads `focus or resume; from Claude Code, its editor`.
+  After merging phase 27 (the width keys, which added its own row and shortened `x`) the help
+  fills a 20-row terminal with no row to spare; the headroom test says 0 and is renamed. The
+  next key row needs a shorter row elsewhere or the pointer line moved first.
+- `scripts/screenshots.sh` shoots `docs/sessions.png` (the demo after M-s, with `extended-keys`
+  on for that shot); `docs/keys.png` and `docs/help.png` were shot again.
+
 ## Hurdles
+
+- `test-seam` The fixture's messages wrapped in the narrow sidebar, so whole-message asserts
+  failed for the wrong reason; a helper joins the sidebar's text between its borders → code
+- `test-seam` A first `harbour edit` test (an ask, answered `none`) passed with the guard broken,
+  since `none` is also the answer when no session holds the file; it became an open of a file in
+  a session's root, refused → code
+- `test-seam` `read -t` in a fixture is not portable to dash on Linux; a background watcher that
+  kills the script replaced it → code
+- `test-seam` The e2e's first absence check matched the sidebar's own ` sessions · 1 ` title
+  instead of the popup's; it now looks for the fixture's `acme fzf` lines → code
+- `process` Phase 27 merged mid-phase and took the help's last spare row; the merge reconciled
+  both rows and set the headroom to 0 → none
