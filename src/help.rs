@@ -1,4 +1,4 @@
-pub const KEYS: [(&str, &str); 8] = [
+pub const KEYS: &[(&str, &str)] = &[
     ("j/k", "select the next / previous session"),
     ("n", "pick a directory and start a session there"),
     (
