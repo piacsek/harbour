@@ -19,7 +19,7 @@ these suites come from; the ones about sessions were hit in harbour.
   names (`SESSION_COMMAND` in `src/tui.rs`, on the `SEAMS` list), `claude` when it is unset.
   The end-to-end tests set it to `tests/fixtures/agent.sh`, `tests/fixtures/raw-agent.sh` or
   `tests/fixtures/registered-agent.sh` or `tests/fixtures/titled-agent.sh` (which write a registry
-  file, and the second a transcript, so only under a scratch `HOME`);
+  file, and the second a transcript, so only under a scratch `HOME`) or `tests/fixtures/shaped-agent.sh`;
   in-process tests hand `App::new` or `Session::start` a `/bin/sh -c` script; the one executable
   a test writes is a picker whose interpreter is missing.
 
