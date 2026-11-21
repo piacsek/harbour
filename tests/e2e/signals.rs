@@ -1,4 +1,6 @@
-use std::path::Path;
+use std::fs::File;
+use std::os::unix::fs::OpenOptionsExt;
+use std::path::{Path, PathBuf};
 use std::thread::sleep;
 use std::time::{Duration, Instant};
 
@@ -6,11 +8,14 @@ use harbour::tui::SESSION_COMMAND;
 use nix::sys::signal::{Signal, kill};
 use nix::unistd::Pid;
 
+use crate::log::wait_for_log;
 use crate::{REGISTERED_AGENT, Server, WORKING, harbour_line, quoted, wait_for_status};
+
+const FIFO_AGENT: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/fifo-agent.sh");
 
 #[test]
 #[ignore]
-fn term_turns_the_terminal_modes_off_and_exits_143() {
+fn term_turns_the_terminal_modes_off_and_ends_harbour_by_term() {
     let home = tempfile::tempdir().unwrap();
     let server = Server::start("signal-term", 120, 20);
     if !extended_keys(&server) {
@@ -18,16 +23,16 @@ fn term_turns_the_terminal_modes_off_and_exits_143() {
     }
     let pid = home.path().join("harbour.pid");
     server.respawn(&format!(
-        "{}; echo \"harbour exited $?\"; stty raw -echo; dd bs=1 count=1 2>/dev/null | od -An -tx1; exec sleep 600",
-        harbour_line(home.path(), &pid_written(&pid), &[], &[])
+        "{}; exec sleep 600",
+        harbour_line(home.path(), &ended(&pid), &[], &[])
     ));
     server.wait_for_screen("press n to start one");
     assert_eq!(modes(&server), "Ext 2|1");
 
     send(&pid, Signal::SIGTERM);
 
-    let screen = server.wait_for_screen("harbour exited 143");
-    assert!(screen.contains("harbour exited 143"), "{screen}");
+    let screen = server.wait_for_screen("harbour died of 15 exited 0");
+    assert!(screen.contains("harbour died of 15 exited 0"), "{screen}");
     assert_eq!(modes(&server), "VT10x|0");
 }
 
@@ -41,12 +46,12 @@ fn after_term_the_shell_gets_ctrl_c_as_its_plain_byte() {
     }
     let pid = home.path().join("harbour.pid");
     server.respawn(&format!(
-        "{}; echo \"harbour exited $?\"; stty raw -echo; dd bs=1 count=1 2>/dev/null | od -An -tx1; echo read; exec sleep 600",
-        harbour_line(home.path(), &pid_written(&pid), &[], &[])
+        "{}; stty raw -echo; echo raw ready; dd bs=1 count=1 2>/dev/null | od -An -tx1; echo read; exec sleep 600",
+        harbour_line(home.path(), &ended(&pid), &[], &[])
     ));
     server.wait_for_screen("press n to start one");
     send(&pid, Signal::SIGTERM);
-    server.wait_for_screen("harbour exited 143");
+    server.wait_for_screen("raw ready");
 
     server.send_keys(&["C-c"]);
 
@@ -56,30 +61,32 @@ fn after_term_the_shell_gets_ctrl_c_as_its_plain_byte() {
 
 #[test]
 #[ignore]
-fn int_ends_harbour_as_a_quit_does_and_exits_130() {
+fn int_ends_harbour_as_a_quit_does_then_by_int() {
     let home = tempfile::tempdir().unwrap();
     let server = Server::start("signal-int", 160, 20);
     let pid = started(&server, home.path());
 
     send(&pid, Signal::SIGINT);
 
-    let screen = server.wait_for_screen("harbour exited 130");
-    assert!(screen.contains("harbour exited 130"), "{screen}");
+    let screen = server.wait_for_screen("harbour died of 2 exited 0");
+    assert!(screen.contains("harbour died of 2 exited 0"), "{screen}");
     assert_eq!(left(home.path(), "status"), Vec::<String>::new());
     assert_eq!(left(home.path(), "edit"), Vec::<String>::new());
+    let log = wait_for_log(home.path(), "quit sessions=1");
+    assert!(log.contains(" signal name=INT\n"), "{log}");
 }
 
 #[test]
 #[ignore]
-fn hup_ends_harbour_as_a_quit_does_and_exits_129() {
+fn hup_ends_harbour_as_a_quit_does_then_by_hup() {
     let home = tempfile::tempdir().unwrap();
     let server = Server::start("signal-hup", 160, 20);
     let pid = started(&server, home.path());
 
     send(&pid, Signal::SIGHUP);
 
-    let screen = server.wait_for_screen("harbour exited 129");
-    assert!(screen.contains("harbour exited 129"), "{screen}");
+    let screen = server.wait_for_screen("harbour died of 1 exited 0");
+    assert!(screen.contains("harbour died of 1 exited 0"), "{screen}");
     assert_eq!(left(home.path(), "status"), Vec::<String>::new());
     assert_eq!(left(home.path(), "edit"), Vec::<String>::new());
 }
@@ -93,19 +100,49 @@ fn closing_the_pane_ends_harbour_as_a_quit_does() {
 
     server.respawn("exec sleep 600");
 
+    let log = wait_for_log(home.path(), "quit sessions=1");
+    assert!(log.contains("quit sessions=1"), "{log}");
     let status = wait_for_empty(home.path(), "status");
     let edit = wait_for_empty(home.path(), "edit");
     assert_eq!(status, Vec::<String>::new());
     assert_eq!(edit, Vec::<String>::new());
 }
 
-fn started(server: &Server, home: &Path) -> std::path::PathBuf {
+#[test]
+#[ignore]
+fn a_second_term_ends_a_harbour_whose_loop_is_held() {
+    let home = tempfile::tempdir().unwrap();
+    let server = Server::start("signal-held", 160, 20);
+    let pid = home.path().join("harbour.pid");
+    server.respawn(&format!(
+        "{}; exec sleep 600",
+        harbour_line(
+            home.path(),
+            &ended(&pid),
+            &[(SESSION_COMMAND, FIFO_AGENT)],
+            &[]
+        )
+    ));
+    server.wait_for_screen("press n to start one");
+    server.send_keys(&["n"]);
+    let held = held(home.path());
+    send(&pid, Signal::SIGTERM);
+    sleep(Duration::from_millis(200));
+
+    send(&pid, Signal::SIGTERM);
+
+    let screen = server.wait_for_screen("harbour died of 15 exited 0");
+    assert!(screen.contains("harbour died of 15 exited 0"), "{screen}");
+    drop(held);
+}
+
+fn started(server: &Server, home: &Path) -> PathBuf {
     let pid = home.join("harbour.pid");
     server.respawn(&format!(
-        "{}; echo \"harbour exited $?\"; exec sleep 600",
+        "{}; exec sleep 600",
         harbour_line(
             home,
-            &pid_written(&pid),
+            &ended(&pid),
             &[(SESSION_COMMAND, REGISTERED_AGENT)],
             &[]
         )
@@ -127,11 +164,12 @@ fn extended_keys(server: &Server) -> bool {
     true
 }
 
-fn pid_written(file: &Path) -> String {
+fn ended(file: &Path) -> String {
     format!(
-        "sh -c {} sh",
+        "perl -e {} sh -c {} sh",
+        quoted(r#"system @ARGV; print "harbour died of ", $? & 127, " exited ", $? >> 8, "\n""#),
         quoted(&format!(
-            "echo $$ > {}; exec \"$@\"",
+            "echo \"$$ pid-end\" > {}; exec \"$@\"",
             quoted(&file.display().to_string())
         ))
     )
@@ -141,13 +179,41 @@ fn send(file: &Path, signal: Signal) {
     let deadline = Instant::now() + Duration::from_secs(10);
     let pid = loop {
         let text = std::fs::read_to_string(file).unwrap_or_default();
-        if let Ok(pid) = text.trim().parse::<i32>() {
-            break pid;
+        if let Some(pid) = text.strip_suffix(" pid-end\n") {
+            break pid.parse::<i32>().unwrap();
         }
         assert!(Instant::now() < deadline, "waited 10 s for {file:?}");
         sleep(Duration::from_millis(50));
     };
     kill(Pid::from_raw(pid), signal).unwrap();
+}
+
+fn held(home: &Path) -> File {
+    let dir = home.join(".claude/sessions");
+    let deadline = Instant::now() + Duration::from_secs(10);
+    loop {
+        let fifo = std::fs::read_dir(&dir)
+            .into_iter()
+            .flatten()
+            .flatten()
+            .map(|entry| entry.path())
+            .next();
+        let opened = fifo.and_then(|fifo| {
+            std::fs::OpenOptions::new()
+                .write(true)
+                .custom_flags(nix::libc::O_NONBLOCK)
+                .open(fifo)
+                .ok()
+        });
+        if let Some(file) = opened {
+            return file;
+        }
+        assert!(
+            Instant::now() < deadline,
+            "waited 10 s for harbour to open a registry file in {dir:?}"
+        );
+        sleep(Duration::from_millis(50));
+    }
 }
 
 fn modes(server: &Server) -> String {

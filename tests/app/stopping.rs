@@ -35,7 +35,7 @@ fn a_signal_stops_harbour_with_a_running_session_without_asking() {
     let ready = screen.wait_for("acme agent ready");
     assert!(ready.contains("acme agent ready"), "{ready}");
 
-    screen.app.stop();
+    screen.app.stop("signal name=TERM");
 
     assert!(!screen.app.running());
 }
@@ -48,7 +48,7 @@ fn a_signal_while_the_quit_question_shows_stops_harbour() {
     assert!(ready.contains("acme agent ready"), "{ready}");
     screen.press('q');
 
-    screen.app.stop();
+    screen.app.stop("signal name=TERM");
 
     assert!(!screen.app.running());
 }

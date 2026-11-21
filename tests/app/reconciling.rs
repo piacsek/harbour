@@ -53,7 +53,7 @@ fn a_title_written_just_before_a_signal_stops_harbour_is_remembered() {
     assert_eq!(first.len(), 1);
     scratch.transcript(ID, &titled("The last word"));
 
-    screen.app.stop();
+    screen.app.stop("signal name=TERM");
 
     let kept = scratch.memory().recall();
     assert_eq!(kept.len(), 1);

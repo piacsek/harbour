@@ -308,7 +308,8 @@ impl App {
         !self.quitting
     }
 
-    pub fn stop(&mut self) {
+    pub fn stop(&mut self, cause: &str) {
+        self.log_stop(cause);
         self.asking = None;
         self.settle_all();
         self.quitting = true;

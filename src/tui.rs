@@ -3,7 +3,7 @@ use std::io;
 use std::os::fd::AsFd;
 use std::panic::PanicHookInfo;
 use std::sync::Arc;
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::time::Duration;
 
 use crossterm::cursor::{MoveTo, Show};
@@ -12,9 +12,11 @@ use crossterm::event::{
     KeyEventKind,
 };
 use crossterm::{execute, queue};
+use nix::errno::Errno;
 use ratatui::Terminal;
 use ratatui::backend::CrosstermBackend;
 use signal_hook::consts::{SIGHUP, SIGINT, SIGTERM};
+use signal_hook::low_level::{emulate_default_handler, signal_name};
 
 use crate::app::App;
 use crate::config::{Config, Source};
@@ -40,7 +42,7 @@ pub const DIR_PICKER: &str = "HARBOUR_DIR_PICKER";
 pub const EDITOR: &str = "HARBOUR_EDITOR";
 pub const LOG: &str = "HARBOUR_LOG";
 
-pub fn run(config: Config) -> io::Result<u8> {
+pub fn run(config: Config) -> io::Result<()> {
     let mut app = App::new(config.session_command().value.clone())
         .with_picker(dir_picker(&config))
         .with_editor(Program::command(config.editor().value.clone()))
@@ -78,15 +80,24 @@ pub fn run(config: Config) -> io::Result<u8> {
     if let Some(log) = log {
         log.finish(Duration::from_millis(500));
     }
-    shown
+    ended(shown)
 }
 
-pub fn demo() -> io::Result<u8> {
+pub fn demo() -> io::Result<()> {
     let registry = Registry::create_in(&std::env::temp_dir())?;
-    show(App::demo(registry.path().to_path_buf()))
+    let shown = show(App::demo(registry.path().to_path_buf()));
+    drop(registry);
+    ended(shown)
 }
 
-fn show(app: App) -> io::Result<u8> {
+fn ended(shown: io::Result<Option<i32>>) -> io::Result<()> {
+    if let Some(signal) = shown? {
+        emulate_default_handler(signal)?;
+    }
+    Ok(())
+}
+
+fn show(app: App) -> io::Result<Option<i32>> {
     let caught = caught()?;
     let app = app.with_mover(Box::new(|directory| std::env::set_current_dir(directory)));
     let mut terminal = ratatui::init();
@@ -101,18 +112,30 @@ fn show(app: App) -> io::Result<u8> {
 
 fn caught() -> io::Result<Arc<AtomicUsize>> {
     let caught = Arc::new(AtomicUsize::new(0));
+    let armed = Arc::new(AtomicBool::new(false));
     for signal in [SIGHUP, SIGINT, SIGTERM] {
         let value = usize::try_from(signal).map_err(io::Error::other)?;
+        signal_hook::flag::register_conditional_default(signal, Arc::clone(&armed))?;
         signal_hook::flag::register_usize(signal, Arc::clone(&caught), value)?;
+        signal_hook::flag::register(signal, Arc::clone(&armed))?;
     }
     Ok(caught)
 }
 
-fn signalled(caught: &AtomicUsize) -> Option<u8> {
+pub fn hung_up(error: &io::Error) -> bool {
+    error.kind() == io::ErrorKind::UnexpectedEof || error.raw_os_error() == Some(Errno::EIO as i32)
+}
+
+fn signalled(caught: &AtomicUsize) -> Option<i32> {
     match caught.load(Ordering::Relaxed) {
         0 => None,
-        signal => Some(u8::try_from(128 + signal).unwrap_or(u8::MAX)),
+        signal => i32::try_from(signal).ok(),
     }
+}
+
+fn named(signal: i32) -> String {
+    let name = signal_name(signal).unwrap_or("SIG?");
+    format!("signal name={}", name.trim_start_matches("SIG"))
 }
 
 pub fn panic_hook(shape: Shape, restore_terminal: Box<PanicHook>) -> Box<PanicHook> {
@@ -143,7 +166,7 @@ fn drive(
     mut app: App,
     mut shape: Shape,
     caught: &AtomicUsize,
-) -> io::Result<u8> {
+) -> io::Result<Option<i32>> {
     let stdin = io::stdin();
     let mut input = Input::default();
     let mut pending = VecDeque::new();
@@ -156,13 +179,19 @@ fn drive(
             &mut pending,
             &stdin,
         );
-        if let Some(status) = signalled(caught) {
-            app.stop();
-            return Ok(status);
+        if let Some(signal) = signalled(caught) {
+            app.stop(&named(signal));
+            return Ok(Some(signal));
         }
-        stepped?;
+        match stepped {
+            Err(error) if hung_up(&error) => {
+                app.stop("hangup");
+                return Ok(Some(SIGHUP));
+            }
+            stepped => stepped?,
+        }
     }
-    Ok(0)
+    Ok(None)
 }
 
 fn step(
