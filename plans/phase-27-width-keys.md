@@ -163,7 +163,9 @@ Each ship is whole: the new items ship with their caller.
   zoom is back after it), or while the help, a question or the picker is shown: those take or
   dismiss every key first. Every session, shown or not, gets the new pane size at the next
   frame, one SIGWINCH each, since `compose` resizes each one only when its size changed.
-- The log names the keys `M--` and `M-=`.
+- The log names the keys `M--` and `M-=` only when the width changed; a width key that did
+  nothing (it only hid the help or a question, came under 60 columns or while zoomed, or hit a
+  limit) is logged as `other`, as every key that does nothing is.
 - Alt with Shift counts too, as the jump keys take Ctrl with Shift for digits: on a layout
   where `-` or `=` needs Shift, the extended key arrives with both.
 - Review round 1: a session whose process has exited keeps the screen size it had and is
@@ -187,6 +189,15 @@ Each ship is whole: the new items ship with their caller.
   popup takes the width keys like every other key, which a test shows (red with the width
   hook ahead of the popup). Not checked: Claude Code's own Meta bindings, read from its docs,
   not run.
+- Review findings not acted on:
+  - under 60 columns with the pane focused, or while zoomed, the two keys are taken and
+    dropped rather than passed to Claude Code, which is what the issue decided ("a session
+    never receives either key");
+  - once a session's program has exited its terminal is never resized again, so a background
+    job it left behind that still prints keeps wrapping at the old width;
+  - an exited session's last rows are hidden when the pane is shorter than its kept screen,
+    which was already so before this change and is now issue #102.
+- 2 review rounds; round 2 found no must or should finding.
 
 ## Hurdles
 

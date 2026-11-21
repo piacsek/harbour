@@ -41,6 +41,7 @@ impl App {
             _ => return true,
         };
         self.sidebar_width = Some(width);
+        self.log_resized();
         true
     }
 

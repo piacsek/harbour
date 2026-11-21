@@ -127,6 +127,33 @@ fn the_wider_key_is_logged_by_its_name() {
 }
 
 #[test]
+fn a_narrower_key_at_the_narrowest_width_is_logged_without_its_name() {
+    let (app, lines) = logged(App::new(reading_agent()).with_sidebar_width(15));
+    let mut screen = focused(app);
+
+    screen.key(KeyCode::Char('-'), KeyModifiers::ALT);
+
+    let lines = read(&lines);
+    only(&lines, " key name=other");
+    assert_eq!(count(&lines, "M--"), 0);
+}
+
+#[test]
+fn a_wider_key_that_only_hides_the_help_is_logged_without_its_name() {
+    let (app, lines) = logged(App::new(reading_agent()));
+    let mut screen = Screen::of(app);
+    screen.press('n');
+    screen.wait_for("acme agent ready");
+    screen.press('?');
+
+    screen.key(KeyCode::Char('='), KeyModifiers::ALT);
+
+    let lines = read(&lines);
+    assert_eq!(count(&lines, " key name=other"), 1);
+    assert_eq!(count(&lines, "M-="), 0);
+}
+
+#[test]
 fn a_key_harbour_binds_nothing_to_is_logged_without_its_name() {
     let (app, lines) = logged(App::new(reading_agent()));
     let mut screen = Screen::of(app);
