@@ -122,7 +122,7 @@ impl Editor {
             command.push("--".into());
             command.push(file.into());
         }
-        let session = Session::start(&command, directory, rows, cols)?;
+        let session = Session::start_keeping_tmux(&command, directory, rows, cols)?;
         Ok(Editor {
             id,
             directory: directory.to_path_buf(),

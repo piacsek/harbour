@@ -134,8 +134,8 @@ fn a_session_does_not_inherit_the_tmux_of_harbour() {
 
     server.send_keys(&["n"]);
 
-    let screen = server.wait_for_screen("tmux:[]");
-    assert!(screen.contains("tmux:[]"), "{screen}");
+    let screen = server.wait_for_screen("tmux:[] pane:[]");
+    assert!(screen.contains("tmux:[] pane:[]"), "{screen}");
 }
 
 #[test]
