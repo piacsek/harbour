@@ -382,7 +382,6 @@ fn the_demo_shows_a_made_up_session_in_each_state() {
     assert!(screen.contains(rows[12]), "{screen}");
     assert!(screen.contains(rows[13]), "{screen}");
     assert!(!screen.contains("acme-local-branch"), "{screen}");
-    assert!(!screen.contains("Run the retry tests"), "{screen}");
 }
 
 #[test]

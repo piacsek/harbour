@@ -8,13 +8,8 @@ fn a_conversation_resumed_in_one_harbour_is_open_elsewhere_in_another() {
     let scratch = Scratch::new();
     scratch.remember(ID, TITLE, 0);
     scratch.transcript(ID, USER);
-    scratch.remember(OTHER_ID, SECOND, 1);
-    scratch.transcript(OTHER_ID, USER);
     let mut first = scratch.watching(resuming_agent());
     let mut second = scratch.watching(resuming_agent());
-    let listed = second.wait_for(SECOND);
-    assert!(listed.contains(SECOND), "{listed}");
-    second.press('j');
 
     first.key(KeyCode::Enter, KeyModifiers::NONE);
 
@@ -22,7 +17,6 @@ fn a_conversation_resumed_in_one_harbour_is_open_elsewhere_in_another() {
     assert!(resumed.contains("acme agent resumed"), "{resumed}");
     let shown = second.wait_for("open elsewhere");
     assert_eq!(below(&shown, TITLE), "open elsewhere");
-    assert_eq!(below(&shown, SECOND), "");
 }
 
 #[test]
@@ -80,14 +74,13 @@ fn a_conversation_ended_in_one_harbour_resumes_in_another() {
     let mut first = scratch.watching(resuming_agent());
     let mut second = scratch.watching(resuming_agent());
     first.key(KeyCode::Enter, KeyModifiers::NONE);
-    let held = second.wait_for(CLOSE_IT_THERE);
-    assert!(held.contains(CLOSE_IT_THERE), "{held}");
+    let held = second.wait_for("open elsewhere");
+    assert!(held.contains("open elsewhere"), "{held}");
     first.key(KeyCode::Char('h'), KeyModifiers::CONTROL);
     first.press('x');
     first.press('y');
-    let stopped = second.wait_for(RESUMES);
-    assert!(stopped.contains(RESUMES), "{stopped}");
-    assert_eq!(below(&stopped, TITLE), "");
+    let stopped = second.wait_for("stopped");
+    assert_eq!(below(&stopped, TITLE), "stopped");
 
     second.key(KeyCode::Enter, KeyModifiers::NONE);
 
@@ -96,9 +89,6 @@ fn a_conversation_ended_in_one_harbour_resumes_in_another() {
 }
 
 const USER: &str = r#"{"type":"user","message":{}}"#;
-const SECOND: &str = "The second one";
-const CLOSE_IT_THERE: &str = "Open elsewhere: close it there";
-const RESUMES: &str = "Stopped. Enter resumes it, x forgets it.";
 
 fn resuming_agent() -> Vec<String> {
     crate::script("echo \"acme agent resumed $1\"; exec sleep 600")

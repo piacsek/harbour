@@ -64,10 +64,10 @@ fn a_selected_working_card_shows_no_second_line() {
 }
 
 #[test]
-fn a_selected_blocked_card_shows_no_second_line() {
+fn a_selected_blocked_card_still_shows_what_it_waits_for() {
     let (rows, _) = sidebar(&[blocked(), idle()], 0, 40);
 
-    assert_eq!(rows[1], "▌");
+    assert_eq!(rows[1], "▌   permission prompt");
 }
 
 #[test]
@@ -78,10 +78,10 @@ fn an_unselected_blocked_card_shows_what_it_waits_for() {
 }
 
 #[test]
-fn a_selected_exited_card_shows_no_second_line() {
+fn a_selected_exited_card_still_shows_its_exit() {
     let (rows, _) = sidebar(&[exited(), idle()], 0, 40);
 
-    assert_eq!(rows[1], "▌");
+    assert_eq!(rows[1], "▌   exited 1");
 }
 
 #[test]
@@ -92,10 +92,10 @@ fn an_unselected_exited_card_shows_its_exit() {
 }
 
 #[test]
-fn a_selected_stopped_card_shows_no_second_line() {
+fn a_selected_stopped_card_still_shows_why_it_cannot_resume() {
     let (rows, _) = sidebar(&[stopped(), idle()], 0, 40);
 
-    assert_eq!(rows[1], "▌");
+    assert_eq!(rows[1], "▌   directory gone");
 }
 
 #[test]
@@ -103,6 +103,17 @@ fn an_unselected_stopped_card_shows_why_it_cannot_resume() {
     let (rows, _) = sidebar(&[stopped(), idle()], 1, 40);
 
     assert_eq!(rows[1], "    directory gone");
+}
+
+#[test]
+fn a_selected_idle_card_shows_no_second_line() {
+    let facts = Facts {
+        prompt: Some("bump acme/web".to_string()),
+        ..Facts::default()
+    };
+    let (rows, _) = sidebar(&[card(Status::Idle, None, &facts), blocked()], 0, 40);
+
+    assert_eq!(rows[1], "▌");
 }
 
 #[test]

@@ -7,18 +7,15 @@ use crate::{Screen, below, directory, pane_corner, region, script};
 fn a_session_that_exited_with_zero_shows_a_hollow_dot_and_exited() {
     let mut screen = Screen::new(script("echo 'acme agent done'; exit 0"));
     screen.press('n');
-    screen.press('n');
 
-    let shown = screen.wait_for_all(&["exited", "sessions ○ 2"]);
+    let shown = screen.wait_for("exited");
 
     assert_eq!(below(&shown, &format!("○ {} 1", directory())), "exited");
-    assert_eq!(below(&shown, &format!("○ {} 2", directory())), "");
 }
 
 #[test]
 fn a_session_that_exited_with_a_code_shows_the_code() {
     let mut screen = Screen::new(script("exit 3"));
-    screen.press('n');
     screen.press('n');
 
     let shown = screen.wait_for("exited 3");
@@ -30,7 +27,6 @@ fn a_session_that_exited_with_a_code_shows_the_code() {
 fn a_session_killed_by_a_signal_shows_the_signal() {
     let mut screen = Screen::new(script("kill -9 $$"));
     screen.press('n');
-    screen.press('n');
 
     let shown = screen.wait_for("Killed");
 
@@ -41,7 +37,7 @@ fn a_session_killed_by_a_signal_shows_the_signal() {
 fn an_exited_session_keeps_its_last_screen_dimmed() {
     let mut screen = Screen::new(script("echo 'acme agent done'; exit 0"));
     screen.press('n');
-    let shown = screen.wait_for_all(&["sessions ○ 1", "acme agent done"]);
+    let shown = screen.wait_for_all(&["exited", "acme agent done"]);
 
     assert!(shown.contains("acme agent done"), "{shown}");
     let cell = &screen.terminal.backend().buffer()[(pane_corner(&shown) + 1, 1)];
@@ -56,7 +52,7 @@ fn an_exited_session_keeps_the_cyan_border_undimmed_while_its_pane_has_focus() {
     screen.key(KeyCode::Enter, KeyModifiers::NONE);
 
     screen.type_text("bye\r");
-    let shown = screen.wait_for("sessions ○ 1");
+    let shown = screen.wait_for("exited");
 
     let pane = pane_corner(&shown);
     assert_eq!(screen.cell(pane, 0).symbol(), "┏");
@@ -165,7 +161,7 @@ fn a_session_that_exits_while_its_pane_has_focus_still_lets_ctrl_h_back() {
     screen.press('n');
     screen.key(KeyCode::Enter, KeyModifiers::NONE);
     screen.type_text("bye\r");
-    screen.wait_for("sessions ○ 1");
+    screen.wait_for("exited");
 
     screen.type_text("typed after the exit\r");
     screen.key(KeyCode::Char('h'), KeyModifiers::CONTROL);

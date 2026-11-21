@@ -40,7 +40,6 @@ fn a_wait_for_a_sidebar_row_that_never_shows_fails_naming_it_and_the_row() {
     );
     screen.resize(60, 20);
     screen.press('n');
-    screen.press('n');
     wait_for_sidebar_row(&mut screen, "perm");
 
     let failure = failure(|| {
@@ -205,14 +204,12 @@ fn a_session_waiting_on_you_shows_a_red_target_and_what_it_waits_for() {
         ),
     );
     screen.press('n');
-    screen.press('n');
 
     let shown = screen.wait_for("permission prompt");
 
     let name = format!("◉ {} 1", directory());
     assert!(shown.contains(&name), "{shown}");
     assert_eq!(below(&shown, &name), "permission prompt");
-    assert_eq!(below(&shown, &format!("{} 2", directory())), "");
     assert_eq!(screen.cell(3, 1).fg, Color::Red);
     assert_eq!(
         screen.cell(last_column(&shown, "prompt", 2), 2).fg,
@@ -248,13 +245,11 @@ fn an_exited_session_shows_a_dim_hollow_dot_whatever_its_file_says() {
         )),
     );
     screen.press('n');
-    screen.press('n');
 
     let shown = screen.wait_for("exited 3");
 
     let name = format!("○ {} 1", directory());
     assert_eq!(below(&shown, &name), "exited 3");
-    assert_eq!(below(&shown, &format!("{} 2", directory())), "");
     assert!(screen.cell(3, 1).modifier.contains(Modifier::DIM));
     assert_eq!(screen.cell(3, 1).fg, Color::Reset);
 }
@@ -271,7 +266,7 @@ fn the_file_of_an_exited_session_is_never_read() {
         )),
     );
     screen.press('n');
-    screen.wait_for("sessions ○ 1");
+    screen.wait_for("exited 3");
     let pid = std::fs::read_to_string(scratch.path().join("pid")).unwrap();
     let fifo = registry.path().join(format!("{}.json", pid.trim()));
     let made = Command::new("mkfifo").arg(&fifo).status().unwrap();
@@ -350,7 +345,6 @@ fn the_narrowest_sidebar_cuts_the_waiting_reason_with_an_ellipsis() {
     );
     screen.resize(60, 20);
     screen.press('n');
-    screen.press('n');
 
     let row = wait_for_sidebar_row(&mut screen, "perm");
 
@@ -371,12 +365,10 @@ fn a_short_waiting_reason_shows_whole() {
         ),
     );
     screen.press('n');
-    screen.press('n');
 
     let shown = screen.wait_for("input");
 
     assert_eq!(below(&shown, &format!("◉ {} 1", directory())), "input");
-    assert_eq!(below(&shown, &format!("{} 2", directory())), "");
 }
 
 #[test]

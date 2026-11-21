@@ -6,7 +6,7 @@ use crossterm::event::{KeyCode, KeyModifiers};
 use harbour::editor::Program;
 use ratatui::style::Modifier;
 
-use crate::{Screen, reading_agent, region, script};
+use crate::{Screen, below, reading_agent, region, script};
 
 #[test]
 fn yes_to_ending_a_session_ends_its_editor_too() {
@@ -38,6 +38,18 @@ fn the_editor_of_an_exited_session_is_not_dimmed() {
 }
 
 #[test]
+fn an_exited_session_shows_its_exit_beside_its_editor() {
+    let scratch = tempfile::tempdir().unwrap();
+    let mut screen = with_exited_agent(scratch.path());
+    screen.key(KeyCode::Enter, KeyModifiers::NONE);
+
+    screen.key(KeyCode::Char('l'), KeyModifiers::CONTROL);
+
+    let shown = screen.wait_for("acme editor ready");
+    assert_eq!(below(&shown, "acme-home 1"), "exited");
+}
+
+#[test]
 fn x_on_an_exited_session_whose_editor_runs_asks_first() {
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = with_exited_agent(scratch.path());
@@ -47,6 +59,7 @@ fn x_on_an_exited_session_whose_editor_runs_asks_first() {
     let shown = screen.draw();
     assert!(shown.contains("End? y/n"), "{shown}");
     assert!(shown.contains("acme-home 1"), "{shown}");
+    assert!(shown.contains("exited"), "{shown}");
 }
 
 #[test]
@@ -156,7 +169,9 @@ fn with_exited_agent(scratch: &Path) -> Screen {
     let mut screen = editing(scratch, agent, "");
     screen.key(KeyCode::Char('h'), KeyModifiers::CONTROL);
     screen.key(KeyCode::Enter, KeyModifiers::NONE);
-    screen.wait_for("sessions ○ 1");
+    screen.wait_until("the session exited", |shown| {
+        below(shown, "acme-home 1") == "exited"
+    });
     screen.key(KeyCode::Char('h'), KeyModifiers::CONTROL);
     screen
 }

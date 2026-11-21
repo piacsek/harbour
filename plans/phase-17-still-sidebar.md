@@ -1,11 +1,12 @@
-# Phase 17: a still sidebar, with no activity line on the selected card
+# Phase 17: a still sidebar, with no moving line on the selected card
 
 ## Context
 
 Issue #31. Line 2 of a working session's card showed its last tool call, which changes every few
 seconds: on the selected card beside a pane that already shows it, and on the others while the
-user reads somewhere else. The selected card now never shows line 2, and every other working or
-idle card shows the session's last prompt, dimmed. The last tool call is no longer read. Phase 15
+user reads somewhere else. The selected card now hides line 2 while its session works or idles,
+and every other working or idle card shows the session's last prompt, dimmed; what a blocked,
+exited or stopped card says stays on every card. The last tool call is no longer read. Phase 15
 is in flight in another worktree and moves key handling and the split of the terminal, so this
 phase touches neither.
 
@@ -29,8 +30,8 @@ phase touches neither.
 - The demo starts with its working session selected (`App::demo` sets `selected = 0`), so it
   cannot show a working unselected card without changing `src/app/mod.rs` or adding a session,
   and a seventh card does not fit the 26 rows of the shots. The `details` shot of
-  `scripts/screenshots.sh` presses `j` instead: the blocked card is selected and hides its line,
-  and the working card, unselected, shows its last prompt dimmed. The working session's demo
+  `scripts/screenshots.sh` presses `j` instead: the blocked card is selected and still says what
+  it waits for, and the working card, unselected, shows its last prompt dimmed. The working session's demo
   transcript gets a `last-prompt` line.
 - `tests/e2e/main.rs` (`the_demo_shows_a_made_up_session_in_each_state`) asserts
   `Run the retry tests`, and `tests/e2e/cards.rs` asserts `Run the login tests`, both tool calls.
@@ -41,9 +42,9 @@ phase touches neither.
 | --- | --- | --- |
 | Working | nothing | last prompt, dimmed |
 | Idle | nothing | last prompt, dimmed (as before) |
-| Blocked | nothing | what it waits for (as before) |
-| Exited | nothing | `exited` and its note (as before) |
-| Stopped (remembered) | nothing | why it cannot resume, if anything (as before) |
+| Blocked | what it waits for (as before) | what it waits for (as before) |
+| Exited | `exited` and its note (as before) | `exited` and its note (as before) |
+| Stopped (remembered) | why it cannot resume, if anything (as before) | why it cannot resume, if anything (as before) |
 | No prompt read yet | nothing | nothing |
 | Narrowest sidebar (20 columns), working | nothing | the prompt cut with `…` to the room left after the indent |
 | A CJK prompt (`東京の テストを 直して`), working | nothing | the prompt cut by display width, a wide character never split |
@@ -53,8 +54,8 @@ selected.
 
 ## Tasks
 
-1. This plan and its rows; a selected card draws no line 2, and an unselected working card shows
-   its last prompt dimmed (`src/card.rs`).
+1. This plan and its rows; a selected working or idle card draws no line 2, and an unselected
+   working card shows its last prompt dimmed (`src/card.rs`).
 2. The last tool call removed from `src/transcript.rs` with everything only it used, and its
    tests.
 3. The demo's working session gets a last prompt, the `details` shot selects the blocked card,
@@ -62,22 +63,27 @@ selected.
 
 ## Outcome
 
-- The selected card draws no line 2 in any state, and every card keeps its three rows, so a card
-  below starts on the same row whichever card is selected. Hidden in `Sidebar::draw`, which
-  already knew the selection: nothing under `src/app/` changed.
+- The owner changed the issue's table after the first review: the first build hid line 2 of the
+  selected card in every state, which also hid three lines that never move and that the pane
+  does not always repeat: what a blocked session waits for, `exited` and its note, and why a
+  stopped card cannot resume. The selected card now hides line 2 only while its session works or
+  idles, the last prompt, and keeps those three as any other card does.
+- Every card keeps its three rows, so a card below starts on the same row whichever card is
+  selected. Hidden in `Sidebar::draw`, which already knew the selection: nothing under
+  `src/app/` changed.
 - An unselected working card shows the last prompt, dimmed, like an idle one; with no prompt read
   yet it shows nothing. The last tool call is no longer read: `Facts::activity`, the `assistant`
   arm of `learn`, the `user` arm that cleared it, `prompted`, `last_tool_call` and `described`
   are gone, with the seven transcript tests that covered them.
-- About 90 in-process app tests waited for or read line 2 of the only, so selected, card. Each
-  now starts a second card, selects another one, or waits on the sidebar title or the pane.
+- About 90 in-process app tests waited for or read line 2 of the only, so selected, card, and
+  the first build repointed them; with the owner's rule, the 62 whose line is a still one
+  (`exited`, `stopped`, `open elsewhere`, `directory gone`, what a session waits for) went back
+  to their direct wait, and only the working and idle ones keep a second card.
 - The demo's working session has a last prompt, and the `details` shot presses `j`, so the
-  blocked card is selected and the working card shows its prompt dimmed; eight screenshots
-  changed, since the selected card in each lost its line 2.
-- The help legend still says a blocked card says what it waits for: true of every card but the
-  selected one, whose pane shows the question itself.
+  blocked card is selected and the working card shows its prompt dimmed.
 
 ## Hurdles
 
-- `test-seam` About 90 in-process app tests used the selected card's line 2 (`exited`, `open elsewhere`, `stopped`) as their wait signal, so hiding it broke them all at once; they now wait on the sidebar title's counts or the pane → none
+- `test-seam` About 90 in-process app tests used the selected card's line 2 (`exited`, `open elsewhere`, `stopped`) as their wait signal, so hiding it in every state broke them all at once; once the owner kept the still lines, 62 went back to their old wait → none
+- `design` Hiding line 2 of the selected card in every state also hid what a blocked, exited or stopped card says, which never moves; the owner narrowed the rule to working and idle after review → code
 - `process` The new end-to-end test pushed `tests/e2e/main.rs` past 700 lines and the first ship of task 3 stopped at the size gate; it moved to `tests/e2e/cards.rs` → code

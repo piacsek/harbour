@@ -12,7 +12,6 @@ use crate::{Screen, below, reading_agent, script, sidebar_title};
 
 const COME_BACK: &str = "Conversations come back stopped";
 const CJK_TITLE: &str = "修复登录测试的不稳定问题";
-const THIRD_ID: &str = "3c4d5e6f-7a8b-4c9d-8e0f-1a2b3c4d5e6f";
 
 #[test]
 fn q_with_a_running_session_says_its_sessions_come_back_stopped() {
@@ -111,11 +110,8 @@ fn enter_on_a_card_that_cannot_resume_leaves_the_sidebar_focused() {
     scratch.transcript(ID, r#"{"type":"user","message":{}}"#);
     fs::remove_dir_all(scratch.checkout()).unwrap();
     let mut screen = scratch.watching(script("exec sleep 600"));
-    let before = screen.wait_for("Its directory is gone. x forgets it.");
-    assert!(
-        before.contains("Its directory is gone. x forgets it."),
-        "{before}"
-    );
+    let before = screen.wait_for("directory gone");
+    assert!(before.contains("directory gone"), "{before}");
 
     screen.key(KeyCode::Enter, KeyModifiers::NONE);
 
@@ -129,8 +125,8 @@ fn the_narrowest_sidebar_keeps_a_cjk_title_inside_its_border() {
     scratch.remember(ID, CJK_TITLE, 0);
     scratch.transcript(ID, r#"{"type":"user","message":{}}"#);
     let mut screen = scratch.watching(script("exec sleep 600"));
-    let before = screen.wait_for("Stopped. Enter resumes it");
-    assert!(before.contains("Stopped. Enter resumes it"), "{before}");
+    let before = screen.wait_for("stopped");
+    assert!(before.contains("stopped"), "{before}");
 
     screen.resize(60, 20);
 
@@ -159,20 +155,13 @@ fn the_narrowest_sidebar_shows_why_a_card_is_stopped() {
         })
         .unwrap();
     fs::remove_dir(&gone).unwrap();
-    scratch.remember(THIRD_ID, "Third", 2);
-    scratch.transcript(THIRD_ID, r#"{"type":"user","message":{}}"#);
     let mut screen = scratch.watching(script("exec sleep 600"));
     screen.resize(60, 20);
-    let listed = screen.wait_for("Third");
-    assert!(listed.contains("Third"), "{listed}");
 
-    screen.press('j');
-    screen.press('j');
+    let shown = screen.wait_for("directory gone");
 
-    let shown = screen.wait_for_all(&["directory gone", "stopped"]);
     assert_eq!(below(&shown, "Gone"), "directory gone");
     assert_eq!(below(&shown, "Fix the flaky"), "stopped");
-    assert_eq!(below(&shown, "Third"), "");
 }
 
 #[test]
@@ -180,18 +169,12 @@ fn a_narrow_terminal_shows_a_stopped_card() {
     let scratch = Scratch::new();
     scratch.remember(ID, TITLE, 0);
     scratch.transcript(ID, r#"{"type":"user","message":{}}"#);
-    scratch.remember(OTHER_ID, "Other", 1);
-    scratch.transcript(OTHER_ID, r#"{"type":"user","message":{}}"#);
     let mut screen = scratch.watching(script("exec sleep 600"));
     screen.resize(40, 20);
-    let listed = screen.wait_for("Other");
-    assert!(listed.contains("Other"), "{listed}");
-
-    screen.press('j');
 
     let shown = screen.wait_for("stopped");
+
     assert_eq!(below(&shown, "Fix the flaky"), "stopped");
-    assert_eq!(below(&shown, "Other"), "");
 }
 
 fn published(state: &Path) -> String {

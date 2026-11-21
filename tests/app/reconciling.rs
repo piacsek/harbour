@@ -16,8 +16,8 @@ fn a_title_written_just_before_the_session_exits_is_remembered() {
     screen.press('n');
     let first = remembered_soon(&mut screen, &scratch.memory(), ID, TITLE);
     assert_eq!(first.len(), 1);
-    let exited = screen.wait_for("sessions ○ 1");
-    assert!(exited.contains("sessions ○ 1"), "{exited}");
+    let exited = screen.wait_for("exited");
+    assert!(exited.contains("exited"), "{exited}");
 
     let kept = remembered_soon(&mut screen, &scratch.memory(), ID, "The last word");
 
@@ -65,8 +65,8 @@ fn a_new_session_that_resumes_a_stopped_card_merges_the_two() {
     scratch.remember(ID, TITLE, 0);
     scratch.transcript(ID, &titled(TITLE));
     let mut screen = scratch.watching(registered(&scratch.sessions(), ID));
-    let before = screen.wait_for("Stopped. Enter resumes it");
-    assert!(before.contains("Stopped. Enter resumes it"), "{before}");
+    let before = screen.wait_for("stopped");
+    assert!(before.contains("stopped"), "{before}");
 
     screen.press('n');
 

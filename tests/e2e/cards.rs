@@ -35,7 +35,6 @@ fn the_demo_shows_the_last_prompt_of_its_working_session_once_another_card_is_se
         prompt.starts_with("┃    fix the flaky retry test in acme/api"),
         "{screen}"
     );
-    assert!(!screen.contains("permission prompt"), "{screen}");
 }
 
 #[test]
@@ -56,9 +55,12 @@ fn a_card_shows_the_title_from_the_sessions_transcript_and_never_its_last_tool_c
     server.wait_for_screen("press n to start one");
 
     server.send_keys(&["n"]);
+    server.wait_for_screen("● Fix the flaky login test");
+    server.send_keys(&["n"]);
 
-    let screen = server.wait_for_screen("● Fix the flaky login test");
-    assert!(screen.contains("● Fix the flaky login test"), "{screen}");
+    let screen = server.wait_until("two titled cards", |screen| {
+        screen.matches("● Fix the flaky login test").count() == 2
+    });
     assert!(!screen.contains("Run the login tests"), "{screen}");
 }
 

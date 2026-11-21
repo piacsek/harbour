@@ -59,7 +59,7 @@ fn an_exited_session_shows_the_time_since_harbour_saw_it_exit() {
     let mut screen = watching(registry.path(), script("exit 3"));
     screen.press('n');
 
-    let shown = screen.wait_for("sessions ○ 1");
+    let shown = screen.wait_for("exited 3");
 
     assert_eq!(right_edge(&shown, 1), "<1m");
 }

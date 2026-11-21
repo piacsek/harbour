@@ -164,7 +164,7 @@ fn after_claude_code_exits_a_new_directory_in_its_transcript_is_not_read() {
     let mut screen = following(scratch.path(), &[&cwd(&one)]);
     editor_at(&mut screen);
     end_agent(scratch.path());
-    screen.wait_for("sessions ○ 1");
+    screen.wait_for("exited");
     write_transcript(scratch.path(), &[&cwd(&two)]);
 
     let shown = editor_at(&mut screen);

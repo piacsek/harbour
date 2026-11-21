@@ -23,6 +23,7 @@ pub struct Card {
     state: State,
     title: String,
     doing: Option<(String, Style)>,
+    moves: bool,
     place: String,
     age: Option<String>,
 }
@@ -78,6 +79,7 @@ impl Card {
             state,
             title: fact(|facts| facts.title.as_ref()).unwrap_or_else(|| clean(title)),
             doing,
+            moves: matches!(state, State::Working | State::Idle),
             place: clean(&format!("{shown}{pull_request}{subagents}")),
             age: elapsed.map(age),
         }
@@ -86,7 +88,7 @@ impl Card {
     fn lines(&self, width: usize, selected: bool) -> [Line<'static>; HEIGHT] {
         let room = width.saturating_sub(INDENT.len());
         let first = self.first_line(width);
-        let second = match self.doing.as_ref().filter(|_| !selected) {
+        let second = match self.doing.as_ref().filter(|_| !(selected && self.moves)) {
             Some((text, style)) => Line::from(vec![
                 Span::from(INDENT),
                 Span::styled(fit(text, room), *style),

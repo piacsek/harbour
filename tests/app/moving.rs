@@ -121,8 +121,8 @@ fn an_exited_session_keeps_harbour_where_it_was_last_seen_working() {
     wait_until_at(&mut screen, &moves, &worktree);
 
     end_agent(scratch.path());
-    let shown = screen.wait_for("sessions ○ 1");
-    assert!(shown.contains("sessions ○ 1"), "{shown}");
+    let shown = screen.wait_for("exited");
+    assert!(shown.contains("exited"), "{shown}");
 
     assert_eq!(settled(&mut screen, &moves), Some(worktree));
 }
@@ -169,8 +169,8 @@ fn removing_the_last_session_moves_harbour_back_where_it_was_opened() {
     start(&mut screen, scratch.path(), &api, "acme-api 1");
     let api = api.canonicalize().unwrap();
     assert_eq!(wait_until_at(&mut screen, &moves, &api), Some(api));
-    let shown = screen.wait_for("sessions ○ 1");
-    assert!(shown.contains("sessions ○ 1"), "{shown}");
+    let shown = screen.wait_for("exited");
+    assert!(shown.contains("exited"), "{shown}");
 
     screen.press('x');
 

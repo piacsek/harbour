@@ -68,7 +68,7 @@ fn a_session_that_exits_logs_its_code_once() {
     let (app, lines) = logged(App::new(script("exit 3")));
     let mut screen = Screen::of(app);
     screen.press('n');
-    screen.wait_for("sessions ○ 1");
+    screen.wait_for("exited 3");
 
     screen.draw();
 
@@ -82,7 +82,7 @@ fn a_session_killed_by_a_signal_logs_the_signal() {
     let mut screen = Screen::of(app);
     screen.press('n');
 
-    screen.wait_for("sessions ○ 1");
+    screen.wait_for("Killed");
 
     let exited = only(&read(&lines), " exited ");
     assert!(exited.contains(r#" session=1 signal="Killed"#), "{exited}");
