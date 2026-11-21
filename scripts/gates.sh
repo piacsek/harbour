@@ -11,6 +11,12 @@ step() {
 
 step scripts/scrub-check.sh
 step cargo fmt --check
+if [ -z "${CI:-}" ] && reason="$(scripts/docs-only.sh)"; then
+  echo "==> skipping the tests: $reason; CI runs them" >&2
+  step cargo test --test readme --test plans
+  echo "gates passed"
+  exit 0
+fi
 step cargo clippy --all-targets -- -D warnings
 separate=scripts
 if command -v tmux >/dev/null; then
