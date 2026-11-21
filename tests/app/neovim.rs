@@ -10,7 +10,7 @@ use crossterm::event::{KeyCode, KeyModifiers, MouseButton, MouseEventKind};
 use harbour::editor::Program;
 use rmpv::Value;
 
-use crate::{Screen, reading_agent, script};
+use crate::{Screen, pane_corner, reading_agent, script};
 
 const LEFTMOST: &str = "winnr('h') == winnr()";
 const RIGHTMOST: &str = "winnr('l') == winnr()";
@@ -340,6 +340,19 @@ fn swapped_ctrl_l_in_the_rightmost_window_focuses_claude_code() {
 
     let shown = screen.wait_for("acme agent got: hi");
     assert!(!shown.contains("acme nvim read:"), "{shown}");
+}
+
+#[test]
+fn swapped_ctrl_h_kept_by_neovim_reaches_neovim_and_the_sidebar_stays_hidden() {
+    let scratch = tempfile::tempdir().unwrap();
+    let mut screen = swapped(scratch.path());
+    let _asked = ready(&socket(scratch.path()), Some(0));
+
+    screen.key(KeyCode::Char('h'), KeyModifiers::CONTROL);
+
+    let shown = screen.wait_for("acme nvim read:08");
+    assert!(shown.contains("acme nvim read:08"), "{shown}");
+    assert_eq!(pane_corner(&shown), 60, "{shown}");
 }
 
 fn in_the_sidebar(scratch: &Path) -> Screen {

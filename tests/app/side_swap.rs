@@ -151,6 +151,25 @@ fn a_swap_key_while_the_editor_has_focus_reaches_the_editor() {
 }
 
 #[test]
+fn side_by_side_a_swap_key_from_the_editor_half_reaches_the_editor() {
+    let scratch = tempfile::tempdir().unwrap();
+    let mut screen = editing_session(scratch.path());
+    ctrl(&mut screen, 'h');
+    side(&mut screen);
+    ctrl(&mut screen, 'l');
+
+    right(&mut screen);
+
+    let shown = screen.wait_for("acme editor read:");
+    assert!(shown.contains("acme editor read: 1b"), "{shown}");
+    assert!(region(&shown, 0, 60).contains("acme agent 1"), "{shown}");
+    assert!(
+        region(&shown, 60, 60).contains("acme editor read:"),
+        "{shown}"
+    );
+}
+
+#[test]
 fn while_zoomed_the_swap_keys_reach_claude_code() {
     let mut screen = Screen::new(raw_reader(2));
     screen.press('n');

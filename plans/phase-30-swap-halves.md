@@ -177,3 +177,5 @@ no trend across phases 26 to 29. The orchestrator's context grew from 684129 to 
   squeezed to its minimum by the editor's name, and a `--help` line made wrong by the swap → code
 - `ci` a border test passed on macOS only: its long temporary directory left room at the end of
   the half, Linux's short one filled it; the corner cell is asserted instead → code
+- `review-loop` round 2 found two guards no test reached: the swap keys from the editor half side by
+  side, and swapped C-h kept by Neovim → code
