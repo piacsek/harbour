@@ -1,7 +1,15 @@
 use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
+use ratatui::text::Line;
+use ratatui::widgets::Block;
 
 use super::App;
+use crate::card::age;
 use crate::input::ESCAPED;
+use crate::repo::Place;
+use crate::state::{self, Counts, State};
+use crate::text::clean;
+use crate::transcript::Transcript;
+use crate::zoom::{Headline, info};
 
 impl App {
     pub(super) fn zoom_by_key(&mut self, key: KeyEvent) -> bool {
@@ -29,6 +37,48 @@ impl App {
                 .sessions
                 .get(self.selected)
                 .is_some_and(|entry| !entry.ended());
+    }
+
+    pub(super) fn zoom_border(
+        &self,
+        block: Block<'static>,
+        width: u16,
+        counts: Counts,
+    ) -> Block<'static> {
+        let room = usize::from(width.saturating_sub(2));
+        let counted = state::title(counts, room);
+        let left = room.saturating_sub(counted.width());
+        let names = self.tabs(left).unwrap_or_default();
+        let mut spans = self
+            .headline()
+            .map(|headline| info(&headline, left.saturating_sub(names.width())))
+            .unwrap_or_default();
+        spans.extend(names.spans);
+        block
+            .title(Line::from(spans))
+            .title(counted.right_aligned())
+    }
+
+    fn headline(&self) -> Option<Headline> {
+        let entry = self.sessions.get(self.selected)?;
+        let facts = entry.transcript.as_ref().map(Transcript::facts);
+        let title = facts
+            .and_then(|facts| facts.title.as_deref())
+            .map(clean)
+            .filter(|title| !title.is_empty())
+            .unwrap_or_else(|| clean(&entry.name));
+        let place = Place {
+            repository: entry.place.repository.clone(),
+            branch: facts
+                .and_then(|facts| facts.branch.clone())
+                .or_else(|| entry.place.branch.clone()),
+        };
+        Some(Headline {
+            state: State::of(false, entry.record.as_ref()),
+            title,
+            place: clean(&place.to_string()),
+            age: entry.elapsed().map(age),
+        })
     }
 }
 
