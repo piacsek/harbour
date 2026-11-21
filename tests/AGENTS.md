@@ -51,15 +51,19 @@ these suites come from; the ones about sessions were hit in harbour.
   `--headless` Neovim never reaches the prompt states (NVIM v0.12.6): a multi-line `:echo`
   leaves mode `n`, a stale swap file opens without asking. So `tests/app/real_neovim.rs` starts
   the wrapper through `Editor::start` (a PTY, no tmux, no harbour process), under
-  `/usr/bin/env -u NVIM -u NVIM_APPNAME -u VIMINIT` with the scratch variables, finds the
+  `/usr/bin/env -u NVIM -u NVIM_APPNAME -u VIMINIT -u TMUX -u TMUX_PANE` (so a Neovim under test
+  never reaches the tmux cargo runs in, and a run inside tmux matches CI) with the scratch variables, finds the
   editor's private socket as the one `harbour-nvim*/socket` under the scratch `TMPDIR`, types
   keys with `session.send`, and waits for each state over that socket (`nvim::mode`, or an
   `nvim::eval` that returns 1) before it asserts on `wants_ctrl_h`, `changes` or `open`. There
   the prompts show: press-enter is mode `r` blocking, the swap prompt `r?`, a pending `C-w`
   mode `n` blocking. `Session::end` ends the embed server too, even at a swap prompt.
-  `tests/e2e/neovim.rs` keeps four smoke tests that the wiring through tmux and harbour still
-  holds (C-h to Claude Code, `x` over unsaved changes, `harbour edit` twice, and `harbour edit`
-  starting a Neovim stopped at a stale swap prompt, refused with exit 2).
+  `tests/e2e/neovim.rs` keeps five smoke tests that the wiring through tmux and harbour still
+  holds (C-h to Claude Code, a tmux command run from Neovim acting on harbour's pane and C-h
+  after it, `x` over unsaved changes, `harbour edit` twice, and `harbour edit` starting a Neovim
+  stopped at a stale swap prompt, refused with exit 2). Its `TMUX_TMPDIR` is an existing folder
+  under the scratch `HOME` (tmux ignores one that does not exist), so a tmux command run there
+  without `TMUX` finds no server instead of the user's default one.
 
 - **dash is `/bin/sh` on Linux.** A session script's `read` returns non-zero when a trapped
   signal (the window change of a resize) interrupts it, so a loop written `while read` ends on
