@@ -9,7 +9,9 @@ const NARROWEST: u16 = 15;
 
 impl App {
     pub(super) fn areas(&self, area: Rect) -> (Rect, Rect) {
-        if self.zoomed {
+        if let Some([left, _]) = self.halves(area) {
+            (Rect::default(), left)
+        } else if self.zoomed {
             (Rect::default(), area)
         } else if area.width >= NARROW {
             two_columns(area, self.sidebar_width)

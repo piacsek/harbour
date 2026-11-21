@@ -27,6 +27,7 @@ impl App {
         } else if !entry.ended() {
             entry.on_editor &= self.pane_focused;
             self.zoomed = true;
+            self.side_by_side = false;
             self.pane_focused = true;
             self.failed = None;
         }

@@ -33,7 +33,11 @@ impl App {
         if self.sidebar.is_empty() && !self.sessions.is_empty() {
             self.failed = None;
         }
-        if self.jump_by_key(key) || self.zoom_by_key(key) || self.resize_by_key(key) {
+        if self.jump_by_key(key)
+            || self.zoom_by_key(key)
+            || self.side_by_key(key)
+            || self.resize_by_key(key)
+        {
             return;
         }
         if self.pane_focused && is_ctrl(acted, 'h') {

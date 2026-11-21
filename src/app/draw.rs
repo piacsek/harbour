@@ -7,7 +7,7 @@ use ratatui::style::{Color, Modifier, Stylize};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, BorderType, Clear, Paragraph, Wrap};
 
-use super::{App, Entry, HINT, Question, remember, user_home};
+use super::{App, HINT, Question, remember, user_home};
 use crate::card::{Card, Ended};
 use crate::editor::{Changes, Program};
 use crate::help;
@@ -71,7 +71,17 @@ impl App {
         let title = state::title(counts, usize::from(sidebar.width.saturating_sub(2)));
         let sidebar_block = bordered(!self.pane_focused, self.accent).title(title);
         let below_rows = sidebar_block.inner(sidebar);
-        let mut pane_block = bordered(self.pane_focused, self.accent);
+        let beside = self
+            .halves(frame.area())
+            .map_or(Rect::default(), |[_, right]| right);
+        let on_editor = self
+            .sessions
+            .get(self.selected)
+            .is_some_and(|entry| entry.on_editor);
+        let left_focused = self.pane_focused && !(self.side_by_side && on_editor);
+        let beside_block = bordered(self.pane_focused && on_editor, self.accent);
+        self.beside = beside_block.inner(beside);
+        let mut pane_block = bordered(left_focused, self.accent);
         if self.zoomed {
             pane_block = self.zoom_border(pane_block, pane.width, counts);
         } else if let Some(tabs) = self.tabs(usize::from(pane.width.saturating_sub(2))) {
@@ -83,8 +93,18 @@ impl App {
         } else {
             self.pane
         };
-        for session in self.sessions.iter_mut().flat_map(Entry::sessions) {
-            session.resize(self.pane.height, self.pane.width);
+        let editing = if self.beside.is_empty() {
+            self.pane
+        } else {
+            self.beside
+        };
+        for entry in &mut self.sessions {
+            if let Some(session) = &mut entry.session {
+                session.resize(self.pane.height, self.pane.width);
+            }
+            for editor in &mut entry.editors {
+                editor.session.resize(editing.height, editing.width);
+            }
         }
         let neovim = self.editor.as_ref().is_some_and(Program::is_neovim);
         let cards: Vec<Card> = self
@@ -137,12 +157,17 @@ impl App {
                     frame.buffer_mut(),
                 );
                 if !pane.is_empty() {
-                    match shown.shown() {
+                    let left = if self.side_by_side {
+                        shown.session.as_ref()
+                    } else {
+                        shown.shown()
+                    };
+                    match left {
                         Some(session) => {
                             frame.render_widget(pane_block, pane);
                             frame.render_widget(session, self.pane);
                             cursor = placed(session, self.pane);
-                            cursor.0 = cursor.0.filter(|_| self.pane_focused);
+                            cursor.0 = cursor.0.filter(|_| left_focused);
                         }
                         None => frame.render_widget(
                             Paragraph::new(remember::pane(shown.why))
@@ -155,6 +180,10 @@ impl App {
                         frame.buffer_mut().set_style(self.pane, Modifier::DIM);
                         cursor = (None, 0);
                     }
+                }
+                if let Some(editor) = shown.editor().filter(|_| !beside.is_empty()) {
+                    frame.render_widget(beside_block, beside);
+                    frame.render_widget(&editor.session, self.beside);
                 }
             }
         }
