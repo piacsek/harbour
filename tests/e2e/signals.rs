@@ -45,7 +45,9 @@ fn term_turns_the_terminal_modes_off_and_ends_harbour_by_term() {
 fn after_term_the_shell_gets_ctrl_c_as_its_plain_byte() {
     let home = tempfile::tempdir().unwrap();
     let server = Server::start("signal-ctrl-c", 120, 20);
-    extended_keys(&server);
+    if !extended_keys(&server) {
+        return;
+    }
     let pid = home.path().join("harbour.pid");
     server.respawn(&format!(
         "{}; stty raw -echo; echo raw ready; dd bs=1 count=1 2>/dev/null | od -An -tx1; echo read; exec sleep 600",
@@ -139,6 +141,24 @@ fn closing_a_pane_whose_interactive_shell_runs_harbour_ends_it_as_a_quit_does() 
 
 #[test]
 #[ignore]
+fn closing_the_pane_with_harbours_stderr_on_it_ends_harbour_by_hup() {
+    let home = tempfile::tempdir().unwrap();
+    let server = Server::start("signal-stderr", 160, 20);
+    let result = home.path().join("harbour.result");
+    server.respawn(&format!(
+        "trap '' HUP; {}; exec sleep 600",
+        harbour_line(home.path(), &recorded(&result), &[], &[])
+    ));
+    server.wait_for_screen("press n to start one");
+
+    server.respawn("exec sleep 600");
+
+    let recorded = wait_for_file(&result);
+    assert_eq!(recorded, "harbour died of 1 exited 0\n");
+}
+
+#[test]
+#[ignore]
 fn closing_the_pane_ends_harbour_as_a_quit_does() {
     let home = tempfile::tempdir().unwrap();
     let server = Server::start("signal-closed", 160, 20);
@@ -173,11 +193,14 @@ fn a_second_term_ends_a_harbour_whose_loop_is_held() {
     server.send_keys(&["n"]);
     let held = held(home.path());
     send(&pid, Signal::SIGTERM);
-    sleep(Duration::from_millis(200));
 
-    send(&pid, Signal::SIGTERM);
+    let screen = until_ended(
+        &server,
+        &pid,
+        Signal::SIGTERM,
+        "harbour died of 15 exited 0",
+    );
 
-    let screen = server.wait_for_screen("harbour died of 15 exited 0");
     assert!(screen.contains("harbour died of 15 exited 0"), "{screen}");
     drop(held);
 }
@@ -205,7 +228,7 @@ fn extended_keys(server: &Server) -> bool {
     let options = [["extended-keys", "on"], ["extended-keys-format", "xterm"]];
     if let Some(option) = options.iter().find(|option| !server.server_option(*option)) {
         eprintln!(
-            "not checking the key mode: this tmux cannot set {option:?}; extended-keys-format needs tmux 3.5"
+            "skipping the extended-keys checks: this tmux cannot set {option:?}; extended-keys-format needs tmux 3.5"
         );
         return false;
     }
@@ -223,17 +246,58 @@ fn ended(file: &Path) -> String {
     )
 }
 
-fn send(file: &Path, signal: Signal) {
+fn recorded(result: &Path) -> String {
+    format!(
+        "perl -e {} {}",
+        quoted(
+            r#"my $out = shift; system @ARGV; open my $f, ">", $out; print $f "harbour died of ", $? & 127, " exited ", $? >> 8, "\n""#
+        ),
+        quoted(&result.display().to_string())
+    )
+}
+
+fn wait_for_file(file: &Path) -> String {
     let deadline = Instant::now() + Duration::from_secs(10);
-    let pid = loop {
+    loop {
         let text = std::fs::read_to_string(file).unwrap_or_default();
-        if let Some(pid) = text.strip_suffix(" pid-end\n") {
-            break pid.parse::<i32>().unwrap();
+        if text.ends_with('\n') {
+            return text;
         }
         assert!(Instant::now() < deadline, "waited 10 s for {file:?}");
         sleep(Duration::from_millis(50));
-    };
-    kill(Pid::from_raw(pid), signal).unwrap();
+    }
+}
+
+fn until_ended(server: &Server, pid: &Path, signal: Signal, line: &str) -> String {
+    let deadline = Instant::now() + Duration::from_secs(10);
+    loop {
+        sleep(Duration::from_millis(200));
+        let screen = server.screen();
+        if screen.contains(line) {
+            return screen;
+        }
+        assert!(
+            Instant::now() < deadline,
+            "waited 10 s for {line:?}:\n{screen}"
+        );
+        let _ = kill(pid_of(pid), signal);
+    }
+}
+
+fn send(file: &Path, signal: Signal) {
+    kill(pid_of(file), signal).unwrap();
+}
+
+fn pid_of(file: &Path) -> Pid {
+    let deadline = Instant::now() + Duration::from_secs(10);
+    loop {
+        let text = std::fs::read_to_string(file).unwrap_or_default();
+        if let Some(pid) = text.strip_suffix(" pid-end\n") {
+            return Pid::from_raw(pid.parse::<i32>().unwrap());
+        }
+        assert!(Instant::now() < deadline, "waited 10 s for {file:?}");
+        sleep(Duration::from_millis(50));
+    }
 }
 
 fn held(home: &Path) -> File {

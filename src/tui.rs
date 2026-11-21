@@ -107,6 +107,7 @@ fn show(app: App) -> io::Result<Option<i32>> {
         .and_then(|()| drive(&mut terminal, app, shape.clone(), &caught));
     let _ = leave_terminal(&mut io::stdout(), &shape);
     let _ = ratatui::try_restore();
+    std::mem::forget(terminal);
     result.map(|ended| ended.or_else(|| signalled(&caught)))
 }
 
