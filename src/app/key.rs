@@ -30,6 +30,9 @@ impl App {
         if self.sidebar.is_empty() && !self.sessions.is_empty() {
             self.failed = None;
         }
+        if self.jump_by_key(key) {
+            return;
+        }
         if self.pane_focused && is_ctrl(acted, 'h') {
             match self.sessions.get_mut(self.selected) {
                 Some(entry) if entry.on_editor => {
@@ -92,9 +95,11 @@ impl App {
         }
     }
 
-    fn focus_or_resume(&mut self) {
+    pub(super) fn focus_or_resume(&mut self) {
         if !self.resume() {
             self.pane_focused = !self.sessions.is_empty();
+        } else if self.failed.is_some() {
+            self.pane_focused = false;
         }
     }
 

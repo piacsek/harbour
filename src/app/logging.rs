@@ -4,6 +4,7 @@ use std::time::{Duration, Instant};
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use ratatui::layout::Rect;
 
+use super::jump::position;
 use super::{App, Entry};
 use crate::handoff::{Reply, Verb};
 use crate::log::Log;
@@ -330,6 +331,7 @@ fn named(key: KeyEvent) -> String {
         KeyCode::Char(c) if key.modifiers == KeyModifiers::CONTROL && matches!(c, 'h' | 'l') => {
             format!("C-{c}")
         }
+        _ if let Some(position) = position(key) => format!("C-{position}"),
         KeyCode::Char(c) if BOUND.contains(&c) && KeyModifiers::SHIFT.contains(key.modifiers) => {
             c.to_string()
         }

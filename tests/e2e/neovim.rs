@@ -158,16 +158,16 @@ fn ctrl_shift_p_and_ctrl_p_are_two_keys_in_neovim_with_extended_keys_on() {
 
 #[test]
 #[ignore]
-fn ctrl_three_in_neovims_insert_mode_stays_in_insert_mode_with_extended_keys_on() {
-    let Some(neovim) = Neovim::start_with("nvim-ctrl-3", &[&["extended-keys", "on"]]) else {
+fn ctrl_zero_in_neovims_insert_mode_stays_in_insert_mode_with_extended_keys_on() {
+    let Some(neovim) = Neovim::start_with("nvim-ctrl-0", &[&["extended-keys", "on"]]) else {
         return;
     };
 
     neovim
         .server
-        .send_keys(&["i", "acme-one", "C-3", "acme-two"]);
+        .send_keys(&["i", "acme-one", "C-0", "acme-two"]);
 
-    neovim.shows("acme-one3acme-two");
+    neovim.shows("acme-one0acme-two");
     neovim.shows("-- INSERT --");
 }
 

@@ -8,6 +8,7 @@ use ratatui::style::Color;
 
 mod draw;
 mod handoff;
+mod jump;
 mod key;
 mod logging;
 mod read;
