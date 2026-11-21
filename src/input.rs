@@ -226,8 +226,8 @@ fn special(buffer: &[u8]) -> Step {
         v @ 11..=15 => KeyCode::F(v - 10),
         v @ 17..=21 => KeyCode::F(v - 11),
         v @ 23..=26 => KeyCode::F(v - 12),
-        v @ 28..=29 => KeyCode::F(v - 15),
-        v @ 31..=34 => KeyCode::F(v - 17),
+        v @ 28..=29 => KeyCode::F(v - 13),
+        v @ 31..=34 => KeyCode::F(v - 14),
         _ => return Step::Skip,
     };
     Step::Emit(Event::Key(KeyEvent::new_with_kind_and_state(

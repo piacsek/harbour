@@ -273,6 +273,22 @@ fn ctrl_shift_l_in_claude_code_opens_the_editor() {
     assert!(shown.contains("acme editor ready"), "{shown}");
 }
 
+#[test]
+fn ctrl_shift_l_reaches_an_editor_that_asked_for_the_kitty_protocol_as_ctrl_shift_l() {
+    let mut screen = editing(KITTY, 8);
+
+    screen.key(
+        KeyCode::Char('L'),
+        KeyModifiers::CONTROL | KeyModifiers::SHIFT,
+    );
+
+    let shown = screen.wait_for("acme editor read:");
+    assert!(
+        shown.contains("acme editor read: 1b 5b 31 30 38 3b 36 75"),
+        "{shown}"
+    );
+}
+
 fn asking(name: &str, request: &str, length: usize) -> Vec<String> {
     script(&format!(
         "stty raw -echo; printf '{request}' >&2; echo 'acme {name} ready' >&2; \

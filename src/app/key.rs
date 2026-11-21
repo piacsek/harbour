@@ -15,7 +15,8 @@ impl App {
     }
 
     fn key_handled(&mut self, key: KeyEvent) {
-        let key = ctrl_shift_as_ctrl(ctrl_backspace_as_ctrl_h(key));
+        let key = ctrl_backspace_as_ctrl_h(key);
+        let acted = ctrl_shift_as_ctrl(key);
         if let Some(pick) = &self.picking {
             let session = pick.session();
             let bytes = beside(session, key);
@@ -29,7 +30,7 @@ impl App {
         if self.sidebar.is_empty() && !self.sessions.is_empty() {
             self.failed = None;
         }
-        if self.pane_focused && is_ctrl(key, 'h') {
+        if self.pane_focused && is_ctrl(acted, 'h') {
             match self.sessions.get_mut(self.selected) {
                 Some(entry) if entry.on_editor => {
                     match entry
@@ -49,7 +50,7 @@ impl App {
             return;
         }
         if self.pane_focused
-            && is_ctrl(key, 'l')
+            && is_ctrl(acted, 'l')
             && self
                 .sessions
                 .get(self.selected)
@@ -74,9 +75,9 @@ impl App {
             self.touch();
             return;
         }
-        match key.code {
-            _ if is_ctrl(key, 'l') => self.focus_or_resume(),
-            _ if is_ctrl(key, 'm') => self.focus_or_resume(),
+        match acted.code {
+            _ if is_ctrl(acted, 'l') => self.focus_or_resume(),
+            _ if is_ctrl(acted, 'm') => self.focus_or_resume(),
             KeyCode::Enter => self.focus_or_resume(),
             KeyCode::Char('q') => self.quit(),
             KeyCode::Char('n') => self.pick_or_start(),
