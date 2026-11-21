@@ -9,6 +9,7 @@ const FULL_WIDTH: usize = 78;
 const NARROWEST_BAR: usize = 4;
 const FILLED: &str = "█";
 const UNFILLED: &str = "░";
+const HINT: &str = "  t raw text · Esc close";
 
 #[derive(Debug, Default)]
 pub struct Report {
@@ -178,7 +179,14 @@ pub fn lines(report: &Report, width: u16, height: u16, accent: Color) -> Vec<Lin
                 .map(|note| Line::raw(format!("  {note}"))),
         );
     }
-    rows.truncate(usize::from(height));
+    let height = usize::from(height);
+    rows.truncate(height.saturating_sub(2));
+    if height > 1 {
+        rows.push(Line::default());
+    }
+    if height > 0 {
+        rows.push(Line::raw(HINT));
+    }
     rows
 }
 

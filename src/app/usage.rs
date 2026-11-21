@@ -26,6 +26,8 @@ pub(super) struct Usage {
     open: Option<Session>,
     exited: Option<Instant>,
     area: Rect,
+    bars: bool,
+    raw: bool,
 }
 
 impl Usage {
@@ -36,6 +38,8 @@ impl Usage {
             open: None,
             exited: None,
             area: Rect::default(),
+            bars: false,
+            raw: false,
         }
     }
 }
@@ -80,6 +84,8 @@ impl App {
                 self.gesture = Gesture::Idle;
                 self.usage.open = Some(session);
                 self.usage.exited = None;
+                self.usage.bars = false;
+                self.usage.raw = false;
             }
             Err(error) => {
                 self.failed = Some(refusal(command.first().map_or("", String::as_str), &error));
@@ -97,6 +103,13 @@ impl App {
         {
             self.close_usage();
             self.log_usage_closed();
+            return true;
+        }
+        if self.usage.bars
+            && matches!(key.code, KeyCode::Char('t' | 'T'))
+            && key.modifiers - KeyModifiers::SHIFT == KeyModifiers::NONE
+        {
+            self.usage.raw = !self.usage.raw;
             return true;
         }
         let bytes = super::key::beside(session, key);
@@ -148,6 +161,14 @@ impl App {
         if let Some(status) = finished.as_ref().filter(|status| !status.success()) {
             block = block.title(format!(" exit{} ", draw::exit_note(status)));
         }
+        let report = finished
+            .as_ref()
+            .and_then(|_| crate::usage::parse(&session.text()));
+        self.usage.bars = report.is_some();
+        let report = report.filter(|_| !self.usage.raw);
+        if self.usage.bars && self.usage.raw {
+            block = block.title_bottom(" t bars ");
+        }
         let inner = block.inner(area);
         self.usage.area = inner;
         let printed = session.printed();
@@ -156,9 +177,6 @@ impl App {
         }
         frame.render_widget(Clear, area);
         frame.render_widget(block, area);
-        let report = finished
-            .as_ref()
-            .and_then(|_| crate::usage::parse(&session.text()));
         if let Some(report) = report {
             let lines = crate::usage::lines(&report, inner.width, inner.height, self.accent);
             frame.render_widget(Paragraph::new(lines), inner);

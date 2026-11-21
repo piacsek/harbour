@@ -228,6 +228,39 @@ fn breakdown_bars_take_the_accent() {
     assert_eq!(lines[6].spans[1].style.fg, Some(Color::Magenta));
 }
 
+#[test]
+fn the_drawing_ends_with_a_blank_line_and_the_hint() {
+    let report = parsed(LIMITS);
+
+    let rows = drawn(&report, 78, 30);
+
+    assert_eq!(rows.len(), 6);
+    assert_eq!(rows[4], "");
+    assert_eq!(rows[5], "  t raw text · Esc close");
+}
+
+#[test]
+fn a_short_popup_keeps_the_hint_on_its_last_row() {
+    let report = parsed(FULL);
+
+    let rows = drawn(&report, 78, 5);
+
+    assert_eq!(rows.len(), 5);
+    assert!(rows[1].starts_with("  Session   "), "{rows:?}");
+    assert!(rows[2].starts_with("  Week   "), "{rows:?}");
+    assert_eq!(rows[3], "");
+    assert_eq!(rows[4], "  t raw text · Esc close");
+}
+
+#[test]
+fn a_popup_of_one_row_shows_the_hint_alone() {
+    let report = parsed(FULL);
+
+    let rows = drawn(&report, 78, 1);
+
+    assert_eq!(rows, vec!["  t raw text · Esc close"]);
+}
+
 fn parsed(text: &str) -> Report {
     usage::parse(text).unwrap()
 }
