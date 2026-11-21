@@ -122,6 +122,22 @@ TOML
 shoot accent 160 26 "" "n" "acme agent ready"
 rm -r "$home/.config"
 echo "wrote $out/accent.png"
+mkdir -p "$home/.config/harbour" "$home/bin"
+cat >"$home/bin/nvim" <<'SH'
+#!/bin/sh
+printf 'pub fn retry(attempts: u32) -> Backoff {\n    Backoff::exponential(attempts)\n}\n'
+exec sleep 600
+SH
+chmod +x "$home/bin/nvim"
+cat >"$home/.config/harbour/config.toml" <<TOML
+nerd_font = true
+picker = ["pwd"]
+editor = ["$home/bin/nvim"]
+session_command = ["sh", "-c", "printf 'acme agent ready in acme-api\\\\n'; exec sleep 600"]
+TOML
+shoot icons 160 26 "" "n Enter C-l" "Backoff::exponential"
+rm -r "$home/.config" "$home/bin"
+echo "wrote $out/icons.png"
 usage="$("$bin" --help)"
 usage_rows="$(printf '%s\n' "$usage" | wc -l)"
 shoot help 160 "$((usage_rows + 1))" --help ""

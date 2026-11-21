@@ -52,6 +52,7 @@ pub struct App {
     sidebar: Rect,
     cards: Sidebar,
     accent: Color,
+    nerd_font: bool,
     sidebar_width: Option<u16>,
     pane_focused: bool,
     gesture: Gesture,
@@ -171,6 +172,7 @@ impl App {
             sidebar: Rect::default(),
             cards: Sidebar::default(),
             accent: Color::Cyan,
+            nerd_font: false,
             sidebar_width: None,
             pane_focused: false,
             gesture: Gesture::Idle,
@@ -206,6 +208,11 @@ impl App {
 
     pub fn with_accent(mut self, accent: Color) -> App {
         self.accent = accent;
+        self
+    }
+
+    pub fn with_nerd_font(mut self) -> App {
+        self.nerd_font = true;
         self
     }
 

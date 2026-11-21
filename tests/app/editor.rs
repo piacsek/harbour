@@ -1,4 +1,5 @@
 use crossterm::event::{KeyCode, KeyModifiers, MouseButton, MouseEventKind};
+use harbour::app::App;
 use harbour::editor::Program;
 use ratatui::style::Modifier;
 
@@ -180,13 +181,7 @@ fn e_in_the_sidebar_shows_the_editor_and_focuses_it() {
 }
 
 pub(crate) fn reading_editor() -> Program {
-    Program::new(
-        "acme-edit",
-        script(
-            "echo \"acme editor in ${PWD##*/}\"; \
-             while :; do read -r line || continue; echo \"acme editor got: $line\"; done",
-        ),
-    )
+    Program::new("acme-edit", reading_editor_script())
 }
 
 #[test]
@@ -200,6 +195,52 @@ fn a_session_with_an_editor_keeps_its_card_and_counts_once() {
     assert!(shown.contains("▌   acme-home"), "{shown}");
 }
 
+#[test]
+fn without_icons_the_pane_border_is_drawn_as_before() {
+    let mut screen = Screen::editing(reading_agent(), reading_editor());
+    screen.press('n');
+
+    let shown = screen.wait_for("acme agent ready");
+
+    let top = shown.lines().next().unwrap();
+    let border: String = top.chars().skip(SIDEBAR_COLUMNS).collect();
+    let expected = format!("┌ claude | acme-edit {}┐", "─".repeat(BORDER_FILL));
+    assert_eq!(border, expected);
+}
+
+#[test]
+fn with_icons_the_pane_border_puts_a_glyph_before_claude_and_neovim() {
+    let editor = Program::neovim("nvim", reading_editor_script());
+    let mut screen = Screen::of(
+        App::new(reading_agent())
+            .with_editor(editor)
+            .with_nerd_font(),
+    );
+    screen.press('n');
+
+    let shown = screen.wait_for("acme agent ready");
+
+    let top = shown.lines().next().unwrap();
+    let expected = format!(" {SPARKLE} claude | {NEOVIM} nvim ");
+    assert!(top.contains(&expected), "{top}");
+}
+
+#[test]
+fn with_icons_an_editor_that_is_not_neovim_gets_no_glyph() {
+    let mut screen = Screen::of(
+        App::new(reading_agent())
+            .with_editor(reading_editor())
+            .with_nerd_font(),
+    );
+    screen.press('n');
+
+    let shown = screen.wait_for("acme agent ready");
+
+    let top = shown.lines().next().unwrap();
+    let expected = format!(" {SPARKLE} claude | acme-edit ");
+    assert!(top.contains(&expected), "{top}");
+}
+
 pub(crate) fn editor_open() -> Screen {
     let mut screen = Screen::editing(reading_agent(), reading_editor());
     screen.press('n');
@@ -208,6 +249,13 @@ pub(crate) fn editor_open() -> Screen {
     screen.key(KeyCode::Char('l'), KeyModifiers::CONTROL);
     screen.wait_for("acme editor in");
     screen
+}
+
+fn reading_editor_script() -> Vec<String> {
+    script(
+        "echo \"acme editor in ${PWD##*/}\"; \
+         while :; do read -r line || continue; echo \"acme editor got: $line\"; done",
+    )
 }
 
 fn shown_directory() -> String {
@@ -234,3 +282,8 @@ fn tab_columns(shown: &str) -> (u16, u16) {
         u16::try_from(editor).unwrap(),
     )
 }
+
+const SIDEBAR_COLUMNS: usize = 40;
+const BORDER_FILL: usize = 58;
+const SPARKLE: &str = "\u{F0674}";
+const NEOVIM: &str = "\u{E6AE}";

@@ -193,11 +193,12 @@ impl App {
         let program = self.editor.as_ref()?;
         let entry = self.sessions.get(self.selected)?;
         let directory = entry.editor().map(|editor| editor.label.as_str());
-        let [claude, editor] = tabs::strip(
-            program.name(),
-            directory,
-            usize::from(width.saturating_sub(2)),
-        );
+        let room = usize::from(width.saturating_sub(2));
+        let [claude, editor] = if self.nerd_font {
+            tabs::iconed(program.name(), program.is_neovim(), directory, room)
+        } else {
+            tabs::strip(program.name(), directory, room)
+        };
         if claude.is_empty() {
             return None;
         }

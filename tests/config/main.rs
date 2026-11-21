@@ -90,6 +90,8 @@ fn without_a_file_every_setting_is_its_default() {
     assert_eq!(config.sidebar_width().source, Source::Default);
     assert_eq!(config.accent().value, Color::Cyan);
     assert_eq!(config.accent().source, Source::Default);
+    assert!(!config.nerd_font().value);
+    assert_eq!(config.nerd_font().source, Source::Default);
 }
 
 #[test]
@@ -180,6 +182,28 @@ fn the_accent_takes_a_hex_colour() {
     let config = read_at(home.path(), None).unwrap();
 
     assert_eq!(config.accent().value, Color::Rgb(0xd7, 0x87, 0x5f));
+}
+
+#[test]
+fn the_file_turns_the_nerd_font_on() {
+    let home = tempfile::tempdir().unwrap();
+    write_config(home.path(), "nerd_font = true\n");
+
+    let config = read_at(home.path(), None).unwrap();
+
+    assert!(config.nerd_font().value);
+    assert_eq!(config.nerd_font().source, Source::File);
+}
+
+#[test]
+fn the_file_can_say_there_is_no_nerd_font() {
+    let home = tempfile::tempdir().unwrap();
+    write_config(home.path(), "nerd_font = false\n");
+
+    let config = read_at(home.path(), None).unwrap();
+
+    assert!(!config.nerd_font().value);
+    assert_eq!(config.nerd_font().source, Source::File);
 }
 
 #[test]
