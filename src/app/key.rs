@@ -3,9 +3,10 @@ use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use super::logging::Input;
 use super::{App, Entry, Question, draw, refusal};
 use crate::editor::{Changes, Editor};
-use crate::keys;
+use crate::keys::{self, Keyboard};
 use crate::mouse::Gesture;
 use crate::picker::Pick;
+use crate::session::Session;
 
 impl App {
     pub fn key(&mut self, key: KeyEvent) {
@@ -17,7 +18,7 @@ impl App {
         let key = ctrl_backspace_as_ctrl_h(key);
         if let Some(pick) = &self.picking {
             let session = pick.session();
-            let bytes = keys::encode(plain_enter(key), session.application_cursor());
+            let bytes = beside(session, key);
             session.send(&bytes);
             self.log_input(Input::Picker, bytes.len());
             return;
@@ -63,8 +64,11 @@ impl App {
             .get(self.selected)
             .is_some_and(|entry| entry.showing_editor().is_some());
         if let Some(session) = self.focused() {
-            let key = if on_editor { plain_enter(key) } else { key };
-            let bytes = keys::encode(key, session.application_cursor());
+            let bytes = if on_editor {
+                beside(session, key)
+            } else {
+                agent(session, key)
+            };
             session.send(&bytes);
             self.log_input(Input::Shown, bytes.len());
             self.touch();
@@ -165,6 +169,20 @@ fn ctrl_backspace_as_ctrl_h(key: KeyEvent) -> KeyEvent {
         KeyEvent::new(KeyCode::Char('h'), KeyModifiers::CONTROL)
     } else {
         key
+    }
+}
+
+fn beside(session: &Session, key: KeyEvent) -> Vec<u8> {
+    match session.keyboard() {
+        Keyboard::Legacy => keys::encode(plain_enter(key), session.application_cursor()),
+        keyboard => keys::encode_as(key, session.application_cursor(), keyboard),
+    }
+}
+
+fn agent(session: &Session, key: KeyEvent) -> Vec<u8> {
+    match key.code {
+        KeyCode::Enter => keys::encode(key, session.application_cursor()),
+        _ => keys::encode_as(key, session.application_cursor(), session.keyboard()),
     }
 }
 
