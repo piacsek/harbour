@@ -7,6 +7,7 @@ use ratatui::layout::{Position, Rect};
 use ratatui::style::Color;
 
 mod draw;
+mod find;
 mod handoff;
 mod jump;
 mod key;
@@ -44,6 +45,7 @@ pub struct App {
     picker: Option<Picker>,
     editor: Option<Program>,
     picking: Option<Pick>,
+    finding: Option<Vec<find::Who>>,
     picking_area: Rect,
     usage: usage::Usage,
     screen: Rect,
@@ -169,6 +171,7 @@ impl App {
             picker: None,
             editor: None,
             picking: None,
+            finding: None,
             picking_area: Rect::default(),
             usage,
             screen: Rect::new(0, 0, 80, 24),
@@ -475,9 +478,11 @@ impl App {
         };
         self.picking = None;
         self.gesture = Gesture::Idle;
+        let finding = self.finding.take();
         match picked {
             Picked::Cancelled => {}
             Picked::Refused(refusal) => self.failed = Some(refusal),
+            Picked::Line(line) => self.found(finding, &line),
             Picked::Chosen(directory) => {
                 let before = self.started;
                 self.start_in(&self.command.clone(), &directory);

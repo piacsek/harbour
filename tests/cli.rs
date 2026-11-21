@@ -360,6 +360,10 @@ and nerd_font are read from the file only. config prints each setting and
 where it comes from.
 n runs fzf over the directory harbour was opened in and zoxide's list;
 HARBOUR_DIR_PICKER names another picker.
+M-s lists every session in fzf and Enter jumps to the one picked; with a picker
+other than fzf it says so. It works only where the terminal sends Alt-s as an
+extended key (under tmux, extended-keys on), and never from an editor. Under
+tmux, Esc then s typed fast in Claude Code arrives as Alt-s and opens the list.
 C-l opens nvim at Claude Code's repository root; HARBOUR_EDITOR names another.
 C-Backspace acts as C-h. In Neovim, C-h goes back only from the leftmost window,
 in normal mode.

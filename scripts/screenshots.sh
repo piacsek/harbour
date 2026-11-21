@@ -117,9 +117,11 @@ echo "wrote $out/narrow.png"
 t set -s extended-keys on
 shoot zoom 160 26 --demo "M-z"
 shoot side-by-side 160 26 --demo "M-\\" "src/retry.rs"
+shoot sessions 160 26 --demo "M-s" "6/6"
 t set -s extended-keys off
 echo "wrote $out/zoom.png"
 echo "wrote $out/side-by-side.png"
+echo "wrote $out/sessions.png"
 mkdir -p "$home/.config/harbour"
 cat >"$home/.config/harbour/config.toml" <<'TOML'
 accent = "#d7875f"

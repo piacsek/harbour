@@ -36,6 +36,14 @@ these suites come from; the ones about sessions were hit in harbour.
   `tests/e2e/main.rs`), where neither is, so `n` starts at once, and with `TMPDIR` under the scratch `HOME`, so a picker still open when the tmux server dies leaves no `harbour-pick*` directory behind; they set `HARBOUR_DIR_PICKER`
   to `tests/fixtures/picker.sh` to test the picker; in-process tests hand the builder `.with_picker` of `App` a `Picker` of `/bin/sh -c`
   scripts. A picker script draws on stderr: its stdout is the directory it picks.
+  The session finder of Alt-s runs only a picker whose file name is `fzf`, so its tests use
+  `tests/fixtures/finder/fzf`, which answers like the directory picker (`.`) when it is not given
+  the finder's `--with-nth=2..`, so `n` still starts a session with it set; it reads what is typed
+  from `/dev/tty`, a line starting with Esc exits 130 (so a test closes it with Esc, then
+  Enter), an empty line is read past, `broken` exits 2 and `cut:<text>` prints the line
+  holding `<text>` without its number and dot. `tests/fixtures/nth-finder/fzf` wraps it and
+  prints the line without its number unless given `--accept-nth=..` (a user's `--accept-nth`);
+  `tests/fixtures/old-finder/fzf` exits 2 on any `--accept-nth`, as an fzf older than 0.60.
 
 - **No test reads the user's config file.** The interface and `harbour config` read
   `$XDG_CONFIG_HOME/harbour/config.toml`, else `~/.config/harbour/config.toml`, so every launch

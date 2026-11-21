@@ -3,9 +3,12 @@ use std::thread::sleep;
 use std::time::Duration;
 
 use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
+use harbour::app::App;
 use harbour::editor::Program;
 use harbour::input::ESCAPED;
+use harbour::picker::Picker;
 
+use crate::finding::FINDER;
 use crate::remembering::{ID, Scratch, TITLE};
 use crate::zoom::{corners, editing_session, raw_reader};
 use crate::{Screen, pane_corner, region, script};
@@ -337,6 +340,35 @@ fn ctrl_2_from_side_by_side_shows_the_second_session_beside_its_editor() {
 
     let shown = screen.wait_until("the second editor", |shown| {
         region(shown, 0, 60).contains("acme agent 2")
+            && region(shown, 60, 60).contains("acme editor ready")
+    });
+    assert_eq!(pane_corner(&shown), 60, "{shown}");
+}
+
+#[test]
+fn a_pick_from_the_session_finder_shows_the_picked_session_beside_its_editor() {
+    let scratch = tempfile::tempdir().unwrap();
+    let editor = Program::new("acme-edit", editor());
+    let app = App::new(agent(scratch.path()))
+        .with_editor(editor)
+        .with_picker(Picker::Command(vec![FINDER.into()]));
+    let mut screen = Screen::of(app);
+    screen.press('n');
+    screen.wait_for("acme agent 1");
+    screen.key(KeyCode::Char('h'), KeyModifiers::CONTROL);
+    screen.press('n');
+    screen.wait_for("acme agent 2");
+    screen.key(KeyCode::Char('1'), KeyModifiers::CONTROL);
+    side(&mut screen);
+    screen.wait_for("acme editor ready");
+
+    screen.key(KeyCode::Char('s'), KeyModifiers::ALT);
+    screen.wait_for("acme fzf ready");
+    screen.type_text("home 2\r");
+
+    let shown = screen.wait_until("the second editor", |shown| {
+        !shown.contains("acme fzf")
+            && region(shown, 0, 60).contains("acme agent 2")
             && region(shown, 60, 60).contains("acme editor ready")
     });
     assert_eq!(pane_corner(&shown), 60, "{shown}");

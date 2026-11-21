@@ -208,9 +208,12 @@ default is shown red by breaking the code it covers, then restored, and said so.
 - The borders: the headline and `claude` over the left half, the editor's name and directory and
   the counts over the right, the focused half's names bold. The mode lives in `src/app/side.rs`;
   `src/tabs.rs` gained `claude` and `editor_named`.
-- The help gained one row (`M-\`), so the C-l/Enter row was shortened to "focus or resume; from
-  Claude Code, its editor", the wording phase 28 uses, and the help again fills all 20 rows of a
-  20-row terminal; issue #98 tracks the lasting fix. The log names the key `M-\`.
+- The help gained one row (`M-\`). Phase 28 had already shortened the C-l/Enter row and left the
+  help no spare row on a 20-row terminal, so after merging it the pointer line (`harbour --help
+  has the rest.`) went: the dots legend now ends the help, which again fills all 20 rows with no
+  row to spare; issue #98 tracks the lasting fix. The log names the key `M-\`.
+- A pick from phase 28's session finder while side by side shows the picked session side by side,
+  through the same `jump` Ctrl-1 to Ctrl-9 use.
 - `docs/side-by-side.png` is the new `side-by-side` shot; `docs/keys.png` and `docs/help.png`
   changed with the help.
 - Not covered by a test: `harbour edit` opening a file while side by side keeps the mode (read
@@ -220,7 +223,7 @@ default is shown red by breaking the code it covers, then restored, and said so.
 ## Hurdles
 
 - `design` the new help row overflowed the 20-row help beside the narrowest sidebar, so an
-  existing row had to be shortened → code
+  existing row had to be shortened, and after phase 28 merged the pointer line went → code
 - `process` phase 28, built in parallel, edits the same help rows, README table, screenshots and
   AGENTS.md lines, so this branch waits for its merge to resolve them → none
 - `tooling` foreground waits are blocked or moved to the background, so a ship is waited on with

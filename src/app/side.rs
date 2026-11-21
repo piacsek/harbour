@@ -117,7 +117,7 @@ impl App {
             (Modifier::BOLD, Modifier::DIM)
         };
         let room = usize::from(left_width.saturating_sub(2));
-        let headline = self.headline();
+        let headline = self.headline_of(self.selected);
         let kept = headline.as_ref().map_or(0, guaranteed).min(room);
         let claude = named(tabs::claude(self.nerd_font), claude_style);
         let claude = if claude.width() <= room - kept {

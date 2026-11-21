@@ -3,10 +3,10 @@ use ratatui::style::Color;
 
 use crate::{Screen, directory, raw_agent, reading_agent};
 
-const POINTER: &str = "harbour --help has the rest.";
+const LAST: &str = "status unknown: not Claude Code, or not written yet";
 
 #[test]
-fn question_mark_shows_the_keys_and_where_the_notes_went() {
+fn question_mark_shows_the_keys_and_the_last_dot() {
     let mut screen = Screen::new(reading_agent());
 
     screen.press('?');
@@ -17,7 +17,7 @@ fn question_mark_shows_the_keys_and_where_the_notes_went() {
         shown.contains("end it and its editors, or forget an ended one"),
         "{shown}"
     );
-    assert!(shown.contains(POINTER), "{shown}");
+    assert!(shown.contains(LAST), "{shown}");
 }
 
 #[test]
@@ -27,7 +27,10 @@ fn question_mark_shows_the_editor_keys() {
     screen.press('?');
 
     let shown = screen.draw();
-    assert!(shown.contains("from Claude Code, its editor"), "{shown}");
+    assert!(
+        shown.contains("focus or resume; C-l in Claude Code: editor"),
+        "{shown}"
+    );
     assert!(shown.contains("end it and its editors"), "{shown}");
     assert!(
         shown.contains("show the next editor, one per directory"),
@@ -124,7 +127,7 @@ fn the_whole_help_shows_on_an_80_by_24_terminal() {
         "{shown}"
     );
     assert!(shown.contains("status unknown"), "{shown}");
-    assert!(shown.contains(POINTER), "{shown}");
+    assert!(shown.contains(LAST), "{shown}");
 }
 
 #[test]
@@ -139,11 +142,27 @@ fn the_whole_help_shows_on_a_20_row_terminal() {
         "{shown}"
     );
     assert!(shown.contains("status unknown"), "{shown}");
-    assert!(shown.contains(POINTER), "{shown}");
+    assert!(shown.contains(LAST), "{shown}");
 }
 
 #[test]
-fn the_help_fills_every_row_of_a_20_row_terminal() {
+fn the_dots_are_the_last_lines_of_the_help() {
+    let mut screen = Screen::new(reading_agent());
+    screen.resize(80, 30);
+
+    screen.press('?');
+
+    let shown = screen.draw();
+    let after: Vec<&str> = shown
+        .lines()
+        .skip_while(|line| !line.contains(LAST))
+        .skip(1)
+        .collect();
+    assert_eq!(after[0].trim_matches(['│', ' ']), "", "{shown}");
+}
+
+#[test]
+fn the_help_fills_a_20_row_terminal_with_no_row_to_spare() {
     let mut screen = Screen::new(reading_agent());
 
     screen.press('?');
@@ -167,6 +186,34 @@ fn question_mark_shows_the_usage_key_on_one_row_beside_the_narrowest_sidebar() {
 }
 
 #[test]
+fn question_mark_shows_the_find_key_on_one_row_beside_the_narrowest_sidebar() {
+    let mut screen = Screen::new(reading_agent());
+    screen.resize(60, 20);
+
+    screen.press('?');
+
+    let shown = screen.draw();
+    assert!(
+        shown.contains("M-s        jump to a session by part of its name"),
+        "{shown}"
+    );
+}
+
+#[test]
+fn question_mark_shows_the_ctrl_l_row_on_one_row_in_the_narrow_layout() {
+    let mut screen = Screen::new(reading_agent());
+    screen.resize(59, 20);
+
+    screen.press('?');
+
+    let shown = screen.draw();
+    assert!(
+        shown.contains("C-l/Enter  focus or resume; C-l in Claude Code: editor"),
+        "{shown}"
+    );
+}
+
+#[test]
 fn the_whole_help_shows_beside_the_narrowest_sidebar() {
     let mut screen = Screen::new(reading_agent());
     screen.resize(60, 20);
@@ -175,7 +222,7 @@ fn the_whole_help_shows_beside_the_narrowest_sidebar() {
 
     let shown = screen.draw();
     assert!(shown.contains("select the next / previous"), "{shown}");
-    assert!(shown.contains(POINTER), "{shown}");
+    assert!(shown.contains(LAST), "{shown}");
 }
 
 #[test]
@@ -187,7 +234,7 @@ fn the_whole_help_shows_in_the_narrow_layout_on_20_rows() {
 
     let shown = screen.draw();
     assert!(shown.contains("select the next / previous"), "{shown}");
-    assert!(shown.contains(POINTER), "{shown}");
+    assert!(shown.contains(LAST), "{shown}");
 }
 
 #[test]
@@ -214,7 +261,7 @@ fn the_next_key_hides_the_help_and_does_nothing_else() {
     screen.press('n');
 
     let shown = screen.draw();
-    assert!(!shown.contains(POINTER), "{shown}");
+    assert!(!shown.contains(LAST), "{shown}");
     assert!(!shown.contains(&format!("{} 1", directory())), "{shown}");
 }
 
@@ -232,7 +279,7 @@ fn a_click_in_the_pane_hides_the_help_and_does_not_focus_the_pane() {
 
     let shown = screen.wait_for("acme agent read:w");
     assert!(shown.contains("acme agent read:w"), "{shown}");
-    assert!(!shown.contains(POINTER), "{shown}");
+    assert!(!shown.contains(LAST), "{shown}");
 }
 
 #[test]
@@ -243,7 +290,7 @@ fn a_paste_hides_the_help() {
     screen.app.paste("acme");
 
     let shown = screen.draw();
-    assert!(!shown.contains(POINTER), "{shown}");
+    assert!(!shown.contains(LAST), "{shown}");
 }
 
 fn glyph_at(shown: &str, text: &str) -> (u16, u16) {

@@ -51,7 +51,7 @@ impl App {
         let room = usize::from(width.saturating_sub(2));
         let counted = state::title(counts, room);
         let left = room.saturating_sub(counted.width());
-        let headline = self.headline();
+        let headline = self.headline_of(self.selected);
         let kept = headline
             .as_ref()
             .map_or(0, |headline| guaranteed(headline).min(left));
@@ -65,8 +65,8 @@ impl App {
             .title(counted.right_aligned())
     }
 
-    pub(super) fn headline(&self) -> Option<Headline> {
-        let entry = self.sessions.get(self.selected)?;
+    pub(super) fn headline_of(&self, index: usize) -> Option<Headline> {
+        let entry = self.sessions.get(index)?;
         let facts = entry.transcript.as_ref().map(Transcript::facts);
         let title = facts
             .and_then(|facts| facts.title.as_deref())
@@ -80,7 +80,7 @@ impl App {
                 .or_else(|| entry.place.branch.clone()),
         };
         Some(Headline {
-            state: State::of(false, entry.record.as_ref()),
+            state: State::of(entry.ended(), entry.record.as_ref()),
             title,
             place: clean(&place.to_string()),
             age: entry.elapsed().map(age),

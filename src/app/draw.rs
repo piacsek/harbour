@@ -226,7 +226,12 @@ impl App {
         }
         if let Some(pick) = &mut self.picking {
             let area = popup(frame.area());
-            let block = bordered(true, self.accent).title(" directory ");
+            let title = if self.finding.is_some() {
+                " sessions "
+            } else {
+                " directory "
+            };
+            let block = bordered(true, self.accent).title(title);
             let inner = block.inner(area);
             self.picking_area = inner;
             pick.resize(inner.height, inner.width);
@@ -271,10 +276,7 @@ impl App {
         let keys = help::KEYS
             .iter()
             .map(|(key, what)| Line::from(format!("{key:<10} {what}")));
-        let lines: Vec<Line> = keys
-            .chain(state::legend())
-            .chain([Line::from(help::REST)])
-            .collect();
+        let lines: Vec<Line> = keys.chain(state::legend()).collect();
         frame.render_widget(Clear, frame.area());
         frame.render_widget(
             Paragraph::new(lines)
