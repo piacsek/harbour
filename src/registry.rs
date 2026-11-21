@@ -118,6 +118,6 @@ pub fn open_ids(dir: &Path) -> HashSet<String> {
         .collect()
 }
 
-fn alive(pid: i32) -> bool {
+pub(crate) fn alive(pid: i32) -> bool {
     matches!(kill(Pid::from_raw(pid), None), Ok(()) | Err(Errno::EPERM))
 }

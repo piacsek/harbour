@@ -39,7 +39,10 @@ where the newest one is. Off by default.
   `try_send`: a line that finds the channel full is dropped, never waited for. The thread makes
   the folder (0700, its mode set again when it exists), removes the logs older than 7 days, opens
   `<pid>.log` (0600, truncated: a reused pid replaces the old file) and writes each line as it
-  comes, unbuffered, so a kill loses at most the lines still in the channel. Any failure ends the
+  comes, unbuffered, so a kill loses at most the lines still in the channel. At quit harbour
+  waits up to 500 ms for the thread to write what is queued (`Log::finish`), so `quit` reaches
+  the file unless the disk stalls. The file is opened without following a symlink, and a folder
+  that is a symlink is never used. Any failure ends the
   thread; the senders then find the channel closed and drop every line, silently.
 - **The app is handed its log** (`App::with_log`), as it is handed its summary and listener, so
   in-process tests read the lines from a channel of their own (`Log::sending`) without a file or
@@ -50,7 +53,10 @@ where the newest one is. Off by default.
 - **Sessions are named by harbour's number for them (`session=3`) and their directory**, plus
   Claude Code's session id when harbour passes or resumes one. Titles, prompts, tool calls,
   typed or pasted text and anything a session prints are never written: a key or paste sent to a
-  session or the picker is `input to=<session> bytes=<n>`.
+  session or the picker is `input to=<session> bytes=<n>`, `n` the bytes sent (a paste counts
+  its bracketed paste marks when the session asked for them). A key harbour acts on itself is
+  logged by name (`key name="j"`), so a bound key pressed with the sidebar focused is logged by
+  its character; any other key is `key name=other`.
 - **Mouse events sent to a session are not logged**: under mouse mode `?1003` every move would be
   a line. A click that changes the selection or the focus is logged as that change.
 - **Refusals are logged as the message harbour shows** (`refused message="…"`), whenever the
@@ -83,11 +89,16 @@ where the newest one is. Off by default.
 | The file's path stalls (a FIFO, a hung network disk) | lines queue up to 4096, then are dropped; keys and frames are never delayed |
 | Two harbours at once | one file each, by pid |
 | A pid reused by a later run | the old file is replaced |
-| A log file older than 7 days | removed when a harbour with the log on starts |
+| A log file older than 7 days | removed when a harbour with the log on starts, unless its pid is alive (an idle harbour writes nothing for days) |
+| A symlink at `<pid>.log`, or a log folder that is a symlink | no log; the target is never written or made private |
+| harbour quits while lines are queued | it waits up to 500 ms for them, then exits |
 | A file in the folder not named `<digits>.log`, or not a regular file | left alone, never printed by `harbour log` |
 | harbour killed by a signal | the lines written so far stay; the ones still queued are lost |
 | `--demo`, `harbour status`, `harbour edit` (the sender) | no log |
 | `harbour log` with no log in the folder, or no folder | prints nothing, exits 1 |
+| The help at 120x20 and 80x24 | every key, the legend and all six notes show; the merged C-h note wraps to two lines at 80 columns |
+| The help on the narrowest terminal (60x20, the narrowest sidebar; 56x26, the narrow layout) | the notes wrap by words and the help is cut at the bottom, as before this phase: the tmux note and the `HARBOUR_LOG` note do not show at 60x20, nor at 56x26; `harbour --help` carries the `HARBOUR_LOG` text in full |
+| A session directory with a CJK name | the help shows no name; the log writes it as is inside quotes (`directory="/acme/東京-api"`), a name that is not UTF-8 as `\xNN` escapes |
 
 ## Tasks
 
@@ -122,5 +133,7 @@ where the newest one is. Off by default.
   that row on `SIGWINCH`, and the red run was shown by breaking the count → code
 - `process` The builder handed back early while another worktree's gates ran, instead of
   waiting in the foreground for `scripts/gates.sh` to finish → none
+- `test-seam` Review round 1 asked that the app skip its log bookkeeping (the panic counts, the lives, the focus) when the log is off, proved by a test that fails today; nothing an app test can reach shows that bookkeeping, so it needs a new seam, and the change was left out → backlog
+- `test-seam` The sweep test named its old log `4100.log`, a pid alive on the build machine, so skipping live pids made it fail; it now uses a pid that cannot exist → code
 - `design` The seventh help note pushed the help past 20 rows, which held exactly 18 lines with
   no slack; two notes were merged into one line → code

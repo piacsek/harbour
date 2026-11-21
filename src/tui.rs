@@ -48,10 +48,15 @@ pub fn run() -> io::Result<()> {
     if let Some(dir) = handoff::directory_from_env() {
         app = app.with_handoff(Listener::new(&dir));
     }
-    if let Some(log) = logging() {
-        app = app.with_log(log);
+    let log = logging();
+    if let Some(log) = &log {
+        app = app.with_log(log.clone());
     }
-    show(app)
+    let shown = show(app);
+    if let Some(log) = log {
+        log.finish(Duration::from_millis(500));
+    }
+    shown
 }
 
 pub fn demo() -> io::Result<()> {

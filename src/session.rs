@@ -159,12 +159,14 @@ impl Session {
         let _ = self.writer.send(bytes.to_vec());
     }
 
-    pub fn paste(&self, text: &str) {
-        if self.parser.lock().unwrap().screen().bracketed_paste() {
-            self.send(&[b"\x1b[200~", text.as_bytes(), b"\x1b[201~"].concat());
+    pub fn paste(&self, text: &str) -> usize {
+        let bytes = if self.parser.lock().unwrap().screen().bracketed_paste() {
+            [b"\x1b[200~", text.as_bytes(), b"\x1b[201~"].concat()
         } else {
-            self.send(text.as_bytes());
-        }
+            text.as_bytes().to_vec()
+        };
+        self.send(&bytes);
+        bytes.len()
     }
 
     pub fn mouse_protocol(&self) -> (vt100::MouseProtocolMode, vt100::MouseProtocolEncoding) {

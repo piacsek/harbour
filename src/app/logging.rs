@@ -2,6 +2,7 @@ use std::path::Path;
 use std::time::{Duration, Instant};
 
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+use ratatui::layout::Rect;
 
 use super::{App, Entry};
 use crate::handoff::{Reply, Verb};
@@ -79,7 +80,7 @@ impl App {
         }
     }
 
-    pub(super) fn log_start(&mut self) {
+    pub(super) fn log_start(&mut self, size: Rect) {
         if std::mem::replace(&mut self.logging.started, true) {
             return;
         }
@@ -87,8 +88,8 @@ impl App {
             format!(
                 "start version={} size={}x{} command={:?} picker={} editor={}",
                 env!("CARGO_PKG_VERSION"),
-                self.screen.width,
-                self.screen.height,
+                size.width,
+                size.height,
                 self.command.first().map_or("", String::as_str),
                 self.picker
                     .as_ref()
@@ -129,20 +130,28 @@ impl App {
         self.log_changes();
     }
 
+    pub(super) fn log_paste(&mut self) {
+        self.logging.forwarded = false;
+        self.log_changes();
+    }
+
     pub(super) fn log_changes(&mut self) {
         self.log_lives();
         let entry = self.sessions.get(self.selected);
         let selected = entry.map(selection);
         if selected != self.logging.selected {
+            let resumed = resumed(self.logging.selected.take(), entry);
             self.logging.selected = selected;
-            self.logging.log.write(|| match entry {
-                Some(entry) => format!(
-                    "selected {} directory={:?}",
-                    named_entry(entry),
-                    entry.directory
-                ),
-                None => "selected none".to_string(),
-            });
+            if !resumed {
+                self.logging.log.write(|| match entry {
+                    Some(entry) => format!(
+                        "selected {} directory={:?}",
+                        named_entry(entry),
+                        entry.directory
+                    ),
+                    None => "selected none".to_string(),
+                });
+            }
         }
         let focus = match self.sessions.get(self.selected) {
             Some(entry) if self.pane_focused && entry.showing_editor().is_some() => Focus::Editor,
@@ -297,6 +306,15 @@ fn selection(entry: &Entry) -> Selected {
     match entry.session {
         Some(_) => Selected::Session(entry.id),
         None => Selected::Stopped(entry.remembered.clone()),
+    }
+}
+
+fn resumed(was: Option<Selected>, entry: Option<&Entry>) -> bool {
+    match (was, entry) {
+        (Some(Selected::Stopped(Some(id))), Some(entry)) => {
+            entry.session.is_some() && entry.remembered.as_ref() == Some(&id)
+        }
+        _ => false,
     }
 }
 

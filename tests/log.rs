@@ -107,12 +107,12 @@ fn a_reused_pid_replaces_the_old_file() {
 fn a_log_older_than_seven_days_is_removed_at_the_start() {
     let scratch = tempfile::tempdir().unwrap();
     let dir = private_folder(scratch.path());
-    write_aged(&dir.join("4100.log"), days(7) + 60);
+    write_aged(&dir.join("999999999.log"), days(7) + 60);
 
     Log::open(&dir).write(|| "start".to_string());
 
     wait_for_line(&own_file(&dir), "start");
-    assert!(!dir.join("4100.log").exists());
+    assert!(!dir.join("999999999.log").exists());
 }
 
 #[test]
@@ -152,6 +152,91 @@ fn an_old_folder_named_like_a_log_is_kept() {
 
     wait_for_line(&own_file(&dir), "start");
     assert!(dir.join("4100.log").is_dir());
+}
+
+#[test]
+fn a_finished_log_holds_every_line_written_before_it_finished() {
+    let scratch = tempfile::tempdir().unwrap();
+    let dir = private_folder(scratch.path());
+    let log = Log::open(&dir);
+    for line in 0..2000 {
+        log.write(|| format!("input to=picker bytes={line}"));
+    }
+
+    log.finish(Duration::from_secs(10));
+
+    let text = fs::read_to_string(own_file(&dir)).unwrap();
+    assert!(text.ends_with(" input to=picker bytes=1999\n"), "{text}");
+}
+
+#[test]
+fn finishing_a_log_whose_disk_stalls_waits_no_longer_than_it_was_given() {
+    let scratch = tempfile::tempdir().unwrap();
+    let dir = private_folder(scratch.path());
+    let made = std::process::Command::new("mkfifo")
+        .arg(own_file(&dir))
+        .status()
+        .unwrap();
+    assert!(made.success());
+    let log = Log::open(&dir);
+    log.write(|| "quit sessions=0".to_string());
+
+    let started = Instant::now();
+    log.finish(Duration::from_millis(200));
+
+    assert!(started.elapsed() < Duration::from_secs(2));
+}
+
+#[test]
+fn an_old_log_of_a_harbour_still_running_is_kept() {
+    let scratch = tempfile::tempdir().unwrap();
+    let dir = private_folder(scratch.path());
+    let mut running = std::process::Command::new("sleep")
+        .arg("600")
+        .spawn()
+        .unwrap();
+    let kept = dir.join(format!("{}.log", running.id()));
+    write_aged(&kept, days(8));
+
+    Log::open(&dir).write(|| "start".to_string());
+
+    wait_for_line(&own_file(&dir), "start");
+    let exists = kept.exists();
+    running.kill().unwrap();
+    running.wait().unwrap();
+    assert!(exists);
+}
+
+#[test]
+fn a_symlink_at_the_log_file_is_never_followed() {
+    let scratch = tempfile::tempdir().unwrap();
+    let dir = private_folder(scratch.path());
+    let target = scratch.path().join("acme-target");
+    fs::write(&target, "acme kept\n").unwrap();
+    std::os::unix::fs::symlink(&target, own_file(&dir)).unwrap();
+    let log = Log::open(&dir);
+    log.write(|| "start".to_string());
+
+    log.finish(Duration::from_secs(10));
+
+    assert_eq!(fs::read_to_string(&target).unwrap(), "acme kept\n");
+}
+
+#[test]
+fn a_log_folder_that_is_a_symlink_is_never_used() {
+    let scratch = tempfile::tempdir().unwrap();
+    let target = scratch.path().join("acme-shared");
+    fs::create_dir(&target).unwrap();
+    fs::set_permissions(&target, fs::Permissions::from_mode(0o755)).unwrap();
+    let dir = scratch.path().join("log");
+    std::os::unix::fs::symlink(&target, &dir).unwrap();
+    let log = Log::open(&dir);
+    log.write(|| "start".to_string());
+
+    log.finish(Duration::from_secs(10));
+
+    assert_eq!(mode(&target), 0o755);
+    assert!(!own_file(&target).exists());
 }
 
 #[test]

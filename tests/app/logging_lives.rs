@@ -111,6 +111,21 @@ fn a_resumed_session_logs_its_id_and_directory() {
 }
 
 #[test]
+fn resuming_the_selected_card_logs_no_new_selection() {
+    let scratch = Scratch::new();
+    scratch.remember(ID, TITLE, 0);
+    let agent = script("echo \"acme agent $0 $1\"; exec sleep 600");
+    let (app, lines) = logged(App::new(agent).with_memory(scratch.memory()));
+    let mut screen = Screen::of(app);
+    read(&lines);
+
+    screen.key(KeyCode::Enter, KeyModifiers::NONE);
+
+    screen.wait_for("acme agent --resume");
+    assert_eq!(count(&read(&lines), " selected "), 0);
+}
+
+#[test]
 fn a_move_between_stopped_cards_logs_the_conversation_selected() {
     let scratch = Scratch::new();
     scratch.remember(ID, TITLE, 0);

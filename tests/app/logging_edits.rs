@@ -44,6 +44,31 @@ fn a_refused_open_logs_the_message_it_answered() {
 }
 
 #[test]
+fn a_request_waiting_at_the_first_frame_is_logged_after_the_start() {
+    let scratch = tempfile::tempdir().unwrap();
+    let app = app_with(scratch.path(), recording_neovim(scratch.path()))
+        .with_handoff(Listener::new(&scratch.path().join("edit")));
+    let (app, lines) = logged(app);
+    let file = file(scratch.path(), "acme-api");
+    let socket = socket_in(&scratch.path().join("edit"));
+    let _stream = requested(&socket, "ask", Duration::from_secs(5), &file);
+    sleep(Duration::from_millis(400));
+
+    Screen::of(app);
+
+    let lines = read(&lines);
+    let start = lines
+        .iter()
+        .position(|line| line.contains(" start "))
+        .unwrap();
+    let edit = lines
+        .iter()
+        .position(|line| line.contains(" edit "))
+        .unwrap();
+    assert!(start < edit, "{lines:#?}");
+}
+
+#[test]
 fn a_request_that_expired_while_queued_logs_that_it_expired() {
     let scratch = tempfile::tempdir().unwrap();
     let (mut screen, lines) = listening(scratch.path());

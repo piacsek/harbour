@@ -148,6 +148,34 @@ fn keys_typed_into_an_editor_are_logged_with_the_editor() {
 }
 
 #[test]
+fn a_key_harbour_acts_on_after_a_paste_is_logged_by_name() {
+    let (app, lines) = logged(App::new(reading_agent()));
+    let mut screen = focused(app);
+    screen.app.paste("acme-secret");
+    read(&lines);
+
+    screen.key(KeyCode::Char('h'), KeyModifiers::CONTROL);
+
+    only(&read(&lines), r#" key name="C-h""#);
+}
+
+#[test]
+fn a_paste_logs_the_bytes_sent_with_its_bracketed_paste_marks() {
+    let agent = script("printf '\\033[?2004h'; echo 'acme agent ready'; exec cat");
+    let (app, lines) = logged(App::new(agent));
+    let mut screen = focused(app);
+    read(&lines);
+
+    screen.app.paste("acme");
+
+    let input = only(&read(&lines), " input ");
+    assert!(
+        input.ends_with(" input to=session session=1 bytes=16\n"),
+        "{input}"
+    );
+}
+
+#[test]
 fn a_started_session_is_logged_as_selected_with_its_directory() {
     let (app, lines) = logged(App::new(reading_agent()));
     let mut screen = Screen::of(app);

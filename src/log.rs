@@ -3,9 +3,10 @@ use std::io::{self, Write};
 use std::os::unix::fs::{DirBuilderExt, OpenOptionsExt, PermissionsExt};
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::{self, Receiver, SyncSender};
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use crate::summary;
+use crate::{registry, summary};
 
 const QUEUE: usize = 4096;
 const KEPT: Duration = Duration::from_secs(7 * 24 * 60 * 60);
@@ -13,17 +14,25 @@ const KEPT: Duration = Duration::from_secs(7 * 24 * 60 * 60);
 #[derive(Clone, Default)]
 pub struct Log {
     sender: Option<SyncSender<String>>,
+    written: Option<Arc<Mutex<Receiver<()>>>>,
 }
 
 impl Log {
     pub fn open(dir: &Path) -> Log {
         let (sender, lines) = mpsc::sync_channel(QUEUE);
+        let (done, written) = mpsc::sync_channel(0);
         let dir = dir.to_path_buf();
         let spawned = std::thread::Builder::new()
             .name("log".to_string())
-            .spawn(move || write_all(&dir, &lines));
+            .spawn(move || {
+                write_all(&dir, &lines);
+                drop(done);
+            });
         match spawned {
-            Ok(_) => Log::sending(sender),
+            Ok(_) => Log {
+                sender: Some(sender),
+                written: Some(Arc::new(Mutex::new(written))),
+            },
             Err(_) => Log::default(),
         }
     }
@@ -31,6 +40,16 @@ impl Log {
     pub fn sending(sender: SyncSender<String>) -> Log {
         Log {
             sender: Some(sender),
+            written: None,
+        }
+    }
+
+    pub fn finish(self, within: Duration) {
+        drop(self.sender);
+        if let Some(written) = self.written
+            && let Ok(written) = written.lock()
+        {
+            let _ = written.recv_timeout(within);
         }
     }
 
@@ -96,6 +115,9 @@ fn write_all(dir: &Path, lines: &Receiver<String>) {
 
 fn prepared(dir: &Path) -> io::Result<File> {
     DirBuilder::new().recursive(true).mode(0o700).create(dir)?;
+    if !fs::symlink_metadata(dir)?.is_dir() {
+        return Err(io::Error::from(io::ErrorKind::NotADirectory));
+    }
     fs::set_permissions(dir, fs::Permissions::from_mode(0o700))?;
     sweep(dir);
     let file = OpenOptions::new()
@@ -103,6 +125,7 @@ fn prepared(dir: &Path) -> io::Result<File> {
         .create(true)
         .truncate(true)
         .mode(0o600)
+        .custom_flags(nix::libc::O_NOFOLLOW)
         .open(dir.join(format!("{}.log", std::process::id())))?;
     file.set_permissions(fs::Permissions::from_mode(0o600))?;
     Ok(file)
@@ -115,10 +138,17 @@ fn sweep(dir: &Path) {
             .modified()
             .ok()
             .and_then(|modified| now.duration_since(modified).ok());
-        if age.is_some_and(|age| age > KEPT) {
+        if age.is_some_and(|age| age > KEPT) && !running(&path) {
             let _ = fs::remove_file(path);
         }
     }
+}
+
+fn running(path: &Path) -> bool {
+    path.file_stem()
+        .and_then(|stem| stem.to_str())
+        .and_then(|stem| stem.parse::<i32>().ok())
+        .is_some_and(registry::alive)
 }
 
 fn logs(dir: &Path) -> impl Iterator<Item = (PathBuf, fs::Metadata)> {

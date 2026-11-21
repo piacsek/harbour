@@ -330,21 +330,21 @@ impl App {
 
     pub fn paste(&mut self, text: &str) {
         self.paste_handled(text);
-        self.log_changes();
+        self.log_paste();
     }
 
     fn paste_handled(&mut self, text: &str) {
         if let Some(pick) = &self.picking {
-            pick.session().paste(text);
-            self.log_input(Input::Picker, text.len());
+            let bytes = pick.session().paste(text);
+            self.log_input(Input::Picker, bytes);
             return;
         }
         if self.dismiss(false) {
             return;
         }
         if let Some(session) = self.focused() {
-            session.paste(text);
-            self.log_input(Input::Shown, text.len());
+            let bytes = session.paste(text);
+            self.log_input(Input::Shown, bytes);
             self.touch();
         }
     }
