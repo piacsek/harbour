@@ -37,20 +37,21 @@ fn a_tmux_command_run_from_neovim_targets_the_pane_of_harbour_and_ctrl_h_still_l
         .tmux(&["display-message", "-p", "-t", "e2e", "#{pane_id}"])
         .output()
         .unwrap();
-    let expected = format!(
-        "acme pane {}",
-        String::from_utf8_lossy(&pane.stdout).trim_end()
-    );
+    let pane = String::from_utf8_lossy(&pane.stdout).trim_end().to_string();
+    let seen = format!("acme seen pane {pane}");
+    let targeted = format!("acme targeted pane {pane}");
 
     neovim.server.send_keys(&[
         &format!(
-            ":!{} display-message -p 'acme pane \\#{{pane_id}}'",
+            ":!echo acme seen pane $TMUX_PANE; {} display-message -p 'acme targeted pane \\#{{pane_id}}'",
             tmux.display()
         ),
         "Enter",
     ]);
 
-    neovim.shows(&expected);
+    let screen = neovim.server.wait_for_screen_all(&[&seen, &targeted]);
+    assert!(screen.contains(&seen), "{screen}");
+    assert!(screen.contains(&targeted), "{screen}");
     neovim.server.send_keys(&["Enter"]);
     neovim.assert_in_neovim();
     neovim.server.send_keys(&["C-h"]);
