@@ -24,7 +24,7 @@ impl App {
     }
 }
 
-fn position(key: KeyEvent) -> Option<usize> {
+pub(super) fn position(key: KeyEvent) -> Option<usize> {
     match key.code {
         KeyCode::Char(c @ '1'..='9')
             if key.modifiers - KeyModifiers::SHIFT == KeyModifiers::CONTROL =>

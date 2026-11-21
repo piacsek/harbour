@@ -71,8 +71,11 @@ it. Select, focus and resume are one function, `App::jump`, so the pick of #39 c
 | Narrow layout, pane shown | the card at N is selected and its pane shown alone; a message drawn over the old pane is cleared, as any key clears it |
 | Extended keys unavailable (`extended-keys off`, or a terminal without them) | nothing changes from today: the session gets the legacy bytes (`1`, `\0`, Esc, ..., `9`) and the sidebar treats them as it did |
 | macOS "Switch to Desktop N" on | macOS takes the key, harbour never sees it (`harbour --help` says so) |
-| The log on | the key is logged as `key name="C-N"` |
+| The log on | the key is logged as `key name="C-N"`, Ctrl+Shift+N too |
 | Ctrl+Shift+N (layouts where digits need Shift) | the same as Ctrl-N |
+| The help view beside the narrowest sidebar (60 columns) | the `C-1..C-9` row fits one line, and the whole help still shows on 20 rows |
+| The help view in the narrow layout (59 columns) | the `C-1..C-9` row fits one line, and the whole help still shows on 20 rows |
+| A jump to a card whose title is CJK (`ログイン画面のバグを修正して全部のテストを通す`) | the card is selected and resumes as with any title; beside the narrowest sidebar its title stays cut with `…` by display width, in the narrow layout its pane is shown alone |
 
 Zoom is not built yet, so it has no row.
 
@@ -122,11 +125,15 @@ Zoom is not built yet, so it has no row.
   `\e[49;5u` to `\e[57;5u`); with extended keys off tmux sends the legacy bytes
   (`1`, NUL, ESC, `\034` to `\037`, DEL, `9`), which still reach the session.
 - `App::jump(index)` is the one "select, focus, resume" a later pick can call.
-- The log names them `C-1` to `C-9`; `harbour --help` says tmux needs `extended-keys on` and
+- The log names them `C-1` to `C-9`, Ctrl+Shift+N included; `harbour --help` says tmux needs `extended-keys on` and
   that macOS's Switch to Desktop N shortcuts can take them first.
+- 2 review rounds: round 1 found a refused jump leaving the pane focused, and four minors
+  (a stale narrow-layout message, Ctrl+Shift+N, a test that could not fail, the help reflow);
+  round 2 was clean.
 
 ## Hurdles
 
 - `api-shape` Three end-to-end tests (two in `tests/e2e/keys.rs`, one in `tests/e2e/neovim.rs`) used Ctrl-3 as the sample extended key and broke once it jumped → code
 - `design` The help on 59 and 60 columns had no spare row, so the new key needed a row freed by shortening the C-h text → code
 - `test-seam` A key sent out of range from a pane looked passed because Ctrl-5's byte (0x1d) draws nothing; the test now checks the pty echo `^]` → code
+- `test-seam` A round-1 test started two counting sessions without waiting between them, so under load the first card could print `acme agent 2` and the last ship failed once; it now waits for each, as the other tests do → code

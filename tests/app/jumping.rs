@@ -329,9 +329,11 @@ fn a_jump_in_the_narrow_layout_clears_the_message_drawn_over_the_pane() {
     let scratch = tempfile::tempdir().unwrap();
     let editor = Program::new("acme-edit", script("exit 3"));
     let mut screen = Screen::of(App::new(lined_agent(scratch.path())).with_editor(editor));
+    screen.press('n');
+    screen.wait_for("acme agent 1");
+    screen.press('n');
+    screen.wait_for("acme agent 2");
     screen.resize(59, 20);
-    screen.press('n');
-    screen.press('n');
     screen.key(KeyCode::Enter, KeyModifiers::NONE);
     screen.key(KeyCode::Char('l'), KeyModifiers::CONTROL);
     screen.wait_for("acme-edit exited 3");
