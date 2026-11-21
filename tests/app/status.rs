@@ -11,7 +11,7 @@ use harbour::summary::Summary;
 use ratatui::buffer::Cell;
 use ratatui::style::{Color, Modifier};
 
-use crate::{Screen, below, directory, failure, script};
+use crate::{Screen, below, directory, failure, script, sidebar_title};
 
 #[test]
 fn a_wait_for_a_dot_that_never_shows_fails_showing_the_last_dot() {
@@ -319,9 +319,7 @@ fn the_narrowest_sidebar_keeps_every_count_in_the_title_even_past_nine() {
     }
 
     let shown = screen.wait_for("●10 ◉1 ○1 ");
-    let title = shown.lines().next().unwrap();
-    assert!(title.contains(" ●10 ◉1 ○1 "), "{shown}");
-    assert!(!title.contains('·'), "{shown}");
+    assert_eq!(sidebar_title(&shown), " ●10 ◉1 ○1 ", "{shown}");
 }
 
 #[test]
@@ -332,9 +330,7 @@ fn a_wide_sidebar_names_the_sessions_in_the_title() {
 
     let shown = screen.draw();
 
-    let top = shown.lines().next().unwrap();
-    assert!(top.contains(" sessions "), "{shown}");
-    assert!(!top.contains(" 0 "), "{shown}");
+    assert_eq!(sidebar_title(&shown), " sessions ", "{shown}");
 }
 
 #[test]
@@ -382,9 +378,7 @@ fn with_no_session_the_title_names_the_sessions_alone() {
 
     let shown = screen.draw();
 
-    let top = shown.lines().next().unwrap();
-    assert!(top.contains(" sessions "), "{shown}");
-    assert!(!top.contains(" 0 "), "{shown}");
+    assert_eq!(sidebar_title(&shown), " sessions ", "{shown}");
 }
 
 #[test]

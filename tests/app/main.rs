@@ -263,3 +263,10 @@ fn failure(wait: impl FnOnce()) -> String {
         .cloned()
         .unwrap_or_default()
 }
+
+fn sidebar_title(shown: &str) -> String {
+    let top = shown.lines().next().unwrap_or_default();
+    let inside = top.trim_start_matches(['┌', '┏']);
+    let end = inside.find(['─', '━']).unwrap_or(inside.len());
+    inside[..end].to_string()
+}
