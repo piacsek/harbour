@@ -9,6 +9,23 @@ Current week (all models): 90% used · resets Sun 5am (Acme/Harbour)
 Current week (acme-large): 73% used · resets Sun 5am (Acme/Harbour)
 ";
 
+const FULL: &str = "\
+You are on the acme team plan
+
+Current session: 12% used · resets 7:20pm (Acme/Harbour)
+Current week (all models): 90% used · resets Sun 5am (Acme/Harbour)
+Current week (acme-large): 73% used · resets Sun 5am (Acme/Harbour)
+
+What's contributing to your usage?
+Estimates only · this machine only
+
+Last 24h · 310 requests · 7 sessions
+  64%  Long sessions keep their whole context
+  25%  Restart when the task changes
+  Top skills: tdd 12%, review 4%
+  Top subagents: Explore 31%
+";
+
 #[test]
 fn the_limit_lines_parse_into_labels_percentages_and_resets() {
     let report = parsed(LIMITS);
@@ -82,6 +99,133 @@ fn a_limit_row_shows_its_label_bar_percentage_and_reset_at_80_columns() {
             empty(6)
         )
     );
+}
+
+#[test]
+fn a_breakdown_keeps_its_heading_shares_and_tops() {
+    let report = parsed(FULL);
+
+    assert_eq!(report.breakdowns.len(), 1);
+    let breakdown = &report.breakdowns[0];
+    assert_eq!(breakdown.heading, "Last 24h · 310 requests · 7 sessions");
+    assert_eq!(breakdown.shares.len(), 2);
+    assert_eq!(breakdown.shares[0].percent, "64");
+    assert_eq!(
+        breakdown.shares[0].label,
+        "Long sessions keep their whole context"
+    );
+    assert_eq!(breakdown.shares[1].percent, "25");
+    assert_eq!(breakdown.shares[1].label, "Restart when the task changes");
+    assert_eq!(breakdown.tops.len(), 2);
+    assert_eq!(breakdown.tops[0].label, "skills");
+    assert_eq!(breakdown.tops[0].values, "tdd 12% · review 4%");
+    assert_eq!(breakdown.tops[1].label, "subagents");
+    assert_eq!(breakdown.tops[1].values, "Explore 31%");
+}
+
+#[test]
+fn a_line_with_nothing_indented_under_it_is_a_note_unless_it_asks_a_question() {
+    let report = parsed(FULL);
+
+    assert_eq!(report.notes, vec!["Estimates only · this machine only"]);
+}
+
+#[test]
+fn a_section_whose_lines_do_not_parse_is_left_out() {
+    let text = format!("{LIMITS}\nAcme heading\n  nothing to read here\n  nor here\n");
+
+    let report = parsed(&text);
+
+    assert_eq!(report.breakdowns.len(), 0);
+    assert_eq!(report.notes.len(), 0);
+}
+
+#[test]
+fn a_share_without_a_tip_keeps_its_percentage() {
+    let text = format!("{LIMITS}\nLast 7d\n  5%\n");
+
+    let report = parsed(&text);
+
+    assert_eq!(report.breakdowns[0].shares[0].percent, "5");
+    assert_eq!(report.breakdowns[0].shares[0].label, "");
+}
+
+#[test]
+fn an_indented_line_that_is_no_share_continues_the_line_before() {
+    let text = format!(
+        "{LIMITS}\nLast 7d\n  40%  Long sessions keep\n    their whole context\n  Top skills: tdd 3%,\n    review 1%\n"
+    );
+
+    let report = parsed(&text);
+
+    let breakdown = &report.breakdowns[0];
+    assert_eq!(breakdown.shares.len(), 1);
+    assert_eq!(
+        breakdown.shares[0].label,
+        "Long sessions keep their whole context"
+    );
+    assert_eq!(breakdown.tops.len(), 1);
+    assert_eq!(breakdown.tops[0].values, "tdd 3% · review 1%");
+}
+
+#[test]
+fn a_breakdown_draws_a_short_bar_per_share_and_its_tops_under_its_heading() {
+    let report = parsed(FULL);
+
+    let rows = drawn(&report, 78, 30);
+
+    assert_eq!(rows[4], "");
+    assert_eq!(rows[5], "  Last 24h · 310 requests · 7 sessions");
+    assert_eq!(
+        rows[6],
+        format!(
+            "   {}{}   64%  Long sessions keep their whole context",
+            full(8),
+            empty(4)
+        )
+    );
+    assert_eq!(
+        rows[7],
+        format!(
+            "   {}{}   25%  Restart when the task changes",
+            full(3),
+            empty(9)
+        )
+    );
+    assert_eq!(rows[8], "   skills      tdd 12% · review 4%");
+    assert_eq!(rows[9], "   subagents   Explore 31%");
+    assert_eq!(rows[10], "");
+    assert_eq!(rows[11], "  Estimates only · this machine only");
+}
+
+#[test]
+fn a_share_without_a_tip_draws_its_bar_and_number_alone() {
+    let report = parsed(&format!("{LIMITS}\nLast 7d\n  50%\n"));
+
+    let rows = drawn(&report, 78, 30);
+
+    assert_eq!(rows[6], format!("   {}{}   50%", full(6), empty(6)));
+}
+
+#[test]
+fn a_cjk_top_kind_is_padded_by_its_display_width() {
+    let report = parsed(&format!(
+        "{LIMITS}\nLast 7d\n  Top 技能: 検索 3%\n  Top subagents: Explore 1%\n"
+    ));
+
+    let rows = drawn(&report, 78, 30);
+
+    assert_eq!(rows[6], "   技能        検索 3%");
+    assert_eq!(rows[7], "   subagents   Explore 1%");
+}
+
+#[test]
+fn breakdown_bars_take_the_accent() {
+    let report = parsed(FULL);
+
+    let lines = usage::lines(&report, 78, 30, Color::Magenta);
+
+    assert_eq!(lines[6].spans[1].style.fg, Some(Color::Magenta));
 }
 
 fn parsed(text: &str) -> Report {
