@@ -25,8 +25,9 @@ file under `plans/`; its time and tokens are a row of [`plans/metrics.md`](plans
 | 15 | [room for the key and layout features: keys, the split and `KEYS` each in a place of their own](plans/phase-15-room-for-keys-and-layout.md) | [v0.12.1](https://github.com/piacsek/harbour/releases/tag/v0.12.1) |
 | 16 | [only the session counts above zero in the sidebar title](plans/phase-16-counts-above-zero.md) | [v0.12.0](https://github.com/piacsek/harbour/releases/tag/v0.12.0) |
 | 17 | [a still sidebar: no activity line on the selected card, the last prompt on the others](plans/phase-17-still-sidebar.md) | [v0.13.0](https://github.com/piacsek/harbour/releases/tag/v0.13.0) |
-| 18 | [the help view keeps the keys, `harbour --help` the notes](plans/phase-18-help-keeps-the-keys.md) | |
-| 19 | [the pane's cursor takes the shape its program asks for](plans/phase-19-cursor-shape.md) | |
+| 18 | [the help view keeps the keys, `harbour --help` the notes](plans/phase-18-help-keeps-the-keys.md) | [v0.14.0](https://github.com/piacsek/harbour/releases/tag/v0.14.0) |
+| 19 | [the pane's cursor takes the shape its program asks for](plans/phase-19-cursor-shape.md) | [v0.15.0](https://github.com/piacsek/harbour/releases/tag/v0.15.0) |
+| 20 | [no cursor in the pane while the sidebar has focus](plans/phase-20-no-cursor-beside-the-sidebar.md), with the sweep of phases 15 to 19 | |
 
 ## Backlog
 
