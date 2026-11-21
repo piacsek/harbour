@@ -285,6 +285,9 @@ one still counts as must when it shows new impact.
 - **The release attestation records the `main` commit that started the run, not the release
   commit the tag points at**: its subjects are the right tarballs, but the source commit it
   names is the merge (`.github/AGENTS.md`, "What the attestation proves").
+- **The border's icons are counted as one column each**: a terminal set to draw
+  ambiguous-width characters double-wide pushes the pane's top border out of place with
+  `nerd_font` on (`src/tabs.rs`).
 
 ## Documentation rule
 

@@ -16,8 +16,10 @@ Settings come from $XDG_CONFIG_HOME/harbour/config.toml, else
 ~/.config/harbour/config.toml, read at start: editor, picker and
 session_command (each a list: the program, then its arguments), sidebar_width
 (columns), accent (a colour name or #rrggbb) and nerd_font (true draws Nerd
-Font icons). A HARBOUR_ variable outranks the file. config prints each setting
-and where it comes from.
+Font icons). HARBOUR_EDITOR, HARBOUR_DIR_PICKER and HARBOUR_SESSION_COMMAND
+outrank the file's editor, picker and session_command; sidebar_width, accent
+and nerd_font are read from the file only. config prints each setting and
+where it comes from.
 n runs fzf over the directory harbour was opened in and zoxide's list;
 HARBOUR_DIR_PICKER names another picker.
 C-l opens nvim at Claude Code's repository root; HARBOUR_EDITOR names another.

@@ -114,6 +114,8 @@ The setting is the one new thing read from outside: a key of the config file.
 - `tabs::iconed` fits the names with the glyphs: the directory's start goes first, then the directory, then both glyphs together, then the rest exactly as `strip` fits it. A glyph never shows without its whole name, and once the glyphs go the directory does not come back.
 - With `nerd_font` off the app still calls `strip`: the `tests/tabs.rs` table is unchanged, and an app test pins the drawn top border character for character.
 - `docs/icons.png` is the new shot (a scratch config with `nerd_font = true` and an editor script named `nvim`); `docs/help.png` changed because `--help` names the setting; every other shot is byte for byte the same.
+- 1 review round, with no must or should finding. On the reviewer's notes, `--help` now names which settings a variable can outrank (editor, picker, session_command) and which are read from the file only, and the one-column count of the glyphs is a known limit.
+- Decided, not changed: the icons show in `docs/icons.png` and not in `docs/details.png`, because the issue says the demo keeps the plain border and adds one shot.
 - Task 2 could not ship alone: the dead-code gate refused `iconed` before the app called it, so tasks 2 and 3 shipped as one commit.
 
 ## Hurdles

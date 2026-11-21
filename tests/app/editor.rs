@@ -184,13 +184,6 @@ pub(crate) fn reading_editor() -> Program {
     Program::new("acme-edit", reading_editor_script())
 }
 
-fn reading_editor_script() -> Vec<String> {
-    script(
-        "echo \"acme editor in ${PWD##*/}\"; \
-         while :; do read -r line || continue; echo \"acme editor got: $line\"; done",
-    )
-}
-
 #[test]
 fn a_session_with_an_editor_keeps_its_card_and_counts_once() {
     let mut screen = editor_open();
@@ -256,6 +249,13 @@ pub(crate) fn editor_open() -> Screen {
     screen.key(KeyCode::Char('l'), KeyModifiers::CONTROL);
     screen.wait_for("acme editor in");
     screen
+}
+
+fn reading_editor_script() -> Vec<String> {
+    script(
+        "echo \"acme editor in ${PWD##*/}\"; \
+         while :; do read -r line || continue; echo \"acme editor got: $line\"; done",
+    )
 }
 
 fn shown_directory() -> String {
