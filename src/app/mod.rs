@@ -11,6 +11,7 @@ mod key;
 mod logging;
 mod read;
 mod remember;
+mod split;
 
 use draw::exit_note;
 use logging::Input;
@@ -29,7 +30,6 @@ use crate::session::{self, Session};
 use crate::summary::Summary;
 use crate::transcript::{self, Transcript};
 
-const NARROW: u16 = 60;
 const HINT: &str = "No session yet: press n to start one.";
 const READ_EVERY: Duration = Duration::from_millis(500);
 
