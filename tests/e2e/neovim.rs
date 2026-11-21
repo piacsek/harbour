@@ -37,7 +37,13 @@ fn a_tmux_command_run_from_neovim_targets_the_pane_of_harbour_and_ctrl_h_still_l
         .tmux(&["display-message", "-p", "-t", "e2e", "#{pane_id}"])
         .output()
         .unwrap();
+    let stderr = String::from_utf8_lossy(&pane.stderr);
+    assert!(
+        pane.status.success(),
+        "display-message of harbour's pane failed: {stderr}"
+    );
     let pane = String::from_utf8_lossy(&pane.stdout).trim_end().to_string();
+    assert!(!pane.is_empty(), "display-message printed no pane id");
     let seen = format!("acme seen pane {pane}");
     let targeted = format!("acme targeted pane {pane}");
 

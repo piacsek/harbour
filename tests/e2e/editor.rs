@@ -232,11 +232,22 @@ fn harbours_tmux(server: &Server) -> (String, String) {
         ])
         .output()
         .unwrap();
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        output.status.success(),
+        "display-message of harbour's pane failed: {stderr}"
+    );
     let line = String::from_utf8_lossy(&output.stdout)
         .trim_end()
-        .replace('$', "");
-    let (tmux, pane) = line.split_once(' ').unwrap();
-    (tmux.to_string(), pane.to_string())
+        .to_string();
+    let (tmux, pane) = line.split_once(' ').unwrap_or((&line, ""));
+    assert!(
+        !pane.is_empty(),
+        "display-message printed no pane id: {line}"
+    );
+    let (server, session) = tmux.rsplit_once(',').unwrap();
+    let session = session.strip_prefix('$').unwrap_or(session);
+    (format!("{server},{session}"), pane.to_string())
 }
 
 fn editor_line((tmux, pane): &(String, String)) -> String {

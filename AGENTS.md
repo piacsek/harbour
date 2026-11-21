@@ -203,8 +203,12 @@ one still counts as must when it shows new impact.
   listener binds again within 5 s (`src/handoff.rs`).
 - **Every editor shares harbour's own tmux pane**: each one gets harbour's `TMUX` and
   `TMUX_PANE`, so a plugin that keeps state on "its" pane (a pane option, a renamed window,
-  passthrough) collides between editors, and an editor ended by hangup leaves that state behind
-  (`src/editor.rs`).
+  passthrough) collides between editors, and an editor ended by hangup leaves that state behind;
+  a pane-navigation plugin may run `tmux select-pane` at a Neovim window edge and move tmux's
+  focus out of harbour, C-h in the leftmost window in terminal or insert mode included (harbour
+  hands it to Neovim), not checked with a real plugin; every program the editor starts (a
+  `:terminal` shell, plugin jobs) inherits both too, so tmux run there acts on harbour's pane and
+  a nested `tmux new` is refused (`src/editor.rs`).
 - **An editor's empty socket directory stays behind when a signal kills harbour**, a kill or the
   hangup of closing its terminal window: each Neovim's private directory in the temp directory is
   removed when its editor is dropped, which neither reaches (`src/editor.rs`).
