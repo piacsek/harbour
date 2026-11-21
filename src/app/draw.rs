@@ -9,7 +9,7 @@ use ratatui::widgets::{Block, BorderType, Clear, Paragraph, Wrap};
 
 use super::{App, Entry, HINT, Question, remember, user_home};
 use crate::card::{Card, Ended};
-use crate::editor::Changes;
+use crate::editor::{Changes, Program};
 use crate::help;
 use crate::session::Session;
 use crate::state;
@@ -86,19 +86,25 @@ impl App {
         for session in self.sessions.iter_mut().flat_map(Entry::sessions) {
             session.resize(self.pane.height, self.pane.width);
         }
+        let neovim = self.editor.as_ref().is_some_and(Program::is_neovim);
         let cards: Vec<Card> = self
             .sessions
             .iter()
             .zip(notes)
             .map(|(entry, note)| {
-                Card::new(
+                let card = Card::new(
                     &entry.name,
                     note,
                     entry.record.as_ref(),
                     &entry.place,
                     entry.elapsed(),
                     entry.transcript.as_ref().map(Transcript::facts),
-                )
+                );
+                if self.nerd_font {
+                    card.with_icons(neovim && !entry.editors.is_empty())
+                } else {
+                    card
+                }
             })
             .collect();
         let exited = self.sessions.get_mut(self.selected).is_some_and(|entry| {

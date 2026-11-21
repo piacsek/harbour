@@ -1,2 +1,6 @@
 pub const CLAUDE: &str = "\u{F0674}";
 pub const NEOVIM: &str = "\u{E6AE}";
+pub const REPOSITORY: &str = "\u{F401}";
+pub const BRANCH: &str = "\u{F418}";
+pub const PULL_REQUEST: &str = "\u{F407}";
+pub const SUBAGENTS: &str = "\u{EC10}";

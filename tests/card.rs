@@ -1,6 +1,7 @@
 use std::time::Duration;
 
 use harbour::card::{Card, Ended, Sidebar, age};
+use harbour::icons::{BRANCH, NEOVIM, PULL_REQUEST, REPOSITORY, SUBAGENTS};
 use harbour::registry::{Record, Status};
 use harbour::repo::Place;
 use harbour::text::columns;
@@ -136,6 +137,165 @@ fn a_card_below_starts_on_the_same_row_whichever_card_above_is_selected() {
     assert_eq!(below[4], "▌ ○ acme-api 1                        3m");
 }
 
+#[test]
+fn with_icons_a_card_with_only_its_repository_shows_its_glyph() {
+    let line = third(idle().with_icons(false), 40);
+
+    assert_eq!(line, format!("    {REPOSITORY} acme-api"));
+}
+
+#[test]
+fn with_icons_the_branch_gets_its_glyph_instead_of_a_dot() {
+    let facts = Facts {
+        branch: Some("fix-retry".to_string()),
+        ..Facts::default()
+    };
+
+    let line = third(card(Status::Idle, None, &facts).with_icons(false), 40);
+
+    assert_eq!(
+        line,
+        format!("    {REPOSITORY} acme-api {BRANCH} fix-retry")
+    );
+}
+
+#[test]
+fn with_icons_the_pull_request_gets_its_glyph_instead_of_a_dot() {
+    let facts = Facts {
+        pull_request: Some(40),
+        ..Facts::default()
+    };
+
+    let line = third(card(Status::Idle, None, &facts).with_icons(false), 40);
+
+    assert_eq!(
+        line,
+        format!("    {REPOSITORY} acme-api {PULL_REQUEST} #40")
+    );
+}
+
+#[test]
+fn with_icons_the_subagents_show_as_a_glyph_and_their_count() {
+    let line = third(
+        card(Status::Busy, None, &subagents(2)).with_icons(false),
+        40,
+    );
+
+    assert_eq!(line, format!("    {REPOSITORY} acme-api {SUBAGENTS} 2"));
+}
+
+#[test]
+fn with_icons_one_subagent_shows_as_a_glyph_and_one() {
+    let line = third(
+        card(Status::Busy, None, &subagents(1)).with_icons(false),
+        40,
+    );
+
+    assert_eq!(line, format!("    {REPOSITORY} acme-api {SUBAGENTS} 1"));
+}
+
+#[test]
+fn with_icons_an_open_editor_shows_its_glyph_alone_last() {
+    let line = third(idle().with_icons(true), 40);
+
+    assert_eq!(line, format!("    {REPOSITORY} acme-api {NEOVIM}"));
+}
+
+#[test]
+fn with_icons_all_five_facts_show_each_behind_its_glyph() {
+    let line = third(every_fact(&place()), 40);
+
+    assert_eq!(
+        line,
+        format!(
+            "    {REPOSITORY} acme-api {BRANCH} fix-retry {PULL_REQUEST} #40 {SUBAGENTS} 2 {NEOVIM}"
+        )
+    );
+}
+
+#[test]
+fn with_icons_the_editor_glyph_is_the_first_to_go() {
+    let line = third(every_fact(&place()), 38);
+
+    assert_eq!(
+        line,
+        format!("    {REPOSITORY} acme-api {BRANCH} fix-retry {PULL_REQUEST} #40 {SUBAGENTS} 2 …")
+    );
+}
+
+#[test]
+fn with_icons_a_glyph_never_shows_without_a_column_of_its_text() {
+    let line = third(every_fact(&place()), 35);
+
+    assert_eq!(
+        line,
+        format!("    {REPOSITORY} acme-api {BRANCH} fix-retry {PULL_REQUEST} #40 …")
+    );
+}
+
+#[test]
+fn with_icons_at_the_narrowest_sidebar_the_branch_is_cut_beside_its_glyph() {
+    let line = third(every_fact(&place()), 20);
+
+    assert_eq!(line, format!("    {REPOSITORY} acme-api {BRANCH} fi…"));
+}
+
+#[test]
+fn with_icons_a_cjk_branch_at_the_narrowest_sidebar_is_cut_at_a_whole_character() {
+    let facts = Facts {
+        branch: Some("修正-東京".to_string()),
+        ..Facts::default()
+    };
+
+    let line = third(card(Status::Idle, None, &facts).with_icons(false), 20);
+
+    assert_eq!(line, format!("    {REPOSITORY} acme-api {BRANCH} 修…"));
+}
+
+#[test]
+fn with_icons_a_cjk_repository_at_the_narrowest_sidebar_drops_a_branch_glyph_with_no_room() {
+    let place = Place {
+        repository: "日本語-acme".to_string(),
+        branch: None,
+    };
+
+    let line = third(every_fact(&place), 20);
+
+    assert_eq!(line, format!("    {REPOSITORY} 日本語-acme …"));
+}
+
+#[test]
+fn with_icons_an_exited_card_shows_no_subagents_and_no_editor_glyph() {
+    let card = Card::new(
+        "acme-api 1",
+        Some(Ended::Exited(" 1".to_string())),
+        None,
+        &place(),
+        Some(Duration::from_secs(180)),
+        Some(&subagents(2)),
+    );
+
+    let line = third(card.with_icons(true), 40);
+
+    assert_eq!(line, format!("    {REPOSITORY} acme-api"));
+}
+
+#[test]
+fn with_icons_a_stopped_card_shows_no_subagents_and_no_editor_glyph() {
+    let card = Card::new(
+        "acme-api 1",
+        Some(Ended::Stopped("directory gone")),
+        None,
+        &place(),
+        None,
+        Some(&subagents(2)),
+    );
+
+    let line = third(card.with_icons(true), 40);
+
+    assert_eq!(line, format!("    {REPOSITORY} acme-api"));
+}
+
 fn drawn(facts: &Facts, width: u16) -> Vec<String> {
     let record = Record {
         status: Status::Busy,
@@ -246,4 +406,55 @@ fn place() -> Place {
         repository: "acme-api".to_string(),
         branch: None,
     }
+}
+
+#[test]
+fn with_icons_a_branch_starting_with_a_combining_mark_drops_its_glyph_with_no_column_of_text() {
+    let facts = Facts {
+        branch: Some("\u{301}fix-retry".to_string()),
+        ..Facts::default()
+    };
+
+    let line = third(card(Status::Idle, None, &facts).with_icons(false), 18);
+
+    assert_eq!(line, format!("    {REPOSITORY} acme-api …"));
+}
+
+fn third(card: Card, width: u16) -> String {
+    let area = Rect::new(0, 0, width, 3);
+    let mut buffer = Buffer::empty(area);
+    Sidebar::default().draw(&[card], 1, Color::Cyan, area, &mut buffer);
+    row(&buffer, 2, width)
+}
+
+fn subagents(count: usize) -> Facts {
+    Facts {
+        subagents: count,
+        ..Facts::default()
+    }
+}
+
+fn every_fact(place: &Place) -> Card {
+    let facts = Facts {
+        branch: Some("fix-retry".to_string()),
+        pull_request: Some(40),
+        subagents: 2,
+        ..Facts::default()
+    };
+    let record = Record {
+        status: Status::Busy,
+        waiting_for: None,
+        status_since: None,
+        session_id: None,
+        cwd: None,
+    };
+    Card::new(
+        "acme-api 1",
+        None,
+        Some(&record),
+        place,
+        Some(Duration::from_secs(180)),
+        Some(&facts),
+    )
+    .with_icons(true)
 }
