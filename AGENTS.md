@@ -401,8 +401,9 @@ nearest the code the guideline is about.
   time. `harbour-dev` points at the worktree that last ran `dev-install.sh`, so re-run it in the
   worktree you are testing. Remove the worktree (`git worktree remove`) once its PR is merged.
   A session started inside a worktree loads the worktree's `CLAUDE.md`, not the main
-  checkout's, though the worktree sits inside it (seen with `claude -p` on 2026-11-21), so a
-  builder holds only its branch's rules.
+  checkout's, though the worktree sits inside it, so a builder holds its branch's rules and not
+  `main`'s; the `CLAUDE.md` of a different repository further up the tree does load. Seen in
+  headless `claude -p` runs on 2026-11-21 UTC, not in an interactive session.
 - **TDD is never skipped.** Every change to `src/` starts with a failing test, run and seen
   red, before the production code is touched; then the smallest change that goes green, then
   refactor. This holds for one-line fixes, security patches, patch releases and "obvious"
@@ -471,8 +472,10 @@ nearest the code the guideline is about.
   ends on an added fragment, which no reviewer saw and the `version` check reads only for its
   shape, the orchestrator reads it itself before `gh pr ready`: its `kind` against the diff
   (`feat` when a user sees a new subcommand, flag or behaviour) and each bullet against what
-  changed, and fixes it in the same way before going on. `gh pr ready` comes after the findings
-  are addressed, not before.
+  changed. A correction it finds goes back to the builder and lands through `scripts/ship.sh`,
+  and needs no further round: the orchestrator is the reader of that fix, the one stated
+  exception to "any other fix gets another round". `gh pr ready` comes after the findings are
+  addressed, not before.
   - **A docs-only pull request gets one round at `medium`.** When `scripts/docs-only.sh` says
     the branch is docs-only (every path it changes a `.md` file that does not feed the binary,
     outside `changes/` and `.github/`), the orchestrator runs one round of
