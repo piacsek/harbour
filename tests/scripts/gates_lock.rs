@@ -8,7 +8,9 @@ use std::time::{Duration, Instant};
 use nix::sys::signal::{Signal, killpg};
 use nix::unistd::Pid;
 
-use crate::helpers::{calls, git, link_script, recorder, repository, stderr, which};
+use crate::helpers::{calls, git, link_script, recorder, repository, sandbox_bin, stderr, which};
+
+mod takeover;
 
 #[test]
 fn gates_hold_the_lock_while_they_run_and_drop_it_once_they_pass() {
@@ -42,7 +44,7 @@ fn gates_drop_the_lock_when_a_gate_fails() {
 }
 
 #[test]
-fn gates_drop_the_lock_when_they_are_terminated() {
+fn gates_terminated_alone_keep_the_lock_until_the_running_gate_ends_then_drop_it() {
     let dir = tempfile::tempdir().unwrap();
     let work = locking_repository(dir.path());
     let held = dir.path().join("held");
@@ -51,6 +53,7 @@ fn gates_drop_the_lock_when_they_are_terminated() {
     appeared(&held);
     terminate(first.id());
 
+    assert!(locked(&work));
     let output = first.finish();
     assert!(!output.status.success());
     assert!(!locked(&work));
@@ -87,14 +90,15 @@ fn gates_wait_for_the_lock_and_run_once_the_holder_finishes() {
 fn gates_that_find_the_lock_held_say_by_whom() {
     let dir = tempfile::tempdir().unwrap();
     let work = locking_repository(dir.path());
-    hold_by_hand(&work, std::process::id());
+    let other = pretender();
+    hold_by_hand(&work, other.id());
 
     let output = gates(dir.path(), &work, &[("HARBOUR_GATES_WAIT", "0")]);
 
     assert!(
         stderr(&output).contains(&format!(
             "==> waiting for the gates of pid {} in /acme/worktree to finish\n",
-            std::process::id()
+            other.id()
         )),
         "{}",
         stderr(&output)
@@ -105,7 +109,8 @@ fn gates_that_find_the_lock_held_say_by_whom() {
 fn gates_give_up_once_the_wait_runs_out_and_run_no_gate() {
     let dir = tempfile::tempdir().unwrap();
     let work = locking_repository(dir.path());
-    hold_by_hand(&work, std::process::id());
+    let other = pretender();
+    hold_by_hand(&work, other.id());
 
     let output = gates(dir.path(), &work, &[("HARBOUR_GATES_WAIT", "0")]);
 
@@ -113,7 +118,7 @@ fn gates_give_up_once_the_wait_runs_out_and_run_no_gate() {
     assert!(
         stderr(&output).contains(&format!(
             "gates: gave up after 0 s waiting for the gates of pid {} in /acme/worktree\n",
-            std::process::id()
+            other.id()
         )),
         "{}",
         stderr(&output)
@@ -122,57 +127,24 @@ fn gates_give_up_once_the_wait_runs_out_and_run_no_gate() {
 }
 
 #[test]
-fn gates_take_over_a_lock_whose_holder_is_gone_and_say_so() {
+fn gates_refuse_a_wait_that_is_not_a_number_of_seconds() {
     let dir = tempfile::tempdir().unwrap();
     let work = locking_repository(dir.path());
-    let gone = gone_pid();
-    hold_by_hand(&work, gone);
 
-    let output = gates(dir.path(), &work, &[("HARBOUR_GATES_WAIT", "0")]);
-
-    assert!(output.status.success(), "{}", stderr(&output));
-    assert!(
-        stderr(&output).contains(&format!(
-            "==> taking over the gates lock of pid {gone} in /acme/worktree, which is no longer running\n"
-        )),
-        "{}",
-        stderr(&output)
-    );
-    assert!(!locked(&work));
-}
-
-#[test]
-fn gates_leave_a_dead_holder_alone_while_another_run_is_taking_it_over() {
-    let dir = tempfile::tempdir().unwrap();
-    let work = locking_repository(dir.path());
-    let gone = gone_pid();
-    hold_by_hand(&work, gone);
-    symlink(format!("{} /acme/other", std::process::id()), guard(&work)).unwrap();
-
-    let output = gates(dir.path(), &work, &[("HARBOUR_GATES_WAIT", "0")]);
+    let output = gates(dir.path(), &work, &[("HARBOUR_GATES_WAIT", "soon")]);
 
     assert!(!output.status.success());
-    assert_eq!(holder(&work), format!("{gone} /acme/worktree"));
+    assert!(
+        stderr(&output)
+            .contains("gates: HARBOUR_GATES_WAIT must be a whole number of seconds, not soon\n"),
+        "{}",
+        stderr(&output)
+    );
     assert!(calls(dir.path()).is_empty());
 }
 
 #[test]
-fn gates_clear_a_takeover_left_by_a_run_that_died_during_it() {
-    let dir = tempfile::tempdir().unwrap();
-    let work = locking_repository(dir.path());
-    let gone = gone_pid();
-    hold_by_hand(&work, gone);
-    symlink(format!("{gone} /acme/other"), guard(&work)).unwrap();
-
-    let output = gates(dir.path(), &work, &[("HARBOUR_GATES_WAIT", "0")]);
-
-    assert!(output.status.success(), "{}", stderr(&output));
-    assert!(!locked(&work));
-    assert!(fs::symlink_metadata(guard(&work)).is_err());
-}
-
-#[test]
-fn gates_give_up_on_a_lock_they_cannot_read_instead_of_spinning() {
+fn gates_wait_for_a_lock_they_cannot_read_say_so_and_give_up() {
     let dir = tempfile::tempdir().unwrap();
     let work = locking_repository(dir.path());
     fs::write(lock(&work), "").unwrap();
@@ -182,12 +154,33 @@ fn gates_give_up_on_a_lock_they_cannot_read_instead_of_spinning() {
     assert!(!output.status.success());
     assert!(
         stderr(&output).contains(&format!(
-            "gates: gave up after 0 s waiting for {}\n",
+            "==> waiting for whoever holds {} to finish\n",
             canonical(&lock(&work))
         )),
         "{}",
         stderr(&output)
     );
+    assert!(
+        stderr(&output).contains(&format!(
+            "gates: gave up after 0 s waiting for whoever holds {}\n",
+            canonical(&lock(&work))
+        )),
+        "{}",
+        stderr(&output)
+    );
+}
+
+#[test]
+fn gates_wait_for_a_directory_at_the_lock_instead_of_linking_inside_it() {
+    let dir = tempfile::tempdir().unwrap();
+    let work = locking_repository(dir.path());
+    fs::create_dir(lock(&work)).unwrap();
+
+    let output = gates(dir.path(), &work, &[("HARBOUR_GATES_WAIT", "0")]);
+
+    assert!(!output.status.success());
+    assert!(calls(dir.path()).is_empty());
+    assert_eq!(fs::read_dir(lock(&work)).unwrap().count(), 0);
 }
 
 #[test]
@@ -219,7 +212,8 @@ fn gates_in_two_worktrees_of_one_repository_share_the_lock() {
 fn gates_in_ci_take_no_lock() {
     let dir = tempfile::tempdir().unwrap();
     let work = locking_repository(dir.path());
-    hold_by_hand(&work, std::process::id());
+    let other = pretender();
+    hold_by_hand(&work, other.id());
 
     let output = gates(
         dir.path(),
@@ -228,10 +222,7 @@ fn gates_in_ci_take_no_lock() {
     );
 
     assert!(output.status.success(), "{}", stderr(&output));
-    assert_eq!(
-        holder(&work),
-        format!("{} /acme/worktree", std::process::id())
-    );
+    assert_eq!(holder(&work), format!("{} /acme/worktree", other.id()));
 }
 
 #[test]
@@ -258,11 +249,10 @@ fn gates_that_cannot_write_the_shared_git_directory_take_no_lock_and_say_so() {
     let dir = tempfile::tempdir().unwrap();
     let work = locking_repository(dir.path());
     let common = work.join(".git");
-    fs::set_permissions(&common, fs::Permissions::from_mode(0o555)).unwrap();
+    let _writable_again = Unwritable::make(&common);
 
     let output = gates(dir.path(), &work, &[("HARBOUR_GATES_WAIT", "0")]);
 
-    fs::set_permissions(&common, fs::Permissions::from_mode(0o755)).unwrap();
     assert!(output.status.success(), "{}", stderr(&output));
     assert!(
         stderr(&output).contains(&format!(
@@ -271,6 +261,24 @@ fn gates_that_cannot_write_the_shared_git_directory_take_no_lock_and_say_so() {
         )),
         "{}",
         stderr(&output)
+    );
+}
+
+#[test]
+fn an_unwritable_directory_is_writable_again_after_a_panic() {
+    let dir = tempfile::tempdir().unwrap();
+    let common = dir.path().join("common");
+    fs::create_dir(&common).unwrap();
+
+    let panicked = std::panic::catch_unwind(|| {
+        let _writable_again = Unwritable::make(&common);
+        panic!("a failed assertion");
+    });
+
+    assert!(panicked.is_err());
+    assert_eq!(
+        fs::metadata(&common).unwrap().permissions().mode() & 0o777,
+        0o755
     );
 }
 
@@ -309,17 +317,6 @@ fn locking_repository(root: &Path) -> PathBuf {
 
 fn held_gate() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/held-gate.sh")
-}
-
-fn sandbox_bin(root: &Path) {
-    let bin = root.join("bin");
-    fs::create_dir_all(&bin).unwrap();
-    for program in [
-        "bash", "dirname", "git", "grep", "ln", "readlink", "rm", "sed", "sleep",
-    ] {
-        symlink(which(program), bin.join(program)).unwrap();
-    }
-    symlink(recorder(), bin.join("cargo")).unwrap();
 }
 
 fn gating(root: &Path, work: &Path, calls_root: &Path, env: &[(&str, &str)]) -> Command {
@@ -361,9 +358,26 @@ fn holding(root: &Path, work: &Path, held: &Path, env: &[(&str, &str)]) -> Gates
 
 fn waiting(root: &Path, work: &Path, calls_root: &Path) -> Gates {
     Gates::start(
-        gating(root, work, calls_root, &[])
+        gating(root, work, calls_root, &[("HARBOUR_GATES_WAIT", "120")])
             .stdout(Stdio::null())
             .stderr(File::create(calls_root.join("stderr")).unwrap()),
+        None,
+    )
+}
+
+fn pretender() -> Gates {
+    Gates::start(
+        Command::new(which("sleep"))
+            .arg0("scripts/gates.sh")
+            .arg("60")
+            .process_group(0),
+        None,
+    )
+}
+
+fn bystander() -> Gates {
+    Gates::start(
+        Command::new(which("sleep")).arg("60").process_group(0),
         None,
     )
 }
@@ -395,11 +409,15 @@ impl Gates {
         }
     }
 
-    fn finish(mut self) -> Output {
+    fn finish(self) -> Output {
+        self.finish_within(DEADLINE)
+    }
+
+    fn finish_within(mut self, deadline: Duration) -> Output {
         self.let_go();
         let start = Instant::now();
         while self.running() {
-            assert!(start.elapsed() < DEADLINE, "the gates never finished");
+            assert!(start.elapsed() < deadline, "the gates never finished");
             std::thread::sleep(Duration::from_millis(20));
         }
         self.child.take().unwrap().wait_with_output().unwrap()
@@ -429,6 +447,21 @@ impl Drop for Gates {
     }
 }
 
+struct Unwritable(PathBuf);
+
+impl Unwritable {
+    fn make(dir: &Path) -> Self {
+        fs::set_permissions(dir, fs::Permissions::from_mode(0o555)).unwrap();
+        Self(dir.to_path_buf())
+    }
+}
+
+impl Drop for Unwritable {
+    fn drop(&mut self) {
+        let _ = fs::set_permissions(&self.0, fs::Permissions::from_mode(0o755));
+    }
+}
+
 fn terminate(pid: u32) {
     let status = Command::new(which("kill"))
         .args(["-TERM", &pid.to_string()])
@@ -452,8 +485,16 @@ fn lock(work: &Path) -> PathBuf {
     work.join(".git/harbour-gates.lock")
 }
 
-fn guard(work: &Path) -> PathBuf {
-    work.join(".git/harbour-gates.lock.takeover")
+fn guard(work: &Path, pid: u32) -> PathBuf {
+    work.join(format!(".git/harbour-gates.lock.takeover-{pid}"))
+}
+
+fn leftovers(work: &Path) -> Vec<String> {
+    fs::read_dir(work.join(".git"))
+        .unwrap()
+        .map(|entry| entry.unwrap().file_name().to_string_lossy().into_owned())
+        .filter(|name| name.starts_with("harbour-gates"))
+        .collect()
 }
 
 fn locked(work: &Path) -> bool {

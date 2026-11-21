@@ -75,9 +75,10 @@ One task per issue in the task list, in lane order. For each issue:
    hand them out, so two lanes never take the same one) or "fix branch, no phase"; the fragment
    kind or "no fragment"; every decision you took for it; the other builder's worktree and
    files to stay out of; the hard rules (TDD shown red, `scripts/ship.sh` only, which queues
-   behind another worktree's gates by itself, one rerun on a failure in a test it did not touch, the public-repo rule, no AI attribution, no em dashes, never ready, never
-   merge, never force-push); when to stop and report instead of choosing; and what the final
-   report holds (the pull request, the red runs, what it decided, what it skipped, its tokens).
+   behind another worktree's gates by itself, one rerun on a failure in a test it did not
+   touch, the public-repo rule, no AI attribution, no em dashes, never ready, never merge,
+   never force-push); when to stop and report instead of choosing; and what the final report
+   holds (the pull request, the red runs, what it decided, what it skipped, its tokens).
 3. **Review** as "Review before ready" says, within the round limit the owner set. Fixes go
    back to the same builder (SendMessage), one ship per round. A pull request
    `scripts/docs-only.sh` calls docs-only gets the one `medium` round "Review before ready"

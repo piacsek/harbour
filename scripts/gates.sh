@@ -14,31 +14,41 @@ holder() {
 }
 
 running() {
-  local pid="${1%% *}"
+  local pid="${1%% *}" command
   case "$pid" in
     '' | *[!0-9]*) return 1 ;;
   esac
-  kill -0 "$pid" 2>/dev/null
+  kill -0 "$pid" 2>/dev/null || return 1
+  command="$(ps -ww -p "$pid" -o command= 2>/dev/null)" || return 0
+  case "$command" in
+    *gates.sh*) return 0 ;;
+  esac
+  return 1
 }
 
 described() {
   if [ -n "$1" ]; then
     echo "the gates of pid ${1%% *} in ${1#* }"
   else
-    echo "$lock"
+    echo "whoever holds $lock"
   fi
 }
 
 take_over() {
-  local stale="$1" guard="$lock.takeover" guarding
-  guarding="$(holder "$guard")"
-  if [ -n "$guarding" ] && ! running "$guarding"; then
-    rm -f "$guard"
+  local target="$1" stale="$2" guard="$1.takeover-${2%% *}" guarding
+  if ! ln -sn "$mine" "$guard" 2>/dev/null; then
+    guarding="$(holder "$guard")"
+    if [ -n "$guarding" ] && ! running "$guarding"; then
+      take_over "$guard" "$guarding"
+      return
+    fi
+    return 1
   fi
-  ln -s "$mine" "$guard" 2>/dev/null || return 1
-  if [ "$(holder "$lock")" = "$stale" ]; then
-    rm -f "$lock"
-    echo "==> taking over the gates lock of pid ${stale%% *} in ${stale#* }, which is no longer running" >&2
+  if [ "$(holder "$target")" = "$stale" ]; then
+    rm -f "$target"
+    if [ "$target" = "$lock" ]; then
+      echo "==> taking over the gates lock of pid ${stale%% *} in ${stale#* }, whose gates no longer run" >&2
+    fi
   fi
   rm -f "$guard"
 }
@@ -49,9 +59,22 @@ release() {
   fi
 }
 
+claim() {
+  if [ -d "$lock" ] && [ ! -L "$lock" ]; then
+    return 1
+  fi
+  ln -sn "$mine" "$lock" 2>/dev/null
+}
+
 lock_gates() {
   [ -z "${CI:-}" ] || return 0
-  local common
+  local bound="${HARBOUR_GATES_WAIT:-1800}" common told='' asked='' held
+  case "$bound" in
+    *[!0-9]*)
+      echo "gates: HARBOUR_GATES_WAIT must be a whole number of seconds, not $bound" >&2
+      exit 1
+      ;;
+  esac
   if ! common="$(git rev-parse --git-common-dir 2>/dev/null)"; then
     echo "==> no gates lock: not in a git repository" >&2
     return 0
@@ -67,16 +90,16 @@ lock_gates() {
   trap 'exit 129' HUP
   trap 'exit 130' INT
   trap 'exit 143' TERM
-  local bound="${HARBOUR_GATES_WAIT:-1800}" told='' held
   SECONDS=0
-  until ln -s "$mine" "$lock" 2>/dev/null; do
+  until claim; do
     held="$(holder "$lock")"
-    if [ -n "$held" ] && ! running "$held" && take_over "$held"; then
+    if [ -n "$held" ] && ! running "$held" && take_over "$lock" "$held"; then
       continue
     fi
-    if [ -n "$held" ] && [ "$held" != "$told" ]; then
+    if [ -z "$asked" ] || [ "$held" != "$told" ]; then
       echo "==> waiting for $(described "$held") to finish" >&2
       told="$held"
+      asked=1
     fi
     if [ "$SECONDS" -ge "$bound" ]; then
       echo "gates: gave up after $bound s waiting for $(described "$held")" >&2

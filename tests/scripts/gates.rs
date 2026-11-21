@@ -3,7 +3,7 @@ use std::os::unix::fs::symlink;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
 
-use crate::helpers::{calls, git, link_script, recorder, repository, stderr, which};
+use crate::helpers::{calls, git, link_script, recorder, repository, sandbox_bin, stderr, which};
 
 #[test]
 fn gates_with_tmux_run_the_e2e_tests_after_the_rest_on_two_threads() {
@@ -297,16 +297,4 @@ fn repository_gates(root: &Path, ci: Option<&str>) -> Output {
         command.env("CI", value);
     }
     command.output().unwrap()
-}
-
-fn sandbox_bin(root: &Path) -> PathBuf {
-    let bin = root.join("bin");
-    fs::create_dir_all(&bin).unwrap();
-    for program in [
-        "bash", "dirname", "git", "grep", "ln", "readlink", "rm", "sed", "sleep",
-    ] {
-        symlink(which(program), bin.join(program)).unwrap();
-    }
-    symlink(recorder(), bin.join("cargo")).unwrap();
-    bin
 }
