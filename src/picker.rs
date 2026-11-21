@@ -1,5 +1,6 @@
 use std::env;
 use std::ffi::{OsStr, OsString};
+use std::fmt;
 use std::fs;
 use std::io;
 use std::os::unix::ffi::OsStrExt;
@@ -8,6 +9,7 @@ use std::path::{Path, PathBuf};
 
 use tempfile::TempDir;
 
+use crate::finder;
 use crate::session::{Role, Session};
 
 const PRINTING_TO: &str = r#"out=$1; shift; "$@" >"$out""#;
@@ -17,6 +19,10 @@ const FZF_PRINTS_ONE_LINE: [&str; 4] = [
     "--no-read0",
     "--no-print0",
 ];
+
+const READING_FROM: &str = r#"out=$1; shift
+if "$1" --accept-nth=.. --version </dev/null >/dev/null 2>&1; then set -- "$@" --accept-nth=..; fi
+"$@" <"${out%/*}/listed" >"$out""#;
 
 const LISTING_INTO: &str = r#"out=$1; here=$2; n=$3; shift 3
 listed="${out%/*}/listed"
@@ -41,13 +47,17 @@ pub enum Picker {
         here_first: bool,
         required: bool,
     },
+    Listed {
+        fzf: Vec<String>,
+        lines: Vec<u8>,
+    },
 }
 
 impl Picker {
     pub fn program(&self) -> &str {
         match self {
             Picker::Command(command) => &command[0],
-            Picker::Fuzzy { fzf, .. } => &fzf[0],
+            Picker::Fuzzy { fzf, .. } | Picker::Listed { fzf, .. } => &fzf[0],
         }
     }
 
@@ -71,6 +81,12 @@ impl Picker {
                 command.extend(list.iter().cloned());
                 wrapping(LISTING_INTO, output, &before, &command)
             }
+            Picker::Listed { fzf, .. } => {
+                let mut command = fzf.clone();
+                command.extend(FZF_PRINTS_ONE_LINE.map(String::from));
+                command.extend(finder::OPTIONS.map(String::from));
+                wrapping(READING_FROM, output, &[], &command)
+            }
         }
     }
 }
@@ -81,12 +97,14 @@ pub struct Pick {
     failing: &'static [u32],
     output: PathBuf,
     from: PathBuf,
+    listed: bool,
     _scratch: TempDir,
 }
 
 pub enum Picked {
     Cancelled,
     Chosen(PathBuf),
+    Line(Vec<u8>),
     Refused(String),
 }
 
@@ -113,6 +131,9 @@ impl Pick {
             (_, Err(error)) => return Err(error),
             (_, Ok(())) => {}
         }
+        if let Picker::Listed { lines, .. } = picker {
+            fs::write(scratch.path().join("listed"), lines).map_err(listing)?;
+        }
         let wrapped = picker.command(from, &output);
         let session = Session::start_as(Role::Picker, &wrapped, from, rows, cols)?;
         Ok(Some(Pick {
@@ -120,10 +141,11 @@ impl Pick {
             program: picker.program().to_string(),
             failing: match picker {
                 Picker::Command(_) => &[126, 127],
-                Picker::Fuzzy { .. } => &[2, 126, 127],
+                Picker::Fuzzy { .. } | Picker::Listed { .. } => &[2, 126, 127],
             },
             output,
             from: from.to_path_buf(),
+            listed: matches!(picker, Picker::Listed { .. }),
             _scratch: scratch,
         }))
     }
@@ -155,6 +177,9 @@ impl Pick {
             .unwrap_or_default();
         if line.is_empty() {
             return Some(Picked::Cancelled);
+        }
+        if self.listed {
+            return Some(Picked::Line(line.to_vec()));
         }
         let chosen = self.from.join(OsStr::from_bytes(line));
         Some(Picked::Chosen(chosen.canonicalize().unwrap_or(chosen)))
@@ -192,4 +217,23 @@ fn startable(program: &str, from: &Path) -> io::Result<()> {
 
 fn executable(path: &Path) -> bool {
     fs::metadata(path).is_ok_and(|meta| meta.is_file() && meta.permissions().mode() & 0o111 != 0)
+}
+
+#[derive(Debug)]
+struct Listing(io::Error);
+
+impl fmt::Display for Listing {
+    fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        write!(formatter, "Could not list the sessions: {}", self.0)
+    }
+}
+
+impl std::error::Error for Listing {}
+
+pub fn listing(error: io::Error) -> io::Error {
+    io::Error::new(error.kind(), Listing(error))
+}
+
+pub fn is_listing(error: &io::Error) -> bool {
+    error.get_ref().is_some_and(|inner| inner.is::<Listing>())
 }

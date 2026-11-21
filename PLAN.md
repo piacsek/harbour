@@ -35,6 +35,7 @@ file under `plans/`; its time and tokens are a row of [`plans/metrics.md`](plans
 | 25 | [zoom: the selected session on the whole screen](plans/phase-25-zoom.md), with the sweep of phases 20 to 24 | [v0.21.0](https://github.com/piacsek/harbour/releases/tag/v0.21.0) |
 | 26 | [Claude Code's usage and limits in a popup](plans/phase-26-usage-popup.md) | [v0.22.0](https://github.com/piacsek/harbour/releases/tag/v0.22.0) |
 | 27 | [Alt-minus and Alt-equals change the sidebar's width](plans/phase-27-width-keys.md) | |
+| 28 | [jump to any session by typing part of its name](plans/phase-28-jump-by-name.md) | |
 
 ## Backlog
 

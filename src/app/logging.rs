@@ -4,6 +4,7 @@ use std::time::{Duration, Instant};
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use ratatui::layout::Rect;
 
+use super::find::is_find;
 use super::jump::position;
 use super::split::widens;
 use super::zoom::is_zoom;
@@ -348,6 +349,7 @@ fn named(key: KeyEvent, resized: bool) -> String {
         }
         _ if let Some(position) = position(key) => format!("C-{position}"),
         _ if is_zoom(key) => "M-z".to_string(),
+        _ if is_find(key) => "M-s".to_string(),
         KeyCode::Char(c) if resized && widens(key).is_some() => format!("M-{c}"),
         KeyCode::Char(c) if BOUND.contains(&c) && KeyModifiers::SHIFT.contains(key.modifiers) => {
             c.to_string()

@@ -285,12 +285,14 @@ impl Scratch {
     }
 
     pub(crate) fn watching(&self, command: Vec<String>) -> Screen {
-        Screen::of(
-            App::new(command)
-                .with_registry(self.sessions())
-                .with_transcripts(self.dir.path().join("claude/projects"))
-                .with_memory(self.memory()),
-        )
+        Screen::of(self.app(command))
+    }
+
+    pub(crate) fn app(&self, command: Vec<String>) -> App {
+        App::new(command)
+            .with_registry(self.sessions())
+            .with_transcripts(self.dir.path().join("claude/projects"))
+            .with_memory(self.memory())
     }
 
     pub(crate) fn memory(&self) -> Memory {

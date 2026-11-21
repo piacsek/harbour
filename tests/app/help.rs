@@ -28,7 +28,7 @@ fn question_mark_shows_the_editor_keys() {
 
     let shown = screen.draw();
     assert!(
-        shown.contains("from Claude Code, C-l opens its editor"),
+        shown.contains("focus or resume; C-l in Claude Code: editor"),
         "{shown}"
     );
     assert!(shown.contains("end it and its editors"), "{shown}");
@@ -72,7 +72,7 @@ fn question_mark_says_how_to_resume_and_forget_a_stopped_session() {
     screen.press('?');
 
     let shown = screen.draw();
-    assert!(shown.contains("focus the pane or resume;"), "{shown}");
+    assert!(shown.contains("focus or resume;"), "{shown}");
     assert!(shown.contains("or forget an ended one"), "{shown}");
     assert!(shown.contains("○ idle, exited, or stopped"), "{shown}");
 }
@@ -133,13 +133,13 @@ fn the_whole_help_shows_on_a_20_row_terminal() {
 }
 
 #[test]
-fn the_help_leaves_one_row_for_new_keys_on_a_20_row_terminal() {
+fn the_help_fills_a_20_row_terminal_with_no_row_to_spare() {
     let mut screen = Screen::new(reading_agent());
 
     screen.press('?');
 
     let shown = screen.draw();
-    assert_eq!(spare_rows(&shown), 1, "{shown}");
+    assert_eq!(spare_rows(&shown), 0, "{shown}");
 }
 
 #[test]
@@ -152,6 +152,34 @@ fn question_mark_shows_the_usage_key_on_one_row_beside_the_narrowest_sidebar() {
     let shown = screen.draw();
     assert!(
         shown.contains("u          show Claude Code's usage and limits"),
+        "{shown}"
+    );
+}
+
+#[test]
+fn question_mark_shows_the_find_key_on_one_row_beside_the_narrowest_sidebar() {
+    let mut screen = Screen::new(reading_agent());
+    screen.resize(60, 20);
+
+    screen.press('?');
+
+    let shown = screen.draw();
+    assert!(
+        shown.contains("M-s        jump to a session by part of its name"),
+        "{shown}"
+    );
+}
+
+#[test]
+fn question_mark_shows_the_ctrl_l_row_on_one_row_in_the_narrow_layout() {
+    let mut screen = Screen::new(reading_agent());
+    screen.resize(59, 20);
+
+    screen.press('?');
+
+    let shown = screen.draw();
+    assert!(
+        shown.contains("C-l/Enter  focus or resume; C-l in Claude Code: editor"),
         "{shown}"
     );
 }

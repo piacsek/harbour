@@ -6,6 +6,7 @@ use harbour::editor::Program;
 use harbour::log::Log;
 use harbour::picker::Picker;
 
+use crate::finding::FINDER;
 use crate::{Screen, home, reading_agent, script};
 
 #[test]
@@ -104,6 +105,21 @@ fn the_zoom_key_is_logged_by_its_name() {
     screen.key(KeyCode::Char('z'), KeyModifiers::ALT);
 
     only(&read(&lines), r#" key name="M-z""#);
+}
+
+#[test]
+fn the_find_key_is_logged_by_its_name_and_what_is_typed_into_the_list_is_not() {
+    let picker = Picker::Command(vec![FINDER.into()]);
+    let (app, lines) = logged(App::new(reading_agent()).with_picker(picker));
+    let mut screen = focused(app);
+
+    screen.key(KeyCode::Char('s'), KeyModifiers::ALT);
+    screen.wait_for("acme fzf ready");
+    screen.type_text("acme-secret");
+
+    let lines = read(&lines);
+    only(&lines, r#" key name="M-s""#);
+    assert_eq!(count(&lines, "acme-secret"), 0);
 }
 
 #[test]

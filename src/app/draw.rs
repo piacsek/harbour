@@ -186,7 +186,12 @@ impl App {
         }
         if let Some(pick) = &mut self.picking {
             let area = popup(frame.area());
-            let block = bordered(true, self.accent).title(" directory ");
+            let title = if self.finding.is_some() {
+                " sessions "
+            } else {
+                " directory "
+            };
+            let block = bordered(true, self.accent).title(title);
             let inner = block.inner(area);
             self.picking_area = inner;
             pick.resize(inner.height, inner.width);
