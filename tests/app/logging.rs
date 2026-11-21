@@ -74,6 +74,29 @@ fn a_control_key_harbour_acts_on_is_logged_with_its_modifier() {
 }
 
 #[test]
+fn a_jump_key_is_logged_with_its_modifier() {
+    let (app, lines) = logged(App::new(reading_agent()));
+    let mut screen = Screen::of(app);
+
+    screen.key(KeyCode::Char('3'), KeyModifiers::CONTROL);
+
+    only(&read(&lines), r#" key name="C-3""#);
+}
+
+#[test]
+fn a_jump_key_with_shift_is_logged_as_the_jump_key() {
+    let (app, lines) = logged(App::new(reading_agent()));
+    let mut screen = Screen::of(app);
+
+    screen.key(
+        KeyCode::Char('3'),
+        KeyModifiers::CONTROL | KeyModifiers::SHIFT,
+    );
+
+    only(&read(&lines), r#" key name="C-3""#);
+}
+
+#[test]
 fn a_key_harbour_binds_nothing_to_is_logged_without_its_name() {
     let (app, lines) = logged(App::new(reading_agent()));
     let mut screen = Screen::of(app);
