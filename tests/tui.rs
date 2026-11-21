@@ -4,7 +4,7 @@ use std::thread::sleep;
 use std::time::{Duration, Instant};
 
 use harbour::session::Session;
-use harbour::tui::{leave_terminal, panic_hook};
+use harbour::tui::{enter_terminal, leave_terminal, panic_hook};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::widgets::Widget;
@@ -20,6 +20,28 @@ fn leaving_the_terminal_turns_off_mouse_capture_and_bracketed_paste() {
     let written = String::from_utf8(written).unwrap();
     assert!(written.contains("\x1b[?1000l"), "{written:?}");
     assert!(written.contains("\x1b[?2004l"), "{written:?}");
+}
+
+#[test]
+fn entering_the_terminal_asks_for_extended_keys() {
+    let mut written = Vec::new();
+
+    enter_terminal(&mut written).unwrap();
+
+    let written = String::from_utf8(written).unwrap();
+    assert!(written.contains("\x1b[>4;1m"), "{written:?}");
+    assert!(written.contains("\x1b[?1000h"), "{written:?}");
+    assert!(written.contains("\x1b[?2004h"), "{written:?}");
+}
+
+#[test]
+fn leaving_the_terminal_turns_off_extended_keys() {
+    let mut written = Vec::new();
+
+    leave_terminal(&mut written).unwrap();
+
+    let written = String::from_utf8(written).unwrap();
+    assert!(written.contains("\x1b[>4m"), "{written:?}");
 }
 
 #[test]

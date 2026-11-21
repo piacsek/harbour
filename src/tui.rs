@@ -22,6 +22,9 @@ use crate::registry;
 use crate::session;
 use crate::summary::{self, Summary};
 
+const EXTENDED_KEYS_ON: &[u8] = b"\x1b[>4;1m";
+const EXTENDED_KEYS_OFF: &[u8] = b"\x1b[>4m";
+
 type PanicHook = dyn Fn(&PanicHookInfo<'_>) + Send + Sync + 'static;
 
 pub const SESSION_COMMAND: &str = "HARBOUR_SESSION_COMMAND";
@@ -71,8 +74,7 @@ fn show(app: App) -> io::Result<()> {
     let app = app.with_mover(Box::new(|directory| std::env::set_current_dir(directory)));
     let mut terminal = ratatui::init();
     std::panic::set_hook(panic_hook(std::panic::take_hook()));
-    let result = execute!(io::stdout(), EnableBracketedPaste, EnableMouseCapture)
-        .and_then(|()| drive(&mut terminal, app));
+    let result = enter_terminal(&mut io::stdout()).and_then(|()| drive(&mut terminal, app));
     let _ = leave_terminal(&mut io::stdout());
     ratatui::restore();
     result
@@ -88,8 +90,16 @@ pub fn panic_hook(restore_terminal: Box<PanicHook>) -> Box<PanicHook> {
     })
 }
 
+pub fn enter_terminal(out: &mut impl io::Write) -> io::Result<()> {
+    execute!(out, EnableBracketedPaste, EnableMouseCapture)?;
+    out.write_all(EXTENDED_KEYS_ON)?;
+    out.flush()
+}
+
 pub fn leave_terminal(out: &mut impl io::Write) -> io::Result<()> {
-    execute!(out, DisableMouseCapture, DisableBracketedPaste)
+    execute!(out, DisableMouseCapture, DisableBracketedPaste)?;
+    out.write_all(EXTENDED_KEYS_OFF)?;
+    out.flush()
 }
 
 fn drive(terminal: &mut ratatui::DefaultTerminal, mut app: App) -> io::Result<()> {
