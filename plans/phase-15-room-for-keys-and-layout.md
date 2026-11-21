@@ -84,12 +84,12 @@ and no backlog line is applied, and nobody is asked.
 
 - The help view has no rows to spare: phase 14's seventh note pushed it past 20 rows and two
   notes were merged (phase 14), phases 10 and 11 had to keep it inside 80x24, and five queued
-  features (#36, #37, #39, #41, #42) each add a key row → issue.
+  features (#36, #37, #39, #41, #42) each add a key row → issue #69.
 - Process rules held only in prose broke three times, each `→ none`: production code before its
   red run (phase 12), a reviewer in the branch's worktree (phase 13), a builder handing back
   while another worktree's gates ran (phase 14). The phase 14 one is the only one a script can
   enforce, and its cause, tests losing timing races beside another ship's load, is the class of
-  issue #47 → issue.
+  issue #47 → issue #70.
 - A test passed without exercising what it named (phase 14's contained panic), a repeat of the
   phase 5 and phase 10 finding; the rule taken then ("a green first run is not red") held, and
   the red run was shown → declined, the rule worked.
@@ -124,6 +124,17 @@ a review and a metrics row.
 - No test changed. Before the moves the `app` target passed 465 tests and `readme` 16; after
   each move the same counts passed, with `dead_code` (3) and `source_size` (2), and every ship
   ran the full gates, the end-to-end tests included.
+- Red runs showing the tests cover the moved code, each broken in place, run, then restored
+  with `git checkout src` (`git diff src` empty after each):
+  - Keys: `next_editor` in `src/app/key.rs` returning at once failed 3 of 465 `app` tests,
+    among them `editor::e_in_the_sidebar_shows_the_editor_and_focuses_it`
+    (`tests/app/editor.rs:170`), panicking in its wait at `tests/app/main.rs:160`.
+  - Split: `two_columns` splitting in halves failed 25 of 465, among them
+    `layout::a_resize_reaches_a_session_that_is_not_shown` (`tests/app/layout.rs:31`);
+    `one_side` with its condition inverted failed 11 of 465, among them
+    `layout::a_narrow_terminal_shows_the_sidebar_alone_while_it_has_focus`
+    (`tests/app/layout.rs:48`).
+  - `KEYS`: the ninth row above, a compile error against the old array.
 - `scripts/screenshots.sh` rewrote all nine images under `docs/`, each byte-identical to `main`'s.
 - Phase 16 (#65) landed on `main` first and was merged in; only `PLAN.md` and
   `plans/metrics.md` conflicted, and its after-merge cells were backfilled from GitHub.
