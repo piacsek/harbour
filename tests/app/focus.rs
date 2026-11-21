@@ -86,6 +86,21 @@ fn ctrl_h_in_the_pane_gives_the_keys_back_to_the_sidebar() {
 }
 
 #[test]
+fn ctrl_backspace_in_the_pane_gives_the_keys_back_to_the_sidebar() {
+    let scratch = tempfile::tempdir().unwrap();
+    let mut screen = Screen::new(numbered_agent(scratch.path()));
+    screen.press('n');
+    screen.wait_for("acme agent 1");
+    screen.key(KeyCode::Enter, KeyModifiers::NONE);
+
+    screen.key(KeyCode::Backspace, KeyModifiers::CONTROL);
+    screen.press('n');
+
+    let shown = screen.wait_for("acme agent 2");
+    assert!(shown.contains("acme agent 2"), "{shown}");
+}
+
+#[test]
 fn a_focused_pane_has_the_cyan_border() {
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = Screen::new(numbered_agent(scratch.path()));
