@@ -40,6 +40,7 @@ mod usage;
 mod usage_states;
 mod waits;
 mod width;
+mod width_keys;
 mod zoom;
 mod zoom_border;
 

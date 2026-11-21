@@ -8,11 +8,9 @@ pub const KEYS: &[(&str, &str)] = &[
     ("C-h", "focus the sidebar; from an editor, Claude Code"),
     ("C-1..C-9", "focus or resume that card; C-9 the last"),
     ("M-z", "zoom the session to the whole screen, or back"),
+    ("M--/M-=", "narrow / widen the sidebar by 2 columns"),
     ("e", "show the next editor, one per directory"),
-    (
-        "x",
-        "end the session and its editors, or forget it once it has ended",
-    ),
+    ("x", "end it and its editors, or forget an ended one"),
     ("u", "show Claude Code's usage and limits"),
     ("?", "show or hide the help"),
     ("q", "quit, after a yes while anything runs"),

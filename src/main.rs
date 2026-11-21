@@ -34,6 +34,10 @@ M-z zooms the selected session to the whole screen, and back. It works only
 where the terminal sends Alt-z as an extended key (under tmux, extended-keys
 on), and never from an editor: C-h first (from Neovim, Esc then C-h). Under
 tmux, Esc then z typed fast in Claude Code arrives as Alt-z and zooms.
+M-- and M-= make the sidebar 2 columns narrower or wider, from 15 columns to
+half the terminal, until harbour quits; like M-z, only as extended keys and
+never from an editor. Under tmux, Esc then - or = typed fast in Claude Code
+arrives as the Alt key and changes the width.
 status prints how many sessions of every running harbour are blocked, working,
 idle or unknown. For tmux, put #(harbour status) in your status-right, for example
   set -g status-right '#(harbour status) %H:%M'

@@ -149,7 +149,7 @@ impl Session {
     }
 
     pub fn resize(&mut self, rows: u16, cols: u16) {
-        if rows == 0 || cols == 0 {
+        if rows == 0 || cols == 0 || self.exit().is_some() {
             return;
         }
         let (rows, cols) = safe_size(rows, cols);
