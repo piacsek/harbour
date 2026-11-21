@@ -386,8 +386,11 @@ fn version_line() -> String {
 }
 
 fn launch(args: &[&str]) -> Output {
+    let home = tempfile::tempdir().unwrap();
     Command::new(env!("CARGO_BIN_EXE_harbour"))
         .args(args)
+        .env("HOME", home.path())
+        .env_remove("XDG_CONFIG_HOME")
         .output()
         .unwrap()
 }
@@ -396,6 +399,7 @@ fn launch_at_home(home: &std::path::Path, args: &[&str]) -> Output {
     Command::new(env!("CARGO_BIN_EXE_harbour"))
         .args(args)
         .env("HOME", home)
+        .env_remove("XDG_CONFIG_HOME")
         .env("XDG_STATE_HOME", home.join("state"))
         .current_dir(home)
         .output()
@@ -411,8 +415,11 @@ fn stderr(output: &Output) -> String {
 }
 
 fn launch_with_bytes(arg: &[u8]) -> Output {
+    let home = tempfile::tempdir().unwrap();
     Command::new(env!("CARGO_BIN_EXE_harbour"))
         .arg(OsStr::from_bytes(arg))
+        .env("HOME", home.path())
+        .env_remove("XDG_CONFIG_HOME")
         .output()
         .unwrap()
 }

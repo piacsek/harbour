@@ -65,7 +65,10 @@ fn main() -> ExitCode {
         [Some("config")] => print_config(),
         [Some("edit"), Some("--"), file] if file != Some("") => edit(&args[2]),
         [Some("edit"), file] if !matches!(file, Some("--" | "")) => edit(&args[1]),
-        [] if on_a_terminal() => shown(harbour::tui::run()),
+        [] if on_a_terminal() => match Config::from_env() {
+            Ok(_) => shown(harbour::tui::run()),
+            Err(refusal) => refused(&refusal),
+        },
         [Some("--demo")] if on_a_terminal() => shown(harbour::tui::demo()),
         _ => {
             eprintln!("{USAGE}");
@@ -92,11 +95,13 @@ fn print_config() -> ExitCode {
             }
             ExitCode::SUCCESS
         }
-        Err(refusal) => {
-            eprintln!("harbour: {}", escaped(&refusal.to_string()));
-            ExitCode::FAILURE
-        }
+        Err(refusal) => refused(&refusal),
     }
+}
+
+fn refused(refusal: &harbour::config::Refusal) -> ExitCode {
+    eprintln!("harbour: {}", escaped(&refusal.to_string()));
+    ExitCode::FAILURE
 }
 
 fn print_log() -> ExitCode {

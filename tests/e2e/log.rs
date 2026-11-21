@@ -95,6 +95,7 @@ pub(crate) fn newest_log(home: &Path) -> String {
     let output = Command::new(env!("CARGO_BIN_EXE_harbour"))
         .arg("log")
         .env("HOME", home)
+        .env_remove("XDG_CONFIG_HOME")
         .env_remove("XDG_STATE_HOME")
         .output()
         .unwrap();
