@@ -3,7 +3,7 @@
 Issue #36. Alt-z hides the sidebar and gives the selected session the whole screen; the pane's
 top border then carries what the sidebar showed about it (its dot, title, `repository · branch`
 and time) and the counts. Phase 25 is a multiple of 5, so it opens with the sweep of phases 20
-to 23 (`### Sweep` under `## Outcome`).
+to 24 (`### Sweep` under `## Outcome`).
 
 ## Verified facts
 
@@ -68,8 +68,8 @@ to 23 (`### Sweep` under `## Outcome`).
   - left: the dot, the title, `repository · branch` and the time in its state, then the names
     (`claude | <editor>: <directory>`, with icons under `nerd_font`) as today;
   - right: the counts, by the sidebar title's rule (`state::title`, counts above zero);
-  - fitted by priority: the counts first, then the names (by the rules of `src/tabs.rs`), then
-    the session info in what is left: the time stays while the title has a column, as on the
+  - fitted by priority: the counts first, then the names (by the rules of `src/tabs.rs`) in
+    what the counts leave, then the session info in what the names leave: the time stays while the title has a column, as on the
     card; the title and place are cut by `text::fit`; the dot alone needs 3 columns
     (` ● `), under that the info goes.
 - The help gets one row (`M-z`), the README key table with it, and the headroom test drops to 3.
@@ -81,8 +81,8 @@ to 23 (`### Sweep` under `## Outcome`).
 | State | What shows |
 | --- | --- |
 | Zoomed, a session running | the pane alone on the whole screen, its top border: dot, title, `repository · branch`, time, the names, the counts at the right |
-| Zoomed, terminal too narrow for the whole border | the counts stay; the session info is cut first (title, then place, the time while the title keeps a column), then the names by `tabs.rs`'s rules |
-| Zoomed, the narrowest width the border still fits | measured in the tests: the counts and the dot with one column of title; under that the info goes, then the names |
+| Zoomed, terminal too narrow for the whole border | the counts stay; the session info is cut first (the place is cut, then dropped, then the title is cut, the time kept while the title keeps a column), then the names by `tabs.rs`'s rules |
+| Zoomed, the narrowest width the border still fits | 11 columns: `┏ ● …  ●1 ┓`, the short counts and the dot with one column of title; under that the info goes, then the names |
 | Zoomed, a CJK title and branch | cut by display width (`text::fit`), never a half character, never wider than the border |
 | Zoomed, terminal under 60 columns | today's narrow mode with the pane shown, plus the zoomed border |
 | Alt-z with no session or on a stopped card | nothing happens |
@@ -128,19 +128,21 @@ keys sends the legacy form, so Alt-z goes to the session; nothing else is read.
 
 ### Sweep
 
-Range: phases 20 to 23. `scripts/sweep-report.sh` starts after phase 20, the last `### Sweep`,
-so it reports phases 21 to 23; phase 20's own `## Outcome` and `## Hurdles` were read by hand.
-All four are on `main`; phase 24 was still being built. The report counted 9 hurdles for phases
-21 to 23 (`test-seam` 5, `api-shape`, `design`, `process` and `review-loop` 1 each) and phase
-20 added 1 (`test-seam`); 4 of the 10 went `→ none`. Ready, merged and released of phase 22
-were read from GitHub (phase 23's were already written). The owner decided in advance that every
+Range: phases 20 to 24. `scripts/sweep-report.sh` starts after phase 20, the last `### Sweep`,
+so it reports phases 21 to 24; phase 20's own `## Outcome` and `## Hurdles` were read by hand.
+Phase 24 merged while this phase was being built and was taken in with a merge of `main`. The
+report counted 9 hurdles for phases 21 to 23 (`test-seam` 5, `api-shape`, `design`, `process`
+and `review-loop` 1 each), phase 24 added 3 (`test-seam`, `process`, `review-loop`) and phase
+20 added 1 (`test-seam`); 6 of the 13 went `→ none`. Ready, merged and released of phase 24
+were read from GitHub (phase 22's were written by phase 24). The owner decided in advance that every
 finding becomes a proposed issue or is declined, no rule and no backlog line is applied, and
 nobody is asked; the orchestrator files the issues.
 
-- A test that passed before the change existed, in all four phases: phase 20's three cursor
+- A test that passed before the change existed, in all five phases: phase 20's three cursor
   tests passed whatever their rule did (the sidebar already hid the cursor), phase 21's width
   test asked for a third, the default, phase 22's out-of-range key drew nothing either way, phase
-  23's off path did not change. Each is a test of an absence or of a default; two were caught by
+  23's off path did not change, phase 24's cut, CJK and ended-card tests passed against the finished join, and this phase's
+  leaving-zoom and `ESC z` tests were green first too. Each is a test of an absence or of a default; two were caught by
   review, not by the red run → proposed issue.
 - A helper shipped before its first caller and stopped by the dead-code gate: phase 23 (`→ none`)
   and, in the last range, phases 17 and 19. Twice `→ none` across two sweeps → proposed issue.
@@ -156,15 +158,44 @@ nobody is asked; the orchestrator files the issues.
   wait every other test already makes; load-sensitive tests are #87.
 - Phase 21's tmux colour form (`38;5;N`) → declined: a fact of tmux's capture, fixed where it
   arose.
+- Phase 24's edit of `scripts/screenshots.sh` while a ship ran, which `git add -A` would have
+  taken into that commit (`→ none`, once) → declined: one-off, kept out by hand that time.
+- Phase 24's cut that measured a part's first grapheme apart from the joined line, found in
+  review → declined: one-off, fixed in code in that round.
 
-Metrics (from `plans/metrics.md`): review rounds 1, 2, 2, 1 for phases 20 to 23; start to
-release 30 min 47 s, 1 h 29 min 41 s, 1 h 34 min 18 s and 42 min 7 s. The Claude reviewer per
-round runs from 103532 to 169182: phase 21's two rounds (157086, 169182) sit above the last
-sweep's top of 149335, phases 22 and 23 are back at 115281 to 124912; one phase, no trend.
-Builder notices: 1, 2, 2 and 1 per phase, each between 90614 and 164528, the last ship of each
-unknown. The orchestrator's context grew from 521726 (phase 20's start) to 633470 (phase 23's
-end), in one session shared by every phase of the range and a fix branch, so no two rows
-compare. Process drift: none beyond the missing sweep issue; every phase had a worktree, a
+Metrics (from `plans/metrics.md`): review rounds 1, 2, 2, 1, 1 for phases 20 to 24; start to
+release 30 min 47 s, 1 h 29 min 41 s, 1 h 34 min 18 s, 42 min 7 s and 47 min 41 s. The Claude
+reviewer per round runs from 103532 to 169182: phase 21's two rounds (157086, 169182) sit above
+the last sweep's top of 149335, phases 22 to 24 are back at 115281 to 124912; one phase, no
+trend. Builder notices: 1, 2, 2, 1 and 1 per phase, each between 90614 and 164528, the last ship
+of each unknown. The orchestrator's context grew from 521726 (phase 20's start) to 670656
+(phase 24's end), in one session shared by every phase of the range and a fix branch, so no two
+rows compare. Process drift: none beyond the missing sweep issue; every phase had a worktree, a
 review and a metrics row.
 
+### Facts and decisions
+
+- Alt-z reaches harbour as `CSI 27;3;122~` (tmux `extended-keys on`, format xterm) or
+  `CSI 122;3u` (format csi-u), and as `ESC z` with `extended-keys off`, captured in tmux 3.7c
+  (Verified facts). `tests/e2e/keys.rs` pins all three through a scratch tmux server: both
+  extended forms zoom and the session reads only the next key; `ESC z` reaches the session as
+  `^z` after an escape and zooms nothing.
+- The reader marks a key read after an ESC prefix with `input::ESCAPED`, a key state bit of its
+  own (`0x80`), so the app takes only the extended form.
+- The zoomed border lives in `src/zoom.rs` (`info`, the session's part) and `src/app/zoom.rs`
+  (the counts, the names and the headline from the app's facts). The place is cut first, then
+  dropped once fewer than 2 columns are left after the title, then the title is cut; the time
+  stays while the title keeps a column. The narrowest border measured is 11 columns,
+  `┏ ● …  ●1 ┓`, the counts in their short form.
+- The help gained the `M-z` row and lost a line in the narrow layout; the `q` row was shortened
+  to "quit, after a yes while anything runs" (it said "while a session or editor runs" and
+  wrapped at 59 to 60 columns), the cheapest row to shorten without losing what it says. The
+  headroom test now asserts 3.
+- `scripts/screenshots.sh` turns on `extended-keys` for the `zoom` shot alone, so `send-keys M-z`
+  arrives as the extended Alt-z, and turns it off after it, so the other shots are as before.
+
 ## Hurdles
+
+- `test-seam` The leaving-zoom border test and the `ESC z` end-to-end test passed on their first run, being tests of an absence; each was shown red by breaking the code → none
+- `tooling` The tmux socket path under the scratchpad was too long for a Unix socket, so the byte capture ran with `TMUX_TMPDIR` a short folder under `/tmp` → none
+- `process` Phase 24 merged while this phase was being built and was taken in with a merge of `main`, its sweep and metrics rows included → none

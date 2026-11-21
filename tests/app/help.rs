@@ -39,6 +39,19 @@ fn question_mark_shows_the_editor_keys() {
 }
 
 #[test]
+fn question_mark_shows_the_zoom_key() {
+    let mut screen = Screen::new(reading_agent());
+
+    screen.press('?');
+
+    let shown = screen.draw();
+    assert!(
+        shown.contains("M-z        zoom the session to the whole screen, or back"),
+        "{shown}"
+    );
+}
+
+#[test]
 fn question_mark_says_how_to_resume_and_forget_a_stopped_session() {
     let mut screen = Screen::new(reading_agent());
     screen.resize(80, 24);
@@ -107,13 +120,13 @@ fn the_whole_help_shows_on_a_20_row_terminal() {
 }
 
 #[test]
-fn the_help_leaves_four_rows_for_new_keys_on_a_20_row_terminal() {
+fn the_help_leaves_three_rows_for_new_keys_on_a_20_row_terminal() {
     let mut screen = Screen::new(reading_agent());
 
     screen.press('?');
 
     let shown = screen.draw();
-    assert_eq!(spare_rows(&shown), 4, "{shown}");
+    assert_eq!(spare_rows(&shown), 3, "{shown}");
 }
 
 #[test]

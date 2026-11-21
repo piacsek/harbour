@@ -112,6 +112,10 @@ shoot editor 160 26 --demo "Enter C-l" "src/retry.rs"
 echo "wrote $out/editor.png"
 shoot narrow 56 26 --demo ""
 echo "wrote $out/narrow.png"
+t set -s extended-keys on
+shoot zoom 160 26 --demo "M-z"
+t set -s extended-keys off
+echo "wrote $out/zoom.png"
 mkdir -p "$home/.config/harbour"
 cat >"$home/.config/harbour/config.toml" <<'TOML'
 accent = "#d7875f"
