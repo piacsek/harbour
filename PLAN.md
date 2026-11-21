@@ -35,8 +35,9 @@ file under `plans/`; its time and tokens are a row of [`plans/metrics.md`](plans
 | 25 | [zoom: the selected session on the whole screen](plans/phase-25-zoom.md), with the sweep of phases 20 to 24 | [v0.21.0](https://github.com/piacsek/harbour/releases/tag/v0.21.0) |
 | 26 | [Claude Code's usage and limits in a popup](plans/phase-26-usage-popup.md) | [v0.22.0](https://github.com/piacsek/harbour/releases/tag/v0.22.0) |
 | 27 | [Alt-minus and Alt-equals change the sidebar's width](plans/phase-27-width-keys.md) | [v0.23.0](https://github.com/piacsek/harbour/releases/tag/v0.23.0) |
-| 28 | [jump to any session by typing part of its name](plans/phase-28-jump-by-name.md) | |
-| 29 | [Claude Code and its editor side by side](plans/phase-29-side-by-side.md) | |
+| 28 | [jump to any session by typing part of its name](plans/phase-28-jump-by-name.md) | [v0.24.0](https://github.com/piacsek/harbour/releases/tag/v0.24.0) |
+| 29 | [Claude Code and its editor side by side](plans/phase-29-side-by-side.md) | [v0.24.0](https://github.com/piacsek/harbour/releases/tag/v0.24.0) |
+| 30 | [swap Claude Code and the editor in side by side](plans/phase-30-swap-halves.md), with the sweep of phases 25 to 29 | |
 | 31 | [the usage popup draws its report as bars](plans/phase-31-usage-bars.md) | |
 
 ## Backlog

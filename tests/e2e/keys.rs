@@ -461,12 +461,66 @@ fn alt_minus_reaches_the_session_as_escape_minus_with_extended_keys_off() {
     assert_eq!(pane_corner(&screen), Some(53), "{screen}");
 }
 
+#[test]
+#[ignore]
+fn alt_closing_brace_puts_claude_code_on_the_right_with_extended_keys_on() {
+    let Some((_home, server)) = side_by_side_raw_agent("ext-xterm-swap", "xterm") else {
+        return;
+    };
+
+    server.send_keys(&["M-}", "a"]);
+
+    let screen = server.wait_until("the swapped halves", |screen| {
+        top_left(screen) == Some('┌') && screen.contains("read:a")
+    });
+    assert_eq!(top_left(&screen), Some('┌'), "{screen}");
+    assert_eq!(pane_corner(&screen), Some(80), "{screen}");
+}
+
+#[test]
+#[ignore]
+fn alt_opening_brace_puts_claude_code_back_on_the_left_in_the_csi_u_form() {
+    let Some((_home, server)) = side_by_side_raw_agent("ext-csi-u-swap", "csi-u") else {
+        return;
+    };
+    server.send_keys(&["M-}"]);
+    server.wait_until("the swapped halves", |screen| top_left(screen) == Some('┌'));
+
+    server.send_keys(&["M-{", "a"]);
+
+    let screen = server.wait_until("the halves back", |screen| {
+        top_left(screen) == Some('┏') && screen.contains("read:a")
+    });
+    assert_eq!(top_left(&screen), Some('┏'), "{screen}");
+    assert_eq!(pane_corner(&screen), Some(80), "{screen}");
+}
+
+#[test]
+#[ignore]
+fn alt_opening_brace_reaches_the_session_as_escape_brace_with_extended_keys_off() {
+    let Some((_home, server)) = focused_raw_agent("ext-off-swap", "off", "xterm") else {
+        return;
+    };
+
+    server.send_keys(&["M-{"]);
+
+    let screen = server.wait_for_screen("read:^{");
+    assert!(screen.contains("read:^{"), "{screen}");
+}
+
 fn two_raw_agents(name: &str, format: &str) -> Option<(TempDir, Server)> {
     let (home, server) = raw_harbour(name, "on", format, "")?;
     server.send_keys(&["n"]);
     server.wait_for_screen("acme agent ready");
     server.send_keys(&["n"]);
     server.wait_for_screen("acme-api 2");
+    Some((home, server))
+}
+
+fn side_by_side_raw_agent(name: &str, format: &str) -> Option<(TempDir, Server)> {
+    let (home, server) = focused_raw_agent(name, "on", format)?;
+    server.send_keys(&["M-\\"]);
+    server.wait_until("side by side", |screen| pane_corner(screen) == Some(80));
     Some((home, server))
 }
 
@@ -553,4 +607,8 @@ fn pane_corner(screen: &str) -> Option<usize> {
         .skip(1)
         .position(|c| matches!(c, '┌' | '┏'))
         .map(|column| column + 1)
+}
+
+fn top_left(screen: &str) -> Option<char> {
+    screen.lines().next()?.chars().next()
 }

@@ -387,7 +387,10 @@ arrives as the Alt key and changes the width.
 M-\\ shows Claude Code on the left and its editor on the right, each in half the
 terminal, and back; C-l and C-h move between the halves. It needs 120 columns;
 narrower, the focused half fills the screen until the terminal widens. Like M-z,
-only as an extended key and never from the editor half: C-h first.
+only as an extended key and never from the editor half: C-h first (C-l when
+swapped). M-{ and M-} put Claude Code in the left or the right half, also only
+from its half. Under tmux, Esc then { or } typed fast in Claude Code arrives as
+the Alt key. Swapped, Neovim gives up C-l only from its rightmost window.
 status prints how many sessions of every running harbour are blocked, working,
 idle or unknown. For tmux, put #(harbour status) in your status-right, for example
   set -g status-right '#(harbour status) %H:%M'

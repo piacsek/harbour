@@ -5,6 +5,8 @@ use ratatui::text::{Line, Span};
 use ratatui::widgets::Block;
 
 use super::App;
+use super::key::beside;
+use super::logging::Input;
 use crate::input::ESCAPED;
 use crate::mouse::{self, Gesture, Target};
 use crate::state::{self, Counts};
@@ -32,6 +34,55 @@ impl App {
         true
     }
 
+    pub(super) fn swap_by_key(&mut self, key: KeyEvent) -> bool {
+        let Some(right) = swaps(key) else {
+            return false;
+        };
+        if !self.side_by_side
+            || self
+                .sessions
+                .get(self.selected)
+                .is_some_and(|entry| entry.showing_editor().is_some())
+        {
+            return false;
+        }
+        self.swapped = right;
+        true
+    }
+
+    pub(super) fn swapped_ctrl(&mut self, key: KeyEvent, ctrl_h: bool) -> bool {
+        let Some(entry) = self.sessions.get_mut(self.selected) else {
+            return false;
+        };
+        if !entry.on_editor {
+            if ctrl_h {
+                self.open_editor();
+                self.touch();
+            }
+            return ctrl_h;
+        }
+        match entry.showing_editor().filter(|editor| {
+            if ctrl_h {
+                editor.wants_ctrl_h()
+            } else {
+                editor.wants_ctrl_l()
+            }
+        }) {
+            Some(editor) => {
+                let bytes = beside(&editor.session, key);
+                editor.session.send(&bytes);
+                self.log_input(Input::Shown, bytes.len());
+            }
+            None => {
+                entry.on_editor = false;
+                if ctrl_h {
+                    self.pane_focused = false;
+                }
+            }
+        }
+        true
+    }
+
     pub(super) fn enter_side(&mut self) {
         let Some(entry) = self.sessions.get(self.selected) else {
             return;
@@ -39,8 +90,8 @@ impl App {
         if entry.ended() || self.screen.width < WIDEST {
             return;
         }
-        let [_, right] = split(self.screen);
-        self.beside = Block::bordered().inner(right);
+        let [_, editor] = self.ordered(split(self.screen));
+        self.beside = Block::bordered().inner(editor);
         self.failed = None;
         self.show_or_open_editor();
         let entry = &mut self.sessions[self.selected];
@@ -135,8 +186,8 @@ impl App {
 
     pub(super) fn side_borders(
         &self,
-        [left, right]: [Block<'static>; 2],
-        [left_width, right_width]: [u16; 2],
+        [claude_block, editor_block]: [Block<'static>; 2],
+        [claude_width, editor_width]: [u16; 2],
         counts: Counts,
     ) -> [Block<'static>; 2] {
         let on_editor = self
@@ -148,21 +199,35 @@ impl App {
         } else {
             (Modifier::BOLD, Modifier::DIM)
         };
-        let room = usize::from(left_width.saturating_sub(2));
+        let [left_width, right_width] = self.ordered([claude_width, editor_width]);
+        let left_room = usize::from(left_width.saturating_sub(2));
         let headline = self.headline_of(self.selected);
-        let kept = headline.as_ref().map_or(0, guaranteed).min(room);
-        let claude = named(tabs::claude(self.nerd_font), claude_style);
-        let claude = if claude.width() <= room - kept {
-            claude
-        } else {
-            Line::default()
-        };
+        let kept = headline.as_ref().map_or(0, guaranteed).min(left_room);
+        let right_room = usize::from(right_width.saturating_sub(2));
+        let counted = state::title(counts, right_room);
+        let named_room = right_room.saturating_sub(counted.width());
+        let claude_left = claude_title(self.nerd_font, left_room - kept, claude_style);
         let mut spans = headline
-            .map(|headline| info(&headline, room - claude.width()))
+            .map(|headline| info(&headline, left_room - claude_left.width()))
             .unwrap_or_default();
-        spans.extend(claude.spans);
-        let room = usize::from(right_width.saturating_sub(2));
-        let counted = state::title(counts, room);
+        let (left_name, right_name) = if self.swapped {
+            let used = Line::from(spans.clone()).width();
+            (
+                self.editor_title(left_room - used, editor_style),
+                claude_title(self.nerd_font, named_room, claude_style),
+            )
+        } else {
+            (claude_left, self.editor_title(named_room, editor_style))
+        };
+        spans.extend(left_name.spans);
+        let [left_block, right_block] = self.ordered([claude_block, editor_block]);
+        self.ordered([
+            left_block.title(Line::from(spans)),
+            right_block.title(right_name).title(counted.right_aligned()),
+        ])
+    }
+
+    fn editor_title(&self, room: usize, style: Modifier) -> Line<'static> {
         let editor = self.editor.as_ref().map_or_else(String::new, |program| {
             tabs::editor_named(
                 program.name(),
@@ -171,22 +236,26 @@ impl App {
                     .get(self.selected)
                     .and_then(|entry| entry.editor())
                     .map(|editor| editor.label.as_str()),
-                room.saturating_sub(counted.width() + 2),
+                room.saturating_sub(2),
             )
         });
-        let editor = if editor.is_empty() {
+        if editor.is_empty() {
             Line::default()
         } else {
-            named(editor, editor_style)
-        };
-        [
-            left.title(Line::from(spans)),
-            right.title(editor).title(counted.right_aligned()),
-        ]
+            named(editor, style)
+        }
     }
 
     pub(super) fn halves(&self, area: Rect) -> Option<[Rect; 2]> {
-        (self.side_by_side && area.width >= WIDEST).then(|| split(area))
+        (self.side_by_side && area.width >= WIDEST).then(|| self.ordered(split(area)))
+    }
+
+    fn ordered<T>(&self, [left, right]: [T; 2]) -> [T; 2] {
+        if self.swapped {
+            [right, left]
+        } else {
+            [left, right]
+        }
     }
 
     pub(super) fn settle_side(&mut self) {
@@ -214,6 +283,29 @@ pub(super) fn is_side(key: KeyEvent) -> bool {
         && key.modifiers == KeyModifiers::ALT
         && key.kind == KeyEventKind::Press
         && !key.state.contains(ESCAPED)
+}
+
+pub(super) fn swaps(key: KeyEvent) -> Option<bool> {
+    if key.modifiers - KeyModifiers::SHIFT != KeyModifiers::ALT
+        || key.kind != KeyEventKind::Press
+        || key.state.contains(ESCAPED)
+    {
+        return None;
+    }
+    match key.code {
+        KeyCode::Char('{') => Some(false),
+        KeyCode::Char('}') => Some(true),
+        _ => None,
+    }
+}
+
+fn claude_title(nerd_font: bool, room: usize, style: Modifier) -> Line<'static> {
+    let claude = named(tabs::claude(nerd_font), style);
+    if claude.width() <= room {
+        claude
+    } else {
+        Line::default()
+    }
 }
 
 fn named(name: String, style: Modifier) -> Line<'static> {

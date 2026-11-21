@@ -74,7 +74,7 @@ impl App {
         let below_rows = sidebar_block.inner(sidebar);
         let beside = self
             .halves(frame.area())
-            .map_or(Rect::default(), |[_, right]| right);
+            .map_or(Rect::default(), |[_, editor]| editor);
         let on_editor = self
             .sessions
             .get(self.selected)

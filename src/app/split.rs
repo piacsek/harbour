@@ -9,8 +9,8 @@ const NARROWEST: u16 = 15;
 
 impl App {
     pub(super) fn areas(&self, area: Rect) -> (Rect, Rect) {
-        if let Some([left, _]) = self.halves(area) {
-            (Rect::default(), left)
+        if let Some([claude, _]) = self.halves(area) {
+            (Rect::default(), claude)
         } else if self.zoomed || self.side_by_side {
             (Rect::default(), area)
         } else if area.width >= NARROW {

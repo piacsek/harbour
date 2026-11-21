@@ -36,8 +36,17 @@ impl App {
         if self.jump_by_key(key)
             || self.zoom_by_key(key)
             || self.side_by_key(key)
+            || self.swap_by_key(key)
             || self.resize_by_key(key)
             || self.find_by_key(key)
+        {
+            return;
+        }
+        if self.pane_focused
+            && self.side_by_side
+            && self.swapped
+            && (is_ctrl(acted, 'h') || is_ctrl(acted, 'l'))
+            && self.swapped_ctrl(key, is_ctrl(acted, 'h'))
         {
             return;
         }
@@ -62,6 +71,7 @@ impl App {
         }
         if self.pane_focused
             && is_ctrl(acted, 'l')
+            && !(self.side_by_side && self.swapped)
             && self
                 .sessions
                 .get(self.selected)

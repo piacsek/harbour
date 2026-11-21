@@ -68,6 +68,33 @@ fn a_wheel_over_the_unfocused_editor_half_reaches_it_and_keeps_the_focus() {
     assert_eq!(screen.cell(0, 0).symbol(), "┏");
 }
 
+#[test]
+fn swapped_a_click_in_the_left_half_focuses_the_editor_and_reaches_it() {
+    let mut screen = side_by_side(reading_agent(), raw_editor(CLICKS, 9));
+    swap(&mut screen);
+
+    screen.mouse(MouseEventKind::Down(MouseButton::Left), 5, 3);
+
+    screen.wait_for("acme editor read:[<0;5;3M");
+    assert_eq!(screen.cell(0, 0).symbol(), "┏");
+    assert_eq!(screen.cell(60, 0).symbol(), "┌");
+}
+
+#[test]
+fn swapped_a_drag_from_the_right_half_across_the_middle_stays_with_claude_code() {
+    let mut screen = side_by_side(raw_agent(DRAGS, 19), raw_editor(DRAGS, 19));
+    swap(&mut screen);
+
+    screen.mouse(MouseEventKind::Down(MouseButton::Left), 65, 3);
+    screen.mouse(MouseEventKind::Drag(MouseButton::Left), 10, 3);
+
+    let shown = screen.wait_for("acme agent read:[<0;5;3M[<32;1;3M");
+    assert!(
+        shown.contains("acme agent read:[<0;5;3M[<32;1;3M"),
+        "{shown}"
+    );
+}
+
 fn side_by_side(agent: Vec<String>, editor: Program) -> Screen {
     let mut screen = Screen::editing(agent, editor);
     screen.press('n');
@@ -75,4 +102,8 @@ fn side_by_side(agent: Vec<String>, editor: Program) -> Screen {
     screen.key(KeyCode::Char('\\'), KeyModifiers::ALT);
     screen.wait_for("acme editor ready");
     screen
+}
+
+fn swap(screen: &mut Screen) {
+    screen.key(KeyCode::Char('}'), KeyModifiers::ALT);
 }
