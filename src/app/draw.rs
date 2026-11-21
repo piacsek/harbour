@@ -44,6 +44,7 @@ impl App {
         self.follow_selected();
         self.screen = frame.area();
         self.log_changes();
+        self.settle_side();
         self.settle_zoom();
         let (sidebar, pane) = self.areas(frame.area());
         self.sidebar = sidebar;
@@ -78,11 +79,12 @@ impl App {
             .sessions
             .get(self.selected)
             .is_some_and(|entry| entry.on_editor);
-        let left_focused = self.pane_focused && !(self.side_by_side && on_editor);
+        let split = !beside.is_empty();
+        let left_focused = self.pane_focused && !(split && on_editor);
         let beside_block = bordered(self.pane_focused && on_editor, self.accent);
         self.beside = beside_block.inner(beside);
         let mut pane_block = bordered(left_focused, self.accent);
-        if self.zoomed {
+        if self.zoomed || self.side_by_side {
             pane_block = self.zoom_border(pane_block, pane.width, counts);
         } else if let Some(tabs) = self.tabs(usize::from(pane.width.saturating_sub(2))) {
             pane_block = pane_block.title(tabs);
@@ -157,7 +159,7 @@ impl App {
                     frame.buffer_mut(),
                 );
                 if !pane.is_empty() {
-                    let left = if self.side_by_side {
+                    let left = if split {
                         shown.session.as_ref()
                     } else {
                         shown.shown()
@@ -181,9 +183,12 @@ impl App {
                         cursor = (None, 0);
                     }
                 }
-                if let Some(editor) = shown.editor().filter(|_| !beside.is_empty()) {
+                if let Some(editor) = shown.editor().filter(|_| split) {
                     frame.render_widget(beside_block, beside);
                     frame.render_widget(&editor.session, self.beside);
+                    if self.pane_focused && on_editor {
+                        cursor = placed(&editor.session, self.beside);
+                    }
                 }
             }
         }

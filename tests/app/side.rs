@@ -202,6 +202,153 @@ fn the_width_keys_do_nothing_side_by_side() {
     assert!(!shown.contains("got: ="), "{shown}");
 }
 
+#[test]
+fn ctrl_l_from_the_claude_code_half_focuses_the_editor_half() {
+    let scratch = tempfile::tempdir().unwrap();
+    let mut screen = split(scratch.path());
+
+    screen.key(KeyCode::Char('l'), KeyModifiers::CONTROL);
+    screen.type_text("hi\r");
+
+    let shown = screen.wait_for("acme editor got: hi");
+    assert!(
+        region(&shown, 60, 60).contains("acme editor got: hi"),
+        "{shown}"
+    );
+    assert!(region(&shown, 0, 60).contains("acme agent 1"), "{shown}");
+    assert_eq!(pane_corner(&shown), 60, "{shown}");
+}
+
+#[test]
+fn ctrl_h_from_the_editor_half_focuses_claude_code() {
+    let scratch = tempfile::tempdir().unwrap();
+    let mut screen = split(scratch.path());
+    screen.key(KeyCode::Char('l'), KeyModifiers::CONTROL);
+
+    screen.key(KeyCode::Char('h'), KeyModifiers::CONTROL);
+    screen.type_text("hi\r");
+
+    let shown = screen.wait_for("acme agent 1 got: hi");
+    assert!(
+        region(&shown, 0, 60).contains("acme agent 1 got: hi"),
+        "{shown}"
+    );
+    assert_eq!(pane_corner(&shown), 60, "{shown}");
+}
+
+#[test]
+fn ctrl_h_from_the_claude_code_half_brings_the_sidebar_back_focused() {
+    let scratch = tempfile::tempdir().unwrap();
+    let mut screen = split(scratch.path());
+
+    screen.key(KeyCode::Char('h'), KeyModifiers::CONTROL);
+
+    let shown = screen.draw();
+    assert_eq!(pane_corner(&shown), 40, "{shown}");
+    assert!(shown.starts_with('┏'), "{shown}");
+}
+
+#[test]
+fn the_editor_exiting_leaves_claude_code_zoomed() {
+    let scratch = tempfile::tempdir().unwrap();
+    let editor = Program::new(
+        "acme-edit",
+        script("echo 'acme editor ready'; read -r line"),
+    );
+    let mut screen = Screen::editing(agent(scratch.path()), editor);
+    screen.press('n');
+    screen.wait_for("acme agent 1");
+    side(&mut screen);
+    screen.wait_for("acme editor ready");
+    screen.key(KeyCode::Char('l'), KeyModifiers::CONTROL);
+
+    screen.type_text("q\r");
+
+    let shown = screen.wait_until("the editor gone", |shown| !shown.contains("acme editor"));
+    assert_eq!(corners(&shown), 1, "{shown}");
+    assert!(shown.lines().next().unwrap().ends_with('┓'), "{shown}");
+    assert!(shown.contains("acme agent 1"), "{shown}");
+}
+
+#[test]
+fn the_session_exiting_brings_the_sidebar_back() {
+    let editor = Program::new("acme-edit", editor());
+    let mut screen = Screen::editing(script("echo 'acme agent 1'; read -r line"), editor);
+    screen.press('n');
+    screen.wait_for("acme agent 1");
+    side(&mut screen);
+    screen.wait_for("acme editor ready");
+
+    screen.type_text("bye\r");
+
+    let shown = screen.wait_for("exited");
+    assert_eq!(pane_corner(&shown), 40, "{shown}");
+}
+
+#[test]
+fn under_120_columns_the_focused_half_shows_alone_until_the_terminal_widens() {
+    let scratch = tempfile::tempdir().unwrap();
+    let mut screen = split(scratch.path());
+
+    screen.resize(100, 20);
+    let narrow = screen.draw();
+    screen.resize(120, 20);
+
+    let shown = screen.draw();
+    assert_eq!(corners(&narrow), 1, "{narrow}");
+    assert!(narrow.contains("acme agent 1"), "{narrow}");
+    assert!(!narrow.contains("acme editor ready"), "{narrow}");
+    assert_eq!(pane_corner(&shown), 60, "{shown}");
+}
+
+#[test]
+fn only_the_claude_code_half_shows_a_cursor_while_it_has_focus() {
+    let scratch = tempfile::tempdir().unwrap();
+    let screen = split(scratch.path());
+
+    let cursor = screen.cursor().unwrap();
+
+    assert!(cursor.x < 60, "{cursor:?}");
+}
+
+#[test]
+fn only_the_editor_half_shows_a_cursor_while_it_has_focus() {
+    let scratch = tempfile::tempdir().unwrap();
+    let mut screen = split(scratch.path());
+
+    screen.key(KeyCode::Char('l'), KeyModifiers::CONTROL);
+
+    let cursor = screen.cursor().unwrap();
+    assert!(cursor.x > 60, "{cursor:?}");
+}
+
+#[test]
+fn ctrl_2_from_side_by_side_shows_the_second_session_beside_its_editor() {
+    let scratch = tempfile::tempdir().unwrap();
+    let mut screen = editing(scratch.path());
+    screen.key(KeyCode::Char('h'), KeyModifiers::CONTROL);
+    screen.press('n');
+    screen.wait_for("acme agent 2");
+    screen.key(KeyCode::Char('1'), KeyModifiers::CONTROL);
+    side(&mut screen);
+    screen.wait_for("acme editor ready");
+
+    screen.key(KeyCode::Char('2'), KeyModifiers::CONTROL);
+
+    let shown = screen.wait_until("the second editor", |shown| {
+        region(shown, 0, 60).contains("acme agent 2")
+            && region(shown, 60, 60).contains("acme editor ready")
+    });
+    assert_eq!(pane_corner(&shown), 60, "{shown}");
+}
+
+fn split(scratch: &Path) -> Screen {
+    let mut screen = editing(scratch);
+    side(&mut screen);
+    screen.wait_for("acme editor ready");
+    screen
+}
+
 fn zoom(screen: &mut Screen) {
     screen.key(KeyCode::Char('z'), KeyModifiers::ALT);
 }

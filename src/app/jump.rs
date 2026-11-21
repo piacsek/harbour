@@ -7,8 +7,13 @@ impl App {
         if index >= self.sessions.len() {
             return;
         }
+        let side = self.side_by_side;
         self.select(index);
         self.focus_or_resume();
+        if side {
+            self.side_by_side = false;
+            self.enter_side();
+        }
     }
 
     pub(super) fn jump_by_key(&mut self, key: KeyEvent) -> bool {
