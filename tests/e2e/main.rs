@@ -9,6 +9,7 @@ use harbour::tui::{DIR_PICKER, EDITOR, SESSION_COMMAND};
 mod cards;
 mod edit;
 mod editor;
+mod keys;
 mod log;
 mod moving;
 mod neovim;
@@ -479,6 +480,13 @@ impl Server {
             .status()
             .unwrap();
         assert!(status.success(), "could not set {args:?}");
+    }
+
+    fn server_option(&self, args: &[&str]) -> bool {
+        self.tmux(&[&["set-option", "-s"], args].concat())
+            .status()
+            .unwrap()
+            .success()
     }
 
     fn tmux(&self, args: &[&str]) -> Command {

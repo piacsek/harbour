@@ -102,7 +102,7 @@ fn the_whole_help_shows_on_an_80_by_24_terminal() {
     );
     assert!(shown.contains("status unknown"), "{shown}");
     assert!(shown.contains("in normal mode."), "{shown}");
-    assert!(shown.contains("use Alt-Enter for a newline."), "{shown}");
+    assert!(shown.contains("else Alt-Enter."), "{shown}");
     assert!(shown.contains("prints its path."), "{shown}");
 }
 
@@ -117,7 +117,7 @@ fn the_whole_help_shows_on_a_20_row_terminal() {
         shown.contains("select the next / previous session"),
         "{shown}"
     );
-    assert!(shown.contains("use Alt-Enter for a newline."), "{shown}");
+    assert!(shown.contains("else Alt-Enter."), "{shown}");
     assert!(shown.contains("prints its path."), "{shown}");
 }
 

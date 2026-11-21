@@ -51,7 +51,7 @@ fn plain(key: KeyEvent) -> Vec<u8> {
         }
         KeyCode::Char(c) => c.to_string().into_bytes(),
         KeyCode::Enter => {
-            escaped |= shift;
+            escaped |= shift || ctrl;
             b"\r".to_vec()
         }
         KeyCode::Esc => b"\x1b".to_vec(),

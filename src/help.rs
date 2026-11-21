@@ -20,6 +20,6 @@ pub const NOTES: [&str; 6] = [
     "C-l opens nvim at Claude Code's repository root; HARBOUR_EDITOR names another.",
     "C-Backspace acts as C-h. In Neovim, C-h goes back only from the leftmost window, in normal mode.",
     "With vim-tmux-navigator, add harbour to the processes it sends C-h and C-l to.",
-    "Under tmux, Shift-Enter arrives as Enter: use Alt-Enter for a newline.",
+    "Under tmux, a newline is Shift-Enter with extended-keys on, else Alt-Enter.",
     "HARBOUR_LOG=1 keeps a private log; harbour log prints its path.",
 ];

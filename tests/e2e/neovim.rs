@@ -80,7 +80,7 @@ fn x_with_a_modified_buffer_says_there_are_unsaved_changes() {
 #[test]
 #[ignore]
 fn harbour_edit_twice_in_a_row_opens_the_second_file_in_the_neovim_the_first_started() {
-    let Some(neovim) = Neovim::beside_claude("nvim-twice") else {
+    let Some(neovim) = Neovim::beside_claude("nvim-twice", &[]) else {
         return;
     };
     let first = source_file(neovim.home.path(), "first.rs");
@@ -101,7 +101,7 @@ fn harbour_edit_twice_in_a_row_opens_the_second_file_in_the_neovim_the_first_sta
 #[test]
 #[ignore]
 fn harbour_edit_starting_a_neovim_stopped_at_a_stale_swap_prompt_is_refused() {
-    let Some(neovim) = Neovim::beside_claude("nvim-edit-swap") else {
+    let Some(neovim) = Neovim::beside_claude("nvim-edit-swap", &[]) else {
         return;
     };
     let file = source_file(neovim.home.path(), "main.rs");
@@ -115,6 +115,21 @@ fn harbour_edit_starting_a_neovim_stopped_at_a_stale_swap_prompt_is_refused() {
     assert_eq!(output.status.code(), Some(2));
 }
 
+#[test]
+#[ignore]
+fn shift_enter_in_insert_mode_with_extended_keys_on_starts_a_line_and_stays_in_insert_mode() {
+    let Some(neovim) = Neovim::start_with("nvim-shift-enter", &[&["extended-keys", "on"]]) else {
+        return;
+    };
+
+    neovim
+        .server
+        .send_keys(&["i", "acme-one", "S-Enter", "acme-two"]);
+
+    neovim.shows("┃acme-two");
+    neovim.shows("-- INSERT --");
+}
+
 struct Neovim {
     server: Server,
     home: TempDir,
@@ -122,7 +137,11 @@ struct Neovim {
 
 impl Neovim {
     fn start(name: &str) -> Option<Neovim> {
-        let neovim = Neovim::beside_claude(name)?;
+        Neovim::start_with(name, &[])
+    }
+
+    fn start_with(name: &str, options: &[&[&str]]) -> Option<Neovim> {
+        let neovim = Neovim::beside_claude(name, options)?;
         neovim.server.send_keys(&["C-l"]);
         let editing = neovim.server.wait_for_screen("claude | nvim: ");
         assert!(editing.contains("claude | nvim: "), "{editing}");
@@ -130,7 +149,7 @@ impl Neovim {
         Some(neovim)
     }
 
-    fn beside_claude(name: &str) -> Option<Neovim> {
+    fn beside_claude(name: &str, options: &[&[&str]]) -> Option<Neovim> {
         let Some(real) = nvim_on_path() else {
             eprintln!(
                 "skipping {name}: no nvim on PATH, so the real-Neovim test has nothing to run"
@@ -146,6 +165,10 @@ impl Neovim {
         std::fs::create_dir(&sockets).unwrap();
         let sockets = sockets.display().to_string();
         let server = Server::start(name, 200, 24);
+        if let Some(option) = options.iter().find(|option| !server.server_option(option)) {
+            eprintln!("skipping {name}: this tmux cannot set {option:?}");
+            return None;
+        }
         server.run(
             home.path(),
             &[

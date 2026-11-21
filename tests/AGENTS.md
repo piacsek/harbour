@@ -196,3 +196,8 @@ these suites come from; the ones about sessions were hit in harbour.
   pane's directory starts harbour with `Server::exec`, which makes it the pane's own process. No
   in-process test really moves the process: `App::new` moves nothing, and `tests/app/moving.rs`
   hands the app a recording mover.
+- **`extended-keys-format` needs tmux 3.5.** The tests of `tests/e2e/keys.rs` set it (and
+  `extended-keys`, which `always` needs from 3.2) on the scratch server before harbour starts;
+  when tmux refuses an option they print why and pass, as the Neovim tests do without `nvim`,
+  so an older tmux runs them as no-ops instead of failing the gates. `Server::server_option`
+  says whether tmux took it; the real-Neovim test under `extended-keys on` skips the same way.
