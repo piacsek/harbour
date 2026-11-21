@@ -7,7 +7,7 @@ use harbour::text::columns;
 use harbour::transcript::Facts;
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
-use ratatui::style::Modifier;
+use ratatui::style::{Color, Modifier};
 
 #[test]
 fn under_a_minute_reads_less_than_a_minute() {
@@ -158,7 +158,7 @@ fn drawn(facts: &Facts, width: u16) -> Vec<String> {
     );
     let area = Rect::new(0, 0, width, 3);
     let mut buffer = Buffer::empty(area);
-    Sidebar::default().draw(&[card], 1, area, &mut buffer);
+    Sidebar::default().draw(&[card], 1, Color::Cyan, area, &mut buffer);
     (0..3).map(|y| row(&buffer, y, width)).collect()
 }
 
@@ -176,7 +176,7 @@ fn row(buffer: &Buffer, y: u16, width: u16) -> String {
 fn sidebar(cards: &[Card], selected: usize, width: u16) -> (Vec<String>, Buffer) {
     let area = Rect::new(0, 0, width, 7);
     let mut buffer = Buffer::empty(area);
-    Sidebar::default().draw(cards, selected, area, &mut buffer);
+    Sidebar::default().draw(cards, selected, Color::Cyan, area, &mut buffer);
     let rows = (0..7).map(|y| row(&buffer, y, width)).collect();
     (rows, buffer)
 }

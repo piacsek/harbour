@@ -9,6 +9,20 @@ use std::time::{Duration, Instant, SystemTime};
 use harbour::handoff::{Claim, Listener, Reply, Verb};
 
 #[test]
+fn a_bad_config_file_is_never_read() {
+    let scratch = tempfile::tempdir().unwrap();
+    fs::write(scratch.path().join("main.rs"), "").unwrap();
+    let config = scratch.path().join(".config/harbour");
+    fs::create_dir_all(&config).unwrap();
+    fs::write(config.join("config.toml"), "retention_days = 7\n").unwrap();
+
+    let output = edit(scratch.path(), "main.rs");
+
+    assert_eq!(stderr(&output), "harbour: no harbour is running\n");
+    assert_eq!(output.status.code(), Some(3));
+}
+
+#[test]
 fn a_directory_is_refused() {
     let scratch = tempfile::tempdir().unwrap();
     fs::create_dir(scratch.path().join("acme-api")).unwrap();
@@ -526,6 +540,7 @@ fn command(scratch: &Path, file: &str) -> Command {
     command
         .args(["edit", file])
         .env("HOME", scratch)
+        .env_remove("XDG_CONFIG_HOME")
         .env("XDG_STATE_HOME", scratch.join("state"))
         .current_dir(scratch);
     command

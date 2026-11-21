@@ -125,7 +125,14 @@ pub struct Sidebar {
 }
 
 impl Sidebar {
-    pub fn draw(&mut self, cards: &[Card], selected: usize, area: Rect, buffer: &mut Buffer) {
+    pub fn draw(
+        &mut self,
+        cards: &[Card],
+        selected: usize,
+        accent: Color,
+        area: Rect,
+        buffer: &mut Buffer,
+    ) {
         let height = usize::from(area.height);
         self.scroll(cards.len(), selected, height);
         let width = usize::from(area.width.saturating_sub(2));
@@ -143,8 +150,8 @@ impl Sidebar {
                     break;
                 };
                 let y = area.y + row;
-                if chosen {
-                    buffer.set_string(area.x, y, "▌", Style::default().fg(Color::Cyan));
+                if chosen && area.width > 0 {
+                    buffer.set_string(area.x, y, "▌", Style::default().fg(accent));
                 }
                 buffer.set_line(area.x + 2, y, line, area.width.saturating_sub(2));
                 if chosen {

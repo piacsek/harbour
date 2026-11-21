@@ -7,6 +7,7 @@ use std::time::{Duration, Instant};
 use harbour::tui::{DIR_PICKER, EDITOR, SESSION_COMMAND};
 
 mod cards;
+mod config;
 mod cursor;
 mod edit;
 mod editor;
@@ -655,6 +656,7 @@ fn wait_for_status(home: &Path, expected: &str) -> String {
         let output = Command::new(env!("CARGO_BIN_EXE_harbour"))
             .arg("status")
             .env("HOME", home)
+            .env_remove("XDG_CONFIG_HOME")
             .env_remove("XDG_STATE_HOME")
             .output()
             .unwrap();

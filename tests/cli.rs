@@ -345,11 +345,16 @@ fn log_without_a_log_writes_nothing_on_stderr() {
 
 const USAGE: &str = "harbour: Harbour: where shipping begins
 
-usage: harbour [--demo | --help | --version | changelog | status | log | edit [--] <file>]
+usage: harbour [--demo | --help | --version | changelog | status | log | config | edit [--] <file>]
 
 With no argument on a terminal, harbour opens a sidebar of Claude Code sessions
 beside a live pane. --demo opens the same with made-up sessions: no claude needed.
 In harbour, ? shows the keys and what the dots mean.
+Settings come from $XDG_CONFIG_HOME/harbour/config.toml, else
+~/.config/harbour/config.toml, read at start: editor, picker and
+session_command (each a list: the program, then its arguments), sidebar_width
+(columns) and accent (a colour name or #rrggbb). A HARBOUR_ variable outranks
+the file. config prints each setting and where it comes from.
 n runs fzf over the directory harbour was opened in and zoxide's list;
 HARBOUR_DIR_PICKER names another picker.
 C-l opens nvim at Claude Code's repository root; HARBOUR_EDITOR names another.
@@ -381,8 +386,11 @@ fn version_line() -> String {
 }
 
 fn launch(args: &[&str]) -> Output {
+    let home = tempfile::tempdir().unwrap();
     Command::new(env!("CARGO_BIN_EXE_harbour"))
         .args(args)
+        .env("HOME", home.path())
+        .env_remove("XDG_CONFIG_HOME")
         .output()
         .unwrap()
 }
@@ -391,6 +399,7 @@ fn launch_at_home(home: &std::path::Path, args: &[&str]) -> Output {
     Command::new(env!("CARGO_BIN_EXE_harbour"))
         .args(args)
         .env("HOME", home)
+        .env_remove("XDG_CONFIG_HOME")
         .env("XDG_STATE_HOME", home.join("state"))
         .current_dir(home)
         .output()
@@ -406,8 +415,11 @@ fn stderr(output: &Output) -> String {
 }
 
 fn launch_with_bytes(arg: &[u8]) -> Output {
+    let home = tempfile::tempdir().unwrap();
     Command::new(env!("CARGO_BIN_EXE_harbour"))
         .arg(OsStr::from_bytes(arg))
+        .env("HOME", home.path())
+        .env_remove("XDG_CONFIG_HOME")
         .output()
         .unwrap()
 }

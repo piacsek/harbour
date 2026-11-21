@@ -75,6 +75,21 @@ fn a_busy_session_shows_a_yellow_filled_dot() {
 }
 
 #[test]
+fn the_accent_leaves_the_dots_their_colours() {
+    let registry = tempfile::tempdir().unwrap();
+    let mut screen = showing(
+        App::new(registered(registry.path(), "busy"))
+            .with_registry(registry.path().to_path_buf())
+            .with_accent(Color::Magenta),
+    );
+    screen.press('n');
+
+    screen.wait_for(&format!("● {} 1", directory()));
+
+    assert_eq!(screen.cell(3, 1).fg, Color::Yellow);
+}
+
+#[test]
 fn a_session_running_a_shell_command_shows_as_working() {
     let registry = tempfile::tempdir().unwrap();
     let mut screen = watching(registry.path(), registered(registry.path(), "shell"));

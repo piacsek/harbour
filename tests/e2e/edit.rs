@@ -59,7 +59,11 @@ pub fn source_file(home: &Path, name: &str) -> PathBuf {
 
 pub fn handed(home: &Path, state: Option<&str>, file: &Path) -> Output {
     let mut command = Command::new(env!("CARGO_BIN_EXE_harbour"));
-    command.arg("edit").arg(file).env("HOME", home);
+    command
+        .arg("edit")
+        .arg(file)
+        .env("HOME", home)
+        .env_remove("XDG_CONFIG_HOME");
     match state {
         Some(state) => command.env("XDG_STATE_HOME", state),
         None => command.env_remove("XDG_STATE_HOME"),

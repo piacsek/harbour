@@ -2,15 +2,21 @@ use std::io::IsTerminal;
 use std::process::ExitCode;
 
 use harbour::changelog::CHANGELOG;
+use harbour::config::Config;
 use harbour::{handoff, log, state, summary};
 
 const USAGE: &str = "harbour: Harbour: where shipping begins
 
-usage: harbour [--demo | --help | --version | changelog | status | log | edit [--] <file>]
+usage: harbour [--demo | --help | --version | changelog | status | log | config | edit [--] <file>]
 
 With no argument on a terminal, harbour opens a sidebar of Claude Code sessions
 beside a live pane. --demo opens the same with made-up sessions: no claude needed.
 In harbour, ? shows the keys and what the dots mean.
+Settings come from $XDG_CONFIG_HOME/harbour/config.toml, else
+~/.config/harbour/config.toml, read at start: editor, picker and
+session_command (each a list: the program, then its arguments), sidebar_width
+(columns) and accent (a colour name or #rrggbb). A HARBOUR_ variable outranks
+the file. config prints each setting and where it comes from.
 n runs fzf over the directory harbour was opened in and zoxide's list;
 HARBOUR_DIR_PICKER names another picker.
 C-l opens nvim at Claude Code's repository root; HARBOUR_EDITOR names another.
@@ -56,9 +62,13 @@ fn main() -> ExitCode {
             ExitCode::SUCCESS
         }
         [Some("log")] => print_log(),
+        [Some("config")] => print_config(),
         [Some("edit"), Some("--"), file] if file != Some("") => edit(&args[2]),
         [Some("edit"), file] if !matches!(file, Some("--" | "")) => edit(&args[1]),
-        [] if on_a_terminal() => shown(harbour::tui::run()),
+        [] if on_a_terminal() => match Config::from_env() {
+            Ok(config) => shown(harbour::tui::run(config)),
+            Err(refusal) => refused(&refusal),
+        },
         [Some("--demo")] if on_a_terminal() => shown(harbour::tui::demo()),
         _ => {
             eprintln!("{USAGE}");
@@ -75,6 +85,23 @@ fn print_status() {
     if !line.is_empty() {
         println!("{line}");
     }
+}
+
+fn print_config() -> ExitCode {
+    match Config::from_env() {
+        Ok(config) => {
+            for line in config.report().lines() {
+                println!("{}", escaped(line));
+            }
+            ExitCode::SUCCESS
+        }
+        Err(refusal) => refused(&refusal),
+    }
+}
+
+fn refused(refusal: &harbour::config::Refusal) -> ExitCode {
+    eprintln!("harbour: {}", escaped(&refusal.to_string()));
+    ExitCode::FAILURE
 }
 
 fn print_log() -> ExitCode {
