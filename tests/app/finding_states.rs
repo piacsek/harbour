@@ -57,7 +57,7 @@ fn a_stopped_card_merged_while_the_list_was_open_jumps_to_the_session_that_holds
 
     fs::write(&go, "").unwrap();
     screen.wait_until("the stopped card to merge", |shown| {
-        !shown.contains("stopped")
+        !outside_the_list(shown).contains("stopped")
     });
     screen.type_text(&format!("{TITLE}\r"));
     screen.wait_until("the popup to close", |shown| !shown.contains("acme fzf"));
@@ -361,6 +361,7 @@ fn the_keys_harbour_binds_go_to_fzf_while_the_list_is_open() {
     screen.key(KeyCode::Char('2'), KeyModifiers::CONTROL);
     screen.key(KeyCode::Char('z'), KeyModifiers::ALT);
     screen.press('u');
+    screen.key(KeyCode::Esc, KeyModifiers::NONE);
     screen.type_text("\r");
 
     let shown = screen.wait_until("the popup to close", |shown| !shown.contains("acme fzf"));
@@ -605,4 +606,12 @@ fn sidebar_text(shown: &str) -> String {
         .map(str::trim_end)
         .collect::<Vec<_>>()
         .join(" ")
+}
+
+fn outside_the_list(shown: &str) -> String {
+    shown
+        .lines()
+        .filter(|line| !line.contains('|'))
+        .collect::<Vec<_>>()
+        .join("\n")
 }

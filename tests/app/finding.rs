@@ -62,7 +62,9 @@ fn fzf_is_given_the_options_that_hide_and_skip_the_number() {
     assert_eq!(command[fzf + 9], "--no-sort");
     assert_eq!(command[fzf + 10], "--layout=reverse");
     assert_eq!(command[fzf + 11], "--bind=enter:accept");
-    assert_eq!(command.len(), fzf + 12);
+    assert_eq!(command[fzf + 12], "--no-preview");
+    assert_eq!(command[fzf + 13], "--header-lines=0");
+    assert_eq!(command.len(), fzf + 14);
 }
 
 #[test]
@@ -72,6 +74,7 @@ fn esc_closes_the_popup_and_changes_neither_the_selection_nor_the_focus() {
     alt_s(&mut screen);
     screen.wait_for("acme fzf ready");
 
+    screen.key(KeyCode::Esc, KeyModifiers::NONE);
     screen.type_text("\r");
     screen.wait_until("the popup to close", |shown| !shown.contains("acme fzf"));
     screen.press('k');

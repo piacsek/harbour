@@ -1,4 +1,4 @@
-use harbour::finder::{chosen, lines};
+use harbour::finder::{Row, chosen, lines};
 use harbour::state::State;
 use harbour::zoom::Headline;
 
@@ -19,6 +19,32 @@ fn the_places_and_ages_line_up_down_the_list() {
     let rows: Vec<&str> = listed.lines().collect();
     assert_eq!(rows[0], "0\t○\tacme web     \tacme-web · main \t 3m");
     assert_eq!(rows[1], "1\t○\tacme api fix \tacme-api        \t<1m");
+}
+
+#[test]
+fn an_exited_session_says_exited_in_place_of_its_age() {
+    let listed = listed(&[exited(headline("acme web", "acme-web", Some("3m")))]);
+
+    assert_eq!(listed, "0\t○\tacme web \tacme-web \texited\n");
+}
+
+#[test]
+fn a_stopped_card_says_stopped_in_place_of_its_age() {
+    let listed = listed(&[stopped(headline("acme web", "acme-web", None))]);
+
+    assert_eq!(listed, "0\t○\tacme web \tacme-web \tstopped\n");
+}
+
+#[test]
+fn the_ages_line_up_with_the_words() {
+    let listed = listed(&[
+        headline("acme web", "acme-web", Some("3m")),
+        stopped(headline("acme api", "acme-api", None)),
+    ]);
+
+    let rows: Vec<&str> = listed.lines().collect();
+    assert_eq!(rows[0], "0\t○\tacme web \tacme-web \t     3m");
+    assert_eq!(rows[1], "1\t○\tacme api \tacme-api \tstopped");
 }
 
 #[test]
@@ -66,7 +92,7 @@ fn a_cjk_title_is_kept_whole_and_the_place_still_lines_up() {
 
 #[test]
 fn a_hundred_cards_give_a_hundred_lines_numbered_from_zero() {
-    let headlines: Vec<Headline> = (0..100)
+    let headlines: Vec<Row> = (0..100)
         .map(|n| headline(&format!("acme {n}"), "acme-web", None))
         .collect();
 
@@ -92,15 +118,30 @@ fn a_line_without_a_number_chooses_nothing() {
     assert_eq!(chosen(b"acme web"), None);
 }
 
-fn listed(headlines: &[Headline]) -> String {
-    String::from_utf8(lines(headlines)).unwrap()
+fn listed(rows: &[Row]) -> String {
+    String::from_utf8(lines(rows)).unwrap()
 }
 
-fn headline(title: &str, place: &str, age: Option<&str>) -> Headline {
-    Headline {
-        state: State::Idle,
-        title: title.to_string(),
-        place: place.to_string(),
-        age: age.map(String::from),
+fn headline(title: &str, place: &str, age: Option<&str>) -> Row {
+    Row {
+        headline: Headline {
+            state: State::Idle,
+            title: title.to_string(),
+            place: place.to_string(),
+            age: age.map(String::from),
+        },
+        stopped: false,
+    }
+}
+
+fn exited(mut row: Row) -> Row {
+    row.headline.state = State::Exited;
+    row
+}
+
+fn stopped(row: Row) -> Row {
+    Row {
+        stopped: true,
+        ..exited(row)
     }
 }

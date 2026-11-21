@@ -65,19 +65,25 @@ Esc closes it and changes nothing. It works from the sidebar and from a Claude C
 - **fzf's arguments**, after the user's `FZF_DEFAULT_OPTS` and the directory picker's
   `--no-expect --no-print-query --no-read0 --no-print0`:
   `--delimiter=<TAB> --with-nth=2.. --nth=2,3 --tabstop=1 --no-sort --layout=reverse
-  --bind=enter:accept`, then `--accept-nth=..` when the popup's shell finds that
-  `fzf --accept-nth=.. --version` exits 0 (fzf 0.60 and later), so neither an `enter` binding
-  nor an `--accept-nth` in `FZF_DEFAULT_OPTS` changes the line fzf prints, and an older fzf
-  still runs. `--no-sort` keeps the sidebar's order, `--layout=reverse` lists it top-down as the
+  --bind=enter:accept --no-preview --header-lines=0`, then `--accept-nth=..` when the popup's
+  shell finds that `fzf --accept-nth=.. --version` exits 0 (fzf 0.60 and later), so neither an
+  `enter` binding nor an `--accept-nth` in `FZF_DEFAULT_OPTS` changes the line fzf prints, a
+  `--preview` there runs nothing on a session line, a `--header-lines` there leaves the first
+  session pickable, and an older fzf still runs (`--no-preview` and `--header-lines` are far
+  older than 0.60, so they need no probe). `--no-sort` keeps the sidebar's order, `--layout=reverse` lists it top-down as the
   sidebar does.
 - **A line**: `<n>\t<dot>\t<title>\t<place>\t<age>`, where `<n>` is the card's position when the
-  popup opened, never shown or matched. The title and place are `text::clean`ed as the card
+  popup opened, never shown or matched, and `<age>` is the word `stopped` for a stopped card and
+  `exited` for an ended session, which share the idle `○` and no colour reaches fzf, so two
+  sessions of one title can be told apart; a running session keeps its time. The title and place are `text::clean`ed as the card
   does them (no tab, newline, escape or other control character survives, so no title can
-  split a field or a line), then padded, never cut, to the widest title and the widest place,
+  split a field or a line, and each kept to 512 characters), then padded, never cut further, to
+  the widest title and the widest place,
   measured by display width; with `--tabstop=1` each tab is one column, so the place and age
   line up, and fzf cuts what overflows its window with `··` and scrolls the line to the match,
   so every word of a title can be matched. The title and place are the zoomed border's (`headline`): the
-  transcript's title, else the card's name; `repository · branch`; the time in its state.
+  transcript's title, else the card's name; `repository · branch`; the time in its state,
+  right-aligned with the words.
 - **The list is the one from when the popup opened.** The finder keeps, for each position, who
   was there: a session (running or exited) by its id and its remembered session id, a stopped
   card by its remembered session id. A pick finds that session whether it still runs or not;
@@ -97,7 +103,8 @@ Esc closes it and changes nothing. It works from the sidebar and from a Claude C
   logged as `input to=picker bytes=<n>`, never its text.
 - **The help view** gets one row, `M-s  jump to a session by part of its name`. To keep the
   whole help on 20 rows beside the narrowest sidebar (59 and 60 columns), the `C-l/Enter` row
-  becomes `focus or resume; from Claude Code, its editor` (45 columns, one row at 59). The
+  becomes `focus or resume; C-l in Claude Code: editor` (43 columns, one row at 59), naming the
+  key, since only C-l opens the editor from Claude Code. The
   headroom test goes from 2 spare rows to 1 on purpose, and to 0 once phase 27's width row is merged.
 
 ## States
@@ -121,7 +128,10 @@ Esc closes it and changes nothing. It works from the sidebar and from a Claude C
 | The list changes while the popup is open (a session exits, a title or branch changes) | the popup keeps the list from when it opened; a pick goes by the rows above |
 | 100 stopped cards | 100 lines plus the running sessions; fzf scrolls and filters them |
 | A CJK title | padded by display width, the place still lines up; fzf cuts it with `··` |
-| A title longer than the popup | kept whole: a word at its end matches, and fzf scrolls the line to it |
+| A title longer than the popup | kept whole up to 512 characters: a word at its end matches, and fzf scrolls the line to it |
+| Two sessions of one title, one stopped or exited | the last column says `stopped` or `exited` for it, the running one its time |
+| The list file cannot be written | nothing opens, `Could not list the sessions: <error>` |
+| `--preview` or `--header-lines` in `FZF_DEFAULT_OPTS` | no preview pane, every session pickable: `--no-preview --header-lines=0` come after the user's options |
 | A title holding a tab, a newline, an escape sequence | cleaned as on the card: no field or line is split, no escape reaches fzf |
 | The narrow layout (under 60 columns) | the popup is 80% of the screen as the directory picker's; the pick shows the pane as Ctrl-N does |
 | Zoomed | the popup opens over the zoomed pane; a pick of a live session stays zoomed |
@@ -159,12 +169,14 @@ Each task ships whole: every new `pub` item ships with its first caller.
 
 Tests use `tests/fixtures/finder/fzf`, a script named `fzf` that prints its arguments and the
 list it read, then reads a line from its terminal and prints the first listed line holding it
-(an empty line exits 130, `broken` exits 2), never a real fzf.
+(a line starting with Esc exits 130, an empty one is read past, `broken` exits 2), never a real
+fzf.
 
 ## Outcome
 
 - Alt-s opens the directory picker's popup with the border title ` sessions ` and runs fzf over
-  one line per card, `<n>\t<dot>\t<title>\t<place>\t<age>`, in sidebar order. Typing filters by
+  one line per card, `<n>\t<dot>\t<title>\t<place>\t<age>`, in sidebar order, the age `stopped`
+  or `exited` for a card that does not run. Typing filters by
   title, repository and branch, Enter jumps to the pick through `App::jump`, as Ctrl-1 to Ctrl-9
   do (a stopped card resumes), Esc closes it and changes nothing.
 - The key rule is Alt-z's: taken only in an extended form (`CSI 27;3;115~` or `CSI 115;3u`,
@@ -175,12 +187,14 @@ list it read, then reads a line from its terminal and prints the first listed li
 - fzf only: the configured picker runs only when its file name is `fzf`; any other says
   `Could not start the session finder: it needs fzf, not <program>`. fzf's arguments, after the
   directory picker's: `--delimiter=<TAB> --with-nth=2.. --nth=2,3 --tabstop=1 --no-sort
-  --layout=reverse --bind=enter:accept`, plus `--accept-nth=..` where
-  `fzf --accept-nth=.. --version` succeeds, so the user's options cannot change the line fzf
-  prints and an older fzf still runs. The list goes to fzf through a file in the pick's private
+  --layout=reverse --bind=enter:accept --no-preview --header-lines=0`, plus `--accept-nth=..`
+  where `fzf --accept-nth=.. --version` succeeds, so the user's options cannot change the line
+  fzf prints, add a preview or hide a session, and an older fzf still runs. The list goes to fzf through a file in the pick's private
   directory, so no title is ever part of a shell word, and harbour reads the number before the
-  first tab of what fzf prints; a line without one says to check `FZF_DEFAULT_OPTS`. Titles and
-  places go to fzf whole, padded to the widest, so every word can be matched.
+  first tab of what fzf prints; a line without one says to check `FZF_DEFAULT_OPTS`, and a list
+  that cannot be written says `Could not list the sessions: <error>`. Titles (up to 512
+  characters, as cleaning keeps them) and places go to fzf whole, padded to the widest, so every
+  word can be matched.
 - The list is the one from when the popup opened: a session is kept by its id and remembered
   id, a stopped card by its remembered id. A session that ended while the list was open is still
   picked as its exited card (a remembered one resumes, as Ctrl-N), and a stopped card merged
@@ -189,12 +203,17 @@ list it read, then reads a line from its terminal and prints the first listed li
   width keys), paste and mouse event goes to fzf, and `harbour edit` is answered `none` or
   refused. The log names the key `M-s` and logs what is typed into the list as a byte count.
 - The help gained `M-s  jump to a session by part of its name`. To keep it whole at 59 and 60
-  columns by 20 rows, `C-l/Enter` now reads `focus or resume; from Claude Code, its editor`.
+  columns by 20 rows, `C-l/Enter` now reads `focus or resume; C-l in Claude Code: editor`.
   After merging phase 27 (the width keys, which added its own row and shortened `x`) the help
   fills a 20-row terminal with no row to spare; the headroom test says 0 and is renamed. The
   next key row needs a shorter row elsewhere or the pointer line moved first.
 - `scripts/screenshots.sh` shoots `docs/sessions.png` (the demo after M-s, with `extended-keys`
   on for that shot); `docs/keys.png` and `docs/help.png` were shot again.
+- 2 review rounds. Round 1 found the exited and merged picks, cut titles, the user's
+  `FZF_DEFAULT_OPTS` changing the printed line, and stale docs; the clean round 2 left minor
+  points fixed in the last ship: `stopped` and `exited` in place of the age, the help row naming
+  C-l, `--no-preview --header-lines=0`, its own message for a list that cannot be written, and
+  the Esc test pressing Esc.
 
 ## Hurdles
 
@@ -213,3 +232,9 @@ list it read, then reads a line from its terminal and prints the first listed li
   cutting titles to the popup made their ends unsearchable, and that a user's `--accept-nth` or
   `enter` binding dropped the pick silently; the states table had no rows for a merge or for the
   user's fzf options → code
+- `review-loop` Round 1 found states the plan's table had not listed (a session ending or a
+  stopped card merging while the list was open, a user's `FZF_DEFAULT_OPTS`); they became rows
+  of the table and tests → code
+- `test-seam` The fixture closed on an empty line, so the Esc test passed without Esc reaching
+  fzf; it now closes only on a line starting with Esc, read with `dd` since `read` cuts a line
+  at the NUL that Ctrl-2 sends (`head` first, which the e2e's scratch `PATH` lacks) → code

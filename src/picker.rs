@@ -1,5 +1,6 @@
 use std::env;
 use std::ffi::{OsStr, OsString};
+use std::fmt;
 use std::fs;
 use std::io;
 use std::os::unix::ffi::OsStrExt;
@@ -131,7 +132,7 @@ impl Pick {
             (_, Ok(())) => {}
         }
         if let Picker::Listed { lines, .. } = picker {
-            fs::write(scratch.path().join("listed"), lines)?;
+            fs::write(scratch.path().join("listed"), lines).map_err(listing)?;
         }
         let wrapped = picker.command(from, &output);
         let session = Session::start_as(Role::Picker, &wrapped, from, rows, cols)?;
@@ -216,4 +217,23 @@ fn startable(program: &str, from: &Path) -> io::Result<()> {
 
 fn executable(path: &Path) -> bool {
     fs::metadata(path).is_ok_and(|meta| meta.is_file() && meta.permissions().mode() & 0o111 != 0)
+}
+
+#[derive(Debug)]
+struct Listing(io::Error);
+
+impl fmt::Display for Listing {
+    fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        write!(formatter, "Could not list the sessions: {}", self.0)
+    }
+}
+
+impl std::error::Error for Listing {}
+
+pub fn listing(error: io::Error) -> io::Error {
+    io::Error::new(error.kind(), Listing(error))
+}
+
+pub fn is_listing(error: &io::Error) -> bool {
+    error.get_ref().is_some_and(|inner| inner.is::<Listing>())
 }

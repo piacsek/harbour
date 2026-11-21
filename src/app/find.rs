@@ -6,7 +6,7 @@ use super::{App, Entry, draw, refusal};
 use crate::finder;
 use crate::input::ESCAPED;
 use crate::mouse::Gesture;
-use crate::picker::{Pick, Picker};
+use crate::picker::{self, Pick, Picker};
 
 const GONE: &str = "That session is gone: it was removed while the list was open.";
 const UNREAD: &str =
@@ -75,12 +75,17 @@ impl App {
             return;
         }
         let popup = draw::popup(self.screen);
-        let headlines: Vec<_> = (0..self.sessions.len())
-            .filter_map(|index| self.headline_of(index))
+        let rows: Vec<_> = (0..self.sessions.len())
+            .filter_map(|index| {
+                Some(finder::Row {
+                    headline: self.headline_of(index)?,
+                    stopped: self.sessions[index].session.is_none(),
+                })
+            })
             .collect();
         let picker = Picker::Listed {
             fzf,
-            lines: finder::lines(&headlines),
+            lines: finder::lines(&rows),
         };
         match Pick::open(
             &picker,
@@ -95,6 +100,7 @@ impl App {
                 self.finding = Some(self.sessions.iter().map(who).collect());
             }
             Ok(None) => {}
+            Err(error) if picker::is_listing(&error) => self.failed = Some(error.to_string()),
             Err(error) => self.failed = Some(refusal(picker.program(), &error)),
         }
     }

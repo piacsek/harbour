@@ -1,7 +1,7 @@
 pub const KEYS: &[(&str, &str)] = &[
     ("j/k", "select the next / previous session"),
     ("n", "pick a directory and start a session there"),
-    ("C-l/Enter", "focus or resume; from Claude Code, its editor"),
+    ("C-l/Enter", "focus or resume; C-l in Claude Code: editor"),
     ("C-h", "focus the sidebar; from an editor, Claude Code"),
     ("C-1..C-9", "focus or resume that card; C-9 the last"),
     ("M-z", "zoom the session to the whole screen, or back"),

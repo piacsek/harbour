@@ -28,7 +28,7 @@ fn question_mark_shows_the_editor_keys() {
 
     let shown = screen.draw();
     assert!(
-        shown.contains("focus or resume; from Claude Code, its editor"),
+        shown.contains("focus or resume; C-l in Claude Code: editor"),
         "{shown}"
     );
     assert!(shown.contains("end it and its editors"), "{shown}");
@@ -179,7 +179,7 @@ fn question_mark_shows_the_ctrl_l_row_on_one_row_in_the_narrow_layout() {
 
     let shown = screen.draw();
     assert!(
-        shown.contains("C-l/Enter  focus or resume; from Claude Code, its editor"),
+        shown.contains("C-l/Enter  focus or resume; C-l in Claude Code: editor"),
         "{shown}"
     );
 }
