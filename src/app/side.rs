@@ -288,7 +288,7 @@ pub(super) fn is_side(key: KeyEvent) -> bool {
         && !key.state.contains(ESCAPED)
 }
 
-fn swaps(key: KeyEvent) -> Option<bool> {
+pub(super) fn swaps(key: KeyEvent) -> Option<bool> {
     if key.modifiers - KeyModifiers::SHIFT != KeyModifiers::ALT
         || key.kind != KeyEventKind::Press
         || key.state.contains(ESCAPED)

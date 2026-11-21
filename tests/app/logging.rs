@@ -118,6 +118,19 @@ fn the_side_by_side_key_is_logged_by_its_name() {
 }
 
 #[test]
+fn the_swap_keys_are_logged_by_their_names() {
+    let (app, lines) = logged(App::new(reading_agent()));
+    let mut screen = focused(app);
+
+    screen.key(KeyCode::Char('}'), KeyModifiers::ALT);
+    screen.key(KeyCode::Char('{'), KeyModifiers::ALT);
+
+    let lines = read(&lines);
+    assert_eq!(count(&lines, r#" key name="M-}""#), 1);
+    assert_eq!(count(&lines, r#" key name="M-{""#), 1);
+}
+
+#[test]
 fn the_find_key_is_logged_by_its_name_and_what_is_typed_into_the_list_is_not() {
     let picker = Picker::Command(vec![FINDER.into()]);
     let (app, lines) = logged(App::new(reading_agent()).with_picker(picker));
