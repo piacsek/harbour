@@ -17,7 +17,7 @@ impl App {
         let key = ctrl_backspace_as_ctrl_h(key);
         if let Some(pick) = &self.picking {
             let session = pick.session();
-            let bytes = keys::encode(key, session.application_cursor());
+            let bytes = keys::encode(plain_enter(key), session.application_cursor());
             session.send(&bytes);
             self.log_input(Input::Picker, bytes.len());
             return;
@@ -58,7 +58,12 @@ impl App {
             self.touch();
             return;
         }
+        let on_editor = self
+            .sessions
+            .get(self.selected)
+            .is_some_and(|entry| entry.showing_editor().is_some());
         if let Some(session) = self.focused() {
+            let key = if on_editor { plain_enter(key) } else { key };
             let bytes = keys::encode(key, session.application_cursor());
             session.send(&bytes);
             self.log_input(Input::Shown, bytes.len());
@@ -158,6 +163,17 @@ fn changes<'a>(editors: impl IntoIterator<Item = &'a Editor>) -> Changes {
 fn ctrl_backspace_as_ctrl_h(key: KeyEvent) -> KeyEvent {
     if key.code == KeyCode::Backspace && key.modifiers == KeyModifiers::CONTROL {
         KeyEvent::new(KeyCode::Char('h'), KeyModifiers::CONTROL)
+    } else {
+        key
+    }
+}
+
+fn plain_enter(key: KeyEvent) -> KeyEvent {
+    if key.code == KeyCode::Enter {
+        KeyEvent::new(
+            KeyCode::Enter,
+            key.modifiers - KeyModifiers::SHIFT - KeyModifiers::CONTROL,
+        )
     } else {
         key
     }

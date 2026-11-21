@@ -116,6 +116,46 @@ fn a_paste_while_the_popup_is_open_reaches_the_picker_and_not_the_editor() {
     assert!(!shown.contains("acme editor got"), "{shown}");
 }
 
+#[test]
+fn shift_enter_reaches_the_editor_as_enter() {
+    let mut screen = opened(reading_agent(), hex_editor(), "acme editor ready");
+
+    screen.key(KeyCode::Enter, KeyModifiers::SHIFT);
+
+    let shown = screen.wait_for("acme editor read: 0d");
+    assert!(shown.contains("acme editor read: 0d"), "{shown}");
+}
+
+#[test]
+fn ctrl_enter_reaches_the_editor_as_enter() {
+    let mut screen = opened(reading_agent(), hex_editor(), "acme editor ready");
+
+    screen.key(KeyCode::Enter, KeyModifiers::CONTROL);
+
+    let shown = screen.wait_for("acme editor read: 0d");
+    assert!(shown.contains("acme editor read: 0d"), "{shown}");
+}
+
+#[test]
+fn shift_enter_reaches_the_picker_as_enter() {
+    let mut screen = picking_hex();
+
+    screen.key(KeyCode::Enter, KeyModifiers::SHIFT);
+
+    let shown = screen.wait_for("acme picker read: 0d");
+    assert!(shown.contains("acme picker read: 0d"), "{shown}");
+}
+
+#[test]
+fn ctrl_enter_reaches_the_picker_as_enter() {
+    let mut screen = picking_hex();
+
+    screen.key(KeyCode::Enter, KeyModifiers::CONTROL);
+
+    let shown = screen.wait_for("acme picker read: 0d");
+    assert!(shown.contains("acme picker read: 0d"), "{shown}");
+}
+
 fn opened(agent: Vec<String>, editor: Program, ready: &str) -> Screen {
     let mut screen = Screen::editing(agent, editor);
     screen.press('n');
@@ -154,4 +194,24 @@ fn raw_editor(request: &str, length: usize) -> Program {
              printf 'acme editor read:%s' \"$r\" | tr -d '\\033'; exec sleep 600"
         )),
     )
+}
+
+fn hex_reader(name: &str) -> String {
+    format!(
+        "stty raw -echo; echo 'acme {name} ready' >&2; \
+         dd bs=1 count=1 2>/dev/null | od -An -tx1 | tr -s ' \\n' '  ' | \
+         sed 's/^/acme {name} read:/' >&2; exec sleep 600"
+    )
+}
+
+fn hex_editor() -> Program {
+    Program::new("acme-edit", script(&hex_reader("editor")))
+}
+
+fn picking_hex() -> Screen {
+    let picker = script(&hex_reader("picker"));
+    let mut screen = Screen::wide(App::new(reading_agent()).with_picker(Picker::Command(picker)));
+    screen.press('n');
+    screen.wait_for("acme picker ready");
+    screen
 }

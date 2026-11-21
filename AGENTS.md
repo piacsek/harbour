@@ -213,6 +213,10 @@ one still counts as must when it shows new impact.
 - **An editor's empty socket directory stays behind when a signal kills harbour**, a kill or the
   hangup of closing its terminal window: each Neovim's private directory in the temp directory is
   removed when its editor is dropped, which neither reaches (`src/editor.rs`).
+- **A harbour killed by a signal leaves its terminal modes on**: mouse capture, bracketed paste
+  and the extended-keys request stay set, so at the shell after it a click or the wheel prints
+  escape codes, a paste comes wrapped in `^[[200~`, and Shift-Enter prints an escape
+  code such as `^[[27;2;13~` until `reset`; only a quit or a panic turns them off (`src/tui.rs`).
 - **A session that exited by itself leaves behind what ignores hangup**: once its command is
   reaped its pid can be reused, so harbour never signals its group again, and a background
   process that ignores hangup keeps running after its row is removed or harbour quits, as in any
