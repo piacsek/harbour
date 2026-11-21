@@ -2,11 +2,11 @@ use std::io::IsTerminal;
 use std::process::ExitCode;
 
 use harbour::changelog::CHANGELOG;
-use harbour::{handoff, state, summary};
+use harbour::{handoff, log, state, summary};
 
 const USAGE: &str = "harbour: Harbour: where shipping begins
 
-usage: harbour [--demo | --help | --version | changelog | status | edit [--] <file>]
+usage: harbour [--demo | --help | --version | changelog | status | log | edit [--] <file>]
 
 With no argument on a terminal, harbour opens a sidebar of Claude Code sessions
 beside a live pane. --demo opens the same with made-up sessions: no claude needed.
@@ -14,6 +14,10 @@ status prints how many sessions of every running harbour are blocked, working,
 idle or unknown. For tmux, put #(harbour status) in your status-right, for example
   set -g status-right '#(harbour status) %H:%M'
 and raise status-right-length if the counts are cut off.
+With HARBOUR_LOG set to anything but empty, harbour keeps a private log of what
+it saw and decided, never what was typed, pasted or printed: one file a run
+under its state folder, removed after 7 days. log prints the newest one's path:
+  tail -f \"$(harbour log)\"
 edit <file> opens the file in the Neovim editor of the harbour session whose
 repository or worktree holds it, selects that session and shows the editor.
 It exits 0 when harbour took the file, 3 when no harbour runs or answers, no
@@ -43,6 +47,7 @@ fn main() -> ExitCode {
             print_status();
             ExitCode::SUCCESS
         }
+        [Some("log")] => print_log(),
         [Some("edit"), Some("--"), file] if file != Some("") => edit(&args[2]),
         [Some("edit"), file] if !matches!(file, Some("--" | "")) => edit(&args[1]),
         [] if on_a_terminal() => shown(harbour::tui::run()),
@@ -61,6 +66,16 @@ fn print_status() {
     let line = state::status_line(summary::total(&dir));
     if !line.is_empty() {
         println!("{line}");
+    }
+}
+
+fn print_log() -> ExitCode {
+    match log::directory_from_env().and_then(|dir| log::newest(&dir)) {
+        Some(path) => {
+            println!("{}", path.display());
+            ExitCode::SUCCESS
+        }
+        None => ExitCode::FAILURE,
     }
 }
 

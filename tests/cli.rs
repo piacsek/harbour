@@ -252,9 +252,100 @@ fn changelog_writes_nothing_on_stderr() {
     assert!(launch(&["changelog"]).stderr.is_empty());
 }
 
+#[test]
+fn log_prints_the_path_of_the_newest_log() {
+    let scratch = tempfile::tempdir().unwrap();
+    let logs = log_folder(scratch.path());
+    write_aged(&logs.join("4100.log"), 60);
+    write_aged(&logs.join("4200.log"), 10);
+    write_aged(&logs.join("4300.log"), 30);
+
+    let output = launch_at_home(scratch.path(), &["log"]);
+
+    assert_eq!(
+        stdout(&output),
+        format!("{}\n", logs.join("4200.log").display())
+    );
+}
+
+#[test]
+fn log_with_a_log_exits_zero() {
+    let scratch = tempfile::tempdir().unwrap();
+    write_aged(&log_folder(scratch.path()).join("4100.log"), 10);
+
+    assert!(launch_at_home(scratch.path(), &["log"]).status.success());
+}
+
+#[test]
+fn log_leaves_out_a_newer_file_not_named_like_a_log() {
+    let scratch = tempfile::tempdir().unwrap();
+    let logs = log_folder(scratch.path());
+    write_aged(&logs.join("4100.log"), 60);
+    write_aged(&logs.join("notes.log"), 10);
+    write_aged(&logs.join("4200.txt"), 10);
+
+    let output = launch_at_home(scratch.path(), &["log"]);
+
+    assert_eq!(
+        stdout(&output),
+        format!("{}\n", logs.join("4100.log").display())
+    );
+}
+
+#[test]
+fn log_leaves_out_a_folder_named_like_a_log() {
+    let scratch = tempfile::tempdir().unwrap();
+    let logs = log_folder(scratch.path());
+    write_aged(&logs.join("4100.log"), 60);
+    std::fs::create_dir(logs.join("4200.log")).unwrap();
+
+    let output = launch_at_home(scratch.path(), &["log"]);
+
+    assert_eq!(
+        stdout(&output),
+        format!("{}\n", logs.join("4100.log").display())
+    );
+}
+
+#[test]
+fn log_without_a_log_prints_nothing() {
+    let scratch = tempfile::tempdir().unwrap();
+    log_folder(scratch.path());
+
+    assert!(launch_at_home(scratch.path(), &["log"]).stdout.is_empty());
+}
+
+#[test]
+fn log_without_a_log_exits_one() {
+    let scratch = tempfile::tempdir().unwrap();
+    log_folder(scratch.path());
+
+    assert_eq!(
+        launch_at_home(scratch.path(), &["log"]).status.code(),
+        Some(1)
+    );
+}
+
+#[test]
+fn log_without_its_folder_exits_one() {
+    let scratch = tempfile::tempdir().unwrap();
+
+    assert_eq!(
+        launch_at_home(scratch.path(), &["log"]).status.code(),
+        Some(1)
+    );
+}
+
+#[test]
+fn log_without_a_log_writes_nothing_on_stderr() {
+    let scratch = tempfile::tempdir().unwrap();
+
+    assert!(launch_at_home(scratch.path(), &["log"]).stderr.is_empty());
+}
+
 const USAGE: &str = "harbour: Harbour: where shipping begins
 
-usage: harbour [--demo | --help | --version | changelog | status | edit [--] <file>]
+usage: harbour [--demo | --help | --version | changelog | status | log | edit [--] <file>]
 
 With no argument on a terminal, harbour opens a sidebar of Claude Code sessions
 beside a live pane. --demo opens the same with made-up sessions: no claude needed.
@@ -262,6 +353,10 @@ status prints how many sessions of every running harbour are blocked, working,
 idle or unknown. For tmux, put #(harbour status) in your status-right, for example
   set -g status-right '#(harbour status) %H:%M'
 and raise status-right-length if the counts are cut off.
+With HARBOUR_LOG set to anything but empty, harbour keeps a private log of what
+it saw and decided, never what was typed, pasted or printed: one file a run
+under its state folder, removed after 7 days. log prints the newest one's path:
+  tail -f \"$(harbour log)\"
 edit <file> opens the file in the Neovim editor of the harbour session whose
 repository or worktree holds it, selects that session and shows the editor.
 It exits 0 when harbour took the file, 3 when no harbour runs or answers, no
@@ -307,4 +402,16 @@ fn launch_with_bytes(arg: &[u8]) -> Output {
         .arg(OsStr::from_bytes(arg))
         .output()
         .unwrap()
+}
+
+fn log_folder(home: &std::path::Path) -> std::path::PathBuf {
+    let logs = home.join("state/harbour/log");
+    std::fs::create_dir_all(&logs).unwrap();
+    logs
+}
+
+fn write_aged(path: &std::path::Path, seconds: u64) {
+    let file = std::fs::File::create(path).unwrap();
+    let then = std::time::SystemTime::now() - std::time::Duration::from_secs(seconds);
+    file.set_modified(then).unwrap();
 }

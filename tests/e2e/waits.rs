@@ -1,5 +1,6 @@
 use std::path::Path;
 
+use crate::log::wait_for_log;
 use crate::{Server, WORKING, wait_for_status};
 
 #[test]
@@ -45,6 +46,22 @@ fn a_wait_for_a_status_line_never_printed_fails_naming_it_and_the_last_line() {
 
     assert!(failure.contains(&format!("{WORKING:?}")), "{failure}");
     assert!(failure.contains(r#"last line: """#), "{failure}");
+}
+
+#[test]
+#[ignore]
+fn a_wait_for_a_log_line_never_written_fails_naming_it_and_the_log() {
+    let home = tempfile::tempdir().unwrap();
+    let logs = home.path().join(".local/state/harbour/log");
+    std::fs::create_dir_all(&logs).unwrap();
+    std::fs::write(logs.join("4100.log"), "acme written\n").unwrap();
+
+    let failure = failure(|| {
+        wait_for_log(home.path(), "acme never written");
+    });
+
+    assert!(failure.contains(r#""acme never written""#), "{failure}");
+    assert!(failure.contains("acme written"), "{failure}");
 }
 
 fn failure(wait: impl FnOnce()) -> String {

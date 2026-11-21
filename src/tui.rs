@@ -12,6 +12,7 @@ use crate::app::App;
 use crate::demo::Registry;
 use crate::editor::Program;
 use crate::handoff::{self, Listener};
+use crate::log::{self, Log};
 use crate::memory::Memory;
 use crate::picker::Picker;
 use crate::registry;
@@ -23,6 +24,7 @@ type PanicHook = dyn Fn(&PanicHookInfo<'_>) + Send + Sync + 'static;
 pub const SESSION_COMMAND: &str = "HARBOUR_SESSION_COMMAND";
 pub const DIR_PICKER: &str = "HARBOUR_DIR_PICKER";
 pub const EDITOR: &str = "HARBOUR_EDITOR";
+pub const LOG: &str = "HARBOUR_LOG";
 
 pub fn run() -> io::Result<()> {
     let mut app = App::new(session_command())
@@ -46,7 +48,15 @@ pub fn run() -> io::Result<()> {
     if let Some(dir) = handoff::directory_from_env() {
         app = app.with_handoff(Listener::new(&dir));
     }
-    show(app)
+    let log = logging();
+    if let Some(log) = &log {
+        app = app.with_log(log.clone());
+    }
+    let shown = show(app);
+    if let Some(log) = log {
+        log.finish(Duration::from_millis(500));
+    }
+    shown
 }
 
 pub fn demo() -> io::Result<()> {
@@ -130,6 +140,11 @@ fn claude_projects() -> Option<std::path::PathBuf> {
         std::env::var_os("HOME").map(Into::into),
     )
     .and_then(|dir| std::path::absolute(dir).ok())
+}
+
+fn logging() -> Option<Log> {
+    std::env::var_os(LOG).filter(|value| !value.is_empty())?;
+    log::directory_from_env().map(|dir| Log::open(&dir))
 }
 
 fn remembered() -> Option<Memory> {

@@ -200,7 +200,7 @@ fn root(scratch: &Path, folder: &str) -> PathBuf {
     scratch.canonicalize().unwrap().join(folder)
 }
 
-fn asked_about(screen: &mut Screen, scratch: &Path, verb: &str, file: &Path) -> String {
+pub(crate) fn asked_about(screen: &mut Screen, scratch: &Path, verb: &str, file: &Path) -> String {
     let socket = socket_in(&scratch.join("edit"));
     let mut stream = requested(&socket, verb, Duration::from_secs(5), file);
     stream.set_nonblocking(true).unwrap();
@@ -219,7 +219,7 @@ fn asked_about(screen: &mut Screen, scratch: &Path, verb: &str, file: &Path) -> 
     String::from_utf8(reply).unwrap()
 }
 
-fn requested(socket: &Path, verb: &str, within: Duration, file: &Path) -> UnixStream {
+pub(crate) fn requested(socket: &Path, verb: &str, within: Duration, file: &Path) -> UnixStream {
     let mut stream = UnixStream::connect(socket).unwrap();
     let expires = (SystemTime::now() + within)
         .duration_since(UNIX_EPOCH)

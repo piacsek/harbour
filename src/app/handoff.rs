@@ -49,9 +49,15 @@ impl App {
             let Some(request) = self.handoff.as_mut().and_then(Listener::incoming) else {
                 return;
             };
+            let verb = request.verb;
+            let file = request.file.clone();
             if Instant::now() < request.deadline {
-                let reply = self.hand(request.verb, &request.file, request.deadline);
+                let asked = Instant::now();
+                let reply = self.hand(verb, &file, request.deadline);
+                self.log_served(verb, &file, &reply, asked);
                 request.answer(reply);
+            } else {
+                self.log_expired(verb, &file);
             }
         }
     }
@@ -147,6 +153,7 @@ impl App {
                 None => return Err(Reply::Refused(BUSY.to_string())),
             },
         };
+        let log = self.logging.log().clone();
         let entry = &mut self.sessions[index];
         let shown = match entry
             .editors
@@ -174,7 +181,8 @@ impl App {
                         self.pane,
                         file.map(|(file, _)| file),
                     )
-                    .map_err(Reply::Refused)?,
+                    .map_err(Reply::Refused)?
+                    .with_log(log),
                 );
                 let newest = entry.editors.len() - 1;
                 if let Some((file, last)) = file

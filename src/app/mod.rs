@@ -7,10 +7,12 @@ use ratatui::layout::{Position, Rect};
 
 mod draw;
 mod handoff;
+mod logging;
 mod read;
 mod remember;
 
 use draw::exit_note;
+use logging::Input;
 
 use crate::card::Sidebar;
 use crate::demo;
@@ -63,6 +65,7 @@ pub struct App {
     follow: Option<Follow>,
     handoff: Option<Listener>,
     temporary: PathBuf,
+    logging: logging::Logging,
 }
 
 #[derive(Clone, Copy, PartialEq)]
@@ -177,6 +180,7 @@ impl App {
             follow: None,
             handoff: None,
             temporary: follow::temporary(),
+            logging: logging::Logging::default(),
         }
     }
 
@@ -254,12 +258,15 @@ impl App {
 
     pub fn key(&mut self, key: KeyEvent) {
         self.key_handled(key);
+        self.log_key(key);
     }
 
     fn key_handled(&mut self, key: KeyEvent) {
         if let Some(pick) = &self.picking {
             let session = pick.session();
-            session.send(&keys::encode(key, session.application_cursor()));
+            let bytes = keys::encode(key, session.application_cursor());
+            session.send(&bytes);
+            self.log_input(Input::Picker, bytes.len());
             return;
         }
         if self.dismiss(is_yes(key)) {
@@ -275,7 +282,11 @@ impl App {
                         .showing_editor()
                         .filter(|editor| editor.wants_ctrl_h())
                     {
-                        Some(editor) => editor.session.send(&keys::encode(key, false)),
+                        Some(editor) => {
+                            let bytes = keys::encode(key, false);
+                            editor.session.send(&bytes);
+                            self.log_input(Input::Shown, bytes.len());
+                        }
                         None => entry.on_editor = false,
                     }
                 }
@@ -295,7 +306,9 @@ impl App {
             return;
         }
         if let Some(session) = self.focused() {
-            session.send(&keys::encode(key, session.application_cursor()));
+            let bytes = keys::encode(key, session.application_cursor());
+            session.send(&bytes);
+            self.log_input(Input::Shown, bytes.len());
             self.touch();
             return;
         }
@@ -317,24 +330,28 @@ impl App {
 
     pub fn paste(&mut self, text: &str) {
         self.paste_handled(text);
+        self.log_paste();
     }
 
     fn paste_handled(&mut self, text: &str) {
         if let Some(pick) = &self.picking {
-            pick.session().paste(text);
+            let bytes = pick.session().paste(text);
+            self.log_input(Input::Picker, bytes);
             return;
         }
         if self.dismiss(false) {
             return;
         }
         if let Some(session) = self.focused() {
-            session.paste(text);
+            let bytes = session.paste(text);
+            self.log_input(Input::Shown, bytes);
             self.touch();
         }
     }
 
     pub fn mouse(&mut self, event: MouseEvent) {
         self.mouse_handled(event);
+        self.log_changes();
     }
 
     fn mouse_handled(&mut self, event: MouseEvent) {

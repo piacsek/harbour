@@ -34,6 +34,7 @@ harbour --help      # or -h, or help
 harbour changelog   # what each release changed
 harbour status      # blocked, working and idle counts for the tmux status line
 harbour edit <file> # open the file in the editor of the session that holds it
+harbour log         # the path of the newest log, kept while HARBOUR_LOG is set
 ```
 
 | Key | Action |
