@@ -78,8 +78,27 @@ terminal answers which shape it shows, and the default is what Neovim itself lea
    panic too (`src/cursor.rs`, `src/tui.rs`); an end-to-end test under tmux reads
    `#{cursor_shape}`.
 3. Screenshots, fragment, outcome.
-4. Screenshots, fragment, outcome.
 
 ## Outcome
 
+- The pane's cursor is the terminal's real cursor: the app places it at the shown pane's cursor
+  cell (the picker's own over the popup, none for the help view, a stopped card, a hidden cursor
+  or one outside the drawn pane) and the widget paints none. `docs/details.png` and the other
+  shots of a pane lost their painted block; a screenshot cannot show the real cursor or its shape.
+- A session keeps the last shape `ESC [ 0..6 SP q` asked for (7 and up ignored), through a
+  contained vt100 panic too. Harbour writes the shape only when it changes, so a terminal that
+  ignores DECSCUSR sees nothing while every program keeps the default, and writes `ESC[0 q` when
+  it leaves the terminal, at quit and from the panic hook.
+- Neovim sends the shapes under the `TERM` harbour gives it, verified byte for byte with the
+  clean fixture; no terminfo change was needed. Under tmux, `#{cursor_shape}` of harbour's pane
+  follows the shown session (`tests/e2e/cursor.rs`).
+- Quit resets to the default shape, not to what the terminal showed before harbour: no terminal
+  reports its shape, and Neovim does the same on exit.
+- Issue #35, built next on top of this, makes the one place the cursor is set (`placed` for the pane in
+  `src/app/draw.rs`) conditional on the pane's focus.
+
 ## Hurdles
+
+- `test-seam` The in-process tests of the new session functions and the app's cursor could not be shipped apart: the functions were dead code until the app called them, so plan tasks 1 and 2 became one ship → none
+- `test-seam` An end-to-end test sent keys right after `n` while the sidebar still had focus, so the session never got them; it presses Enter first, as the focus test does → none
+- `test-seam` A failing test in `tests/tui.rs` trips the counting panic hook of the test beside it and hides its own message, so the red of the cursor reset showed as the hook test failing → none
