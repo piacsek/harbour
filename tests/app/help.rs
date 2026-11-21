@@ -89,7 +89,6 @@ fn the_whole_help_shows_on_an_80_by_24_terminal() {
     );
     assert!(shown.contains("status unknown"), "{shown}");
     assert!(shown.contains(POINTER), "{shown}");
-    assert_eq!(spare_rows(&shown), 9, "{shown}");
 }
 
 #[test]
@@ -105,6 +104,15 @@ fn the_whole_help_shows_on_a_20_row_terminal() {
     );
     assert!(shown.contains("status unknown"), "{shown}");
     assert!(shown.contains(POINTER), "{shown}");
+}
+
+#[test]
+fn the_help_leaves_five_rows_for_new_keys_on_a_20_row_terminal() {
+    let mut screen = Screen::new(reading_agent());
+
+    screen.press('?');
+
+    let shown = screen.draw();
     assert_eq!(spare_rows(&shown), 5, "{shown}");
 }
 

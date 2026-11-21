@@ -83,6 +83,13 @@ the log than the note did. `NOTES` goes, so no dead code is left.
 - The five keys of #36, #37, #39, #41 and #42 fit at 120x20 with the pointer, as one row each
   within 107 columns; a sixth needs the pointer row or a rule that drops it.
 - `docs/keys.png` and `docs/help.png` were shot again; no other image changed.
+- 1 review round, with no must or should finding. Decided, not changed (the orchestrator's
+  call): the pointer line stays last, after the legend, so a terminal too short for the whole
+  view loses the pointer before the keys or the legend.
+- The exact headroom (5 rows at 120x20) is pinned by one test,
+  `the_help_leaves_five_rows_for_new_keys_on_a_20_row_terminal`, so the next key's builder
+  changes one number on purpose; the 20-row and 80x24 tests assert only that the whole view
+  shows.
 
 ## Hurdles
 
