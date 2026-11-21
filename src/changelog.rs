@@ -166,7 +166,11 @@ pub fn shown(changelog: &str, width: usize) -> Vec<Line<'static>> {
         } else if line.trim().is_empty() {
             lines.push(Line::default());
         } else {
-            lines.extend(text::wrap(line, width).into_iter().map(Line::from));
+            lines.extend(
+                text::wrap(&unquoted(line), width)
+                    .into_iter()
+                    .map(Line::from),
+            );
         }
     }
     if let Some(done) = bullet {
@@ -186,8 +190,23 @@ fn heading(line: &str) -> Option<&str> {
         .flatten()
 }
 
+fn unquoted(line: &str) -> String {
+    let mut shown = String::new();
+    let mut rest = line;
+    while let Some((before, after)) = rest.split_once('`') {
+        let Some((code, next)) = after.split_once('`') else {
+            break;
+        };
+        shown.push_str(before);
+        shown.push_str(code);
+        rest = next;
+    }
+    shown.push_str(rest);
+    shown
+}
+
 fn hanging(bullet: &str, width: usize) -> Vec<Line<'static>> {
-    text::wrap(bullet, width.saturating_sub(2))
+    text::wrap(&unquoted(bullet), width.saturating_sub(2))
         .into_iter()
         .enumerate()
         .map(|(index, part)| {

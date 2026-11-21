@@ -125,7 +125,7 @@ impl App {
         match self.show_editor(holder, root, Some((file, deadline))) {
             Ok(()) => {
                 self.helping = false;
-                self.reading = None;
+                self.close_changelog();
                 self.selected = holder;
                 self.pane_focused = true;
                 self.failed = None;

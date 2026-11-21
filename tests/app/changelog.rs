@@ -4,12 +4,12 @@ use harbour::changelog::{CHANGELOG, shown};
 use harbour::handoff::{Reply, Verb};
 
 use crate::handing::answering;
-use crate::handoff::{file, harbour, soon, start_in};
+use crate::handoff::{app_with, file, harbour, recording_neovim, soon, start_in};
 use crate::logging::{count, logged, only, read};
 use crate::{Screen, directory, reading_agent};
 
 #[test]
-fn c_shows_the_changelog_in_place_of_the_pane() {
+fn c_shows_the_changelog_over_the_whole_screen() {
     let mut screen = reader(RELEASES);
 
     screen.press('c');
@@ -258,6 +258,62 @@ fn a_taller_terminal_keeps_the_last_line_at_the_bottom() {
 }
 
 #[test]
+fn the_wheel_scrolls_one_line_on() {
+    let mut screen = reader(&long());
+    screen.press('c');
+
+    screen.mouse(MouseEventKind::ScrollDown, 45, 3);
+
+    let shown = screen.draw();
+    assert!(!shown.contains("│Changelog"), "{shown}");
+    assert!(shown.contains("- acme step 16"), "{shown}");
+}
+
+#[test]
+fn the_wheel_scrolls_one_line_back() {
+    let mut screen = reader(&long());
+    screen.press('c');
+    screen.press('j');
+    screen.press('j');
+
+    screen.mouse(MouseEventKind::ScrollUp, 45, 3);
+
+    let shown = screen.draw();
+    assert!(!shown.contains("- acme step 17"), "{shown}");
+    assert!(shown.contains("- acme step 16"), "{shown}");
+    assert!(shown.contains(" changelog "), "{shown}");
+}
+
+#[test]
+fn page_down_scrolls_a_whole_view_on() {
+    let mut screen = reader(&longer());
+    screen.press('c');
+
+    screen.key(KeyCode::PageDown, KeyModifiers::NONE);
+
+    let shown = screen.draw();
+    assert!(!shown.contains("- acme step 15"), "{shown}");
+    assert!(shown.contains("- acme step 16"), "{shown}");
+    assert!(shown.contains("- acme step 33"), "{shown}");
+    assert!(!shown.contains("- acme step 34"), "{shown}");
+}
+
+#[test]
+fn page_up_scrolls_a_whole_view_back() {
+    let mut screen = reader(&longer());
+    screen.press('c');
+    screen.key(KeyCode::PageDown, KeyModifiers::NONE);
+    screen.press('j');
+
+    screen.key(KeyCode::PageUp, KeyModifiers::NONE);
+
+    let shown = screen.draw();
+    assert!(!shown.contains("│Changelog"), "{shown}");
+    assert!(shown.contains("- acme step 16"), "{shown}");
+    assert!(!shown.contains("- acme step 17"), "{shown}");
+}
+
+#[test]
 fn a_click_closes_the_view() {
     let mut screen = reader(RELEASES);
     screen.press('c');
@@ -344,11 +400,67 @@ fn the_keys_inside_the_view_log_nothing() {
     screen.press('j');
     screen.key(KeyCode::Char('d'), KeyModifiers::CONTROL);
     screen.press('k');
-    screen.press('x');
+    screen.key(KeyCode::PageDown, KeyModifiers::NONE);
 
     let lines = read(&lines);
     only(&lines, " changelog shown");
     assert_eq!(count(&lines, " key name="), 0);
+    assert_eq!(count(&lines, " changelog closed"), 0);
+}
+
+#[test]
+fn a_key_that_closes_the_view_logs_it_closed() {
+    let (app, lines) = logged(App::new(reading_agent()).with_changelog(RELEASES));
+    let mut screen = Screen::of(app);
+    screen.press('c');
+
+    screen.press('x');
+
+    let lines = read(&lines);
+    only(&lines, " changelog closed");
+    assert_eq!(count(&lines, " key name="), 0);
+}
+
+#[test]
+fn a_paste_that_closes_the_view_logs_it_closed() {
+    let (app, lines) = logged(App::new(reading_agent()).with_changelog(RELEASES));
+    let mut screen = Screen::of(app);
+    screen.press('c');
+
+    screen.app.paste("acme");
+
+    let lines = read(&lines);
+    only(&lines, " changelog closed");
+}
+
+#[test]
+fn a_click_that_closes_the_view_logs_it_closed() {
+    let (app, lines) = logged(App::new(reading_agent()).with_changelog(RELEASES));
+    let mut screen = Screen::of(app);
+    screen.press('c');
+
+    screen.mouse(MouseEventKind::Down(MouseButton::Left), 45, 3);
+
+    let lines = read(&lines);
+    only(&lines, " changelog closed");
+}
+
+#[test]
+fn an_open_of_harbour_edit_that_closes_the_view_logs_it_closed() {
+    let scratch = tempfile::tempdir().unwrap();
+    let _asked = answering(scratch.path());
+    let (app, lines) = logged(app_with(scratch.path(), recording_neovim(scratch.path())));
+    let mut screen = Screen::of(app);
+    start_in(&mut screen, scratch.path(), "acme-api", 1);
+    screen.press('c');
+
+    let reply = screen
+        .app
+        .hand(Verb::Open, &file(scratch.path(), "acme-api"), soon());
+
+    assert_eq!(reply, Reply::Opened);
+    let lines = read(&lines);
+    only(&lines, " changelog closed");
 }
 
 const RELEASES: &str = "# Changelog\n\n## v0.2.0 (2026-11-02)\n- acme deploys retry twice\n\n## v0.1.0 (2026-11-01)\n- acme starts\n";
@@ -359,5 +471,10 @@ fn reader(changelog: &str) -> Screen {
 
 fn long() -> String {
     let steps: String = (1..=30).map(|n| format!("- acme step {n:02}\n")).collect();
+    format!("# Changelog\n\n## v0.1.0 (2026-11-01)\n{steps}")
+}
+
+fn longer() -> String {
+    let steps: String = (1..=50).map(|n| format!("- acme step {n:02}\n")).collect();
     format!("# Changelog\n\n## v0.1.0 (2026-11-01)\n{steps}")
 }

@@ -150,6 +150,10 @@ impl App {
         }
     }
 
+    pub(super) fn log_changelog_closed(&mut self) {
+        self.logging.log.write(|| "changelog closed".to_string());
+    }
+
     pub(super) fn log_usage_closed(&mut self) {
         self.logging.forwarded = true;
         self.logging.log.write(|| "usage closed".to_string());

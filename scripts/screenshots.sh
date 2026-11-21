@@ -171,7 +171,7 @@ cat >"$released/CHANGELOG.md" <<'MD'
 # Changelog
 
 ## v0.3.0 (2026-11-20)
-- `c` in the sidebar shows what changed in each release, newest first, in place of the pane.
+- `c` in the sidebar shows what changed in each release, newest first, over the whole screen.
 - A deploy of acme-api that fails on a flaky registry retries twice with backoff before the
   card says it failed, so a short outage no longer ends the session's work.
 

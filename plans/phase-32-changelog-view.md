@@ -1,7 +1,7 @@
 # Phase 32: the changelog view
 
-Issue #113. `c` in the sidebar shows the `CHANGELOG.md` bundled into the binary in place of the
-pane, as `?` shows the help, so what changed in a release can be read without leaving harbour.
+Issue #113. `c` in the sidebar shows the `CHANGELOG.md` bundled into the binary over the whole
+screen, as `?` shows the help, so what changed in a release can be read without leaving harbour.
 
 ## Verified facts
 
@@ -21,20 +21,23 @@ pane, as `?` shows the help, so what changed in a release can be read without le
   the heading and one dim line, `This build has no release notes.`
 - **A pure function** in `src/changelog.rs`, `shown(text, width)`, turns the text into the
   view's lines: `#` and `##` headings bold without their `#`, a bullet joined with its indented
-  lines and wrapped to the width with `- ` and a hanging indent of two columns, blank lines kept,
+  lines, the backticks of each code span dropped (a lone one kept), and wrapped to the width with
+  `- ` and a hanging indent of two columns, blank lines kept,
   any other line wrapped as it is.
 - **The view's state on `App`**: the text (the bundled one; `App::with_changelog`, a test seam
   on the `SEAMS` list, takes another) and, while it shows, its scroll, the room it had and its
   length at the last frame. Each frame wraps the text again to the view's width and clamps the
   scroll, so a resize keeps the last line at the bottom at most.
 - **Keys while it shows**: `j` and Down one line on, `k` and Up one line back, Ctrl-d and Ctrl-u
-  half the view's rows; any other key, a paste or a click closes it. It comes before the
+  half the view's rows, PageDown and PageUp all of them, the wheel one line; any other key, a
+  paste or a press of a mouse button closes it. It comes before the
   questions and after the usage popup and the picker in `key`, which cannot be open with it.
 - **The help**: `?` and `c` share one row, `?/c` with `show or hide the help / the changelog`;
   no new row, so the help still fits 20 rows beside the narrowest sidebar. The README key table
   mirrors it. `harbour --help` says `c` shows the changelog on the line that says what `?` shows.
 - **Log**: opening it writes `changelog shown` in place of `key name="c"`; the keys inside it
-  write nothing.
+  write nothing; closing it (a key, a paste, a click, an open of `harbour edit`) writes
+  `changelog closed`, as the usage popup writes `usage closed`.
 - **The screenshot**: the `changelog` shot runs a scratch build whose `CHANGELOG.md` holds three
   made-up releases in the release format, built from a copy of `src/`, `Cargo.toml`,
   `Cargo.lock` and `rust-toolchain.toml` into the script's scratch `HOME`, built into
@@ -62,6 +65,9 @@ pane, as `?` shows the help, so what changed in a release can be read without le
 | A session exits while open | the view stays; the card shows the exit once it closes |
 | A `harbour edit` request arrives while open | as under the help: an open closes the view and shows the editor; an ask is answered |
 | A click or a paste while open | closes it, as the help |
+| The mouse wheel while open | scrolls a line a notch, down and up |
+| PageDown or PageUp while open | scrolls a whole view, clamped at both ends |
+| A code span in a bullet | its backticks dropped, its text kept; a lone backtick stays |
 | A line of wide characters (CJK) | wrapped by display width (`src/text.rs`), never wider than the view |
 | A word wider than the view | cut by grapheme onto the next line |
 
@@ -95,3 +101,4 @@ pane, as `?` shows the help, so what changed in a release can be read without le
 
 - `ci` an unrelated `harbour edit` test (`an_open_harbour_could_not_take_is_printed_and_exits_three`) failed once under load in a ship's gates and passed on every rerun → none
 - `process` phase 31 was built in parallel and both branches added rows to `PLAN.md` and `plans/metrics.md`, so the merge of `main` conflicted there → none
+- `review-loop` round 1 found the wording "in place of the pane" for a view drawn over the whole screen, the wheel and PageDown and PageUp closing it, the backticks of code spans shown, no log of its close, and four `AGENTS.md` lines that did not name it → code

@@ -1,4 +1,4 @@
-use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+use crossterm::event::{KeyCode, KeyEvent, KeyModifiers, MouseEvent, MouseEventKind};
 use ratatui::Frame;
 use ratatui::widgets::{Block, Clear, Paragraph};
 
@@ -23,15 +23,37 @@ impl App {
             return false;
         };
         let half = (reading.rows / 2).max(1);
+        let page = reading.rows.max(1);
         match (key.code, key.modifiers) {
             (KeyCode::Char('j') | KeyCode::Down, KeyModifiers::NONE) => reading.down(1),
             (KeyCode::Char('k') | KeyCode::Up, KeyModifiers::NONE) => reading.up(1),
             (KeyCode::Char('d'), KeyModifiers::CONTROL) => reading.down(half),
             (KeyCode::Char('u'), KeyModifiers::CONTROL) => reading.up(half),
-            _ => self.reading = None,
+            (KeyCode::PageDown, KeyModifiers::NONE) => reading.down(page),
+            (KeyCode::PageUp, KeyModifiers::NONE) => reading.up(page),
+            _ => self.close_changelog(),
         }
         self.log_changelog_key(false);
         true
+    }
+
+    pub(super) fn changelog_mouse(&mut self, event: MouseEvent) -> bool {
+        let Some(reading) = &mut self.reading else {
+            return false;
+        };
+        match event.kind {
+            MouseEventKind::ScrollDown => reading.down(1),
+            MouseEventKind::ScrollUp => reading.up(1),
+            MouseEventKind::Down(_) => self.close_changelog(),
+            _ => {}
+        }
+        true
+    }
+
+    pub(super) fn close_changelog(&mut self) {
+        if self.reading.take().is_some() {
+            self.log_changelog_closed();
+        }
     }
 
     pub(super) fn show_changelog(&mut self) {

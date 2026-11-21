@@ -325,6 +325,29 @@ fn the_view_wraps_wide_characters_by_their_columns() {
 }
 
 #[test]
+fn the_view_drops_the_backticks_of_code_spans_and_keeps_their_text() {
+    let lines = shown("## v0.1.0\n- `harbour edit` opens 港の船 in `nvim`\n", 40);
+
+    assert_eq!(text(&lines[1]), "- harbour edit opens 港の船 in nvim");
+    assert_eq!(lines.len(), 2);
+}
+
+#[test]
+fn the_view_wraps_a_bullet_by_its_text_without_backticks() {
+    let lines = shown("## v0.1.0\n- `acme` deploys `twice`\n", 21);
+
+    assert_eq!(text(&lines[1]), "- acme deploys twice");
+    assert_eq!(lines.len(), 2);
+}
+
+#[test]
+fn the_view_keeps_a_lone_backtick() {
+    let lines = shown("## v0.1.0\n- `acme` retries ` twice\n", 40);
+
+    assert_eq!(text(&lines[1]), "- acme retries ` twice");
+}
+
+#[test]
 fn the_view_wraps_a_heading_wider_than_its_room() {
     let lines = shown("## v0.1.0 (2026-11-01)\n- acme\n", 10);
 
