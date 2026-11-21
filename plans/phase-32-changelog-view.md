@@ -81,4 +81,17 @@ pane, as `?` shows the help, so what changed in a release can be read without le
 
 ## Outcome
 
+- Shipped as planned, in six tasks: the plan, the view on `c`, its scrolling, the states it
+  shares with the help, its log line, and the help row, the README row and `harbour --help`.
+- The text is always the bundled `CHANGELOG.md`, so a build from `main` shows the dim line
+  `This build has no release notes.`; the test seam `with_changelog` hands the app other text.
+- `docs/changelog.png` comes from a scratch build into `target/released/` with made-up `acme`
+  releases, since a build from the tree bundles only the heading; `docs/keys.png` and
+  `docs/help.png` were taken again for the new help row and usage line.
+- Phase 31 merged during the build; its rows were kept, the merge needed no code change, and
+  every screenshot came out the same after it.
+
 ## Hurdles
+
+- `ci` an unrelated `harbour edit` test (`an_open_harbour_could_not_take_is_printed_and_exits_three`) failed once under load in a ship's gates and passed on every rerun → none
+- `process` phase 31 was built in parallel and both branches added rows to `PLAN.md` and `plans/metrics.md`, so the merge of `main` conflicted there → none

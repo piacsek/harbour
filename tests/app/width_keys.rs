@@ -216,14 +216,14 @@ fn with_the_usage_popup_shown_the_width_keys_do_nothing() {
         App::new(numbered_agent(scratch.path()))
             .with_sidebar_width(30)
             .with_usage_place(Some(place()))
-            .with_usage(script("echo 'acme session: 12% used'")),
+            .with_usage(script("echo 'acme session: 12% spent'")),
         home(),
         120,
     );
     screen.press('n');
     screen.wait_for("acme agent 1");
     screen.press('u');
-    screen.wait_for("acme session: 12% used");
+    screen.wait_for("acme session: 12% spent");
 
     wider(&mut screen);
     screen.key(KeyCode::Esc, KeyModifiers::NONE);

@@ -15,6 +15,7 @@ use super::logging::Input;
 use super::{App, draw, refusal};
 use crate::mouse::{self, Gesture, Target};
 use crate::session::{Role, Session};
+use crate::usage::Report;
 
 const ROWS: u16 = 200;
 const HELD: Duration = Duration::from_millis(500);
@@ -26,6 +27,8 @@ pub(super) struct Usage {
     open: Option<Session>,
     exited: Option<Instant>,
     area: Rect,
+    report: Option<Report>,
+    raw: bool,
 }
 
 impl Usage {
@@ -36,6 +39,8 @@ impl Usage {
             open: None,
             exited: None,
             area: Rect::default(),
+            report: None,
+            raw: false,
         }
     }
 }
@@ -80,6 +85,8 @@ impl App {
                 self.gesture = Gesture::Idle;
                 self.usage.open = Some(session);
                 self.usage.exited = None;
+                self.usage.report = None;
+                self.usage.raw = false;
             }
             Err(error) => {
                 self.failed = Some(refusal(command.first().map_or("", String::as_str), &error));
@@ -97,6 +104,14 @@ impl App {
         {
             self.close_usage();
             self.log_usage_closed();
+            return true;
+        }
+        if self.usage.report.is_some()
+            && matches!(key.code, KeyCode::Char('t' | 'T'))
+            && key.modifiers - KeyModifiers::SHIFT == KeyModifiers::NONE
+        {
+            self.usage.raw = !self.usage.raw;
+            self.log_usage_view(self.usage.raw);
             return true;
         }
         let bytes = super::key::beside(session, key);
@@ -148,6 +163,14 @@ impl App {
         if let Some(status) = finished.as_ref().filter(|status| !status.success()) {
             block = block.title(format!(" exit{} ", draw::exit_note(status)));
         }
+        if self.usage.report.is_none() && finished.is_some() {
+            self.usage.report = crate::usage::parse(&session.text());
+        }
+        let bars = self.usage.report.is_some();
+        let report = self.usage.report.as_ref().filter(|_| !self.usage.raw);
+        if bars && self.usage.raw {
+            block = block.title_bottom(" t bars ");
+        }
         let inner = block.inner(area);
         self.usage.area = inner;
         let printed = session.printed();
@@ -156,7 +179,10 @@ impl App {
         }
         frame.render_widget(Clear, area);
         frame.render_widget(block, area);
-        if printed {
+        if let Some(report) = report {
+            let lines = crate::usage::lines(report, inner.width, inner.height, self.accent);
+            frame.render_widget(Paragraph::new(lines), inner);
+        } else if printed {
             frame.render_widget(&*session, inner);
         } else {
             let note = if finished.is_some() {
