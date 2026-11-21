@@ -95,8 +95,171 @@ fn q_closes_the_view_and_does_not_quit() {
     assert!(screen.app.running());
 }
 
+#[test]
+fn the_view_opens_at_the_top() {
+    let mut screen = reader(&long());
+
+    screen.press('c');
+
+    let shown = screen.draw();
+    assert!(shown.contains("│Changelog"), "{shown}");
+    assert!(shown.contains("- acme step 15"), "{shown}");
+    assert!(!shown.contains("- acme step 16"), "{shown}");
+}
+
+#[test]
+fn j_scrolls_one_line_on() {
+    let mut screen = reader(&long());
+    screen.press('c');
+
+    screen.press('j');
+
+    let shown = screen.draw();
+    assert!(!shown.contains("│Changelog"), "{shown}");
+    assert!(shown.contains("- acme step 16"), "{shown}");
+}
+
+#[test]
+fn down_scrolls_one_line_on() {
+    let mut screen = reader(&long());
+    screen.press('c');
+
+    screen.key(KeyCode::Down, KeyModifiers::NONE);
+
+    let shown = screen.draw();
+    assert!(!shown.contains("│Changelog"), "{shown}");
+    assert!(shown.contains("- acme step 16"), "{shown}");
+}
+
+#[test]
+fn k_scrolls_one_line_back() {
+    let mut screen = reader(&long());
+    screen.press('c');
+    screen.press('j');
+
+    screen.press('k');
+
+    let shown = screen.draw();
+    assert!(shown.contains("│Changelog"), "{shown}");
+    assert!(!shown.contains("- acme step 16"), "{shown}");
+}
+
+#[test]
+fn up_scrolls_one_line_back() {
+    let mut screen = reader(&long());
+    screen.press('c');
+    screen.press('j');
+
+    screen.key(KeyCode::Up, KeyModifiers::NONE);
+
+    let shown = screen.draw();
+    assert!(shown.contains("│Changelog"), "{shown}");
+    assert!(!shown.contains("- acme step 16"), "{shown}");
+}
+
+#[test]
+fn k_at_the_top_keeps_the_view_open() {
+    let mut screen = reader(&long());
+    screen.press('c');
+
+    screen.press('k');
+
+    let shown = screen.draw();
+    assert!(shown.contains(" changelog "), "{shown}");
+    assert!(shown.contains("│Changelog"), "{shown}");
+}
+
+#[test]
+fn ctrl_d_scrolls_half_the_view_on() {
+    let mut screen = reader(&long());
+    screen.press('c');
+
+    screen.key(KeyCode::Char('d'), KeyModifiers::CONTROL);
+
+    let shown = screen.draw();
+    assert!(!shown.contains("- acme step 06"), "{shown}");
+    assert!(shown.contains("- acme step 07"), "{shown}");
+    assert!(shown.contains("- acme step 24"), "{shown}");
+    assert!(!shown.contains("- acme step 25"), "{shown}");
+}
+
+#[test]
+fn ctrl_u_scrolls_half_the_view_back() {
+    let mut screen = reader(&long());
+    screen.press('c');
+    screen.key(KeyCode::Char('d'), KeyModifiers::CONTROL);
+
+    screen.key(KeyCode::Char('u'), KeyModifiers::CONTROL);
+
+    let shown = screen.draw();
+    assert!(shown.contains("│Changelog"), "{shown}");
+    assert!(!shown.contains("- acme step 16"), "{shown}");
+}
+
+#[test]
+fn the_last_line_never_leaves_the_bottom() {
+    let mut screen = reader(&long());
+    screen.press('c');
+
+    for _ in 0..5 {
+        screen.key(KeyCode::Char('d'), KeyModifiers::CONTROL);
+    }
+
+    let shown = screen.draw();
+    assert!(!shown.contains("- acme step 12"), "{shown}");
+    assert!(shown.contains("- acme step 13"), "{shown}");
+    assert!(shown.contains("- acme step 30"), "{shown}");
+}
+
+#[test]
+fn j_on_a_text_shorter_than_the_view_does_nothing() {
+    let mut screen = reader(RELEASES);
+    screen.press('c');
+
+    screen.press('j');
+
+    let shown = screen.draw();
+    assert!(shown.contains("│Changelog"), "{shown}");
+    assert!(shown.contains("- acme starts"), "{shown}");
+}
+
+#[test]
+fn the_view_opens_at_the_top_again_after_scrolling() {
+    let mut screen = reader(&long());
+    screen.press('c');
+    screen.key(KeyCode::Char('d'), KeyModifiers::CONTROL);
+    screen.press('x');
+
+    screen.press('c');
+
+    let shown = screen.draw();
+    assert!(shown.contains("│Changelog"), "{shown}");
+}
+
+#[test]
+fn a_taller_terminal_keeps_the_last_line_at_the_bottom() {
+    let mut screen = reader(&long());
+    screen.press('c');
+    for _ in 0..5 {
+        screen.key(KeyCode::Char('d'), KeyModifiers::CONTROL);
+    }
+    screen.draw();
+
+    screen.resize(120, 30);
+
+    let shown = screen.draw();
+    assert!(!shown.contains("- acme step 02"), "{shown}");
+    assert!(shown.contains("- acme step 03"), "{shown}");
+    assert!(shown.contains("- acme step 30"), "{shown}");
+}
+
 const RELEASES: &str = "# Changelog\n\n## v0.2.0 (2026-11-02)\n- acme deploys retry twice\n\n## v0.1.0 (2026-11-01)\n- acme starts\n";
 
 fn reader(changelog: &str) -> Screen {
     Screen::of(App::new(reading_agent()).with_changelog(changelog))
+}
+
+fn long() -> String {
+    let steps: String = (1..=30).map(|n| format!("- acme step {n:02}\n")).collect();
+    format!("# Changelog\n\n## v0.1.0 (2026-11-01)\n{steps}")
 }
