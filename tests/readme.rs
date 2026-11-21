@@ -80,6 +80,11 @@ fn the_readme_usage_shows_the_edit_subcommand() {
 }
 
 #[test]
+fn the_readme_usage_shows_the_log_subcommand() {
+    assert!(README.contains("\nharbour log "));
+}
+
+#[test]
 fn the_readme_builds_from_source_at_the_newest_release() {
     assert!(README.contains(
         "\ncargo install --git https://github.com/piacsek/harbour --branch stable --locked\n"

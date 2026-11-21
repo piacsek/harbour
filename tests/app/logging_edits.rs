@@ -10,7 +10,7 @@ use crate::Screen;
 use crate::handing::{Edit, answering, neovim_at};
 use crate::handoff::{app_with, file, recorded, recording_neovim, socket_in, soon, start_in};
 use crate::handoff_socket::{asked_about, requested};
-use crate::logging::{logged, only, read};
+use crate::logging::{count, logged, only, read};
 
 #[test]
 fn an_ask_served_logs_its_file_reply_and_time() {
@@ -113,6 +113,28 @@ fn x_over_neovim_logs_the_question_it_asked() {
 
     let eval = only(&read(&lines), " neovim call=eval ");
     assert!(eval.contains(" editor=2 "), "{eval}");
+}
+
+#[test]
+fn a_ctrl_h_kept_by_neovim_is_logged_as_input_to_the_editor() {
+    let scratch = tempfile::tempdir().unwrap();
+    let (mut screen, lines) = harbour(scratch.path());
+    start_in(&mut screen, scratch.path(), "acme-api", 1);
+    screen.key(KeyCode::Enter, KeyModifiers::NONE);
+    screen.key(KeyCode::Char('l'), KeyModifiers::CONTROL);
+    screen.wait_for("acme nvim ready");
+    let _asked = neovim_at(Path::new(&recorded(scratch.path())[2]), true, Edit::Done);
+    read(&lines);
+
+    screen.key(KeyCode::Char('h'), KeyModifiers::CONTROL);
+
+    let lines = read(&lines);
+    let input = only(&lines, " input ");
+    assert!(
+        input.ends_with(" input to=editor session=1 editor=2 bytes=1\n"),
+        "{input}"
+    );
+    assert_eq!(count(&lines, " key "), 0);
 }
 
 fn harbour(scratch: &Path) -> (Screen, Receiver<String>) {

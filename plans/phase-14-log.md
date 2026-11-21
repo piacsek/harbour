@@ -104,4 +104,23 @@ where the newest one is. Off by default.
 
 ## Outcome
 
+- Built as planned, in eight tasks, on PR #62. `HARBOUR_LOG` turns the log on; `harbour log`
+  prints the newest log's path or exits 1. The decisions above held as written.
+- A C-h that a blocking Neovim keeps is logged as `input to=editor ... bytes=1`, never as a key:
+  the fake Neovim of `tests/app/handing.rs` already covered it, so no new seam was needed.
+- The help gained the `HARBOUR_LOG` note without growing: the two C-h notes became one line
+  ("C-Backspace acts as C-h. In Neovim, C-h goes back only from the leftmost window, in normal
+  mode."), so the whole help still fits 120x20 and 80x24. `docs/help.png` and `docs/keys.png`
+  were shot again; `docs/details.png` did not change.
+- One new seam, `App::with_slow_frame`, on the `SEAMS` list: it lets a test set the slow-frame
+  threshold to zero or a minute instead of waiting 100 ms.
+
 ## Hurdles
+
+- `test-seam` The first app test of a contained panic passed without any panic: the fixture's
+  wide character was never overwritten after the resize, so vt100 never panicked; it now redraws
+  that row on `SIGWINCH`, and the red run was shown by breaking the count → code
+- `process` The builder handed back early while another worktree's gates ran, instead of
+  waiting in the foreground for `scripts/gates.sh` to finish → none
+- `design` The seventh help note pushed the help past 20 rows, which held exactly 18 lines with
+  no slack; two notes were merged into one line → code
