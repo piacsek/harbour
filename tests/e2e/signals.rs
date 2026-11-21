@@ -18,22 +18,26 @@ const FIFO_AGENT: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/fi
 fn term_turns_the_terminal_modes_off_and_ends_harbour_by_term() {
     let home = tempfile::tempdir().unwrap();
     let server = Server::start("signal-term", 120, 20);
-    if !extended_keys(&server) {
-        return;
-    }
+    let extended = extended_keys(&server);
     let pid = home.path().join("harbour.pid");
     server.respawn(&format!(
         "{}; exec sleep 600",
         harbour_line(home.path(), &ended(&pid), &[], &[])
     ));
     server.wait_for_screen("press n to start one");
-    assert_eq!(modes(&server), "Ext 2|1");
+    assert_eq!(format(&server, "#{mouse_any_flag}"), "1");
+    if extended {
+        assert_eq!(format(&server, "#{pane_key_mode}"), "Ext 2");
+    }
 
     send(&pid, Signal::SIGTERM);
 
     let screen = server.wait_for_screen("harbour died of 15 exited 0");
     assert!(screen.contains("harbour died of 15 exited 0"), "{screen}");
-    assert_eq!(modes(&server), "VT10x|0");
+    assert_eq!(format(&server, "#{mouse_any_flag}"), "0");
+    if extended {
+        assert_eq!(format(&server, "#{pane_key_mode}"), "VT10x");
+    }
 }
 
 #[test]
@@ -41,9 +45,7 @@ fn term_turns_the_terminal_modes_off_and_ends_harbour_by_term() {
 fn after_term_the_shell_gets_ctrl_c_as_its_plain_byte() {
     let home = tempfile::tempdir().unwrap();
     let server = Server::start("signal-ctrl-c", 120, 20);
-    if !extended_keys(&server) {
-        return;
-    }
+    extended_keys(&server);
     let pid = home.path().join("harbour.pid");
     server.respawn(&format!(
         "{}; stty raw -echo; echo raw ready; dd bs=1 count=1 2>/dev/null | od -An -tx1; echo read; exec sleep 600",
@@ -89,6 +91,50 @@ fn hup_ends_harbour_as_a_quit_does_then_by_hup() {
     assert!(screen.contains("harbour died of 1 exited 0"), "{screen}");
     assert_eq!(left(home.path(), "status"), Vec::<String>::new());
     assert_eq!(left(home.path(), "edit"), Vec::<String>::new());
+}
+
+#[test]
+#[ignore]
+fn two_hups_in_a_row_end_harbour_as_a_quit_does_then_by_hup() {
+    let home = tempfile::tempdir().unwrap();
+    let server = Server::start("signal-hup-hup", 160, 20);
+    let pid = started(&server, home.path());
+
+    send(&pid, Signal::SIGHUP);
+    send(&pid, Signal::SIGHUP);
+
+    let screen = server.wait_for_screen("harbour died of 1 exited 0");
+    assert!(screen.contains("harbour died of 1 exited 0"), "{screen}");
+    let log = wait_for_log(home.path(), "quit sessions=1");
+    assert!(log.contains(" signal name=HUP\n"), "{log}");
+}
+
+#[test]
+#[ignore]
+fn closing_a_pane_whose_interactive_shell_runs_harbour_ends_it_as_a_quit_does() {
+    let home = tempfile::tempdir().unwrap();
+    let server = Server::start("signal-shell", 160, 20);
+    let script = home.path().join("harbour.sh");
+    std::fs::write(
+        &script,
+        harbour_line(home.path(), "", &[(SESSION_COMMAND, REGISTERED_AGENT)], &[]),
+    )
+    .unwrap();
+    server.respawn("exec /bin/bash --norc --noprofile -i");
+    server.send_keys(&[
+        &format!("/bin/sh {}", quoted(&script.display().to_string())),
+        "Enter",
+    ]);
+    server.wait_for_screen("press n to start one");
+    server.send_keys(&["n"]);
+    wait_for_status(home.path(), WORKING);
+
+    server.respawn("exec sleep 600");
+
+    let log = wait_for_log(home.path(), "quit sessions=1");
+    assert!(log.contains("quit sessions=1"), "{log}");
+    let status = wait_for_empty(home.path(), "status");
+    assert_eq!(status, Vec::<String>::new());
 }
 
 #[test]
@@ -158,7 +204,9 @@ fn started(server: &Server, home: &Path) -> PathBuf {
 fn extended_keys(server: &Server) -> bool {
     let options = [["extended-keys", "on"], ["extended-keys-format", "xterm"]];
     if let Some(option) = options.iter().find(|option| !server.server_option(*option)) {
-        eprintln!("skipping: this tmux cannot set {option:?}; extended-keys-format needs tmux 3.5");
+        eprintln!(
+            "not checking the key mode: this tmux cannot set {option:?}; extended-keys-format needs tmux 3.5"
+        );
         return false;
     }
     true
@@ -216,15 +264,9 @@ fn held(home: &Path) -> File {
     }
 }
 
-fn modes(server: &Server) -> String {
+fn format(server: &Server, format: &str) -> String {
     let output = server
-        .tmux(&[
-            "display-message",
-            "-p",
-            "-t",
-            "e2e",
-            "#{pane_key_mode}|#{mouse_any_flag}",
-        ])
+        .tmux(&["display-message", "-p", "-t", "e2e", format])
         .output()
         .unwrap();
     String::from_utf8_lossy(&output.stdout)

@@ -107,23 +107,49 @@ fn show(app: App) -> io::Result<Option<i32>> {
         .and_then(|()| drive(&mut terminal, app, shape.clone(), &caught));
     let _ = leave_terminal(&mut io::stdout(), &shape);
     let _ = ratatui::try_restore();
-    result
+    result.map(|ended| ended.or_else(|| signalled(&caught)))
 }
 
 fn caught() -> io::Result<Arc<AtomicUsize>> {
     let caught = Arc::new(AtomicUsize::new(0));
     let armed = Arc::new(AtomicBool::new(false));
-    for signal in [SIGHUP, SIGINT, SIGTERM] {
-        let value = usize::try_from(signal).map_err(io::Error::other)?;
+    for signal in [SIGINT, SIGTERM] {
         signal_hook::flag::register_conditional_default(signal, Arc::clone(&armed))?;
-        signal_hook::flag::register_usize(signal, Arc::clone(&caught), value)?;
+        signal_hook::flag::register_usize(signal, Arc::clone(&caught), number(signal)?)?;
         signal_hook::flag::register(signal, Arc::clone(&armed))?;
     }
+    signal_hook::flag::register_usize(SIGHUP, Arc::clone(&caught), number(SIGHUP)?)?;
     Ok(caught)
+}
+
+fn number(signal: i32) -> io::Result<usize> {
+    usize::try_from(signal).map_err(io::Error::other)
 }
 
 pub fn hung_up(error: &io::Error) -> bool {
     error.kind() == io::ErrorKind::UnexpectedEof || error.raw_os_error() == Some(Errno::EIO as i32)
+}
+
+pub fn settled(
+    app: &mut App,
+    stepped: io::Result<()>,
+    caught: &AtomicUsize,
+) -> io::Result<Option<i32>> {
+    if let Some(signal) = signalled(caught) {
+        app.stop(&named(signal));
+        return Ok(Some(signal));
+    }
+    match stepped {
+        Ok(()) => Ok(None),
+        Err(error) if hung_up(&error) => {
+            app.stop("hangup");
+            Ok(Some(SIGHUP))
+        }
+        Err(error) => {
+            app.stop("error");
+            Err(error)
+        }
+    }
 }
 
 fn signalled(caught: &AtomicUsize) -> Option<i32> {
@@ -179,16 +205,8 @@ fn drive(
             &mut pending,
             &stdin,
         );
-        if let Some(signal) = signalled(caught) {
-            app.stop(&named(signal));
+        if let Some(signal) = settled(&mut app, stepped, caught)? {
             return Ok(Some(signal));
-        }
-        match stepped {
-            Err(error) if hung_up(&error) => {
-                app.stop("hangup");
-                return Ok(Some(SIGHUP));
-            }
-            stepped => stepped?,
         }
     }
     Ok(None)
