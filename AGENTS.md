@@ -339,8 +339,14 @@ nearest the code the guideline is about.
   6. Remove the worktree and report what shipped, with the release link and the times the
      branch could not record (see "Time and tokens").
   Stop and ask instead of proceeding when: a gate fails for a reason the change did not
-  cause, CI fails twice on the same step, a review finding needs a product decision, or the
-  next step would force-push, push to `main` or delete a release.
+  cause, CI fails twice on the same step, a review finding needs a product decision that is
+  hard to undo or changes what the product is (dropping a feature, a breaking change, anything
+  about releases or data), or the next step would force-push, push to `main` or delete a
+  release. A small product decision, one a later pull request can reverse without users losing
+  anything (layout, wording, which of a few options, where a line shows), is the
+  orchestrator's: it picks the smallest option, writes the choice and its reason in the pull
+  request body or the issue, and goes on, since on 2026-11-21 five features waited hours for
+  such a choice.
 - **Cadence.** Outside the autonomous flow above, work runs under `/my-tdd autonomous`: one
   branch per phase (`phase-N-<topic>`), one commit per task through `scripts/ship.sh` (the fixes
   of a review round are the exception: one commit per round, see "Review before ready"), no

@@ -47,15 +47,17 @@ a memory of it exists:
 
 | Question | Recommended |
 | --- | --- |
-| A stop-and-ask condition of `AGENTS.md` is met (a gate fails for a reason the change did not cause, CI fails twice on the same step, a finding needs a product decision) | park that pull request as a draft with a note, hold what depends on it, continue the rest |
+| A stop-and-ask condition of `AGENTS.md` is met (a gate fails for a reason the change did not cause, CI fails twice on the same step, a finding needs a product decision that is hard to undo or changes what the product is) | park that pull request as a draft with a note, hold what depends on it, continue the rest |
 | A limit on review rounds per pull request | 3 rounds; then merge when no must finding is left and log the remaining should findings as issues; a must finding still open parks it |
 | How many builders at once | 2 |
 | The sweeps the coming phases open with | run them, write `### Sweep`, turn every finding into an issue, change no rule |
 
 Then ask what only this queue raises: an issue whose body leaves a choice "to the plan" that a
 user would notice, an issue that needs a check by hand on the owner's machine, an issue too
-vague to build. Do not ask what the issue already decides or what has a conventional default;
-decide those and list them in the report.
+vague to build. Do not ask what the issue already decides, what has a conventional default, or
+a small product decision a later pull request can reverse without users losing anything
+(layout, wording, which of a few options, where a line shows): pick the smallest option and
+list it under decided, with its reason.
 
 Never asked, never done without the owner present: a force-push, a push to `main`, a tag or a
 release moved or deleted by hand, a move of `stable`. An issue that needs one is parked.
@@ -88,9 +90,11 @@ One task per issue in the task list, in lane order. For each issue:
    owner's messages again, `gh pr merge <N> --squash`. Read the merge's result before any
    cleanup. Watch the release run; with a fragment, check the six assets, the tap formula and
    `stable`. Remove the worktree, then start the lane's next issue.
-5. **Park** when a stop-and-ask condition is met or the round limit leaves a must finding: the
-   pull request stays a draft, its body says what it waits for, the issues it blocks are held,
-   and the lane moves to its next issue that is not blocked.
+5. **Park** when a stop-and-ask condition is met (a product decision only when it is hard to
+   undo or changes what the product is; decide a small one and list it under decided) or the
+   round limit leaves a must finding: the pull request stays a draft, its body says what it
+   waits for, the issues it blocks are held, and the lane moves to its next issue that is not
+   blocked.
 6. **Log what turns up.** A finding outside the pull request, a remaining should finding, a
    sweep finding: each becomes an issue, linked to what it blocks. It joins this run's queue
    only when it blocks an issue already in it.
