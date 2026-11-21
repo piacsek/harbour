@@ -45,6 +45,9 @@ pub fn run(config: Config) -> io::Result<()> {
     if let Some(width) = config.sidebar_width().value {
         app = app.with_sidebar_width(width);
     }
+    if config.nerd_font().value {
+        app = app.with_nerd_font();
+    }
     if let Some(dir) = claude_sessions() {
         app = app.with_registry(dir);
     }
