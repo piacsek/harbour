@@ -1,0 +1,18 @@
+#!/bin/sh
+case " $* " in
+*' --with-nth=2.. '*) ;;
+*)
+	echo .
+	exit 0
+	;;
+esac
+listed=$(cat)
+echo "acme fzf args: $*" >&2
+printf '%s\n' "$listed" | tr '\t' '|' >&2
+echo 'acme fzf ready' >&2
+IFS= read -r answer </dev/tty
+case $answer in
+'') exit 130 ;;
+broken) exit 2 ;;
+esac
+printf '%s\n' "$listed" | grep -F -m1 -e "$answer" || exit 1

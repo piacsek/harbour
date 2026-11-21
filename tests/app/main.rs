@@ -9,6 +9,7 @@ mod editor_exits;
 mod editor_input;
 mod ending;
 mod exits;
+mod finding;
 mod focus;
 mod following;
 mod handing;
