@@ -118,7 +118,7 @@ impl App {
     fn open_in(&mut self, holder: usize, root: &Path, file: &Path, deadline: Instant) -> Reply {
         if let Some(program) = self.editor.as_ref().filter(|program| !program.is_neovim()) {
             return Reply::Refused(format!(
-                "a file can only be handed to Neovim, and HARBOUR_EDITOR is {}",
+                "a file can only be handed to Neovim, and the editor is {}",
                 program.name()
             ));
         }

@@ -39,6 +39,7 @@ pub enum Picker {
         fzf: Vec<String>,
         list: Vec<String>,
         here_first: bool,
+        required: bool,
     },
 }
 
@@ -57,6 +58,7 @@ impl Picker {
                 fzf,
                 list,
                 here_first,
+                ..
             } => {
                 let here = if *here_first {
                     from.as_os_str().to_owned()
@@ -102,8 +104,13 @@ impl Pick {
             .tempdir_in(temporary)?;
         let output = scratch.path().join("picked");
         match (picker, startable(picker.program(), from)) {
-            (Picker::Command(_), Err(error)) => return Err(error),
-            (Picker::Fuzzy { .. }, Err(_)) => return Ok(None),
+            (
+                Picker::Fuzzy {
+                    required: false, ..
+                },
+                Err(_),
+            ) => return Ok(None),
+            (_, Err(error)) => return Err(error),
             (_, Ok(())) => {}
         }
         let wrapped = picker.command(from, &output);

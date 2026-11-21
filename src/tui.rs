@@ -14,6 +14,7 @@ use ratatui::Terminal;
 use ratatui::backend::CrosstermBackend;
 
 use crate::app::App;
+use crate::config::{Config, Source};
 use crate::cursor::Shape;
 use crate::demo::Registry;
 use crate::editor::Program;
@@ -36,17 +37,21 @@ pub const DIR_PICKER: &str = "HARBOUR_DIR_PICKER";
 pub const EDITOR: &str = "HARBOUR_EDITOR";
 pub const LOG: &str = "HARBOUR_LOG";
 
-pub fn run() -> io::Result<()> {
-    let mut app = App::new(session_command())
-        .with_picker(dir_picker())
-        .with_editor(editor());
+pub fn run(config: Config) -> io::Result<()> {
+    let mut app = App::new(config.session_command().value.clone())
+        .with_picker(dir_picker(&config))
+        .with_editor(Program::command(config.editor().value.clone()))
+        .with_accent(config.accent().value);
+    if let Some(width) = config.sidebar_width().value {
+        app = app.with_sidebar_width(width);
+    }
     if let Some(dir) = claude_sessions() {
         app = app.with_registry(dir);
     }
     if let Some(dir) = claude_projects() {
         app = app.with_transcripts(dir);
     }
-    if std::env::var_os(SESSION_COMMAND).is_none() {
+    if config.names_sessions() {
         app = app.naming_sessions();
     }
     if let Some(summary) = published() {
@@ -150,26 +155,19 @@ pub fn frame<W: io::Write>(
     Ok(())
 }
 
-fn dir_picker() -> Picker {
-    match std::env::var(DIR_PICKER) {
-        Ok(program) if !program.is_empty() => Picker::Command(vec![program]),
-        _ => Picker::Fuzzy {
-            fzf: vec!["fzf".to_string()],
+fn dir_picker(config: &Config) -> Picker {
+    let picker = config.picker();
+    let fzf = std::path::Path::new(&picker.value[0]).file_name() == Some("fzf".as_ref());
+    match &picker.source {
+        Source::Variable(_) => Picker::Command(picker.value.clone()),
+        Source::File if !fzf => Picker::Command(picker.value.clone()),
+        source => Picker::Fuzzy {
+            fzf: picker.value.clone(),
             list: ["zoxide", "query", "--list"].map(String::from).to_vec(),
             here_first: true,
+            required: *source == Source::File,
         },
     }
-}
-
-fn editor() -> Program {
-    match std::env::var_os(EDITOR) {
-        Some(program) if !program.is_empty() => Program::named(program),
-        _ => Program::named("nvim".into()),
-    }
-}
-
-fn session_command() -> Vec<String> {
-    vec![std::env::var(SESSION_COMMAND).unwrap_or_else(|_| "claude".to_string())]
 }
 
 fn claude_sessions() -> Option<std::path::PathBuf> {

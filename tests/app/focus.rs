@@ -1,7 +1,12 @@
 use crossterm::event::{KeyCode, KeyModifiers};
 use ratatui::style::Color;
 
-use crate::{Screen, numbered_agent, pane_corner, reading_agent};
+use harbour::app::App;
+use harbour::picker::Picker;
+
+use crate::{Screen, numbered_agent, pane_corner, reading_agent, script};
+
+const ACCENT: Color = Color::Rgb(0xd7, 0x87, 0x5f);
 
 #[test]
 fn enter_focuses_the_pane_and_keys_typed_there_reach_the_session() {
@@ -153,4 +158,75 @@ fn a_narrow_terminal_draws_the_focused_pane_with_the_cyan_border() {
 
     assert_eq!(screen.cell(0, 0).symbol(), "┏");
     assert_eq!(screen.cell(0, 0).fg, Color::Cyan);
+}
+
+#[test]
+fn a_focused_sidebar_takes_the_accent_border() {
+    let scratch = tempfile::tempdir().unwrap();
+    let mut screen = accented(numbered_agent(scratch.path()));
+    screen.press('n');
+
+    screen.wait_for("acme agent 1");
+
+    assert_eq!(screen.cell(0, 0).fg, ACCENT);
+}
+
+#[test]
+fn a_focused_pane_takes_the_accent_border() {
+    let scratch = tempfile::tempdir().unwrap();
+    let mut screen = accented(numbered_agent(scratch.path()));
+    screen.press('n');
+    screen.wait_for("acme agent 1");
+
+    screen.key(KeyCode::Enter, KeyModifiers::NONE);
+
+    let pane = pane_corner(&screen.draw());
+    assert_eq!(screen.cell(pane, 0).fg, ACCENT);
+    assert_eq!(screen.cell(0, 0).fg, Color::Reset);
+}
+
+#[test]
+fn the_bar_of_the_selected_session_takes_the_accent() {
+    let scratch = tempfile::tempdir().unwrap();
+    let mut screen = accented(numbered_agent(scratch.path()));
+    screen.press('n');
+    screen.wait_for("acme agent 1");
+
+    screen.draw();
+
+    assert_eq!(screen.cell(1, 1).symbol(), "▌");
+    assert_eq!(screen.cell(1, 1).fg, ACCENT);
+}
+
+#[test]
+fn the_picker_popup_takes_the_accent_border() {
+    let scratch = tempfile::tempdir().unwrap();
+    let mut screen = Screen::of(
+        App::new(numbered_agent(scratch.path()))
+            .with_picker(Picker::Command(script(
+                "echo 'acme picker' >&2; read -r line",
+            )))
+            .with_accent(ACCENT),
+    );
+
+    screen.press('n');
+
+    let shown = screen.wait_for("acme picker");
+    let (x, y) = corner_of(&shown, " directory ");
+    assert_eq!(screen.cell(x, y).symbol(), "┏");
+    assert_eq!(screen.cell(x, y).fg, ACCENT);
+}
+
+fn accented(command: Vec<String>) -> Screen {
+    Screen::of(App::new(command).with_accent(ACCENT))
+}
+
+fn corner_of(shown: &str, title: &str) -> (u16, u16) {
+    let (y, line) = shown
+        .lines()
+        .enumerate()
+        .find(|(_, line)| line.contains(title))
+        .unwrap();
+    let x = line.chars().position(|c| c == '┏').unwrap();
+    (u16::try_from(x).unwrap(), u16::try_from(y).unwrap())
 }

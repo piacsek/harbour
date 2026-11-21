@@ -464,6 +464,7 @@ fn status(state: &Path) -> String {
     let output = Command::new(env!("CARGO_BIN_EXE_harbour"))
         .arg("status")
         .env("XDG_STATE_HOME", state)
+        .env_remove("XDG_CONFIG_HOME")
         .env("HOME", state)
         .output()
         .unwrap();

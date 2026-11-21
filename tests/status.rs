@@ -13,6 +13,19 @@ fn with_no_harbour_ever_run_status_prints_nothing() {
 }
 
 #[test]
+fn a_bad_config_file_is_never_read() {
+    let state = tempfile::tempdir().unwrap();
+    let config = state.path().join(".config/harbour");
+    fs::create_dir_all(&config).unwrap();
+    fs::write(config.join("config.toml"), "retention_days = 7\n").unwrap();
+
+    let output = status(state.path());
+
+    assert!(output.stderr.is_empty());
+    assert!(output.status.success());
+}
+
+#[test]
 fn with_no_harbour_ever_run_status_exits_zero() {
     let state = tempfile::tempdir().unwrap();
 
@@ -223,6 +236,7 @@ fn without_home_or_xdg_state_home_status_prints_nothing() {
     let output = Command::new(env!("CARGO_BIN_EXE_harbour"))
         .arg("status")
         .env_remove("XDG_STATE_HOME")
+        .env_remove("XDG_CONFIG_HOME")
         .env_remove("HOME")
         .output()
         .unwrap();
@@ -238,6 +252,7 @@ fn a_relative_home_without_xdg_state_home_prints_nothing() {
     let output = Command::new(env!("CARGO_BIN_EXE_harbour"))
         .arg("status")
         .env_remove("XDG_STATE_HOME")
+        .env_remove("XDG_CONFIG_HOME")
         .env("HOME", "acme-home")
         .current_dir(cwd.path())
         .output()
@@ -254,6 +269,7 @@ fn an_empty_home_without_xdg_state_home_prints_nothing() {
     let output = Command::new(env!("CARGO_BIN_EXE_harbour"))
         .arg("status")
         .env_remove("XDG_STATE_HOME")
+        .env_remove("XDG_CONFIG_HOME")
         .env("HOME", "")
         .current_dir(cwd.path())
         .output()
@@ -266,6 +282,7 @@ fn status(state: &Path) -> Output {
     Command::new(env!("CARGO_BIN_EXE_harbour"))
         .arg("status")
         .env("XDG_STATE_HOME", state)
+        .env_remove("XDG_CONFIG_HOME")
         .env("HOME", state)
         .output()
         .unwrap()
@@ -273,7 +290,10 @@ fn status(state: &Path) -> Output {
 
 fn launch(home: &Path, state_home: Option<&str>) -> Output {
     let mut command = Command::new(env!("CARGO_BIN_EXE_harbour"));
-    command.arg("status").env("HOME", home);
+    command
+        .arg("status")
+        .env("HOME", home)
+        .env_remove("XDG_CONFIG_HOME");
     match state_home {
         Some(value) => command.env("XDG_STATE_HOME", value),
         None => command.env_remove("XDG_STATE_HOME"),

@@ -68,9 +68,9 @@ impl App {
             summary.publish(counts);
         }
         let title = state::title(counts, usize::from(sidebar.width.saturating_sub(2)));
-        let sidebar_block = bordered(!self.pane_focused).title(title);
+        let sidebar_block = bordered(!self.pane_focused, self.accent).title(title);
         let below_rows = sidebar_block.inner(sidebar);
-        let mut pane_block = bordered(self.pane_focused);
+        let mut pane_block = bordered(self.pane_focused, self.accent);
         if let Some(tabs) = self.tabs(pane.width) {
             pane_block = pane_block.title(tabs);
         }
@@ -120,8 +120,13 @@ impl App {
             }
             Some(shown) => {
                 frame.render_widget(sidebar_block, sidebar);
-                self.cards
-                    .draw(&cards, self.selected, below_rows, frame.buffer_mut());
+                self.cards.draw(
+                    &cards,
+                    self.selected,
+                    self.accent,
+                    below_rows,
+                    frame.buffer_mut(),
+                );
                 if !pane.is_empty() {
                     match shown.shown() {
                         Some(session) => {
@@ -172,7 +177,7 @@ impl App {
         }
         if let Some(pick) = &mut self.picking {
             let area = popup(frame.area());
-            let block = bordered(true).title(" directory ");
+            let block = bordered(true, self.accent).title(" directory ");
             let inner = block.inner(area);
             self.picking_area = inner;
             pick.resize(inner.height, inner.width);
@@ -267,11 +272,11 @@ pub(super) fn exit_note(status: &ExitStatus) -> String {
     }
 }
 
-fn bordered(focused: bool) -> Block<'static> {
+fn bordered(focused: bool, accent: Color) -> Block<'static> {
     if focused {
         Block::bordered()
             .border_type(BorderType::Thick)
-            .border_style(Color::Cyan)
+            .border_style(accent)
     } else {
         Block::bordered().border_type(BorderType::Plain)
     }
