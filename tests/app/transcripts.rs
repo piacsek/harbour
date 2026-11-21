@@ -4,7 +4,9 @@ use std::path::PathBuf;
 use std::thread::sleep;
 use std::time::Duration;
 
+use crossterm::event::{KeyCode, KeyModifiers};
 use harbour::app::App;
+use harbour::editor::Program;
 use ratatui::style::Modifier;
 
 use crate::status::showing;
@@ -14,26 +16,52 @@ const ID: &str = "0f1e2d3c-4b5a-6978-8a9b-0c1d2e3f4a5b";
 const OTHER_ID: &str = "9a8b7c6d-5e4f-4a3b-2c1d-0e9f8a7b6c5d";
 
 #[test]
-fn a_working_session_shows_its_title_and_its_last_tool_call() {
+fn an_unselected_working_session_shows_its_last_prompt_dimmed_not_its_last_tool_call() {
     let claude = Claude::new();
     claude.transcript(
         ID,
         r#"{"type":"ai-title","aiTitle":"Fix the flaky login test"}"#,
     );
+    claude.transcript(
+        ID,
+        r#"{"type":"last-prompt","lastPrompt":"fix the login test"}"#,
+    );
     claude.transcript(ID, &tool(r#"{"description":"Run the login tests"}"#));
+    let mut screen = claude.screen("busy", ID);
+    screen.press('n');
+    screen.press('n');
+
+    let shown = screen.wait_for("fix the login test");
+
+    assert_eq!(
+        below(&shown, "Fix the flaky login test"),
+        "fix the login test"
+    );
+    assert!(!shown.contains("Run the login tests"), "{shown}");
+    assert!(screen.cell(5, 2).modifier.contains(Modifier::DIM));
+}
+
+#[test]
+fn the_selected_working_session_shows_no_second_line() {
+    let claude = Claude::new();
+    claude.transcript(
+        ID,
+        r#"{"type":"ai-title","aiTitle":"Fix the flaky login test"}"#,
+    );
+    claude.transcript(
+        ID,
+        r#"{"type":"last-prompt","lastPrompt":"fix the login test"}"#,
+    );
     let mut screen = claude.screen("busy", ID);
     screen.press('n');
 
     let shown = screen.wait_for("Fix the flaky login test");
 
-    assert_eq!(
-        below(&shown, "Fix the flaky login test"),
-        "Run the login tests"
-    );
+    assert_eq!(below(&shown, "Fix the flaky login test"), "");
 }
 
 #[test]
-fn an_idle_session_shows_its_last_prompt_dimmed() {
+fn an_unselected_idle_session_shows_its_last_prompt_dimmed() {
     let claude = Claude::new();
     claude.transcript(
         ID,
@@ -45,6 +73,7 @@ fn an_idle_session_shows_its_last_prompt_dimmed() {
         r#"{"type":"last-prompt","lastPrompt":"split the invoice\nhelper"}"#,
     );
     let mut screen = claude.screen("idle", ID);
+    screen.press('n');
     screen.press('n');
 
     let shown = screen.wait_for("split the invoice helper");
@@ -69,6 +98,110 @@ fn a_blocked_session_shows_what_it_waits_for_not_its_last_tool_call() {
     let shown = screen.wait_for("Deploy acme-api");
 
     assert_eq!(below(&shown, "Deploy acme-api"), "permission prompt");
+}
+
+#[test]
+fn the_selected_idle_session_shows_no_second_line() {
+    let claude = Claude::new();
+    claude.transcript(
+        ID,
+        r#"{"type":"ai-title","aiTitle":"Tidy the billing module"}"#,
+    );
+    claude.transcript(
+        ID,
+        r#"{"type":"last-prompt","lastPrompt":"split the invoice helper"}"#,
+    );
+    let mut screen = claude.screen("idle", ID);
+    screen.press('n');
+
+    let shown = screen.wait_for("Tidy the billing module");
+
+    assert_eq!(below(&shown, "Tidy the billing module"), "");
+}
+
+#[test]
+fn the_narrow_layout_shows_what_the_selected_blocked_session_waits_for() {
+    let claude = Claude::new();
+    claude.transcript(ID, r#"{"type":"ai-title","aiTitle":"Deploy acme-api"}"#);
+    let mut screen = claude.screen_with(&blocked());
+    screen.press('n');
+    screen.wait_for("permission prompt");
+
+    screen.resize(50, 20);
+    let shown = screen.draw();
+
+    assert_eq!(below(&shown, "Deploy acme-api"), "permission prompt");
+}
+
+#[test]
+fn the_narrow_layout_shows_no_second_line_on_the_selected_working_session() {
+    let claude = Claude::new();
+    claude.transcript(
+        ID,
+        r#"{"type":"ai-title","aiTitle":"Fix the flaky login test"}"#,
+    );
+    claude.transcript(
+        ID,
+        r#"{"type":"last-prompt","lastPrompt":"fix the login test"}"#,
+    );
+    let mut screen = claude.screen("busy", ID);
+    screen.press('n');
+    screen.wait_for("Fix the flaky login test");
+
+    screen.resize(50, 20);
+    let shown = screen.draw();
+
+    assert_eq!(below(&shown, "Fix the flaky login test"), "");
+}
+
+#[test]
+fn the_narrow_layout_shows_no_second_line_on_the_selected_idle_session() {
+    let claude = Claude::new();
+    claude.transcript(
+        ID,
+        r#"{"type":"ai-title","aiTitle":"Tidy the billing module"}"#,
+    );
+    claude.transcript(
+        ID,
+        r#"{"type":"last-prompt","lastPrompt":"split the invoice helper"}"#,
+    );
+    let mut screen = claude.screen("idle", ID);
+    screen.press('n');
+    screen.wait_for("Tidy the billing module");
+
+    screen.resize(50, 20);
+    let shown = screen.draw();
+
+    assert_eq!(below(&shown, "Tidy the billing module"), "");
+}
+
+#[test]
+fn the_selected_blocked_session_shows_what_it_waits_for_beside_its_editor() {
+    let claude = Claude::new();
+    claude.transcript(ID, r#"{"type":"ai-title","aiTitle":"Deploy acme-api"}"#);
+    let mut screen = claude.editing(&blocked());
+
+    let shown = screen.wait_for_all(&["acme editor ready", "permission prompt"]);
+
+    assert_eq!(below(&shown, "Deploy acme-api"), "permission prompt");
+}
+
+#[test]
+fn the_selected_working_session_shows_no_second_line_beside_its_editor() {
+    let claude = Claude::new();
+    claude.transcript(
+        ID,
+        r#"{"type":"ai-title","aiTitle":"Fix the flaky login test"}"#,
+    );
+    claude.transcript(
+        ID,
+        r#"{"type":"last-prompt","lastPrompt":"fix the login test"}"#,
+    );
+    let mut screen = claude.editing(&format!(r#"{{"status":"busy","sessionId":"{ID}"}}"#));
+
+    let shown = screen.wait_for_all(&["acme editor ready", "Fix the flaky login test"]);
+
+    assert_eq!(below(&shown, "Fix the flaky login test"), "");
 }
 
 #[test]
@@ -247,19 +380,38 @@ impl Claude {
     }
 
     fn screen_with(&self, json: &str) -> Screen {
-        self.screen_running(&format!(
+        self.screen_running(&self.registering(json))
+    }
+
+    fn registering(&self, json: &str) -> String {
+        format!(
             "echo $$ > '{}'; printf '%s' '{json}' > '{}'/$$.json; echo 'acme agent'; exec sleep 600",
             self.pid_file.display(),
             self.sessions().display()
-        ))
+        )
     }
 
     fn screen_running(&self, text: &str) -> Screen {
-        showing(
-            App::new(script(text))
-                .with_registry(self.sessions())
-                .with_transcripts(self.config.path().join("projects")),
-        )
+        showing(self.app(text))
+    }
+
+    fn editing(&self, json: &str) -> Screen {
+        let editor = Program::new(
+            "acme-edit",
+            script("echo 'acme editor ready'; exec sleep 600"),
+        );
+        let mut screen = showing(self.app(&self.registering(json)).with_editor(editor));
+        screen.press('n');
+        screen.wait_for("acme agent");
+        screen.key(KeyCode::Enter, KeyModifiers::NONE);
+        screen.key(KeyCode::Char('l'), KeyModifiers::CONTROL);
+        screen
+    }
+
+    fn app(&self, text: &str) -> App {
+        App::new(script(text))
+            .with_registry(self.sessions())
+            .with_transcripts(self.config.path().join("projects"))
     }
 
     fn register(&self, json: &str) {
@@ -272,4 +424,8 @@ fn tool(input: &str) -> String {
     format!(
         r#"{{"type":"assistant","message":{{"content":[{{"type":"tool_use","name":"Bash","input":{input}}}]}}}}"#
     )
+}
+
+fn blocked() -> String {
+    format!(r#"{{"status":"waiting","waitingFor":"permission prompt","sessionId":"{ID}"}}"#)
 }

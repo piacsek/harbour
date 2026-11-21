@@ -77,7 +77,7 @@ pub fn working(registry: &Path) -> Vec<String> {
             transcript: &[
                 r#"{"type":"ai-title","aiTitle":"Fix the flaky retry test"}"#,
                 r#"{"type":"pr-link","prNumber":128}"#,
-                r#"{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Bash","input":{"command":"cargo test retry","description":"Run the retry tests"}}]}}"#,
+                r#"{"type":"last-prompt","lastPrompt":"fix the flaky retry test in acme/api"}"#,
             ],
             subagents: 2,
         },
