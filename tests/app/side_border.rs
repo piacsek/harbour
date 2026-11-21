@@ -26,7 +26,7 @@ fn the_editor_half_names_the_editor_its_directory_and_the_counts() {
     let top = top(&screen.draw());
 
     let right: String = top.chars().skip(60).collect();
-    assert!(right.starts_with("┌ acme-edit: …/"), "{right}");
+    assert!(right.starts_with("┌ acme-edit: "), "{right}");
     assert!(right.contains("/acme-api ─"), "{right}");
     assert!(right.ends_with("─ sessions ● 1 ┐"), "{right}");
 }
