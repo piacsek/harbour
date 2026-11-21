@@ -357,6 +357,8 @@ C-Backspace acts as C-h. In Neovim, C-h goes back only from the leftmost window,
 in normal mode.
 With vim-tmux-navigator, add harbour to the processes it sends C-h and C-l to.
 Under tmux, a newline is Shift-Enter with extended-keys on, else Alt-Enter.
+C-1 to C-8 jump to that card, C-9 to the last; under tmux they need extended-keys
+on. On macOS, Mission Control's Switch to Desktop N shortcuts can take them first.
 status prints how many sessions of every running harbour are blocked, working,
 idle or unknown. For tmux, put #(harbour status) in your status-right, for example
   set -g status-right '#(harbour status) %H:%M'
