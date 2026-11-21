@@ -73,4 +73,17 @@ the log than the note did. `NOTES` goes, so no dead code is left.
 
 ## Outcome
 
+- The help view shows `KEYS`, the legend and `harbour --help has the rest.`: 13 rows, 5 to
+  spare at 120x20 and 9 at 80x24, pinned by `the_whole_help_shows_on_a_20_row_terminal` and
+  `the_whole_help_shows_on_an_80_by_24_terminal`; it shows whole at 60x20 and 59x20 too.
+  `no_note_shows_in_the_help` fails when a note comes back to the view.
+- `harbour --help` carries the five notes it lacked, right after the paragraph on the interface,
+  one to a line; `HARBOUR_LOG` was already explained there, so its note is not repeated.
+- `NOTES` is gone; the pointer is `REST` in `src/help.rs`, beside `KEYS`.
+- The five keys of #36, #37, #39, #41 and #42 fit at 120x20 with the pointer, as one row each
+  within 107 columns; a sixth needs the pointer row or a rule that drops it.
+- `docs/keys.png` and `docs/help.png` were shot again; no other image changed.
+
 ## Hurdles
+
+- `process` Three builders shared the machine's gates before the gates lock reached `main`, so each ship waited on a `pgrep` loop until the lock landed and was merged in → none
