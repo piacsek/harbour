@@ -211,6 +211,52 @@ fn closing_the_popup_is_logged_as_the_popups_own_event_and_not_as_a_key() {
 }
 
 #[test]
+fn shift_u_opens_the_popup() {
+    let mut screen = Screen::of(app().with_usage(report()));
+
+    screen.key(KeyCode::Char('U'), KeyModifiers::SHIFT);
+
+    let shown = screen.wait_for("acme session: 12% used");
+    assert!(shown.contains(" usage "), "{shown}");
+}
+
+#[test]
+fn u_with_caps_lock_opens_the_popup() {
+    let mut screen = Screen::of(app().with_usage(report()));
+
+    screen.press('U');
+
+    let shown = screen.wait_for("acme session: 12% used");
+    assert!(shown.contains(" usage "), "{shown}");
+}
+
+#[test]
+fn shift_q_closes_the_popup_and_does_not_quit() {
+    let mut screen = Screen::of(app().with_usage(report()));
+    screen.press('u');
+    screen.wait_for("acme session: 12% used");
+
+    screen.key(KeyCode::Char('Q'), KeyModifiers::SHIFT);
+
+    let shown = screen.draw();
+    assert!(!shown.contains(" usage "), "{shown}");
+    assert!(screen.app.running());
+}
+
+#[test]
+fn q_with_caps_lock_closes_the_popup_and_does_not_quit() {
+    let mut screen = Screen::of(app().with_usage(report()));
+    screen.press('u');
+    screen.wait_for("acme session: 12% used");
+
+    screen.press('Q');
+
+    let shown = screen.draw();
+    assert!(!shown.contains(" usage "), "{shown}");
+    assert!(screen.app.running());
+}
+
+#[test]
 fn ctrl_u_opens_no_popup() {
     let mut screen = Screen::of(app().with_usage(report()));
 

@@ -90,7 +90,7 @@ impl App {
             KeyCode::Char('x') => self.end_or_remove(),
             KeyCode::Char('e') => self.next_editor(),
             KeyCode::Char('?') => self.helping = true,
-            KeyCode::Char('u') if (acted.modifiers - KeyModifiers::SHIFT).is_empty() => {
+            KeyCode::Char('u' | 'U') if (acted.modifiers - KeyModifiers::SHIFT).is_empty() => {
                 self.open_usage()
             }
             KeyCode::Char('j') => {

@@ -87,7 +87,7 @@ impl App {
             return false;
         };
         if key.code == KeyCode::Esc
-            || (key.code == KeyCode::Char('q')
+            || (matches!(key.code, KeyCode::Char('q' | 'Q'))
                 && key.modifiers - KeyModifiers::SHIFT == KeyModifiers::NONE)
         {
             self.close_usage();
@@ -140,10 +140,13 @@ impl App {
         }
         let inner = block.inner(area);
         self.usage.area = inner;
-        session.resize(ROWS, inner.width);
+        let printed = session.printed();
+        if !printed {
+            session.resize(ROWS, inner.width);
+        }
         frame.render_widget(Clear, area);
         frame.render_widget(block, area);
-        if session.printed() {
+        if printed {
             frame.render_widget(&*session, inner);
         } else {
             let note = if finished.is_some() {

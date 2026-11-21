@@ -80,15 +80,17 @@ scratch tmux server at 78 by 28:
 
 | State | What the user sees |
 | --- | --- |
-| `u` in the sidebar | the popup titled ` usage `, `loading…` inside until the process prints and its output is read to its end |
+| `u` in the sidebar | the popup titled ` usage `, `loading…` inside while nothing is printed; the screen as soon as anything prints |
 | `claude` slow to start | `loading…` for as long as the screen stays blank |
 | it prints and exits 0 | what it printed stays in the popup until Esc or `q` |
-| it exits 0 having printed nothing | `printed nothing` |
+| it exits 0 having printed nothing | `printed nothing`, once its output is read to its end |
+| it exits while a child it started keeps the terminal open | decided at the exit, since the exit of the PTY's leader hangs up the terminal and the output ends |
 | it exits non-zero (not logged in, no network) | what it printed, and `exit <code>` in the popup's title |
 | `claude` missing or not executable | no popup; `Could not start <program>: <error>` on the message line |
 | the session command is not `claude` | no popup; `Usage needs Claude Code; the session command runs <program>` |
 | its output wider than the popup | wrapped by Claude Code at the PTY width, which is the popup's inner width |
 | its output longer than the popup | the top of it; the rest is cut |
+| the terminal shrinks after the report printed | the PTY keeps its width, so the popup shows the left part; widening shows it all again |
 | terminal smaller than 80 by 30 | the popup takes the terminal's size |
 | narrow layout (under 60 columns), the narrowest sidebar | the popup over the whole terminal, as in the wide layout |
 | a CJK line in its output | drawn by the terminal widget cell by cell, two columns each, cut at the border |
@@ -100,7 +102,8 @@ scratch tmux server at 78 by 28:
 | no state folder (neither `XDG_STATE_HOME` nor `HOME` absolute) | no popup; `Usage needs a state folder; set XDG_STATE_HOME or HOME` |
 | the private folder cannot be made (a file in its path, not its owner's) | no popup; `Could not make <folder>: <error>` |
 | the private folder exists open to others | closed to 0700 before it runs |
-| Ctrl-U, Alt-U | nothing; only `u` (or Shift-U) opens it |
+| Ctrl-U, Alt-U | nothing; only `u` or `U` (Shift-U, or `u` with Caps Lock) opens it |
+| `Q` (Shift-Q, or `q` with Caps Lock) while open | the popup closes like `q`; harbour does not quit |
 | `u` while a session is zoomed (M-z) | the sidebar is hidden and the zoomed pane has the keys, so `u` reaches that session like any letter; no popup |
 | M-z while the popup is open | sent to the popup like any other key; nothing zooms |
 | `harbour edit <file>` while it is open | `none` to an ask and a refusal to an open, as while the picker or a question waits; the popup stays |
@@ -129,7 +132,7 @@ scratch tmux server at 78 by 28:
   `show the next editor, one per directory`, and the headroom test now asks for 2 free rows.
 - Review round 1: the report runs in harbour's private `usage/` folder with
   `--setting-sources user`, never in a session's folder; `harbour edit` is answered as while the
-  picker waits; the popup shows `loading…` until its output is read to its end; its close is
+  picker waits; `printed nothing` and the exit show only once its output is read to its end; its close is
   logged as `usage closed`; only `u` and Shift-U open it. Each press still leaves a
   `session-env/<id>/` folder in the Claude Code configuration (a known limit).
 - The "printed nothing" flash could not be made to happen on macOS: the old logic showed it in
@@ -137,6 +140,13 @@ scratch tmux server at 78 by 28:
   exit never arrives there, since the PTY is cut off when its leader exits. The fix is guarded
   by a session test (drained only once the output is read to its end) and a popup test that
   counts the frames showing `printed nothing`.
+- Review round 2 found no must or should; its last fixes: `U` opens the popup and `Q` closes
+  it, with Shift or Caps Lock, and a finished report keeps its PTY width, so shrinking the
+  terminal no longer cuts it for good. A report whose child keeps the terminal open after the
+  exit was thought to stay on `loading…`, but the exit of the PTY's leader hangs up the
+  terminal on macOS and Linux (checked in a Linux container), so the output ends at once; a test
+  pins it and no wait was added.
+- 2 review rounds.
 
 ## Hurdles
 
@@ -145,3 +155,4 @@ scratch tmux server at 78 by 28:
 - `test-seam` seven of the popup's state tests were green on their first run and had to be shown red by breaking the code → none
 - `design` the first design ran the report in the session's folder, where `-p` skips the trust question and project hooks run → code
 - `test-seam` the race between seeing the exit and reading the output could not be reproduced on macOS, so its popup test is green against the old logic → none
+- `review-loop` a finding assumed a child holding the terminal keeps the output open after the exit, which a Linux container run disproved → none

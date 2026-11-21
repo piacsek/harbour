@@ -163,6 +163,34 @@ fn a_report_that_prints_and_exits_at_once_never_flashes_printed_nothing() {
 }
 
 #[test]
+fn a_finished_report_comes_back_whole_after_the_terminal_shrinks_and_widens() {
+    let line = "acme weekly limit: 41% used, resets on the first day of the month";
+    let mut screen = Screen::of(app().with_usage(script(&format!("echo '{line}'"))));
+    screen.press('u');
+    screen.wait_for(line);
+    std::thread::sleep(Duration::from_millis(300));
+    screen.draw();
+
+    screen.resize(40, 26);
+    screen.draw();
+    screen.resize(160, 26);
+
+    let shown = screen.draw();
+    assert!(shown.contains(line), "{shown}");
+}
+
+#[test]
+fn a_report_whose_child_holds_the_terminal_is_decided_once_it_exits() {
+    let held = script("(trap '' HUP; exec sleep 8) & exit 3");
+    let mut screen = Screen::of(app().with_usage(held));
+
+    screen.press('u');
+
+    let shown = screen.wait_for(" exit 3 ");
+    assert!(shown.contains("printed nothing"), "{shown}");
+}
+
+#[test]
 fn a_report_longer_than_the_popup_shows_its_start() {
     let long = script("for n in $(seq 1 40); do echo \"acme line $n.\"; done");
     let mut screen = Screen::of(app().with_usage(long));
