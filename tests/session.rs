@@ -243,6 +243,29 @@ fn a_session_survives_a_wide_character_cut_by_a_resize() {
 }
 
 #[test]
+fn a_session_counts_the_panics_it_contained_until_they_are_taken() {
+    let mut session =
+        Session::start(&wide_at_the_edge(), &std::env::temp_dir(), ROWS, 160).unwrap();
+    wait_for(&session, "ready");
+    session.resize(ROWS, 159);
+    session.send(b"\r");
+    sleep(Duration::from_millis(300));
+    session.send(b"\r");
+    wait_for(&session, "redrew 159");
+
+    assert!(session.take_panics() > 0);
+    assert_eq!(session.take_panics(), 0);
+}
+
+#[test]
+fn a_session_that_never_panicked_counts_none() {
+    let session = start("echo ready; exec sleep 600");
+    wait_for(&session, "ready");
+
+    assert_eq!(session.take_panics(), 0);
+}
+
+#[test]
 fn a_session_whose_screen_was_reset_is_asked_to_repaint() {
     let mut session =
         Session::start(&wide_at_the_edge(), &std::env::temp_dir(), ROWS, 160).unwrap();

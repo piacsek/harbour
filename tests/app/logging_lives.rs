@@ -1,5 +1,6 @@
 use std::fs;
 use std::sync::mpsc::Receiver;
+use std::time::Duration;
 
 use crossterm::event::{KeyCode, KeyModifiers};
 use harbour::app::App;
@@ -156,6 +157,61 @@ fn an_editor_that_exits_logs_its_end_once() {
     );
 }
 
+#[test]
+fn a_panic_contained_in_a_session_is_logged_with_its_count() {
+    let (app, lines) = logged(App::new(wide_at_the_edge()));
+    let mut screen = Screen::of(app);
+    screen.press('n');
+    screen.wait_for("ready");
+
+    screen.resize(119, 20);
+
+    let lines = until_logged(&mut screen, &lines, " panic contained ");
+    let contained = only(&lines, " panic contained ");
+    assert!(contained.contains(" session=1 count="), "{contained}");
+}
+
+#[test]
+fn a_panic_contained_in_an_editor_is_logged_with_its_editor() {
+    let editor = Program::new("acme-edit", wide_at_the_edge());
+    let (app, lines) = logged(App::new(reading_agent()).with_editor(editor));
+    let mut screen = focused(app);
+    screen.key(KeyCode::Char('l'), KeyModifiers::CONTROL);
+    screen.wait_for("ready");
+
+    screen.resize(119, 20);
+
+    let lines = until_logged(&mut screen, &lines, " panic contained ");
+    let contained = only(&lines, " panic contained ");
+    assert!(
+        contained.contains(" session=1 editor=2 count="),
+        "{contained}"
+    );
+}
+
+#[test]
+fn a_frame_that_takes_its_threshold_logs_how_long_it_took() {
+    let (app, lines) = logged(App::new(reading_agent()).with_slow_frame(Duration::ZERO));
+
+    Screen::of(app);
+
+    let slow = read(&lines)
+        .into_iter()
+        .find(|line| line.contains(" slow frame "))
+        .unwrap_or_default();
+    assert!(slow.contains(" slow frame took="), "{slow}");
+    assert!(slow.ends_with("ms\n"), "{slow}");
+}
+
+#[test]
+fn a_frame_under_its_threshold_logs_nothing_about_its_time() {
+    let (app, lines) = logged(App::new(reading_agent()).with_slow_frame(Duration::from_secs(60)));
+
+    Screen::of(app);
+
+    assert_eq!(count(&read(&lines), " slow frame "), 0);
+}
+
 fn editor(then: &str) -> Program {
     Program::new(
         "acme-edit",
@@ -172,4 +228,14 @@ fn until_logged(screen: &mut Screen, lines: &Receiver<String>, event: &str) -> V
     screen.draw();
     seen.extend(lines.try_iter());
     seen
+}
+
+fn wide_at_the_edge() -> Vec<String> {
+    script(
+        "trap 'printf \"\\033[1;1H%*s\" \"$(stty size | cut -d\" \" -f2)\" \"\"' WINCH; \
+         cols=$(stty size | cut -d' ' -f2); \
+         printf '\\033[1;%dH\\343\\201\\202' $((cols-1)); \
+         printf '\\033[3;1Hready'; \
+         while :; do sleep 1; done",
+    )
 }

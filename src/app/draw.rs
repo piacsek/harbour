@@ -1,3 +1,5 @@
+use std::time::Instant;
+
 use portable_pty::ExitStatus;
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Layout, Rect};
@@ -26,6 +28,12 @@ impl App {
     }
 
     pub fn draw(&mut self, frame: &mut Frame) {
+        let began = Instant::now();
+        self.compose(frame);
+        self.log_frame(began);
+    }
+
+    fn compose(&mut self, frame: &mut Frame) {
         self.finish_pick();
         self.finish_editors();
         self.read_files();

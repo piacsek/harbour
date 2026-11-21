@@ -179,6 +179,10 @@ impl Session {
     pub fn application_cursor(&self) -> bool {
         self.parser.lock().unwrap().screen().application_cursor()
     }
+
+    pub fn take_panics(&self) -> usize {
+        std::mem::take(&mut self.parser.lock().unwrap().callbacks_mut().panics)
+    }
 }
 
 impl Drop for Session {
@@ -232,6 +236,7 @@ fn contained(parser: &mut Parser, rows: u16, cols: u16, work: impl FnOnce(&mut P
     let failed = panic::catch_unwind(AssertUnwindSafe(|| work(parser))).is_err();
     CONTAINING.set(false);
     if failed {
+        let panics = parser.callbacks_mut().panics + 1;
         *parser = Parser::new_with_callbacks(
             rows,
             cols,
@@ -239,6 +244,7 @@ fn contained(parser: &mut Parser, rows: u16, cols: u16, work: impl FnOnce(&mut P
             Replies {
                 bytes: Vec::new(),
                 repaint: true,
+                panics,
             },
         );
         parser.process(&modes);
@@ -283,6 +289,7 @@ impl Widget for &Session {
 struct Replies {
     bytes: Vec<u8>,
     repaint: bool,
+    panics: usize,
 }
 
 impl vt100::Callbacks for Replies {

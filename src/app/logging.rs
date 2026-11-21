@@ -1,5 +1,5 @@
 use std::path::Path;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
@@ -9,10 +9,12 @@ use crate::log::Log;
 use crate::session::Session;
 
 const BOUND: [char; 9] = ['q', 'n', 'x', 'e', '?', 'j', 'k', 'y', 'Y'];
+const SLOW_FRAME: Duration = Duration::from_millis(100);
 
 #[derive(Default)]
 pub(super) struct Logging {
     log: Log,
+    slow: Option<Duration>,
     started: bool,
     forwarded: bool,
     selected: Option<Selected>,
@@ -61,6 +63,20 @@ impl App {
     pub fn with_log(mut self, log: Log) -> App {
         self.logging.log = log;
         self
+    }
+
+    pub fn with_slow_frame(mut self, slow: Duration) -> App {
+        self.logging.slow = Some(slow);
+        self
+    }
+
+    pub(super) fn log_frame(&self, began: Instant) {
+        let took = began.elapsed();
+        if took >= self.logging.slow.unwrap_or(SLOW_FRAME) {
+            self.logging
+                .log
+                .write(|| format!("slow frame took={}ms", took.as_millis()));
+        }
     }
 
     pub(super) fn log_start(&mut self) {
@@ -213,7 +229,21 @@ impl App {
                 log.write(|| format!("exited session={}{status}", entry.id));
             }
             lives.push((entry.id, exited));
+            if let Some(count) = entry.session.as_ref().map(Session::take_panics)
+                && count > 0
+            {
+                log.write(|| format!("panic contained session={} count={count}", entry.id));
+            }
             for editor in &entry.editors {
+                let count = editor.session.take_panics();
+                if count > 0 {
+                    log.write(|| {
+                        format!(
+                            "panic contained session={} editor={} count={count}",
+                            entry.id, editor.id
+                        )
+                    });
+                }
                 if !self.logging.editors.contains(&(entry.id, editor.id)) {
                     log.write(|| {
                         format!(

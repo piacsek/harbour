@@ -6,6 +6,7 @@ const SEAMS: &[&str] = &[
     "SESSION_COMMAND",
     "retrying_every",
     "with_patience",
+    "with_slow_frame",
     "neovim",
 ];
 
