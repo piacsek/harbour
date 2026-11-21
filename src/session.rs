@@ -259,14 +259,11 @@ impl Session {
     }
 
     pub fn printed(&self) -> bool {
-        !self
-            .parser
-            .lock()
-            .unwrap()
-            .screen()
-            .contents()
-            .trim()
-            .is_empty()
+        !self.text().trim().is_empty()
+    }
+
+    pub fn text(&self) -> String {
+        self.parser.lock().unwrap().screen().contents()
     }
 
     pub fn take_panics(&self) -> usize {

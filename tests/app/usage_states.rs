@@ -164,7 +164,7 @@ fn a_report_that_prints_and_exits_at_once_never_flashes_printed_nothing() {
 
 #[test]
 fn a_finished_report_comes_back_whole_after_the_terminal_shrinks_and_widens() {
-    let line = "acme weekly limit: 41% used, resets on the first day of the month";
+    let line = "acme weekly limit: 41% spent, resets on the first day of the month";
     let mut screen = Screen::of(app().with_usage(script(&format!("echo '{line}'"))));
     screen.press('u');
     screen.wait_for(line);
