@@ -11,7 +11,7 @@ use tempfile::TempDir;
 use crate::log::Log;
 use crate::nvim;
 use crate::repo;
-use crate::session::Session;
+use crate::session::{Role, Session};
 
 const NORMAL_MODES: [&str; 2] = ["n", "nt"];
 const LEFTMOST: &str = "winnr('h') == winnr()";
@@ -123,7 +123,7 @@ impl Editor {
             command.push("--".into());
             command.push(file.into());
         }
-        let session = Session::start_keeping_tmux(&command, directory, rows, cols)?;
+        let session = Session::start_as(Role::Editor, &command, directory, rows, cols)?;
         Ok(Editor {
             id,
             directory: directory.to_path_buf(),

@@ -31,12 +31,27 @@ fn legacy_keys_read_as_before() {
 }
 
 #[test]
+fn function_keys_thirteen_to_twenty_read_as_their_numbers() {
+    assert_eq!(parsed(b"\x1b[25~"), [key(KeyCode::F(13))]);
+    assert_eq!(parsed(b"\x1b[26~"), [key(KeyCode::F(14))]);
+    assert_eq!(parsed(b"\x1b[28~"), [key(KeyCode::F(15))]);
+    assert_eq!(parsed(b"\x1b[29~"), [key(KeyCode::F(16))]);
+    assert_eq!(parsed(b"\x1b[31~"), [key(KeyCode::F(17))]);
+    assert_eq!(parsed(b"\x1b[32~"), [key(KeyCode::F(18))]);
+    assert_eq!(parsed(b"\x1b[33~"), [key(KeyCode::F(19))]);
+    assert_eq!(parsed(b"\x1b[34~"), [key(KeyCode::F(20))]);
+}
+
+#[test]
 fn legacy_control_keys_read_as_before() {
     assert_eq!(parsed(b"\x01"), [ctrl('a')]);
     assert_eq!(parsed(b"\x08"), [ctrl('h')]);
     assert_eq!(parsed(b"\x0c"), [ctrl('l')]);
     assert_eq!(parsed(b"\n"), [ctrl('j')]);
-    assert_eq!(parsed(b"\x1c"), [ctrl('4')]);
+    assert_eq!(parsed(b"\x1c"), [ctrl('\\')]);
+    assert_eq!(parsed(b"\x1d"), [ctrl(']')]);
+    assert_eq!(parsed(b"\x1e"), [ctrl('^')]);
+    assert_eq!(parsed(b"\x1f"), [ctrl('_')]);
     assert_eq!(parsed(b"\0"), [ctrl(' ')]);
 }
 

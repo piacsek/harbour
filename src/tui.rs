@@ -27,7 +27,7 @@ use crate::registry;
 use crate::session;
 use crate::summary::{self, Summary};
 
-const EXTENDED_KEYS_ON: &[u8] = b"\x1b[>4;1m";
+const EXTENDED_KEYS_ON: &[u8] = b"\x1b[>4;2m";
 const EXTENDED_KEYS_OFF: &[u8] = b"\x1b[>4m";
 
 type PanicHook = dyn Fn(&PanicHookInfo<'_>) + Send + Sync + 'static;
