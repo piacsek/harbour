@@ -193,7 +193,7 @@ fn pid(scratch: &Path) -> String {
         .to_string()
 }
 
-fn gone(pid: &str) -> bool {
+pub(crate) fn gone(pid: &str) -> bool {
     let deadline = Instant::now() + Duration::from_secs(5);
     loop {
         let alive = Command::new("kill")

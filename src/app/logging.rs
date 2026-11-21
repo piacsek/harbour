@@ -11,7 +11,7 @@ use crate::handoff::{Reply, Verb};
 use crate::log::Log;
 use crate::session::Session;
 
-const BOUND: [char; 9] = ['q', 'n', 'x', 'e', '?', 'j', 'k', 'y', 'Y'];
+const BOUND: [char; 10] = ['q', 'n', 'x', 'e', '?', 'u', 'j', 'k', 'y', 'Y'];
 const SLOW_FRAME: Duration = Duration::from_millis(100);
 
 #[derive(Default)]
@@ -53,6 +53,7 @@ impl Focus {
 
 pub(super) enum Input {
     Picker,
+    Usage,
     Shown,
 }
 
@@ -110,6 +111,7 @@ impl App {
         self.logging.forwarded = true;
         let to = match input {
             Input::Picker => "to=picker".to_string(),
+            Input::Usage => "to=usage".to_string(),
             Input::Shown => match self.sessions.get(self.selected) {
                 Some(entry) => match entry.showing_editor() {
                     Some(editor) => format!("to=editor session={} editor={}", entry.id, editor.id),
@@ -130,6 +132,11 @@ impl App {
                 .write(|| format!("key name={}", named(key)));
         }
         self.log_changes();
+    }
+
+    pub(super) fn log_usage_closed(&mut self) {
+        self.logging.forwarded = true;
+        self.logging.log.write(|| "usage closed".to_string());
     }
 
     pub(super) fn log_paste(&mut self) {

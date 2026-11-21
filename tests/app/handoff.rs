@@ -346,6 +346,32 @@ fn open_while_the_picker_is_open_is_refused() {
 }
 
 #[test]
+fn ask_while_the_usage_popup_is_open_holds_nothing() {
+    let scratch = tempfile::tempdir().unwrap();
+    let mut screen = with_usage_open(scratch.path());
+
+    let reply = screen
+        .app
+        .hand(Verb::Ask, &file(scratch.path(), "acme-api"), soon());
+
+    assert_eq!(reply, Reply::None);
+}
+
+#[test]
+fn open_while_the_usage_popup_is_open_is_refused_and_the_popup_stays() {
+    let scratch = tempfile::tempdir().unwrap();
+    let mut screen = with_usage_open(scratch.path());
+
+    let reply = screen
+        .app
+        .hand(Verb::Open, &file(scratch.path(), "acme-api"), soon());
+
+    assert_eq!(reply, Reply::Refused(WAITING.to_string()));
+    let shown = screen.draw();
+    assert!(shown.contains("acme usage open"), "{shown}");
+}
+
+#[test]
 fn open_while_the_help_is_shown_closes_it_and_opens_the_file() {
     let scratch = tempfile::tempdir().unwrap();
     let _asked = answering(scratch.path());
@@ -465,6 +491,17 @@ pub(crate) fn app_running(scratch: &Path, agent: Vec<String>, editor: Program) -
     App::new(agent)
         .with_picker(Picker::Command(picker))
         .with_editor(editor)
+}
+
+fn with_usage_open(scratch: &Path) -> Screen {
+    let app = app_with(scratch, recording_neovim(scratch))
+        .with_usage_place(Some(scratch.join("usage")))
+        .with_usage(script("echo 'acme usage open'; exec sleep 600"));
+    let mut screen = Screen::of(app);
+    start_in(&mut screen, scratch, "acme-api", 1);
+    screen.press('u');
+    screen.wait_for("acme usage open");
+    screen
 }
 
 fn remembering(scratch: &Path) -> Screen {

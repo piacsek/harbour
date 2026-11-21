@@ -41,7 +41,8 @@ pub fn run(config: Config) -> io::Result<()> {
     let mut app = App::new(config.session_command().value.clone())
         .with_picker(dir_picker(&config))
         .with_editor(Program::command(config.editor().value.clone()))
-        .with_accent(config.accent().value);
+        .with_accent(config.accent().value)
+        .with_usage_place(summary::directory_from_env().map(|dir| dir.with_file_name("usage")));
     if let Some(width) = config.sidebar_width().value {
         app = app.with_sidebar_width(width);
     }

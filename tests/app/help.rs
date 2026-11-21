@@ -33,7 +33,7 @@ fn question_mark_shows_the_editor_keys() {
     );
     assert!(shown.contains("the session and its editors"), "{shown}");
     assert!(
-        shown.contains("show the session's next editor, one per directory"),
+        shown.contains("show the next editor, one per directory"),
         "{shown}"
     );
 }
@@ -120,13 +120,27 @@ fn the_whole_help_shows_on_a_20_row_terminal() {
 }
 
 #[test]
-fn the_help_leaves_three_rows_for_new_keys_on_a_20_row_terminal() {
+fn the_help_leaves_two_rows_for_new_keys_on_a_20_row_terminal() {
     let mut screen = Screen::new(reading_agent());
 
     screen.press('?');
 
     let shown = screen.draw();
-    assert_eq!(spare_rows(&shown), 3, "{shown}");
+    assert_eq!(spare_rows(&shown), 2, "{shown}");
+}
+
+#[test]
+fn question_mark_shows_the_usage_key_on_one_row_beside_the_narrowest_sidebar() {
+    let mut screen = Screen::new(reading_agent());
+    screen.resize(60, 20);
+
+    screen.press('?');
+
+    let shown = screen.draw();
+    assert!(
+        shown.contains("u          show Claude Code's usage and limits"),
+        "{shown}"
+    );
 }
 
 #[test]

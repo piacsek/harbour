@@ -471,6 +471,19 @@ fn a_cursor_waiting_after_a_full_line_sits_on_its_last_column() {
     );
 }
 
+#[test]
+fn a_session_is_drained_only_once_its_output_is_read_to_its_end() {
+    let mut session = start("echo 'acme quick report'");
+
+    let deadline = Instant::now() + Duration::from_secs(5);
+    while !(session.exit().is_some() && session.drained()) && Instant::now() < deadline {
+        sleep(Duration::from_millis(10));
+    }
+
+    assert!(session.drained());
+    assert!(rendered(&session).contains("acme quick report"));
+}
+
 fn replied(query: &str, length: usize) -> String {
     format!(
         "stty raw -echo; printf '{query}'; r=$(dd bs=1 count={length} 2>/dev/null); \
