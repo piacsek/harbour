@@ -27,6 +27,45 @@ fn ctrl_h_in_normal_mode_in_the_leftmost_window_goes_to_claude_code() {
 
 #[test]
 #[ignore]
+fn a_tmux_command_run_from_neovim_targets_the_pane_of_harbour_and_ctrl_h_still_leaves() {
+    let Some(neovim) = Neovim::start("nvim-tmux-pane") else {
+        return;
+    };
+    let tmux = on_path("tmux").unwrap();
+    let pane = neovim
+        .server
+        .tmux(&["display-message", "-p", "-t", "e2e", "#{pane_id}"])
+        .output()
+        .unwrap();
+    let stderr = String::from_utf8_lossy(&pane.stderr);
+    assert!(
+        pane.status.success(),
+        "display-message of harbour's pane failed: {stderr}"
+    );
+    let pane = String::from_utf8_lossy(&pane.stdout).trim_end().to_string();
+    assert!(!pane.is_empty(), "display-message printed no pane id");
+    let seen = format!("acme seen pane {pane}");
+    let targeted = format!("acme targeted pane {pane}");
+
+    neovim.server.send_keys(&[
+        &format!(
+            ":!echo acme seen pane $TMUX_PANE; {} display-message -p 'acme targeted pane \\#{{pane_id}}'",
+            tmux.display()
+        ),
+        "Enter",
+    ]);
+
+    let screen = neovim.server.wait_for_screen_all(&[&seen, &targeted]);
+    assert!(screen.contains(&seen), "{screen}");
+    assert!(screen.contains(&targeted), "{screen}");
+    neovim.server.send_keys(&["Enter"]);
+    neovim.assert_in_neovim();
+    neovim.server.send_keys(&["C-h"]);
+    neovim.assert_in_claude_code();
+}
+
+#[test]
+#[ignore]
 fn x_with_a_modified_buffer_says_there_are_unsaved_changes() {
     let Some(neovim) = Neovim::start("nvim-modified") else {
         return;
@@ -103,6 +142,9 @@ impl Neovim {
         std::os::unix::fs::symlink(real, bin.join("real-nvim")).unwrap();
         let xdg = |name: &str| home.path().join("xdg").join(name).display().to_string();
         let (config, data, state, cache) = (xdg("config"), xdg("data"), xdg("state"), xdg("cache"));
+        let sockets = home.path().join("tmux");
+        std::fs::create_dir(&sockets).unwrap();
+        let sockets = sockets.display().to_string();
         let server = Server::start(name, 200, 24);
         server.run(
             home.path(),
@@ -113,6 +155,7 @@ impl Neovim {
                 ("XDG_DATA_HOME", &data),
                 ("XDG_STATE_HOME", &state),
                 ("XDG_CACHE_HOME", &cache),
+                ("TMUX_TMPDIR", &sockets),
             ],
             &[],
         );
@@ -198,9 +241,13 @@ impl Drop for Neovim {
 }
 
 fn nvim_on_path() -> Option<PathBuf> {
+    on_path("nvim")
+}
+
+fn on_path(program: &str) -> Option<PathBuf> {
     let path = std::env::var_os("PATH")?;
     std::env::split_paths(&path)
-        .map(|directory| directory.join("nvim"))
+        .map(|directory| directory.join(program))
         .find(|candidate| is_executable(candidate))
 }
 

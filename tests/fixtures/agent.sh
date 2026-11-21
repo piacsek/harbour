@@ -1,5 +1,5 @@
 #!/bin/sh
-echo "acme agent in ${PWD##*/}, tmux:[${TMUX:-}]"
+echo "acme agent in ${PWD##*/}, tmux:[${TMUX:-}] pane:[${TMUX_PANE:-}]"
 while read -r line; do
   echo "acme agent got: $line"
 done

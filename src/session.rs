@@ -39,6 +39,25 @@ impl Session {
         rows: u16,
         cols: u16,
     ) -> io::Result<Session> {
+        Session::spawn(command, directory, rows, cols, false)
+    }
+
+    pub fn start_keeping_tmux<S: AsRef<OsStr>>(
+        command: &[S],
+        directory: &Path,
+        rows: u16,
+        cols: u16,
+    ) -> io::Result<Session> {
+        Session::spawn(command, directory, rows, cols, true)
+    }
+
+    fn spawn<S: AsRef<OsStr>>(
+        command: &[S],
+        directory: &Path,
+        rows: u16,
+        cols: u16,
+        keeping_tmux: bool,
+    ) -> io::Result<Session> {
         if !directory.is_dir() {
             return Err(io::Error::new(
                 io::ErrorKind::NotADirectory,
@@ -58,8 +77,10 @@ impl Session {
         builder.args(&command[1..]);
         builder.cwd(directory);
         builder.env("PWD", directory);
-        builder.env_remove("TMUX");
-        builder.env_remove("TMUX_PANE");
+        if !keeping_tmux {
+            builder.env_remove("TMUX");
+            builder.env_remove("TMUX_PANE");
+        }
         builder.env("TERM", "xterm-256color");
         builder.env("COLORTERM", "truecolor");
         let child = pty

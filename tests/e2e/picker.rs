@@ -21,6 +21,24 @@ fn n_in_the_demo_without_fzf_starts_a_session_at_once() {
 
 #[test]
 #[ignore]
+fn the_dir_picker_does_not_inherit_the_tmux_of_harbour() {
+    let home = tempfile::tempdir().unwrap();
+    let server = Server::start("picker-tmux", 160, 20);
+    server.run(
+        home.path(),
+        &[(SESSION_COMMAND, AGENT), (DIR_PICKER, PICKER)],
+        &[],
+    );
+    server.wait_for_screen("press n to start one");
+
+    server.send_keys(&["n"]);
+
+    let screen = server.wait_for_screen("acme picker tmux:[");
+    assert!(screen.contains("acme picker tmux:[] pane:[]"), "{screen}");
+}
+
+#[test]
+#[ignore]
 fn n_in_a_directory_deleted_before_launch_starts_nothing_and_names_it() {
     let home = tempfile::tempdir().unwrap();
     let directory = home.path().join("acme-api");
