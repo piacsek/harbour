@@ -9,3 +9,6 @@ kind: feat
 - `harbour config` prints the file's path and every setting with where it comes from: the file,
   a variable or the default. A bad file is named with its line and key in one line, here and at
   start.
+- A `picker` or `session_command` from the file whose program is named `fzf` or `claude` runs
+  as the default does (fzf over the list, claude with its session id), with the arguments given;
+  a configured picker that cannot start says so instead of being skipped.

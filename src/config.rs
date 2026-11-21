@@ -42,6 +42,7 @@ pub struct Config {
     session_command: Setting<Vec<String>>,
     sidebar_width: Setting<Option<u16>>,
     accent: Setting<Color>,
+    ignored: Vec<&'static str>,
 }
 
 #[derive(Deserialize, Default)]
@@ -93,6 +94,10 @@ impl Config {
                 })
             })
         };
+        let ignored = [DIR_PICKER, SESSION_COMMAND]
+            .into_iter()
+            .filter(|name| set(name).is_some_and(|setting| setting.value.to_str().is_none()))
+            .collect();
         let editor = reader.program("editor", written.editor)?;
         let picker = reader.program("picker", written.picker)?;
         let session_command = reader.program("session_command", written.session_command)?;
@@ -121,6 +126,7 @@ impl Config {
                 .accent(written.accent)?
                 .map_or_else(|| default(Color::Cyan), from_file),
             path,
+            ignored,
         })
     }
 
@@ -147,8 +153,14 @@ impl Config {
         [
             file,
             line("editor", &listed(&editor), &self.editor.source),
-            line("picker", &listed(&self.picker.value), &self.picker.source),
-            line(
+            self.line_of(
+                DIR_PICKER,
+                "picker",
+                &listed(&self.picker.value),
+                &self.picker.source,
+            ),
+            self.line_of(
+                SESSION_COMMAND,
                 "session_command",
                 &listed(&self.session_command.value),
                 &self.session_command.source,
@@ -162,6 +174,17 @@ impl Config {
         ]
         .map(|line| line + "\n")
         .concat()
+    }
+
+    fn line_of(&self, variable: &str, key: &str, value: &str, source: &Source) -> String {
+        let shown = line(key, value, source);
+        if !self.ignored.contains(&variable) {
+            return shown;
+        }
+        match shown.strip_suffix(')') {
+            Some(start) => format!("{start}; variable {variable} ignored: not UTF-8)"),
+            None => shown,
+        }
     }
 
     pub fn path(&self) -> Option<&Path> {
@@ -232,6 +255,10 @@ impl Reader<'_> {
             Some(words) if words.first().is_some_and(|program| !program.is_empty()) => words,
             _ => return Err(self.refusal(&span, key, PROGRAM)),
         };
+        if self.home.is_none() && (words[0] == "~" || words[0].starts_with("~/")) {
+            let what = format!("{:?} starts with ~ but HOME is not set", words[0]);
+            return Err(self.refusal(&span, key, &what));
+        }
         words[0] = self.expanded(&words[0]);
         if words[0].contains('/') && !Path::new(&words[0]).is_absolute() {
             let what = format!(
@@ -316,7 +343,22 @@ fn listed(words: &[String]) -> String {
 }
 
 fn quoted(word: &str) -> String {
-    Value::String(word.to_string()).to_string()
+    let mut quoted = String::from("\"");
+    for character in word.chars() {
+        match character {
+            '"' => quoted.push_str("\\\""),
+            '\\' => quoted.push_str("\\\\"),
+            '\n' => quoted.push_str("\\n"),
+            '\t' => quoted.push_str("\\t"),
+            '\r' => quoted.push_str("\\r"),
+            character if character.is_control() => {
+                quoted.push_str(&format!("\\u{:04X}", u32::from(character)));
+            }
+            character => quoted.push(character),
+        }
+    }
+    quoted.push('"');
+    quoted
 }
 
 fn named(color: Color) -> String {

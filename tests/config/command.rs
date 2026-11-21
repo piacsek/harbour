@@ -1,3 +1,5 @@
+use std::ffi::OsStr;
+use std::os::unix::ffi::OsStrExt;
 use std::path::Path;
 use std::process::{Command, Output};
 
@@ -154,6 +156,47 @@ fn harbour_config_shows_a_control_character_escaped() {
         )),
         "{}",
         stderr(&output)
+    );
+}
+
+#[test]
+fn harbour_config_shows_each_setting_on_one_line_with_its_words_escaped() {
+    let home = tempfile::tempdir().unwrap();
+    write_config(
+        home.path(),
+        "session_command = [\"acme-agent\", \"two\\nlines\", \"say \\\"hi\\\"\", \"back\\\\slash\"]\n",
+    );
+
+    let output = config_command(home.path());
+
+    assert!(
+        stdout(&output).contains(
+            "\nsession_command = [\"acme-agent\", \"two\\nlines\", \"say \\\"hi\\\"\", \"back\\\\slash\"]  (file)\n"
+        ),
+        "{}",
+        stdout(&output)
+    );
+    assert_eq!(stdout(&output).lines().count(), 6);
+}
+
+#[test]
+fn harbour_config_says_a_variable_that_is_not_utf8_was_ignored() {
+    let home = tempfile::tempdir().unwrap();
+
+    let output = Command::new(env!("CARGO_BIN_EXE_harbour"))
+        .arg("config")
+        .env("HOME", home.path())
+        .env_remove("XDG_CONFIG_HOME")
+        .env("HARBOUR_DIR_PICKER", OsStr::from_bytes(b"acme-\xffpicker"))
+        .output()
+        .unwrap();
+
+    assert!(
+        stdout(&output).contains(
+            "\npicker = [\"fzf\"]  (default; variable HARBOUR_DIR_PICKER ignored: not UTF-8)\n"
+        ),
+        "{}",
+        stdout(&output)
     );
 }
 

@@ -14,7 +14,7 @@ use ratatui::Terminal;
 use ratatui::backend::CrosstermBackend;
 
 use crate::app::App;
-use crate::config::{Config, Source};
+use crate::config::{Config, Setting, Source};
 use crate::cursor::Shape;
 use crate::demo::Registry;
 use crate::editor::Program;
@@ -51,7 +51,7 @@ pub fn run(config: Config) -> io::Result<()> {
     if let Some(dir) = claude_projects() {
         app = app.with_transcripts(dir);
     }
-    if config.session_command().source == Source::Default {
+    if named_like_claude(config.session_command()) {
         app = app.naming_sessions();
     }
     if let Some(summary) = published() {
@@ -158,15 +158,21 @@ pub fn frame<W: io::Write>(
 fn dir_picker(config: &Config) -> Picker {
     let picker = config.picker();
     let fzf = std::path::Path::new(&picker.value[0]).file_name() == Some("fzf".as_ref());
-    match picker.source {
+    match &picker.source {
         Source::Variable(_) => Picker::Command(picker.value.clone()),
         Source::File if !fzf => Picker::Command(picker.value.clone()),
-        _ => Picker::Fuzzy {
+        source => Picker::Fuzzy {
             fzf: picker.value.clone(),
             list: ["zoxide", "query", "--list"].map(String::from).to_vec(),
             here_first: true,
+            required: *source == Source::File,
         },
     }
+}
+
+fn named_like_claude(command: &Setting<Vec<String>>) -> bool {
+    !matches!(command.source, Source::Variable(_))
+        && std::path::Path::new(&command.value[0]).file_name() == Some("claude".as_ref())
 }
 
 fn claude_sessions() -> Option<std::path::PathBuf> {

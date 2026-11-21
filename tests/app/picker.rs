@@ -445,6 +445,7 @@ fn fuzzy(fzf: Vec<String>, list: Vec<String>) -> Picker {
         fzf,
         list,
         here_first: true,
+        required: false,
     }
 }
 

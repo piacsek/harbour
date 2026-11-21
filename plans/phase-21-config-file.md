@@ -73,9 +73,11 @@ Each is the smallest option that meets the issue.
   (with the arguments given), as the default does, so writing the default `["fzf"]` into the
   file changes nothing; any other program runs alone, as `HARBOUR_DIR_PICKER` does. The
   variable keeps today's meaning (`HARBOUR_DIR_PICKER=fzf` runs fzf alone).
-- **`--session-id` is passed only with the default command.** A `session_command` from the
-  file, like the variable today, runs as given; transcripts are still found through the
-  registry.
+- **`--session-id` is passed to a `session_command` from the file whose program's file name is
+  `claude`, after its own arguments**, as with the default, so writing the default into the file
+  changes nothing (decided in review round 1); any other program from the file, and the
+  variable as today, runs as given, its transcript found through the registry. A resume runs
+  the configured program and its arguments, then `--resume <id>`.
 - **`editor` from the file is Neovim when its program's file name is `nvim`**, as
   `HARBOUR_EDITOR` is.
 - **The accent takes every place cyan marks focus**: the focused side's border, the selected
@@ -133,7 +135,7 @@ Each is the smallest option that meets the issue.
 | `editor = ["nvim", "--clean"]` | C-l runs `nvim --clean --listen <socket> -- <file>` |
 | `picker = ["/opt/acme/pick", "--dirs"]` | `n` runs it alone and starts in the directory it prints |
 | `picker = ["fzf", "--height=40%"]` | `n` runs fzf with that option over the list, as the default does |
-| `session_command = ["claude", "--model", "acme"]` | a new session runs it, without `--session-id`; a resume adds `--resume <id>` after it |
+| `session_command = ["claude", "--model", "acme"]` | a new session runs it with `--session-id <id>` after its arguments; a resume adds `--resume <id>` after them |
 | a variable and the file both set | the variable's program, alone |
 | `accent = "magenta"` or `"#d7875f"` | the focused border, the selected bar and the picker's border in that colour; dots unchanged |
 | `sidebar_width = 40`, window 160 | sidebar 40 columns, pane 120 |
@@ -187,6 +189,13 @@ Each is the smallest option that meets the issue.
   the screenshot script's scratch `HOME` (accent `#d7875f`, width 48, `pwd` as the picker, a
   `sh` session command), removed after the shot. `docs/help.png` changed with `--help`, which now
   names the file and `harbour config`; `docs/details.png` did not change.
+- Review round 1 changed three things: a `picker` from the file named `fzf` that cannot start
+  is refused with "could not start" (only the default fzf, missing, still starts a session at
+  once); a `session_command` from the file named `claude` gets `--session-id`; `harbour config`
+  quotes each word itself, so every setting stays on one line, and says when a `HARBOUR_`
+  variable was ignored for not being UTF-8. A `~` program with no `HOME` is refused as such, and
+  the selected card's bar is left out when the sidebar has no inner column. Its premise that a
+  resume did not use the configured arguments was false: it already ran them.
 - Red runs, each seen before the code: the config reading and refusals (task 1), the 13
   launchers and the startup refusals (task 2), the precedence and the three programs (task 3),
   the accent in process and through tmux's colour capture (task 4), the width in process and in
@@ -197,4 +206,5 @@ Each is the smallest option that meets the issue.
 ## Hurdles
 
 - `test-seam` A first width test asked for 40 columns of a 120-column window, a third, so it passed before the code existed; changed to 30 → none
+- `review-loop` Round 1 found the file's `fzf` and `claude` names treated unlike the default's (a missing configured fzf skipped silently, a configured claude lost `--session-id`): the file-name rule was applied to one side of each and not the other → code
 - `test-seam` The tmux colour capture writes an indexed colour as `38;5;N`, not `3N`; the first accent e2e assertion used the wrong form and was corrected, then shown red again without the wiring → none

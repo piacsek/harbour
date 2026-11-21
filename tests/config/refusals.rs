@@ -2,6 +2,8 @@ use std::fs;
 use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
 
+use harbour::config::Config;
+
 use crate::{config_path, read_at, write_config};
 
 #[test]
@@ -128,6 +130,26 @@ fn a_relative_program_path_is_refused() {
             "{}:1: editor: \"bin/acme-vim\" is a relative path; give an absolute path, ~/... or a bare name",
             path.display()
         )
+    );
+}
+
+#[test]
+fn a_program_under_home_without_home_says_home_is_not_set() {
+    let home = tempfile::tempdir().unwrap();
+    let xdg = home.path().join("xdg");
+    let path = xdg.join("harbour/config.toml");
+    fs::create_dir_all(path.parent().unwrap()).unwrap();
+    fs::write(&path, "editor = [\"~/bin/acme-vim\"]\n").unwrap();
+    let xdg = xdg.into_os_string();
+
+    let refused = Config::read(move |name| (name == "XDG_CONFIG_HOME").then(|| xdg.clone()));
+
+    assert_eq!(
+        refused.err().map(|refusal| refusal.to_string()),
+        Some(format!(
+            "{}:1: editor: \"~/bin/acme-vim\" starts with ~ but HOME is not set",
+            path.display()
+        ))
     );
 }
 

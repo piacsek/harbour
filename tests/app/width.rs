@@ -78,6 +78,17 @@ fn a_cjk_name_stays_inside_a_narrow_sidebar() {
     assert_eq!(screen.cell(12, 0).symbol(), "┌");
 }
 
+#[test]
+fn a_sidebar_too_narrow_for_its_cards_keeps_its_border_over_the_bar() {
+    let scratch = tempfile::tempdir().unwrap();
+    let mut screen = sized(numbered_agent(scratch.path()), 2, home(), 120);
+
+    screen.press('n');
+
+    screen.wait_for("acme agent 1");
+    assert_eq!(screen.cell(1, 1).symbol(), "┃");
+}
+
 fn sized(command: Vec<String>, width: u16, home: PathBuf, columns: u16) -> Screen {
     Screen::at(App::new(command).with_sidebar_width(width), home, columns)
 }

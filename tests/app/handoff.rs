@@ -284,7 +284,7 @@ fn open_with_an_editor_other_than_neovim_is_refused() {
         .app
         .hand(Verb::Open, &file(scratch.path(), "acme-api"), soon());
 
-    let refusal = "a file can only be handed to Neovim, and HARBOUR_EDITOR is acme-edit";
+    let refusal = "a file can only be handed to Neovim, and the editor is acme-edit";
     assert_eq!(reply, Reply::Refused(refusal.to_string()));
 }
 

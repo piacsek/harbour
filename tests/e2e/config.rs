@@ -1,10 +1,14 @@
 use std::path::{Path, PathBuf};
 
-use harbour::tui::SESSION_COMMAND;
+use harbour::tui::{DIR_PICKER, SESSION_COMMAND};
 
-use crate::{AGENT, ARGS_AGENT, FAKE_FZF, PICKER, Server};
+use crate::{AGENT, ARGS_AGENT, FAKE_FZF, PICKER, Server, tools};
 
 const FIXTURE_EDITOR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/editor.sh");
+const RESUMABLE_AGENT: &str = concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/tests/fixtures/resumable-agent.sh"
+);
 
 #[test]
 #[ignore]
@@ -97,6 +101,62 @@ fn the_session_command_from_the_file_runs_with_its_arguments() {
 
 #[test]
 #[ignore]
+fn a_session_command_named_claude_from_the_file_gets_a_session_id_after_its_arguments() {
+    let home = tempfile::tempdir().unwrap();
+    std::os::unix::fs::symlink(ARGS_AGENT, Path::new(&tools(home.path())).join("claude")).unwrap();
+    write_config(
+        home.path(),
+        "session_command = [\"claude\", \"--model\", \"acme\"]\n",
+    );
+    let server = Server::start("config-claude", 160, 20);
+    server.run(home.path(), &[], &[]);
+    server.wait_for_screen("press n to start one");
+
+    server.send_keys(&["n"]);
+
+    let screen = server.wait_for_screen("acme agent args:");
+    assert!(
+        screen.contains("acme agent args:[--model acme --session-id "),
+        "{screen}"
+    );
+}
+
+#[test]
+#[ignore]
+fn a_conversation_resumes_with_the_session_command_from_the_file() {
+    let home = tempfile::tempdir().unwrap();
+    let claude = tempfile::tempdir().unwrap();
+    let claude_dir = claude.path().display().to_string();
+    let env = [("CLAUDE_CONFIG_DIR", claude_dir.as_str())];
+    write_config(
+        home.path(),
+        &format!("session_command = [{RESUMABLE_AGENT:?}, \"--model\", \"acme\"]\n"),
+    );
+    let server = Server::start("config-resume", 160, 20);
+    server.run(home.path(), &env, &[]);
+    server.wait_for_screen("press n to start one");
+    server.send_keys(&["n"]);
+    server.wait_for_screen_all(&["acme agent started", "Fix the flaky login test"]);
+    server.send_keys(&["q"]);
+    server.wait_for_screen("Quit? y/n");
+    server.send_keys(&["y"]);
+    server.wait_for_screen("harbour exited 0");
+    server.run(home.path(), &env, &[]);
+    server.wait_for_screen("Enter resumes it");
+
+    server.send_keys(&["Enter"]);
+
+    let resumed = server.wait_for_screen("acme agent args:");
+    assert!(
+        resumed.contains(
+            "acme agent args:[--model acme --resume 0f1e2d3c-4b5a-6978-8a9b-0c1d2e3f4a5b]"
+        ),
+        "{resumed}"
+    );
+}
+
+#[test]
+#[ignore]
 fn the_session_command_variable_outranks_the_file() {
     let home = tempfile::tempdir().unwrap();
     write_config(
@@ -171,6 +231,47 @@ fn an_fzf_picker_from_the_file_runs_over_the_list_with_its_arguments() {
         screen.contains("acme fzf args: --height=40% --no-expect"),
         "{screen}"
     );
+}
+
+#[test]
+#[ignore]
+fn an_fzf_picker_from_the_file_that_cannot_start_is_refused() {
+    let home = tempfile::tempdir().unwrap();
+    write_config(home.path(), "picker = [\"/opt/acme/bin/fzf\"]\n");
+    let server = Server::start("config-fzf-missing", 160, 20);
+    server.run(home.path(), &[(SESSION_COMMAND, AGENT)], &[]);
+    server.wait_for_screen("press n to start one");
+
+    server.send_keys(&["n"]);
+
+    let screen = server.wait_for_screen("Could not start");
+    assert!(
+        screen.contains("Could not start /opt/acme/bin/fzf"),
+        "{screen}"
+    );
+    assert!(!screen.contains("acme agent in"), "{screen}");
+}
+
+#[test]
+#[ignore]
+fn an_fzf_picker_variable_that_cannot_start_is_refused() {
+    let home = tempfile::tempdir().unwrap();
+    let server = Server::start("config-fzf-variable-missing", 160, 20);
+    server.run(
+        home.path(),
+        &[(SESSION_COMMAND, AGENT), (DIR_PICKER, "/opt/acme/bin/fzf")],
+        &[],
+    );
+    server.wait_for_screen("press n to start one");
+
+    server.send_keys(&["n"]);
+
+    let screen = server.wait_for_screen("Could not start");
+    assert!(
+        screen.contains("Could not start /opt/acme/bin/fzf"),
+        "{screen}"
+    );
+    assert!(!screen.contains("acme agent in"), "{screen}");
 }
 
 #[test]

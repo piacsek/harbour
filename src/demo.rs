@@ -36,6 +36,7 @@ pub fn picker() -> Picker {
         fzf: vec!["fzf".to_string()],
         list: script(PLACES),
         here_first: false,
+        required: false,
     }
 }
 

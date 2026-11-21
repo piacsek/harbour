@@ -150,7 +150,7 @@ impl Sidebar {
                     break;
                 };
                 let y = area.y + row;
-                if chosen {
+                if chosen && area.width > 0 {
                     buffer.set_string(area.x, y, "▌", Style::default().fg(accent));
                 }
                 buffer.set_line(area.x + 2, y, line, area.width.saturating_sub(2));
