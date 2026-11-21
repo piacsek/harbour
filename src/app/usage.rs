@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers, MouseEvent};
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Rect};
-use ratatui::widgets::Clear;
+use ratatui::widgets::{Clear, Paragraph};
 
 use super::logging::Input;
 use super::{App, draw, refusal};
@@ -108,13 +108,25 @@ impl App {
             return false;
         };
         let area = area(frame.area());
-        let block = draw::bordered(true, self.accent).title(" usage ");
+        let mut block = draw::bordered(true, self.accent).title(" usage ");
+        if let Some(status) = session.exit().filter(|status| !status.success()) {
+            block = block.title(format!(" exit{} ", draw::exit_note(status)));
+        }
         let inner = block.inner(area);
         self.usage.area = inner;
         session.resize(ROWS, inner.width);
         frame.render_widget(Clear, area);
         frame.render_widget(block, area);
-        frame.render_widget(&*session, inner);
+        if session.printed() {
+            frame.render_widget(&*session, inner);
+        } else {
+            let note = if session.exit().is_some() {
+                "printed nothing"
+            } else {
+                "loading…"
+            };
+            frame.render_widget(Paragraph::new(note), inner);
+        }
         true
     }
 

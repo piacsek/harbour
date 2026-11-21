@@ -248,6 +248,17 @@ impl Session {
         area.contains(at).then_some(at)
     }
 
+    pub fn printed(&self) -> bool {
+        !self
+            .parser
+            .lock()
+            .unwrap()
+            .screen()
+            .contents()
+            .trim()
+            .is_empty()
+    }
+
     pub fn take_panics(&self) -> usize {
         std::mem::take(&mut self.parser.lock().unwrap().callbacks_mut().panics)
     }
