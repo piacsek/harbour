@@ -64,11 +64,35 @@ fn quitting_gives_the_terminal_back_its_default_cursor_shape() {
     assert_eq!(wait_for_shape(&server, "default"), "default");
 }
 
+#[test]
+#[ignore]
+fn the_terminal_hides_the_cursor_while_the_sidebar_has_focus() {
+    let home = tempfile::tempdir().unwrap();
+    let server = Server::start("cursor-sidebar", 160, 20);
+    server.run(home.path(), &[(SESSION_COMMAND, SHAPED_AGENT)], &[]);
+    server.wait_for_screen("press n to start one");
+    server.send_keys(&["n"]);
+    server.wait_for_screen("acme agent ready");
+    server.send_keys(&["Enter"]);
+    server.wait_for_screen("┌ sessions");
+    let focused = wait_for_format(&server, "#{cursor_flag}", "1");
+
+    server.send_keys(&["C-h"]);
+
+    server.wait_for_screen("┏ sessions");
+    assert_eq!(focused, "1");
+    assert_eq!(wait_for_format(&server, "#{cursor_flag}", "0"), "0");
+}
+
 fn wait_for_shape(server: &Server, expected: &str) -> String {
+    wait_for_format(server, "#{cursor_shape}", expected)
+}
+
+fn wait_for_format(server: &Server, format: &str, expected: &str) -> String {
     let deadline = Instant::now() + Duration::from_secs(10);
     loop {
         let output = server
-            .tmux(&["display-message", "-p", "-t", "e2e", "#{cursor_shape}"])
+            .tmux(&["display-message", "-p", "-t", "e2e", format])
             .output()
             .unwrap();
         let shape = String::from_utf8_lossy(&output.stdout)

@@ -128,6 +128,7 @@ impl App {
                             frame.render_widget(pane_block, pane);
                             frame.render_widget(session, self.pane);
                             cursor = placed(session, self.pane);
+                            cursor.0 = cursor.0.filter(|_| self.pane_focused);
                         }
                         None => frame.render_widget(
                             Paragraph::new(remember::pane(shown.why))
