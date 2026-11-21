@@ -360,6 +360,9 @@ impl App {
             }
             return;
         }
+        if self.side_mouse(event) {
+            return;
+        }
         let at = Position::new(event.column, event.row);
         if matches!(event.kind, MouseEventKind::Down(_)) {
             if self.sidebar.contains(at) {

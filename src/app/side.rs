@@ -1,11 +1,12 @@
-use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
-use ratatui::layout::{Constraint, Layout, Rect};
+use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseEvent, MouseEventKind};
+use ratatui::layout::{Constraint, Layout, Position, Rect};
 use ratatui::style::Modifier;
 use ratatui::text::{Line, Span};
 use ratatui::widgets::Block;
 
 use super::App;
 use crate::input::ESCAPED;
+use crate::mouse::{self, Gesture, Target};
 use crate::state::{self, Counts};
 use crate::tabs;
 use crate::zoom::{guaranteed, info};
@@ -51,6 +52,53 @@ impl App {
         self.side_by_side = true;
         self.zoomed = false;
         self.pane_focused = true;
+    }
+
+    pub(super) fn side_mouse(&mut self, event: MouseEvent) -> bool {
+        if self.beside.is_empty() {
+            return false;
+        }
+        let Some(entry) = self.sessions.get_mut(self.selected) else {
+            return false;
+        };
+        let Some(editor_id) = entry.editor().map(|editor| editor.id) else {
+            return false;
+        };
+        let at = Position::new(event.column, event.row);
+        let right = match (self.gesture, event.kind) {
+            (Gesture::Pane(owner), MouseEventKind::Drag(_) | MouseEventKind::Up(_)) => {
+                owner == editor_id
+            }
+            _ => self.beside.contains(at),
+        };
+        if matches!(event.kind, MouseEventKind::Down(_)) && (right || self.pane.contains(at)) {
+            self.pane_focused = true;
+            entry.on_editor = right;
+        }
+        let (area, id, session) = if right {
+            (
+                self.beside,
+                editor_id,
+                entry.editor().map(|editor| &editor.session),
+            )
+        } else {
+            (self.pane, entry.id, entry.session.as_ref())
+        };
+        let target = session.map(|session| {
+            let (mode, encoding) = session.mouse_protocol();
+            Target {
+                session: id,
+                mode,
+                encoding,
+            }
+        });
+        let (gesture, bytes) = mouse::route(self.gesture, event, area, target);
+        self.gesture = gesture;
+        if let (Some(session), Some(bytes)) = (session, bytes) {
+            session.send(&bytes);
+            self.touch();
+        }
+        true
     }
 
     pub(super) fn side_borders(

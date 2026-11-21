@@ -34,6 +34,7 @@ mod reserving;
 mod selection;
 mod side;
 mod side_border;
+mod side_mouse;
 mod status;
 mod stopping;
 mod switching;
