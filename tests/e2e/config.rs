@@ -331,7 +331,10 @@ fn the_clawd_icon_from_the_file_leads_the_claude_name_in_the_pane_border() {
 
     let screen = server.wait_for_screen("acme agent in acme-api");
     let top = screen.lines().next().unwrap_or_default();
-    assert!(top.contains(" \u{100000} claude | \u{E6AE} nvim "), "{top}");
+    assert!(
+        top.contains(" \u{100000}  claude | \u{E6AE} nvim "),
+        "{top}"
+    );
 }
 
 fn coloured(server: &Server) -> String {

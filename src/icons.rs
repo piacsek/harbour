@@ -21,7 +21,7 @@ impl ClaudeIcon {
     pub fn glyph(self) -> &'static str {
         match self {
             ClaudeIcon::Sparkle => "\u{F0674}",
-            ClaudeIcon::Clawd => "\u{100000}",
+            ClaudeIcon::Clawd => "\u{100000} ",
         }
     }
 }

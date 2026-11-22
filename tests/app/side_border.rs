@@ -133,7 +133,7 @@ fn with_the_clawd_icon_the_claude_code_half_names_claude_after_its_glyph() {
     let top = top(&screen.draw());
 
     let left: String = top.chars().take(60).collect();
-    assert!(left.contains("  \u{100000} claude ━"), "{left}");
+    assert!(left.contains("  \u{100000}  claude ━"), "{left}");
 }
 
 #[test]
@@ -149,7 +149,7 @@ fn swapped_with_the_clawd_icon_the_right_half_names_claude_after_its_glyph() {
     let top = top(&screen.draw());
 
     let right: String = top.chars().skip(60).collect();
-    assert!(right.starts_with("┏ \u{100000} claude ━"), "{right}");
+    assert!(right.starts_with("┏ \u{100000}  claude ━"), "{right}");
 }
 
 #[test]
