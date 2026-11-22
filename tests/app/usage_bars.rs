@@ -18,14 +18,35 @@ fn a_finished_report_that_parses_shows_a_bar_per_limit() {
 }
 
 #[test]
-fn a_report_still_running_shows_its_text_as_it_arrives() {
+fn a_report_still_running_shows_none_of_its_text() {
     let mut screen = Screen::of(app().with_usage(report("exec sleep 600")));
+    screen.press('u');
+    screen.press('t');
+    screen.wait_for("Current week (all models): 90% used");
+
+    screen.press('t');
+
+    let shown = screen.draw();
+    assert!(shown.contains("reading usage…"), "{shown}");
+    assert!(!shown.contains("Current session: 12% used"), "{shown}");
+    assert!(!shown.contains(ROW), "{shown}");
+}
+
+#[test]
+fn the_text_never_shows_between_the_animation_and_the_bars() {
+    let mut screen = Screen::of(app().with_usage(report("sleep 0.4")));
+    let mut animated = 0;
+    let mut text = 0;
 
     screen.press('u');
+    screen.wait_until("the bars", |shown| {
+        animated += usize::from(shown.contains("reading usage…"));
+        text += usize::from(shown.contains("Current session: 12% used"));
+        shown.contains(ROW)
+    });
 
-    let shown = screen.wait_for("Current week (all models): 90% used");
-    assert!(shown.contains("Current session: 12% used"), "{shown}");
-    assert!(!shown.contains(ROW), "{shown}");
+    assert!(animated > 0);
+    assert_eq!(text, 0);
 }
 
 #[test]
@@ -93,16 +114,85 @@ fn a_popup_opened_again_starts_on_the_bars() {
 }
 
 #[test]
-fn t_while_the_report_loads_goes_to_its_process() {
-    let reading = script("read line; echo \"acme read $line\"; exec sleep 600");
-    let mut screen = Screen::of(app().with_usage(reading));
+fn t_while_the_report_loads_shows_its_text_as_it_arrives() {
+    let mut screen = Screen::of(app().with_usage(report("exec sleep 600")));
     screen.press('u');
 
     screen.press('t');
-    screen.key(KeyCode::Enter, KeyModifiers::NONE);
 
-    let shown = screen.wait_for("acme read t");
+    let shown = screen.wait_for("Current week (all models): 90% used");
+    assert!(shown.contains("Current session: 12% used"), "{shown}");
+    assert!(!shown.contains("reading usage…"), "{shown}");
     assert!(!shown.contains(" t bars "), "{shown}");
+}
+
+#[test]
+fn shift_t_while_the_report_loads_shows_its_text_too() {
+    let mut screen = Screen::of(app().with_usage(report("exec sleep 600")));
+    screen.press('u');
+
+    screen.key(KeyCode::Char('T'), KeyModifiers::SHIFT);
+
+    let shown = screen.wait_for("Current week (all models): 90% used");
+    assert!(!shown.contains("reading usage…"), "{shown}");
+}
+
+#[test]
+fn ctrl_t_while_the_report_loads_goes_to_its_process() {
+    let reading = script("read line; echo \"acme read $line\" | tr -d '\\024'; exec sleep 600");
+    let mut screen = Screen::of(app().with_usage(reading));
+    screen.press('u');
+
+    screen.key(KeyCode::Char('t'), KeyModifiers::CONTROL);
+    screen.press('x');
+    screen.key(KeyCode::Enter, KeyModifiers::NONE);
+    screen.press('t');
+
+    let shown = screen.wait_for("acme read x");
+    assert!(!shown.contains("reading usage…"), "{shown}");
+}
+
+#[test]
+fn a_report_that_finishes_after_t_was_pressed_while_loading_keeps_its_text() {
+    let mut screen = Screen::of(app().with_usage(report("sleep 0.4")));
+    screen.press('u');
+    screen.press('t');
+
+    let shown = screen.wait_for(" t bars ");
+
+    assert!(shown.contains("Current session: 12% used"), "{shown}");
+    assert!(!shown.contains(ROW), "{shown}");
+}
+
+#[test]
+fn a_popup_opened_again_after_t_while_loading_starts_on_the_animation() {
+    let mut screen = Screen::of(app().with_usage(report("exec sleep 600")));
+    screen.press('u');
+    screen.press('t');
+    screen.wait_for("Current session: 12% used");
+    screen.key(KeyCode::Esc, KeyModifiers::NONE);
+
+    screen.press('u');
+
+    let shown = screen.draw();
+    assert!(shown.contains("reading usage…"), "{shown}");
+    assert!(!shown.contains("Current session: 12% used"), "{shown}");
+}
+
+#[test]
+fn t_while_loading_is_logged_as_the_popups_own_event_and_not_as_a_key() {
+    let (app, lines) = logged(app().with_usage(report("exec sleep 600")));
+    let mut screen = Screen::of(app);
+    screen.press('u');
+
+    screen.press('t');
+    screen.press('t');
+    screen.draw();
+
+    let lines = read(&lines);
+    assert_eq!(count(&lines, " usage view=raw\n"), 1);
+    assert_eq!(count(&lines, " usage view=bars\n"), 1);
+    assert_eq!(count(&lines, " input to=usage"), 0);
 }
 
 #[test]

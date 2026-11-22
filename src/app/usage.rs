@@ -19,6 +19,7 @@ use crate::usage::Report;
 
 const ROWS: u16 = 200;
 const HELD: Duration = Duration::from_millis(500);
+const STEP: Duration = Duration::from_millis(80);
 const NO_PLACE: &str = "Usage needs a state folder; set XDG_STATE_HOME or HOME";
 
 pub(super) struct Usage {
@@ -26,6 +27,8 @@ pub(super) struct Usage {
     place: Option<PathBuf>,
     open: Option<Session>,
     exited: Option<Instant>,
+    opened: Instant,
+    finished: bool,
     area: Rect,
     report: Option<Report>,
     raw: bool,
@@ -38,6 +41,8 @@ impl Usage {
             place: None,
             open: None,
             exited: None,
+            opened: Instant::now(),
+            finished: false,
             area: Rect::default(),
             report: None,
             raw: false,
@@ -85,6 +90,8 @@ impl App {
                 self.gesture = Gesture::Idle;
                 self.usage.open = Some(session);
                 self.usage.exited = None;
+                self.usage.opened = Instant::now();
+                self.usage.finished = false;
                 self.usage.report = None;
                 self.usage.raw = false;
             }
@@ -106,7 +113,7 @@ impl App {
             self.log_usage_closed();
             return true;
         }
-        if self.usage.report.is_some()
+        if (self.usage.report.is_some() || !self.usage.finished)
             && matches!(key.code, KeyCode::Char('t' | 'T'))
             && key.modifiers - KeyModifiers::SHIFT == KeyModifiers::NONE
         {
@@ -160,6 +167,7 @@ impl App {
         }
         let held = self.usage.exited.is_some_and(|at| at.elapsed() >= HELD);
         let finished = exit.filter(|_| drained || held);
+        self.usage.finished = finished.is_some();
         if let Some(status) = finished.as_ref().filter(|status| !status.success()) {
             block = block.title(format!(" exit{} ", draw::exit_note(status)));
         }
@@ -182,15 +190,15 @@ impl App {
         if let Some(report) = report {
             let lines = crate::usage::lines(report, inner.width, inner.height, self.accent);
             frame.render_widget(Paragraph::new(lines), inner);
+        } else if finished.is_none() && !self.usage.raw {
+            let step = self.usage.opened.elapsed().as_millis() / STEP.as_millis();
+            let step = usize::try_from(step).unwrap_or_default();
+            let lines = crate::usage::loading(step, inner.width, inner.height, self.accent);
+            frame.render_widget(Paragraph::new(lines), inner);
         } else if printed {
             frame.render_widget(&*session, inner);
-        } else {
-            let note = if finished.is_some() {
-                "printed nothing"
-            } else {
-                "loading…"
-            };
-            frame.render_widget(Paragraph::new(note), inner);
+        } else if finished.is_some() {
+            frame.render_widget(Paragraph::new("printed nothing"), inner);
         }
         true
     }

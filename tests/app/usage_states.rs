@@ -10,14 +10,38 @@ use harbour::picker::Picker;
 use crate::{Screen, reading_agent, script};
 
 #[test]
-fn the_popup_says_it_is_loading_until_the_report_prints() {
+fn the_popup_shows_the_loading_animation_until_the_report_has_finished() {
     let mut screen = Screen::of(app().with_usage(script("exec sleep 600")));
 
     screen.press('u');
 
     let shown = screen.draw();
     assert!(shown.contains(" usage "), "{shown}");
-    assert!(shown.contains("loading…"), "{shown}");
+    assert!(shown.contains("reading usage…"), "{shown}");
+    assert!(shown.contains("░░░░░░░░░░░░░░░░░░░░"), "{shown}");
+    assert!(!shown.contains("loading…"), "{shown}");
+}
+
+#[test]
+fn the_loading_popup_says_only_how_to_close_it() {
+    let mut screen = Screen::of(app().with_usage(script("exec sleep 600")));
+
+    screen.press('u');
+
+    let shown = screen.draw();
+    assert!(shown.contains("  Esc close"), "{shown}");
+    assert!(!shown.contains("t raw text"), "{shown}");
+}
+
+#[test]
+fn the_loading_animation_moves_with_the_clock_while_nothing_else_changes() {
+    let mut screen = Screen::of(app().with_usage(script("exec sleep 600")));
+    screen.press('u');
+    let first = bar(&screen.draw());
+
+    let shown = screen.wait_until("the patch to move", |shown| bar(shown) != first);
+
+    assert!(shown.contains("reading usage…"), "{shown}");
 }
 
 #[test]
@@ -27,7 +51,7 @@ fn a_report_that_prints_nothing_says_so() {
     screen.press('u');
 
     let shown = screen.wait_for("printed nothing");
-    assert!(!shown.contains("loading…"), "{shown}");
+    assert!(!shown.contains("reading usage…"), "{shown}");
 }
 
 #[test]
@@ -234,6 +258,14 @@ fn the_popup_is_80_by_30_on_a_larger_terminal() {
     let right = line.chars().position(|c| c == '┓').unwrap();
     assert_eq!(bottom - top + 1, 30);
     assert_eq!(right - left + 1, 80);
+}
+
+fn bar(shown: &str) -> String {
+    shown
+        .lines()
+        .find(|line| line.contains('█'))
+        .unwrap_or_default()
+        .to_string()
 }
 
 fn placed(directory: &Path) -> Screen {
