@@ -15,11 +15,13 @@ In harbour, ? shows the keys and what the dots mean, and c the changelog.
 Settings come from $XDG_CONFIG_HOME/harbour/config.toml, else
 ~/.config/harbour/config.toml, read at start: editor, picker and
 session_command (each a list: the program, then its arguments), sidebar_width
-(columns), accent (a colour name or #rrggbb) and nerd_font (true draws Nerd
-Font icons). HARBOUR_EDITOR, HARBOUR_DIR_PICKER and HARBOUR_SESSION_COMMAND
-outrank the file's editor, picker and session_command; sidebar_width, accent
-and nerd_font are read from the file only. config prints each setting and
-where it comes from.
+(columns), accent (a colour name or #rrggbb), nerd_font (true draws Nerd
+Font icons) and claude_icon (the glyph before claude with nerd_font on:
+\"sparkle\", the default, or \"clawd\", U+100000, which only a font of your own
+draws; in Ghostty, map it with font-codepoint-map = U+100000=<font family>).
+HARBOUR_EDITOR, HARBOUR_DIR_PICKER and HARBOUR_SESSION_COMMAND outrank the
+file's editor, picker and session_command; the other settings are read from
+the file only. config prints each setting and where it comes from.
 n runs fzf over the directory harbour was opened in and zoxide's list;
 HARBOUR_DIR_PICKER names another picker.
 M-s lists every session in fzf and Enter jumps to the one picked; with a picker
