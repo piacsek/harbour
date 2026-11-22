@@ -14,6 +14,7 @@ mod finding;
 mod finding_states;
 mod focus;
 mod following;
+mod frames;
 mod handing;
 mod handoff;
 mod handoff_socket;
@@ -65,10 +66,11 @@ use crossterm::event::{KeyCode, KeyEvent, KeyModifiers, MouseEvent, MouseEventKi
 use harbour::app::App;
 use harbour::editor::Program;
 use harbour::picker::Picker;
-use ratatui::Terminal;
+use harbour::tui::Frames;
 use ratatui::backend::TestBackend;
 use ratatui::buffer::Cell;
-use ratatui::layout::Position;
+use ratatui::layout::{Position, Rect};
+use ratatui::{Terminal, TerminalOptions, Viewport};
 use tempfile::TempDir;
 
 const HOME: &str = "acme-home";
@@ -298,4 +300,11 @@ fn sidebar_title(shown: &str) -> String {
     let inside = top.trim_start_matches(['┌', '┏']);
     let end = inside.find(['─', '━']).unwrap_or(inside.len());
     inside[..end].to_string()
+}
+
+fn frames() -> Frames {
+    Frames::new(TerminalOptions {
+        viewport: Viewport::Fixed(Rect::new(0, 0, 120, 20)),
+    })
+    .unwrap()
 }

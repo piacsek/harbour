@@ -377,7 +377,7 @@ fn a_session_starts_with_the_default_cursor_shape() {
     let session = start(SHAPING);
     wait_for(&session, "acme shapes ready");
 
-    assert_eq!(session.cursor_shape(), 0);
+    assert_eq!(shape_of(&session), 0);
 }
 
 #[test]
@@ -410,7 +410,7 @@ fn a_session_whose_screen_was_reset_keeps_its_cursor_shape() {
     wait_for(&session, "redrew 159");
 
     assert!(session.take_panics() > 0);
-    assert_eq!(session.cursor_shape(), 5);
+    assert_eq!(shape_of(&session), 5);
 }
 
 #[test]
@@ -431,7 +431,7 @@ fn a_session_says_where_its_cursor_is_in_the_area_it_is_drawn_in() {
     let session = start("printf '\\033[3;5Hacme here'; exec sleep 600");
     wait_for(&session, "acme here");
 
-    let cursor = session.cursor(Rect::new(20, 4, COLS, ROWS));
+    let cursor = cursor(&session, Rect::new(20, 4, COLS, ROWS));
 
     assert_eq!(cursor, Some(Position::new(33, 6)));
 }
@@ -441,7 +441,7 @@ fn a_session_whose_program_hid_its_cursor_has_none() {
     let session = start("printf '\\033[?25lacme hidden'; exec sleep 600");
     wait_for(&session, "acme hidden");
 
-    assert_eq!(session.cursor(Rect::new(0, 0, COLS, ROWS)), None);
+    assert_eq!(cursor(&session, Rect::new(0, 0, COLS, ROWS)), None);
 }
 
 #[test]
@@ -449,7 +449,7 @@ fn a_cursor_below_the_area_drawn_is_not_shown() {
     let session = start("printf 'acme\\nlow'; exec sleep 600");
     wait_for(&session, "low");
 
-    assert_eq!(session.cursor(Rect::new(0, 0, COLS, 1)), None);
+    assert_eq!(cursor(&session, Rect::new(0, 0, COLS, 1)), None);
 }
 
 #[test]
@@ -457,7 +457,7 @@ fn a_cursor_right_of_the_area_drawn_is_not_shown() {
     let session = start("printf 'acme wide'; exec sleep 600");
     wait_for(&session, "acme wide");
 
-    assert_eq!(session.cursor(Rect::new(0, 0, 9, ROWS)), None);
+    assert_eq!(cursor(&session, Rect::new(0, 0, 9, ROWS)), None);
 }
 
 #[test]
@@ -466,8 +466,53 @@ fn a_cursor_waiting_after_a_full_line_sits_on_its_last_column() {
     wait_for(&session, "acmexxx");
 
     assert_eq!(
-        session.cursor(Rect::new(0, 0, COLS, ROWS)),
+        cursor(&session, Rect::new(0, 0, COLS, ROWS)),
         Some(Position::new(COLS - 1, 0))
+    );
+}
+
+#[test]
+fn drawing_a_session_gives_its_cursor_and_its_shape() {
+    let session = start("printf '\\033[5 q\\033[3;5Hacme here'; exec sleep 600");
+    wait_for(&session, "acme here");
+
+    let area = Rect::new(20, 4, COLS, ROWS);
+    let (cursor, shape) = session.draw(area, &mut Buffer::empty(area), Instant::now());
+
+    assert_eq!(cursor, Some(Position::new(33, 6)));
+    assert_eq!(shape, 5);
+}
+
+#[test]
+fn a_cursor_hidden_a_moment_ago_still_shows_where_it_last_was() {
+    let session = start(HIDING);
+    wait_for(&session, "acme shown");
+    let before = Instant::now();
+
+    session.send(b"\r");
+    wait_for(&session, "acme hiding");
+
+    assert_eq!(
+        cursor_at(&session, Rect::new(0, 0, COLS, ROWS), before),
+        Some(Position::new(14, 2))
+    );
+}
+
+#[test]
+fn a_cursor_hidden_for_a_second_is_hidden() {
+    let session = start(HIDING);
+    wait_for(&session, "acme shown");
+
+    session.send(b"\r");
+    wait_for(&session, "acme hiding");
+
+    assert_eq!(
+        cursor_at(
+            &session,
+            Rect::new(0, 0, COLS, ROWS),
+            Instant::now() + Duration::from_secs(1)
+        ),
+        None
     );
 }
 
@@ -591,10 +636,28 @@ const SHAPING: &str = "echo 'acme shapes ready'; \
 fn shaped(session: &Session, shape: &str) -> u8 {
     session.send(format!("{shape}\r").as_bytes());
     wait_for(session, &format!("shape:{shape}."));
-    session.cursor_shape()
+    shape_of(session)
 }
 
 fn shaped_wide_at_the_edge() -> [String; 3] {
     let [shell, flag, script] = wide_at_the_edge();
     [shell, flag, format!("printf '\\033[5 q'; {script}")]
+}
+
+const HIDING: &str = "stty -echo; printf '\\033[3;5Hacme shown'; read -r line; \
+                      printf '\\033[?25l\\033[6;9Hacme hiding'; exec sleep 600";
+
+fn cursor(session: &Session, area: Rect) -> Option<Position> {
+    cursor_at(session, area, Instant::now())
+}
+
+fn cursor_at(session: &Session, area: Rect, now: Instant) -> Option<Position> {
+    session.draw(area, &mut Buffer::empty(area), now).0
+}
+
+fn shape_of(session: &Session) -> u8 {
+    let area = Rect::new(0, 0, COLS, ROWS);
+    session
+        .draw(area, &mut Buffer::empty(area), Instant::now())
+        .1
 }

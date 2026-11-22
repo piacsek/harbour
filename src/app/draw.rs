@@ -2,7 +2,7 @@ use std::time::Instant;
 
 use portable_pty::ExitStatus;
 use ratatui::Frame;
-use ratatui::layout::{Constraint, Position, Rect};
+use ratatui::layout::{Constraint, Rect};
 use ratatui::style::{Color, Modifier, Stylize};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, BorderType, Clear, Paragraph, Wrap};
@@ -11,7 +11,6 @@ use super::{App, HINT, Question, remember, user_home};
 use crate::card::{Card, Ended};
 use crate::editor::{Changes, Program};
 use crate::help;
-use crate::session::Session;
 use crate::state;
 use crate::tabs;
 use crate::text;
@@ -30,11 +29,11 @@ impl App {
 
     pub fn draw(&mut self, frame: &mut Frame) {
         let began = Instant::now();
-        self.compose(frame);
+        self.compose(frame, began);
         self.log_frame(began);
     }
 
-    fn compose(&mut self, frame: &mut Frame) {
+    fn compose(&mut self, frame: &mut Frame, now: Instant) {
         self.log_start(frame.area());
         self.finish_pick();
         self.finish_editors();
@@ -173,8 +172,7 @@ impl App {
                     match left {
                         Some(session) => {
                             frame.render_widget(pane_block, pane);
-                            frame.render_widget(session, self.pane);
-                            cursor = placed(session, self.pane);
+                            cursor = session.draw(self.pane, frame.buffer_mut(), now);
                             cursor.0 = cursor.0.filter(|_| left_focused);
                         }
                         None => frame.render_widget(
@@ -191,9 +189,9 @@ impl App {
                 }
                 if let Some(editor) = shown.editor().filter(|_| split) {
                     frame.render_widget(beside_block, beside);
-                    frame.render_widget(&editor.session, self.beside);
+                    let drawn = editor.session.draw(self.beside, frame.buffer_mut(), now);
                     if self.pane_focused && on_editor {
-                        cursor = placed(&editor.session, self.beside);
+                        cursor = drawn;
                     }
                 }
             }
@@ -240,8 +238,7 @@ impl App {
             pick.resize(inner.height, inner.width);
             frame.render_widget(Clear, area);
             frame.render_widget(block, area);
-            frame.render_widget(pick.session(), inner);
-            cursor = placed(pick.session(), inner);
+            cursor = pick.session().draw(inner, frame.buffer_mut(), now);
         }
         if self.draw_usage(frame) {
             cursor = (None, 0);
@@ -288,10 +285,6 @@ impl App {
             frame.area(),
         );
     }
-}
-
-fn placed(session: &Session, area: Rect) -> (Option<Position>, u8) {
-    (session.cursor(area), session.cursor_shape())
 }
 
 fn failure_lines(failed: &str, width: u16) -> Vec<Line<'static>> {

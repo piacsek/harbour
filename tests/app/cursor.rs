@@ -8,13 +8,10 @@ use harbour::app::App;
 use harbour::cursor::Shape;
 use harbour::editor::Program;
 use harbour::picker::Picker;
-use harbour::tui;
-use ratatui::backend::CrosstermBackend;
-use ratatui::layout::{Position, Rect};
+use ratatui::layout::Position;
 use ratatui::style::Modifier;
-use ratatui::{Terminal, TerminalOptions, Viewport};
 
-use crate::{Screen, home, pane_corner, reading_agent, script};
+use crate::{Screen, frames, home, pane_corner, reading_agent, script};
 
 #[test]
 fn the_terminal_cursor_sits_on_the_pane_cursor_cell() {
@@ -147,25 +144,15 @@ fn a_frame_with_the_sidebar_focused_never_shows_the_cursor() {
     screen.press('n');
     screen.wait_for("acme agent shaped");
     let written = Written::default();
-    let mut terminal = Terminal::with_options(
-        CrosstermBackend::new(written.clone()),
-        TerminalOptions {
-            viewport: Viewport::Fixed(Rect::new(0, 0, 120, 20)),
-        },
-    )
-    .unwrap();
+    let mut frames = frames();
     let mut shape = Shape::default();
 
-    tui::frame(
-        &mut terminal,
-        &mut screen.app,
-        &mut shape,
-        &mut written.clone(),
-    )
-    .unwrap();
+    frames
+        .draw(&mut screen.app, &mut shape, &mut written.clone())
+        .unwrap();
 
     let text = written.text();
-    assert!(text.starts_with("\x1b[?25l"), "{text:?}");
+    assert!(text.starts_with("\x1b[?2026h\x1b[?25l"), "{text:?}");
     assert!(!text.contains("\x1b[?25h"), "{text:?}");
 }
 
@@ -221,34 +208,20 @@ fn switching_sessions_hides_the_cursor_before_changing_its_shape() {
     screen.press('n');
     screen.wait_for("acme agent 2");
     let written = Written::default();
-    let mut terminal = Terminal::with_options(
-        CrosstermBackend::new(written.clone()),
-        TerminalOptions {
-            viewport: Viewport::Fixed(Rect::new(0, 0, 120, 20)),
-        },
-    )
-    .unwrap();
+    let mut frames = frames();
     let mut shape = Shape::default();
-    tui::frame(
-        &mut terminal,
-        &mut screen.app,
-        &mut shape,
-        &mut written.clone(),
-    )
-    .unwrap();
+    frames
+        .draw(&mut screen.app, &mut shape, &mut written.clone())
+        .unwrap();
     screen.press('k');
     screen.wait_for("acme agent 1");
     screen.key(KeyCode::Enter, KeyModifiers::NONE);
     screen.wait_for("┌ sessions");
     written.clear();
 
-    tui::frame(
-        &mut terminal,
-        &mut screen.app,
-        &mut shape,
-        &mut written.clone(),
-    )
-    .unwrap();
+    frames
+        .draw(&mut screen.app, &mut shape, &mut written.clone())
+        .unwrap();
 
     let text = written.text();
     let hidden = text.find("\x1b[?25l").unwrap_or(usize::MAX);
@@ -269,26 +242,16 @@ fn a_frame_hides_the_cursor_before_its_first_cell_and_moves_then_shows_it_in_one
     let shown = screen.wait_for("┌ sessions");
     let corner = pane_corner(&shown);
     let written = Written::default();
-    let mut terminal = Terminal::with_options(
-        CrosstermBackend::new(written.clone()),
-        TerminalOptions {
-            viewport: Viewport::Fixed(Rect::new(0, 0, 120, 20)),
-        },
-    )
-    .unwrap();
+    let mut frames = frames();
     let mut shape = Shape::default();
 
-    tui::frame(
-        &mut terminal,
-        &mut screen.app,
-        &mut shape,
-        &mut written.clone(),
-    )
-    .unwrap();
+    frames
+        .draw(&mut screen.app, &mut shape, &mut written.clone())
+        .unwrap();
 
     let text = written.text();
-    let last = format!("{FLUSH}\x1b[4;{}H\x1b[?25h{FLUSH}", corner + 22);
-    assert!(text.starts_with("\x1b[?25l"), "{text:?}");
+    let last = format!("\x1b[4;{}H\x1b[?25h\x1b[?2026l{FLUSH}", corner + 22);
+    assert!(text.starts_with("\x1b[?2026h\x1b[?25l"), "{text:?}");
     assert!(text.ends_with(&last), "{text:?}");
     assert_eq!(text.matches("\x1b[?25h").count(), 1, "{text:?}");
 }
