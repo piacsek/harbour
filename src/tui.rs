@@ -231,7 +231,7 @@ fn step(
     pending: &mut VecDeque<Event>,
     stdin: &io::Stdin,
 ) -> io::Result<()> {
-    frames.draw(app, shape, &mut io::stdout().lock())?;
+    frames.draw(app, shape, &mut io::stdout())?;
     if pending.is_empty() {
         pending.extend(input.read(stdin.as_fd(), Duration::from_millis(30))?);
     }

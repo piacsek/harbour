@@ -88,7 +88,8 @@ fn a_frame_where_only_the_cursor_goes_hidden_writes_the_hide() {
 
     let text = out.text();
     assert_eq!(out.writes(), 1);
-    assert!(text.contains("\x1b[?25l"), "{text:?}");
+    assert!(text.starts_with("\x1b[?2026h\x1b[?25l"), "{text:?}");
+    assert!(!text.contains('H'), "{text:?}");
     assert!(!text.contains("\x1b[?25h"), "{text:?}");
 }
 
