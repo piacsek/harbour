@@ -13,6 +13,7 @@ mod handoff;
 mod jump;
 mod key;
 mod logging;
+mod navigate;
 mod read;
 mod remember;
 mod side;
@@ -35,6 +36,7 @@ use crate::registry::Record;
 use crate::repo::{self, Place};
 use crate::session::{self, Session};
 use crate::summary::Summary;
+use crate::tmux::Tmux;
 use crate::transcript::{self, Transcript};
 
 const HINT: &str = "No session yet: press n to start one.";
@@ -85,6 +87,7 @@ pub struct App {
     follow: Option<Follow>,
     handoff: Option<Listener>,
     temporary: PathBuf,
+    tmux: Option<Tmux>,
     logging: logging::Logging,
 }
 
@@ -214,6 +217,7 @@ impl App {
             follow: None,
             handoff: None,
             temporary: follow::temporary(),
+            tmux: None,
             logging: logging::Logging::default(),
         }
     }
@@ -270,6 +274,11 @@ impl App {
 
     pub fn with_handoff(mut self, listener: Listener) -> App {
         self.handoff = Some(listener);
+        self
+    }
+
+    pub fn with_tmux(mut self, tmux: Tmux) -> App {
+        self.tmux = Some(tmux);
         self
     }
 

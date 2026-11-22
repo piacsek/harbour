@@ -380,7 +380,7 @@ fn nvim_on_path() -> Option<PathBuf> {
     on_path("nvim")
 }
 
-fn on_path(program: &str) -> Option<PathBuf> {
+pub(super) fn on_path(program: &str) -> Option<PathBuf> {
     let path = std::env::var_os("PATH")?;
     std::env::split_paths(&path)
         .map(|directory| directory.join(program))

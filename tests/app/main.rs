@@ -27,6 +27,7 @@ mod logging;
 mod logging_edits;
 mod logging_lives;
 mod moving;
+mod navigating;
 mod nearest;
 mod neovim;
 mod picker;

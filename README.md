@@ -58,7 +58,9 @@ harbour config      # the settings file's path and where each setting comes from
 `n` picks the directory with fzf, from the directory harbour was opened in and the ones
 zoxide ranks; `HARBOUR_DIR_PICKER` names another picker. Without fzf, sessions start in the
 directory harbour was opened in. Sessions end when harbour quits. Inside tmux with
-vim-tmux-navigator, add `harbour` to the pattern of processes it passes `C-h` and `C-l` to.
+vim-tmux-navigator, add `harbour` to the pattern of processes it passes `C-h`, `C-j`, `C-k`
+and `C-l` to; `C-j` and `C-k` from the sidebar or Claude Code then move to the tmux pane below
+or above harbour, while tmux binds them itself.
 
 ## Development
 

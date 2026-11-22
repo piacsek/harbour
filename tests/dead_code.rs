@@ -11,6 +11,7 @@ const SEAMS: &[&str] = &[
     "neovim",
     "path",
     "with_changelog",
+    "with_program",
 ];
 
 const KINDS: &[&str] = &["fn", "struct", "enum", "const", "static", "trait", "type"];

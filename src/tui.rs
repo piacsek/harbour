@@ -35,6 +35,7 @@ use crate::picker::Picker;
 use crate::registry;
 use crate::session;
 use crate::summary::{self, Summary};
+use crate::tmux::Tmux;
 
 const EXTENDED_KEYS_ON: &[u8] = b"\x1b[>4;2m";
 const EXTENDED_KEYS_OFF: &[u8] = b"\x1b[>4m";
@@ -75,6 +76,9 @@ pub fn run(config: Config) -> io::Result<()> {
     }
     if let Some(dir) = handoff::directory_from_env() {
         app = app.with_handoff(Listener::new(&dir));
+    }
+    if let Some(tmux) = Tmux::from_env() {
+        app = app.with_tmux(tmux);
     }
     let log = logging();
     if let Some(log) = &log {
