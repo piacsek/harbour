@@ -29,6 +29,7 @@ use crate::demo;
 use crate::editor::{Changes, Editor, Program};
 use crate::follow::{self, Follow, Mover};
 use crate::handoff::Listener;
+use crate::icons::ClaudeIcon;
 use crate::memory::{Memory, Remembered, Reservation};
 use crate::mouse::{self, Gesture, Target};
 use crate::picker::{Pick, Picked, Picker};
@@ -63,6 +64,7 @@ pub struct App {
     cards: Sidebar,
     accent: Color,
     nerd_font: bool,
+    claude_icon: ClaudeIcon,
     sidebar_width: Option<u16>,
     pane_focused: bool,
     zoomed: bool,
@@ -193,6 +195,7 @@ impl App {
             cards: Sidebar::default(),
             accent: Color::Cyan,
             nerd_font: false,
+            claude_icon: ClaudeIcon::Sparkle,
             sidebar_width: None,
             pane_focused: false,
             zoomed: false,
@@ -239,6 +242,11 @@ impl App {
 
     pub fn with_nerd_font(mut self) -> App {
         self.nerd_font = true;
+        self
+    }
+
+    pub fn with_claude_icon(mut self, icon: ClaudeIcon) -> App {
+        self.claude_icon = icon;
         self
     }
 

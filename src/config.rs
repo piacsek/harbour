@@ -248,6 +248,10 @@ impl Config {
     pub fn nerd_font(&self) -> &Setting<bool> {
         &self.nerd_font
     }
+
+    pub fn claude_icon(&self) -> &Setting<ClaudeIcon> {
+        &self.claude_icon
+    }
 }
 
 impl Reader<'_> {

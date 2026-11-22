@@ -1,4 +1,5 @@
-use crate::{icons, text};
+use crate::icons::{self, ClaudeIcon};
+use crate::text;
 
 const CLAUDE: &str = "claude";
 const SEPARATORS: usize = " ".len() + " | ".len() + " ".len();
@@ -17,11 +18,10 @@ pub fn strip(editor: &str, directory: Option<&str>, width: usize) -> [String; 2]
     [CLAUDE.to_string(), text::fit(editor, left)]
 }
 
-pub fn claude(iconed: bool) -> String {
-    if iconed {
-        format!("{} {CLAUDE}", icons::CLAUDE)
-    } else {
-        CLAUDE.to_string()
+pub fn claude(icon: Option<ClaudeIcon>) -> String {
+    match icon {
+        Some(icon) => format!("{} {CLAUDE}", icon.glyph()),
+        None => CLAUDE.to_string(),
     }
 }
 
@@ -44,8 +44,14 @@ pub fn editor_named(editor: &str, neovim: bool, directory: Option<&str>, width: 
     text::fit(editor, width)
 }
 
-pub fn iconed(editor: &str, neovim: bool, directory: Option<&str>, width: usize) -> [String; 2] {
-    let claude = claude(true);
+pub fn iconed(
+    icon: ClaudeIcon,
+    editor: &str,
+    neovim: bool,
+    directory: Option<&str>,
+    width: usize,
+) -> [String; 2] {
+    let claude = claude(Some(icon));
     let room = width.saturating_sub(SEPARATORS);
     let left = room.saturating_sub(text::columns(&claude));
     let named = glyphed(editor, neovim);
