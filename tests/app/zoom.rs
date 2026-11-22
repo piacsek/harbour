@@ -1,13 +1,10 @@
 use std::fs;
 use std::path::Path;
 
-use crossterm::event::{
-    KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseButton, MouseEventKind,
-};
+use crossterm::event::{KeyCode, KeyEvent, KeyModifiers, MouseButton, MouseEventKind};
 use harbour::app::App;
 use harbour::editor::Program;
 use harbour::handoff::Verb;
-use harbour::input::ESCAPED;
 
 use crate::handing::answering;
 use crate::handoff::{file, harbour, soon, start_in};
@@ -73,12 +70,9 @@ fn alt_z_read_after_an_escape_reaches_the_session_and_zooms_nothing() {
     screen.wait_for("acme agent ready");
     screen.key(KeyCode::Enter, KeyModifiers::NONE);
 
-    screen.app.key(KeyEvent::new_with_kind_and_state(
-        KeyCode::Char('z'),
-        KeyModifiers::ALT,
-        KeyEventKind::Press,
-        ESCAPED,
-    ));
+    screen
+        .app
+        .key(KeyEvent::new(KeyCode::Char('z'), KeyModifiers::ALT));
 
     let shown = screen.wait_for("acme agent read:");
     assert!(shown.contains("acme agent read: 1b"), "{shown}");

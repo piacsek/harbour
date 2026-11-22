@@ -18,18 +18,19 @@ impl App {
         }
     }
 
-    pub(super) fn resize(&mut self, wider: bool) {
+    pub(super) fn resize(&mut self, wider: bool) -> bool {
         if self.sidebar.is_empty() || self.shown_pane.is_empty() {
-            return;
+            return false;
         }
         let drawn = self.sidebar.width;
         let widest = self.screen.width / 2;
         let width = match wider {
             true if drawn < widest => (drawn + 2).min(widest),
             false if drawn > NARROWEST => (drawn - 2).max(NARROWEST),
-            _ => return,
+            _ => return false,
         };
         self.sidebar_width = Some(width);
+        true
     }
 
     fn one_side(&self, area: Rect) -> (Rect, Rect) {

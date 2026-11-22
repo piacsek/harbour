@@ -118,17 +118,16 @@ fn the_narrow_layout_shows_the_pane_of_the_card_jumped_to() {
 }
 
 #[test]
-fn the_help_view_takes_the_key_and_nothing_jumps() {
+fn the_prefix_then_a_digit_while_the_help_shows_closes_it_and_jumps() {
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = three_sessions(scratch.path());
     screen.prefixed('?');
 
     ctrl(&mut screen, '1');
-    screen.key(KeyCode::Enter, KeyModifiers::NONE);
     screen.type_text("hi\r");
 
-    let shown = screen.wait_for("acme agent 3 got:");
-    assert!(shown.contains("acme agent 3 got: hi"), "{shown}");
+    let shown = screen.wait_for("acme agent 1 got:");
+    assert!(shown.contains("acme agent 1 got: hi"), "{shown}");
 }
 
 #[test]

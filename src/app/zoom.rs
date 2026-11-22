@@ -40,8 +40,12 @@ impl App {
         counts: Counts,
     ) -> Block<'static> {
         let room = usize::from(room);
-        let mut counted = state::title(counts, room);
-        if let Some(mark) = self.waiting_mark().filter(|_| self.zoomed) {
+        let mark = self
+            .waiting_mark()
+            .filter(|mark| self.zoomed && mark.width() < room);
+        let marked = mark.as_ref().map_or(0, |mark| mark.width() + 1);
+        let mut counted = state::title(counts, room - marked);
+        if let Some(mark) = mark {
             counted.spans.splice(0..0, [Span::from(" "), mark]);
         }
         let left = room.saturating_sub(counted.width());

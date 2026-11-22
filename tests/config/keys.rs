@@ -104,6 +104,24 @@ fn a_bad_prefix_variable_is_refused_by_its_name() {
 }
 
 #[test]
+fn a_bad_prefix_in_the_file_is_refused_while_the_variable_is_set() {
+    let home = tempfile::tempdir().unwrap();
+    let path = write_config(home.path(), "prefix = \"M-a\"\n");
+    let variable = |name: &str| match name {
+        "HOME" => Some(home.path().as_os_str().to_owned()),
+        "HARBOUR_PREFIX" => Some("C-_".into()),
+        _ => None,
+    };
+
+    let refused = harbour::config::Config::read(variable).err().unwrap();
+
+    assert_eq!(
+        refused.to_string(),
+        format!("{}:1: prefix: {PREFIX}", path.display())
+    );
+}
+
+#[test]
 fn a_binding_moves_an_action_to_another_key() {
     let home = tempfile::tempdir().unwrap();
     write_config(home.path(), "[keys]\nzoom = \"f\"\n");

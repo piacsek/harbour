@@ -126,15 +126,14 @@ impl Config {
         let editor = reader.program("editor", written.editor)?;
         let picker = reader.program("picker", written.picker)?;
         let session_command = reader.program("session_command", written.session_command)?;
+        let written_prefix = reader.prefix(written.prefix)?;
         let prefix = match set_text(PREFIX_VARIABLE) {
             Some(setting) => Setting {
                 value: keymap::parse_prefix(&setting.value[0])
                     .map_err(|what| Refusal(format!("{PREFIX_VARIABLE}: {what}")))?,
                 source: setting.source,
             },
-            None => reader
-                .prefix(written.prefix)?
-                .map_or_else(|| default('/'), from_file),
+            None => written_prefix.map_or_else(|| default('/'), from_file),
         };
         let bindings = reader.bindings(written.keys)?;
         Ok(Config {

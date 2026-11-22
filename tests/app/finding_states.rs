@@ -4,10 +4,9 @@ use std::process::Command;
 use std::thread::sleep;
 use std::time::{Duration, Instant};
 
-use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
+use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use harbour::app::App;
 use harbour::handoff::{Reply, Verb};
-use harbour::input::ESCAPED;
 use harbour::picker::Picker;
 
 use crate::finding::FINDER;
@@ -288,12 +287,9 @@ fn alt_s_read_after_an_escape_reaches_the_session_and_opens_nothing() {
     screen.press('n');
     screen.wait_for("acme agent ready");
 
-    screen.app.key(KeyEvent::new_with_kind_and_state(
-        KeyCode::Char('s'),
-        KeyModifiers::ALT,
-        KeyEventKind::Press,
-        ESCAPED,
-    ));
+    screen
+        .app
+        .key(KeyEvent::new(KeyCode::Char('s'), KeyModifiers::ALT));
 
     let shown = screen.wait_for("acme agent read:");
     assert!(shown.contains("acme agent read: 1b 73"), "{shown}");

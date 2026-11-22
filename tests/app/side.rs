@@ -2,10 +2,9 @@ use std::path::Path;
 use std::thread::sleep;
 use std::time::Duration;
 
-use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
+use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use harbour::app::App;
 use harbour::editor::Program;
-use harbour::input::ESCAPED;
 use harbour::picker::Picker;
 
 use crate::finding::FINDER;
@@ -168,12 +167,9 @@ fn alt_backslash_read_after_an_escape_reaches_claude_code_and_splits_nothing() {
     screen.wait_for("acme agent ready");
     screen.key(KeyCode::Enter, KeyModifiers::NONE);
 
-    screen.app.key(KeyEvent::new_with_kind_and_state(
-        KeyCode::Char('\\'),
-        KeyModifiers::ALT,
-        KeyEventKind::Press,
-        ESCAPED,
-    ));
+    screen
+        .app
+        .key(KeyEvent::new(KeyCode::Char('\\'), KeyModifiers::ALT));
 
     let shown = screen.wait_for("acme agent read:");
     assert!(shown.contains("acme agent read: 1b 5c"), "{shown}");

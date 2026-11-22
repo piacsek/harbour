@@ -1,6 +1,5 @@
-use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
+use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use harbour::app::App;
-use harbour::input::ESCAPED;
 
 use crate::usage_states::place;
 use crate::zoom::raw_reader;
@@ -193,13 +192,13 @@ fn while_zoomed_the_width_keys_do_nothing_and_the_width_is_back_after() {
 }
 
 #[test]
-fn with_the_help_shown_the_width_keys_do_nothing() {
+fn with_the_help_shown_the_prefix_then_a_width_key_closes_it_and_widens() {
     let mut screen = started(30);
     screen.prefixed('?');
 
     wider(&mut screen);
 
-    assert_eq!(pane_corner(&screen.draw()), 30);
+    assert_eq!(pane_corner(&screen.draw()), 32);
 }
 
 #[test]
@@ -241,12 +240,9 @@ fn alt_minus_read_after_an_escape_reaches_the_session() {
     screen.wait_for("acme agent ready");
     screen.key(KeyCode::Enter, KeyModifiers::NONE);
 
-    screen.app.key(KeyEvent::new_with_kind_and_state(
-        KeyCode::Char('-'),
-        KeyModifiers::ALT,
-        KeyEventKind::Press,
-        ESCAPED,
-    ));
+    screen
+        .app
+        .key(KeyEvent::new(KeyCode::Char('-'), KeyModifiers::ALT));
 
     let shown = screen.wait_for("acme agent read:");
     assert!(shown.contains("acme agent read: 1b"), "{shown}");

@@ -5,6 +5,7 @@ use std::time::Duration;
 use crossterm::event::{KeyCode, KeyModifiers, MouseButton, MouseEventKind};
 use harbour::app::App;
 use harbour::editor::Program;
+use harbour::keymap::{Action, Keymap};
 use harbour::picker::Picker;
 
 use crate::editor_input::raw_editor;
@@ -108,6 +109,35 @@ fn an_unknown_key_after_the_prefix_is_swallowed_and_says_so() {
         "{shown}"
     );
     assert!(shown.contains("acme agent read: 7a"), "{shown}");
+}
+
+#[test]
+fn the_unknown_key_message_names_the_configured_help_key() {
+    let keymap = Keymap::default()
+        .bind(Action::Sidebar, None)
+        .bind(Action::Help, Some('h'));
+    let mut screen = Screen::wide(App::new(raw_reader(1)).with_keymap(keymap));
+    screen.press('n');
+    screen.wait_for("acme agent ready");
+    screen.key(KeyCode::Enter, KeyModifiers::NONE);
+
+    screen.prefixed('w');
+
+    screen.wait_for("C-/ w does nothing; C-/ h lists the keys");
+}
+
+#[test]
+fn the_unknown_key_message_points_nowhere_while_help_is_unbound() {
+    let keymap = Keymap::default().bind(Action::Help, None);
+    let mut screen = Screen::wide(App::new(raw_reader(1)).with_keymap(keymap));
+    screen.press('n');
+    screen.wait_for("acme agent ready");
+    screen.key(KeyCode::Enter, KeyModifiers::NONE);
+
+    screen.prefixed('w');
+
+    let shown = screen.wait_for("C-/ w does nothing");
+    assert!(!shown.contains("lists the keys"), "{shown}");
 }
 
 #[test]
@@ -249,6 +279,18 @@ fn minus_after_the_prefix_then_minus_after_half_a_second_narrows_it_once() {
 }
 
 #[test]
+fn minus_after_a_width_key_that_changed_nothing_reaches_the_session() {
+    let mut screen = focused(raw_reader(1));
+    screen.prefixed('z');
+
+    screen.prefixed('-');
+    screen.press('-');
+
+    let shown = screen.wait_for("acme agent read:");
+    assert!(shown.contains("acme agent read: 2d"), "{shown}");
+}
+
+#[test]
 fn equals_after_the_prefix_widens_the_sidebar() {
     let mut screen = started(30);
 
@@ -349,6 +391,55 @@ fn c_after_the_prefix_from_claude_code_shows_the_changelog() {
     screen.prefixed('c');
 
     screen.wait_for("acme note");
+}
+
+#[test]
+fn the_prefix_then_question_mark_closes_the_help_and_sends_nothing() {
+    let mut screen = focused(raw_reader(1));
+    screen.prefixed('?');
+    screen.wait_for("zoom the session to the whole screen");
+
+    screen.prefixed('?');
+    screen.press('z');
+
+    let shown = screen.wait_for("acme agent read:");
+    assert!(shown.contains("acme agent read: 7a"), "{shown}");
+    assert!(
+        !shown.contains("zoom the session to the whole screen"),
+        "{shown}"
+    );
+}
+
+#[test]
+fn the_prefix_then_c_closes_the_changelog_and_sends_nothing() {
+    let mut screen = focused_app(
+        App::new(raw_reader(1)).with_changelog("# Changelog\n\n## v1.0.0\n\n- acme note\n"),
+    );
+    screen.prefixed('c');
+    screen.wait_for("acme note");
+
+    screen.prefixed('c');
+    screen.press('z');
+
+    let shown = screen.wait_for("acme agent read:");
+    assert!(shown.contains("acme agent read: 7a"), "{shown}");
+    assert!(!shown.contains("acme note"), "{shown}");
+}
+
+#[test]
+fn the_prefix_then_z_closes_the_help_and_zooms() {
+    let mut screen = focused(raw_reader(1));
+    screen.prefixed('?');
+    screen.wait_for("zoom the session to the whole screen");
+
+    screen.prefixed('z');
+
+    let shown = screen.draw();
+    assert!(
+        !shown.contains("zoom the session to the whole screen"),
+        "{shown}"
+    );
+    assert_eq!(corners(&shown), 0, "{shown}");
 }
 
 #[test]

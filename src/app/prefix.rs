@@ -14,6 +14,7 @@ const REPEAT: Duration = Duration::from_millis(500);
 pub(super) struct Prefixing {
     waiting: bool,
     repeat: Option<(bool, Instant)>,
+    closed: Option<Action>,
 }
 
 impl App {
@@ -31,9 +32,11 @@ impl App {
             return true;
         }
         self.prefixing.waiting = false;
+        let closed = self.prefixing.closed.take();
         let after = self.keymap.after(key);
         self.log_prefix(&logged(after));
         match after {
+            After::Act(action) if closed == Some(action) => {}
             After::Act(action) => self.act(action),
             After::Jump(position) => self.jump_to(position),
             After::Prefix => {
@@ -41,13 +44,33 @@ impl App {
             }
             After::Cancel => {}
             After::Unknown => {
-                self.fail_unlogged(format!(
-                    "{prefix} {key} does nothing; {prefix} ? lists the keys",
-                    prefix = self.keymap.prefix_name(),
-                    key = key_name(key),
-                ));
+                let prefix = self.keymap.prefix_name();
+                let key = key_name(key);
+                self.fail_unlogged(match self.keymap.key_of(Action::Help) {
+                    Some(help) => {
+                        format!("{prefix} {key} does nothing; {prefix} {help} lists the keys")
+                    }
+                    None => format!("{prefix} {key} does nothing"),
+                });
             }
         }
+        true
+    }
+
+    pub(super) fn prefix_closes_view(&mut self, key: KeyEvent) -> bool {
+        let closed = match (self.helping, &self.reading) {
+            (true, _) => Action::Help,
+            (false, Some(_)) => Action::Changelog,
+            (false, None) => return false,
+        };
+        if !self.keymap.is_prefix(key) {
+            return false;
+        }
+        self.helping = false;
+        self.close_changelog();
+        self.prefixing.waiting = true;
+        self.prefixing.closed = Some(closed);
+        self.log_prefix("");
         true
     }
 
@@ -79,6 +102,7 @@ impl App {
     pub(super) fn cancel_prefix(&mut self) {
         self.prefixing.waiting = false;
         self.prefixing.repeat = None;
+        self.prefixing.closed = None;
     }
 
     fn repeated(&mut self, key: KeyEvent) -> bool {
@@ -105,8 +129,7 @@ impl App {
     }
 
     fn resize_again(&mut self, wider: bool) {
-        self.resize(wider);
-        self.prefixing.repeat = Some((wider, Instant::now()));
+        self.prefixing.repeat = self.resize(wider).then(|| (wider, Instant::now()));
     }
 
     fn act(&mut self, action: Action) {

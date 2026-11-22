@@ -402,7 +402,7 @@ fn a_paste_closes_the_view() {
 }
 
 #[test]
-fn c_while_the_help_shows_closes_the_help_only() {
+fn the_prefix_then_c_while_the_help_shows_closes_it_and_shows_the_changelog() {
     let mut screen = reader(RELEASES);
     screen.prefixed('?');
 
@@ -410,7 +410,7 @@ fn c_while_the_help_shows_closes_the_help_only() {
 
     let shown = screen.draw();
     assert!(!shown.contains("┌ help "), "{shown}");
-    assert!(!shown.contains(" changelog "), "{shown}");
+    assert!(shown.contains(" changelog "), "{shown}");
 }
 
 #[test]

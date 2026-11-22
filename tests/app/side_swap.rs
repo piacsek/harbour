@@ -1,5 +1,4 @@
-use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
-use harbour::input::ESCAPED;
+use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
 use crate::side::{editing, side};
 use crate::zoom::raw_reader;
@@ -112,12 +111,9 @@ fn a_swap_key_after_an_escape_reaches_claude_code() {
     screen.wait_for("acme agent ready");
     screen.key(KeyCode::Enter, KeyModifiers::NONE);
 
-    screen.app.key(KeyEvent::new_with_kind_and_state(
-        KeyCode::Char('}'),
-        KeyModifiers::ALT,
-        KeyEventKind::Press,
-        ESCAPED,
-    ));
+    screen
+        .app
+        .key(KeyEvent::new(KeyCode::Char('}'), KeyModifiers::ALT));
 
     let shown = screen.wait_for("acme agent read: 1b 7d");
     assert!(shown.contains("acme agent read: 1b 7d"), "{shown}");

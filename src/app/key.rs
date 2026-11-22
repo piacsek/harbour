@@ -28,6 +28,9 @@ impl App {
             self.log_input(Input::Picker, bytes.len());
             return;
         }
+        if self.prefix_closes_view(key) {
+            return;
+        }
         if self.changelog_key(key) {
             return;
         }

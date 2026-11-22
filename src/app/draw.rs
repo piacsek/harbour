@@ -303,13 +303,14 @@ impl App {
         let rows = help::rows(&self.keymap);
         let width = rows
             .iter()
-            .map(|(key, _)| key.chars().count())
+            .map(|(key, _)| text::columns(key))
             .max()
             .unwrap_or_default()
             .max(10);
-        let keys = rows
-            .into_iter()
-            .map(|(key, what)| Line::from(format!("{key:<width$} {what}")));
+        let keys = rows.into_iter().map(|(key, what)| {
+            let pad = width - text::columns(&key);
+            Line::from(format!("{key}{:pad$} {what}", ""))
+        });
         let lines: Vec<Line> = keys.chain(state::legend()).collect();
         frame.render_widget(Clear, frame.area());
         frame.render_widget(

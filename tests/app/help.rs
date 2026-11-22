@@ -405,6 +405,19 @@ fn the_space_prefix_is_named_by_its_symbol_so_the_column_keeps_its_width() {
     );
 }
 
+#[test]
+fn a_wide_key_keeps_the_column_of_what_it_does() {
+    let keymap = Keymap::default().bind(Action::Zoom, Some('\u{30ba}'));
+    let mut screen = Screen::of(App::new(reading_agent()).with_keymap(keymap));
+
+    screen.prefixed('?');
+
+    let shown = screen.draw();
+    let zoom = glyph_at(&shown, "zoom the session");
+    let editor = glyph_at(&shown, "show the next editor");
+    assert_eq!(zoom.0, editor.0, "{shown}");
+}
+
 fn glyph_at(shown: &str, text: &str) -> (u16, u16) {
     let (y, line) = shown
         .lines()
