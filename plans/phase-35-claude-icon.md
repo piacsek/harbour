@@ -36,6 +36,8 @@ Supplementary Private Use Area-B) wants that glyph there instead.
 | `"Clawd"`, `"x"`, `1`, `true` | any | harbour refuses to open, in one line naming the file, the line and `claude_icon` |
 | `"clawd"`, no font maps U+100000 | true | the terminal's missing-glyph box, one column, then `claude` |
 | `"clawd"`, a terminal drawing it double-wide | true | the border shifts one column, as for every icon ("Known limits") |
+| `"clawd"`, the narrowest sidebar | true | the border fits as with the sparkle: the directory goes first, then both glyphs together, never a glyph without its name |
+| `"clawd"`, a CJK directory | true | the directory is cut from its start by display width, the glyph and `claude` kept whole |
 
 The glyph counts as one column like every icon, so how the border fits a width, the narrowest
 sidebar and a CJK directory included, is the same as with the sparkle.
@@ -53,7 +55,7 @@ sidebar and a CJK directory included, is the same as with the sparkle.
 Range: phases 30 to 34. The findings were drafted (missed states in round 1 of every phase, the
 parallel builds' collisions over `PLAN.md` rows and a phase number, tasks that could not ship
 apart, two token cells left `unknown`, four one-offs) and the owner parked the sweep before
-deciding any of them; nothing was applied. Phase 34's ready, merged and released were read from
+deciding any of them; nothing was applied, and deciding them is a backlog line in `PLAN.md`. Phase 34's ready, merged and released were read from
 GitHub into `plans/metrics.md`.
 
 ## Hurdles

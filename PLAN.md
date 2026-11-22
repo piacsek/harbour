@@ -63,6 +63,10 @@ In this order unless a retro says otherwise.
 - Replace the terminal parser. `vt100` panics on a wide character cut by a resize and gives some
   emoji the wrong width; harbour contains its panics and keeps the modes the program turned on,
   but each one blanks a session's screen until it repaints. Weigh `alacritty_terminal` as the candidate.
+- Decide the findings of the sweep before phase 35, which the owner parked: missed states in
+  round 1 of every phase, the parallel builds' collisions over `PLAN.md` rows and a phase
+  number, tasks that could not ship apart, two token cells left `unknown`, four one-offs
+  ([phase 35](plans/phase-35-claude-icon.md)).
 
 ### Bring from conveyor when the interface exists
 
