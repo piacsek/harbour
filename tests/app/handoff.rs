@@ -500,6 +500,7 @@ fn with_usage_open(scratch: &Path) -> Screen {
     let mut screen = Screen::of(app);
     start_in(&mut screen, scratch, "acme-api", 1);
     screen.press('u');
+    screen.press('t');
     screen.wait_for("acme usage open");
     screen
 }

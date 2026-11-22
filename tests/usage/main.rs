@@ -1,3 +1,5 @@
+mod loading;
+
 use harbour::usage::{self, Report};
 use ratatui::style::Color;
 

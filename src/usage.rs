@@ -1,4 +1,4 @@
-use ratatui::style::{Color, Style};
+use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
 
 use crate::text;
@@ -10,6 +10,10 @@ const NARROWEST_BAR: usize = 4;
 const FILLED: &str = "█";
 const UNFILLED: &str = "░";
 const HINT: &str = "  t raw text · Esc close";
+const LOADING_HINT: &str = "  t text · Esc close";
+const WAITING_HINT: &str = "  t animation · Esc close";
+const WAITING: &str = "nothing printed yet";
+const LOADING: &str = "reading usage…";
 
 #[derive(Debug, Default)]
 pub struct Report {
@@ -138,7 +142,7 @@ fn top(line: &str) -> Option<Top> {
 pub fn lines(report: &Report, width: u16, height: u16, accent: Color) -> Vec<Line<'static>> {
     let width = usize::from(width);
     let shrink = FULL_WIDTH.saturating_sub(width);
-    let bar = LIMIT_BAR.saturating_sub(shrink).max(NARROWEST_BAR);
+    let bar = cells_for(width);
     let short = SHARE_BAR.saturating_sub(shrink).max(NARROWEST_BAR);
     let label = widest(report.limits.iter().map(|limit| limit.label.as_str()));
     let used = shown(report.limits.iter().map(|limit| limit.percent.as_str()));
@@ -319,4 +323,57 @@ fn filled(percent: &str, cells: usize, colour: Color) -> Vec<Span<'static>> {
         Span::styled(FILLED.repeat(on), Style::new().fg(colour)),
         Span::raw(UNFILLED.repeat(cells - on)),
     ]
+}
+
+pub fn waiting(width: u16, height: u16) -> Vec<Line<'static>> {
+    let width = usize::from(width);
+    let mut rows = vec![Line::default(); usize::from(height)];
+    if let Some(last) = rows.last_mut() {
+        *last = Line::raw(WAITING_HINT);
+    }
+    if let Some(first) = rows.first_mut() {
+        *first = Line::styled(WAITING, Style::new().add_modifier(Modifier::DIM));
+    }
+    rows.into_iter().map(|row| cut(row, width)).collect()
+}
+
+pub fn loading(step: usize, width: u16, height: u16, accent: Color) -> Vec<Line<'static>> {
+    let width = usize::from(width);
+    let height = usize::from(height);
+    let cells = cells_for(width);
+    let label = Line::from(vec![
+        Span::raw(" ".repeat(width.saturating_sub(text::columns(LOADING)) / 2)),
+        Span::raw(LOADING),
+    ]);
+    let mut rows = vec![Line::default(); height];
+    if height >= 3 {
+        let top = ((height - 3) / 2).min(height.saturating_sub(4));
+        let mut bar = vec![Span::raw(" ".repeat(width.saturating_sub(cells) / 2))];
+        bar.extend(sweep(step % cells, cells, accent));
+        rows[top] = Line::from(bar);
+        rows[top + 2] = label;
+        if height >= 4 {
+            rows[height - 1] = Line::raw(LOADING_HINT);
+        }
+    } else if height > 0 {
+        rows[(height - 1) / 2] = label;
+    }
+    rows.into_iter().map(|row| cut(row, width)).collect()
+}
+
+fn sweep(centre: usize, cells: usize, accent: Color) -> Vec<Span<'static>> {
+    (0..cells)
+        .map(|cell| match cell.abs_diff(centre) {
+            0 => Span::styled(FILLED, Style::new().fg(accent)),
+            1 => Span::styled("▓", Style::new().fg(accent)),
+            2 => Span::styled("▒", Style::new().fg(accent)),
+            _ => Span::styled(UNFILLED, Style::new().add_modifier(Modifier::DIM)),
+        })
+        .collect()
+}
+
+fn cells_for(width: usize) -> usize {
+    LIMIT_BAR
+        .saturating_sub(FULL_WIDTH.saturating_sub(width))
+        .max(NARROWEST_BAR)
 }
