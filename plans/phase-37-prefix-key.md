@@ -4,7 +4,8 @@ Today a harbour action works from some places and not others. The sidebar's lett
 `c`, `?`, `q`) work only while the sidebar has focus. The Alt keys (`M-z`, `M-\`, `M-{`/`M-}`,
 `M-s`, `M--`/`M-=`) work from the sidebar and Claude Code, never from an editor, and only in
 their extended form. `C-1` to `C-9` arrive only as extended keys. The owner wants a tmux-like
-prefix instead: one key, then a plain key, that acts the same wherever the focus is.
+prefix instead: one key, then a plain key, that acts the same wherever the focus is. Both
+the prefix and the key of each action are settings.
 
 This phase adds the prefix and removes the Alt keys, `C-1` to `C-9` and the sidebar letters
 other than `n` and `x`, without keeping the old keys: harbour has one user, the owner, who asked
@@ -60,30 +61,56 @@ for the clean break.
   byte of their own. It refuses `C-h`, `C-j`, `C-k`, `C-l`, `C-m` and `C-i` (harbour's own keys,
   Enter and Tab) and anything else, naming what it takes. Keys that need extended keys
   (`C-Backspace`, `C-Enter`) are left for a later phase.
-- **One key after the prefix**, then the prefix is spent:
+- **One key after the prefix**, then the prefix is spent. Each action has a name, which the
+  `[keys]` table of `config.toml` binds to another key; the defaults:
 
-  | After the prefix | Does |
-  | --- | --- |
-  | `1`..`9` | focus or resume that card, `9` the last (`jump` as today) |
-  | `z` | zoom the session, or back |
-  | `\` | side by side, or back (120+ columns) |
-  | `{` / `}` | swap the halves, only side by side |
-  | `s` | the session finder |
-  | `n` | pick a directory and start a session |
-  | `x` | end the session and its editors, or forget an ended one |
-  | `e` | the next editor |
-  | `h` | focus the sidebar, from anywhere, without asking Neovim |
-  | `l` | focus the pane, as Enter from the sidebar |
-  | `-` / `=` | the sidebar 2 columns narrower / wider; another `-` or `=` within 500 ms repeats without the prefix |
-  | `u` | the usage popup |
-  | `c` | the changelog view |
-  | `?` | the help view |
-  | `q` | quit, after a yes while anything runs |
-  | the prefix | the prefix itself to the focused program, in the form it asked for |
+  | Action | Default key | Does |
+  | --- | --- | --- |
+  | (fixed) | `1`..`9` | focus or resume that card, `9` the last (`jump` as today) |
+  | `zoom` | `z` | zoom the session, or back |
+  | `side` | `\` | side by side, or back (120+ columns) |
+  | `swap_left` / `swap_right` | `{` / `}` | Claude Code in the left / right half, only side by side |
+  | `find` | `s` | the session finder |
+  | `new` | `n` | pick a directory and start a session |
+  | `end` | `x` | end the session and its editors, or forget an ended one |
+  | `editor` | `e` | the next editor |
+  | `sidebar` | `h` | focus the sidebar, from anywhere, without asking Neovim |
+  | `pane` | `l` | focus the pane, as Enter from the sidebar |
+  | `narrower` / `wider` | `-` / `=` | the sidebar 2 columns narrower / wider; the same key again within 500 ms repeats without the prefix |
+  | `usage` | `u` | the usage popup |
+  | `changelog` | `c` | the changelog view |
+  | `help` | `?` | the help view |
+  | `quit` | `q` | quit, after a yes while anything runs |
+  | (fixed) | the prefix | the prefix itself to the focused program, in the form it asked for |
 
   Every action works from the sidebar, Claude Code, an editor, zoomed, and both halves of side by
   side, editors included. A letter's Shift form does the same (`Z` as `z`), so Caps Lock changes
   nothing.
+- **The bindings are settings**, from the file only, as `nerd_font` is (no `HARBOUR_` variable
+  per action):
+
+  ```toml
+  prefix = "C-]"
+
+  [keys]
+  zoom = "f"
+  usage = "none"
+  ```
+
+  - A value is one printable character, matched as typed with no modifier but Shift; a letter
+    stands for both its cases, so `z` and `Z` are one key. `"none"` unbinds the action.
+  - An action left out keeps its default.
+  - Refused, naming the file, the line and the key, as every bad setting: an unknown action
+    name, a value that is not one character or `"none"`, a digit (`1`..`9` are the jumps), a
+    space, and two actions on one key, whether both were written or one kept its default (the
+    refusal names both, so moving `zoom` to `s` means binding `find` elsewhere too).
+  - `new` and `end` also bind the sidebar's plain keys: `new = "a"` makes `a` start a session
+    from the sidebar and after the prefix, and `n` then does nothing in the sidebar. A sidebar key
+    that would shadow `j` or `k` is refused.
+  - `harbour config` reports the prefix and each binding with its source (`default` or the
+    file), one line each.
+  - The help view, the hint and the unknown-key message draw the bindings in force; a pair row
+    with one side unbound shows the other alone, a row with neither is left out.
 - **An unknown key after the prefix is swallowed** and the message line says
   `C-/ <key> does nothing; C-/ ? lists the keys`, cleared as other messages are.
 - **Esc after the prefix cancels it** silently. A paste or a mouse press cancels it and is then
@@ -127,13 +154,13 @@ for the clean break.
   | `C-/ ?/q` | this help / quit, after a yes while anything runs |
   | `C-/ C-/` | send C-/ to the program |
 
-  `KEYS` stays a constant naming `C-/`; the help view and the hint draw the configured prefix's
-  name in its place. The README mirrors the constant.
+  `KEYS` stays a constant of the defaults, naming `C-/`; the help view draws its rows from the
+  prefix and the bindings in force. The README mirrors the constant.
 - **The log**: `prefix` when it is pressed, `prefix key=<name>` for an action (the action's own
   line follows as today), `prefix key=other` for an unknown key, `prefix cancelled`; the prefix
   sent on as `input to=<where> bytes=<n>`, never its bytes.
 - **The fragment is `kind: feat`**: the bullets say the actions moved behind `C-/`, which keys
-  are gone, and the `prefix` setting.
+  are gone, and the `prefix` setting and the `[keys]` table.
 
 ## States
 
@@ -184,6 +211,20 @@ for the clean break.
 | `C-/` waiting, not zoomed | `C-/` in the accent on the pane's bottom border |
 | `C-/` waiting, zoomed | `C-/` on the top row before the counts |
 | `C-/` waiting, side by side | `C-/` on the focused half's bottom border |
+| `[keys] zoom = "f"`, `C-/ f` | zoomed |
+| `[keys] zoom = "f"`, `C-/ z` | swallowed, the unknown-key message |
+| `[keys] zoom = "F"`, `C-/ f` | zoomed: one key for both cases |
+| `[keys] zoom = "s"` alone | harbour refuses to open: `zoom` and `find` both on `s` |
+| `[keys] zoom = "s"`, `find = "/"` | `C-/ s` zooms, `C-/ /` finds |
+| `[keys] usage = "none"` | `C-/ u` swallowed; the help row reads `C-/ c` alone |
+| `[keys] usage = "none"`, `changelog = "none"` | no usage-and-changelog row in the help |
+| `[keys] new = "a"` | `a` and `C-/ a` start a session; `n` in the sidebar does nothing |
+| `[keys] new = "j"` | refused: `j` moves the selection in the sidebar |
+| `[keys] zoom = "3"` | refused: digits are the jumps |
+| `[keys] zoom = "zz"` or `""` | refused: one character or `"none"` |
+| `[keys] zoomed = "z"` | refused: no action named `zoomed`, the names listed |
+| `[keys]` not a table, or a value not a string | refused, naming the line |
+| `prefix = "C-h"` | refused: C-h is harbour's own key |
 
 ### What it reads from outside
 
@@ -191,6 +232,7 @@ for the clean break.
 | --- | --- | --- | --- |
 | `HARBOUR_PREFIX` | the file's `prefix`, else `C-/` | read once at start | per process |
 | `prefix` in `config.toml` | `C-/` | read once at start; a bad value refuses to open, as other settings | the user's |
+| `[keys]` in `config.toml` | every default | read once at start; a bad binding refuses to open | the user's |
 | the terminal's bytes for `C-/` | no prefix; `C-_` still works | n/a | n/a |
 | tmux's `extended-keys` | no change: the prefix needs none | n/a | the tmux server's |
 
@@ -212,7 +254,9 @@ for the clean break.
    the repeat of `-` and `=`, the message for an unknown key, the log lines. Check first what
    Claude Code does with `C-/` and `C-_`, and what a real terminal sends under tmux; write both
    into this plan.
-2. The `prefix` setting: `HARBOUR_PREFIX`, the file, the refusals, `harbour config`.
+2. The settings: `prefix` (`HARBOUR_PREFIX`, the file) and the `[keys]` table (the file), every
+   refusal of the States table, the sidebar's `new` and `end` keys following their bindings,
+   `harbour config` reporting each with its source.
 3. The old keys removed: the Alt keys, `C-1` to `C-9`, and `e`, `u`, `c`, `?`, `q` in the
    sidebar; their tests moved to prefix sequences, the e2e tests through tmux without
    `extended-keys`.
