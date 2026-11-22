@@ -19,10 +19,23 @@ fn the_zoomed_border_shows_the_session_and_the_counts() {
 
     let top = top(&screen.draw());
     assert!(
-        top.starts_with("┏ ● Fix the login  acme-api · main  3m ━"),
+        top.starts_with(" ● Fix the login  acme-api · main  3m   "),
         "{top}"
     );
-    assert!(top.ends_with("━ sessions ● 1 ┓"), "{top}");
+    assert!(top.ends_with("   sessions ● 1 "), "{top}");
+}
+
+#[test]
+fn the_zoomed_session_fills_every_row_below_the_top_one_edge_to_edge() {
+    let claude = Claude::new("Fix the login");
+    let mut screen = Screen::of(claude.app());
+    started(&mut screen);
+
+    zoom(&mut screen);
+
+    let shown = screen.draw();
+    let second = shown.lines().nth(1).unwrap_or_default();
+    assert!(second.starts_with("acme agent"), "{shown}");
 }
 
 #[test]
@@ -36,10 +49,10 @@ fn the_zoomed_border_keeps_the_names_after_the_session() {
 
     let top = top(&screen.draw());
     assert!(
-        top.starts_with("┏ ● Fix the login  acme-api · main  3m  claude | acme-edit ━"),
+        top.starts_with(" ● Fix the login  acme-api · main  3m  claude | acme-edit   "),
         "{top}"
     );
-    assert!(top.ends_with("━ sessions ● 1 ┓"), "{top}");
+    assert!(top.ends_with("   sessions ● 1 "), "{top}");
 }
 
 #[test]
@@ -47,7 +60,7 @@ fn a_long_editor_directory_leaves_the_session_its_dot_and_title() {
     let claude = Claude::in_repository("Fix the login", "acme-workspace/acme-services/acme-api");
     let editor = Program::new("acme-edit", script("exec sleep 600"));
     let mut screen = Screen::of(claude.app().with_editor(editor));
-    screen.resize(80, 20);
+    screen.resize(78, 20);
     started(&mut screen);
     zoom(&mut screen);
 
@@ -55,10 +68,10 @@ fn a_long_editor_directory_leaves_the_session_its_dot_and_title() {
 
     let top = top(&screen.wait_for("acme-edit: "));
     assert!(
-        top.starts_with("┏ ● Fix the login  acme-api…  3m  claude | acme-edit: …"),
+        top.starts_with(" ● Fix the login  acme-api…  3m  claude | acme-edit: …"),
         "{top}"
     );
-    assert!(top.ends_with("  sessions ● 1 ┓"), "{top}");
+    assert!(top.ends_with("  sessions ● 1 "), "{top}");
 }
 
 #[test]
@@ -68,10 +81,10 @@ fn a_narrow_zoomed_border_cuts_the_session_and_keeps_the_counts() {
     started(&mut screen);
     zoom(&mut screen);
 
-    screen.resize(35, 20);
+    screen.resize(33, 20);
 
     let top = top(&screen.draw());
-    assert_eq!(top, "┏ ● Fix the lo…  3m  sessions ● 1 ┓");
+    assert_eq!(top, " ● Fix the lo…  3m  sessions ● 1 ");
 }
 
 #[test]
@@ -81,10 +94,10 @@ fn the_narrowest_zoomed_border_keeps_the_counts_and_the_dot_with_a_column_of_tit
     started(&mut screen);
     zoom(&mut screen);
 
-    screen.resize(11, 20);
+    screen.resize(9, 20);
 
     let top = top(&screen.draw());
-    assert_eq!(top, "┏ ● …  ●1 ┓");
+    assert_eq!(top, " ● …  ●1 ");
 }
 
 #[test]
@@ -94,12 +107,12 @@ fn a_cjk_title_on_the_zoomed_border_is_cut_by_display_width() {
     started(&mut screen);
     zoom(&mut screen);
 
-    screen.resize(30, 20);
+    screen.resize(28, 20);
 
     let top = top(&screen.draw());
-    assert!(top.starts_with("┏ ● 修"), "{top}");
-    assert!(top.contains("…  3m ━ sessions ● 1 ┓"), "{top}");
-    assert_eq!(screen.cell(29, 0).symbol(), "┓");
+    assert!(top.starts_with(" ● 修"), "{top}");
+    assert!(top.contains("…  3m   sessions ● 1 "), "{top}");
+    assert_eq!(screen.cell(27, 0).symbol(), " ");
 }
 
 #[test]

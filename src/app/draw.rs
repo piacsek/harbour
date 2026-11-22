@@ -89,8 +89,10 @@ impl App {
                 [pane.width, beside.width],
                 counts,
             );
-        } else if self.zoomed || self.side_by_side {
-            pane_block = self.zoom_border(pane_block, pane.width, counts);
+        } else if self.zoomed {
+            pane_block = self.zoom_heading(Block::new(), pane.width, counts);
+        } else if self.side_by_side {
+            pane_block = self.zoom_heading(pane_block, pane.width.saturating_sub(2), counts);
         } else if let Some(tabs) = self.tabs(usize::from(pane.width.saturating_sub(2))) {
             pane_block = pane_block.title(tabs);
         }

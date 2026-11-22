@@ -138,7 +138,7 @@ fn alt_z_from_side_by_side_zooms_claude_code() {
     zoom(&mut screen);
 
     let shown = screen.draw();
-    assert_eq!(corners(&shown), 1, "{shown}");
+    assert_eq!(corners(&shown), 0, "{shown}");
     assert!(shown.contains("acme agent 1"), "{shown}");
     assert!(!shown.contains("acme editor ready"), "{shown}");
 }
@@ -268,8 +268,8 @@ fn the_editor_exiting_leaves_claude_code_zoomed() {
     screen.type_text("q\r");
 
     let shown = screen.wait_until("the editor gone", |shown| !shown.contains("acme editor"));
-    assert_eq!(corners(&shown), 1, "{shown}");
-    assert!(shown.lines().next().unwrap().ends_with('┓'), "{shown}");
+    assert_eq!(corners(&shown), 0, "{shown}");
+    assert!(!shown.lines().next().unwrap().ends_with('┓'), "{shown}");
     assert!(shown.contains("acme agent 1"), "{shown}");
 }
 

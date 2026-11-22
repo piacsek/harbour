@@ -337,19 +337,19 @@ fn an_exited_session_keeps_its_last_line_whole_after_the_terminal_narrows_and_wi
 #[test]
 fn a_session_that_exits_while_zoomed_keeps_its_last_line_for_a_wider_terminal() {
     let mut screen = Screen::at(
-        App::new(printing_at(118)).with_sidebar_width(30),
+        App::new(printing_at(120)).with_sidebar_width(30),
         home(),
         120,
     );
     screen.press('n');
     zoom(&mut screen);
     screen.wait_for("acme done");
-    screen.wait_until("the zoom to end", |shown| !shown.contains(&line(118)));
+    screen.wait_until("the zoom to end", |shown| !shown.contains(&line(120)));
 
     screen.resize(240, 20);
 
     let shown = screen.draw();
-    assert!(shown.contains(&line(118)), "{shown}");
+    assert!(shown.contains(&line(120)), "{shown}");
 }
 
 fn started(width: u16) -> Screen {

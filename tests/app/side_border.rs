@@ -166,6 +166,20 @@ fn without_the_nerd_font_the_clawd_icon_draws_no_glyph() {
     assert!(left.contains("  3m  claude ━"), "{left}");
 }
 
+#[test]
+fn side_by_side_under_120_columns_keeps_the_focused_half_boxed() {
+    let mut screen = side_by_side("Fix the login");
+
+    screen.resize(100, 20);
+
+    let top = top(&screen.draw());
+    assert!(
+        top.starts_with("┏ ● Fix the login  acme-api · main  3m  claude | acme-edit"),
+        "{top}"
+    );
+    assert!(top.ends_with("━ sessions ● 1 ┓"), "{top}");
+}
+
 fn side_by_side(title: &str) -> Screen {
     shown_side_by_side(Claude::new(title).app())
 }
