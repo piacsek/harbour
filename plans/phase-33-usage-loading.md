@@ -95,7 +95,7 @@ report is still being read the popup now shows a loading animation and nothing o
 ## Tasks
 
 1. This plan, its `PLAN.md` and `plans/metrics.md` rows, phase 32's after-merge cells.
-2. `loading` in `src/usage.rs`, with its tests in `tests/usage_loading.rs`.
+2. `loading` in `src/usage.rs`, with its tests in `tests/usage/loading.rs`.
 3. The popup draws it while the report loads, from the clock, never the text before the bars
    (`tests/app/usage_states.rs`, `tests/app/usage_bars.rs`); tests of a running report that
    read its text press `t` first.
@@ -118,6 +118,10 @@ report is still being read the popup now shows a loading animation and nothing o
   no other image changed.
 - `t` while loading switches the view, so a report waiting for typed input could not get a `t`;
   `claude -p` takes none, declined for good and written into "Known limits" in `AGENTS.md`.
+- Round 3 found no must fix; its remaining findings were logged as issue #127, unfixed under the
+  3-round limit: the screenshot's frame wait under load, two tests that wait for one text and
+  assert another, no shot of the `t` views while loading, and `usage view=bars` logged on going
+  back to the animation.
 
 ## Hurdles
 
@@ -127,3 +131,4 @@ report is still being read the popup now shows a loading animation and nothing o
 - `test-seam` A test asserted 20 dim cells in a row, which only the first step guarantees, so a slow first frame could fail it; it now counts the bar's cells → code
 - `review-loop` The second round asked for the usage tests as one folder, a time bound on the shot's frame wait and a draw-driven wait in place of a fixed sleep → code
 - `review-loop` `t` while loading never reaching the report was declined for good → known limit
+- `review-loop` round 3 left four minor findings at the round limit → backlog
