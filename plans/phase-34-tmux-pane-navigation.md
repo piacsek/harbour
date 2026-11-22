@@ -1,4 +1,4 @@
-# Phase 33: C-j and C-k move to the tmux pane below or above harbour
+# Phase 34: C-j and C-k move to the tmux pane below or above harbour
 
 With vim-tmux-navigator in `tmux.conf` and harbour in the pattern of processes it sends C-h,
 C-j, C-k and C-l to, C-j and C-k arrive inside harbour. In the sidebar they act as `j` and `k`

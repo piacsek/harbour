@@ -40,7 +40,7 @@ file under `plans/`; its time and tokens are a row of [`plans/metrics.md`](plans
 | 30 | [swap Claude Code and the editor in side by side](plans/phase-30-swap-halves.md), with the sweep of phases 25 to 29 | [v0.25.0](https://github.com/piacsek/harbour/releases/tag/v0.25.0) |
 | 31 | [the usage popup draws its report as bars](plans/phase-31-usage-bars.md) | [v0.26.0](https://github.com/piacsek/harbour/releases/tag/v0.26.0) |
 | 32 | [read the changelog inside harbour with c](plans/phase-32-changelog-view.md) | [v0.27.0](https://github.com/piacsek/harbour/releases/tag/v0.27.0) |
-| 33 | [C-j and C-k move to the tmux pane below or above harbour](plans/phase-33-tmux-pane-navigation.md) | |
+| 34 | [C-j and C-k move to the tmux pane below or above harbour](plans/phase-34-tmux-pane-navigation.md) | |
 
 ## Backlog
 
