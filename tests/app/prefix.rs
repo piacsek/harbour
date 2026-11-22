@@ -188,6 +188,37 @@ fn x_after_the_prefix_from_claude_code_asks_to_end_it() {
 }
 
 #[test]
+fn q_after_the_prefix_while_zoomed_shows_the_question_over_the_pane() {
+    let mut screen = focused(raw_reader(1));
+    screen.prefixed('z');
+
+    screen.prefixed('q');
+
+    screen.wait_for("Quit? y/n");
+}
+
+#[test]
+fn x_after_the_prefix_side_by_side_shows_the_question_over_the_pane() {
+    let scratch = tempfile::tempdir().unwrap();
+    let mut screen = on_the_editor(scratch.path());
+    screen.prefixed('\\');
+
+    screen.prefixed('x');
+
+    screen.wait_for("End? y/n");
+}
+
+#[test]
+fn x_after_the_prefix_in_the_narrow_layout_shows_the_question_over_the_pane() {
+    let mut screen = focused(raw_reader(1));
+    screen.resize(50, 20);
+
+    screen.prefixed('x');
+
+    screen.wait_for("End? y/n");
+}
+
+#[test]
 fn question_mark_after_the_prefix_from_a_pane_shows_the_help() {
     let mut screen = focused(raw_reader(1));
 
@@ -351,11 +382,11 @@ fn an_unknown_key_after_the_prefix_is_logged_without_its_name() {
     let (app, lines) = logged(App::new(raw_reader(1)));
     let mut screen = Screen::of(app);
 
-    screen.prefixed('w');
+    screen.prefixed('%');
 
     let lines = read(&lines);
     assert_eq!(count(&lines, " prefix key=other"), 1);
-    assert_eq!(count(&lines, "name=w"), 0);
+    assert_eq!(count(&lines, "%"), 0);
 }
 
 #[test]

@@ -217,27 +217,27 @@ impl App {
                 }
             }
         }
-        let mut free = below_rows;
+        let bottom = if sidebar.is_empty() && !self.sessions.is_empty() {
+            self.pane
+        } else {
+            below_rows
+        };
+        let mut free = bottom;
         if let Some(question) = self.asking {
-            let mut lines = question_lines(question, below_rows.width);
+            let mut lines = question_lines(question, bottom.width);
             if matches!(question, Question::Quit(_)) {
-                lines.splice(0..0, self.quit_note(below_rows.width));
+                lines.splice(0..0, self.quit_note(bottom.width));
             }
             free = draw_bottom(frame, lines, free);
         }
         if let Some(failed) = &self.failed {
-            let area = if sidebar.is_empty() && !self.sessions.is_empty() {
-                self.pane
-            } else {
-                free
-            };
-            let above = draw_bottom(frame, failure_lines(failed, area.width), area);
-            if cursor
-                .0
-                .is_some_and(|at| area.contains(at) && !above.contains(at))
-            {
-                cursor.0 = None;
-            }
+            free = draw_bottom(frame, failure_lines(failed, free.width), free);
+        }
+        if cursor
+            .0
+            .is_some_and(|at| bottom.contains(at) && !free.contains(at))
+        {
+            cursor.0 = None;
         }
         if self.helping {
             self.draw_help(frame);

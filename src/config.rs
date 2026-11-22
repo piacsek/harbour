@@ -119,20 +119,16 @@ impl Config {
                 })
             })
         };
-        let ignored = [DIR_PICKER, SESSION_COMMAND]
+        let ignored = [DIR_PICKER, SESSION_COMMAND, PREFIX_VARIABLE]
             .into_iter()
             .filter(|name| set(name).is_some_and(|setting| setting.value.to_str().is_none()))
             .collect();
         let editor = reader.program("editor", written.editor)?;
         let picker = reader.program("picker", written.picker)?;
         let session_command = reader.program("session_command", written.session_command)?;
-        let prefix = match set(PREFIX_VARIABLE) {
+        let prefix = match set_text(PREFIX_VARIABLE) {
             Some(setting) => Setting {
-                value: setting
-                    .value
-                    .to_str()
-                    .ok_or_else(|| keymap::PREFIX.to_string())
-                    .and_then(|name| keymap::parse_prefix(name).map_err(|what| what.to_string()))
+                value: keymap::parse_prefix(&setting.value[0])
                     .map_err(|what| Refusal(format!("{PREFIX_VARIABLE}: {what}")))?,
                 source: setting.source,
             },
@@ -231,7 +227,8 @@ impl Config {
             ),
         ]
         .into_iter()
-        .chain([line(
+        .chain([self.line_of(
+            PREFIX_VARIABLE,
             "prefix",
             &quoted(&keymap::prefix_name(self.prefix.value)),
             &self.prefix.source,

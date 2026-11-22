@@ -18,7 +18,7 @@ pub const KEYS: &[(&str, &str)] = &[
 ];
 
 pub fn rows(keymap: &Keymap) -> Vec<(String, String)> {
-    let prefix = keymap.prefix_name();
+    let prefix = keymap.prefix_name().replace("Space", "\u{2423}");
     let key = |action| keymap.key_of(action);
     let mut rows = vec![owned(KEYS[0]), owned(KEYS[1]), owned(KEYS[2])];
     rows.extend(

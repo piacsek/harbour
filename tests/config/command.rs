@@ -210,6 +210,31 @@ fn harbour_config_says_a_variable_that_is_not_utf8_was_ignored() {
 }
 
 #[test]
+fn harbour_config_says_a_prefix_variable_that_is_not_utf8_was_ignored() {
+    let home = tempfile::tempdir().unwrap();
+
+    let output = Command::new(env!("CARGO_BIN_EXE_harbour"))
+        .arg("config")
+        .env("HOME", home.path())
+        .env_remove("XDG_CONFIG_HOME")
+        .env_remove("HARBOUR_EDITOR")
+        .env_remove("HARBOUR_DIR_PICKER")
+        .env_remove("HARBOUR_SESSION_COMMAND")
+        .env("HARBOUR_PREFIX", OsStr::from_bytes(b"C-\xff"))
+        .output()
+        .unwrap();
+
+    assert!(output.status.success(), "{output:?}");
+    assert!(
+        stdout(&output).contains(
+            "\nprefix = \"C-/\"  (default; variable HARBOUR_PREFIX ignored: not UTF-8)\n"
+        ),
+        "{}",
+        stdout(&output)
+    );
+}
+
+#[test]
 fn harbour_config_shows_a_file_path_with_a_newline_escaped_on_one_line() {
     let home = tempfile::tempdir().unwrap();
     let folder = home.path().join("acme\nconfig");

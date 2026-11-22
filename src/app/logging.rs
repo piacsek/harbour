@@ -6,11 +6,12 @@ use ratatui::layout::Rect;
 
 use super::{App, Entry};
 use crate::handoff::{Reply, Verb};
+use crate::keymap::{Action, Keymap};
 use crate::log::Log;
 use crate::session::Session;
 use crate::tmux::Direction;
 
-const BOUND: [char; 6] = ['n', 'x', 'j', 'k', 'y', 'Y'];
+const BOUND: [char; 4] = ['j', 'k', 'y', 'Y'];
 const SLOW_FRAME: Duration = Duration::from_millis(100);
 
 #[derive(Default)]
@@ -128,7 +129,7 @@ impl App {
         if !std::mem::take(&mut self.logging.forwarded) {
             self.logging
                 .log
-                .write(|| format!("key name={}", named(key)));
+                .write(|| format!("key name={}", named(key, &self.keymap)));
         }
         self.log_changes();
     }
@@ -141,6 +142,11 @@ impl App {
             format!("prefix {what}")
         };
         self.logging.log.write(|| line);
+    }
+
+    pub(super) fn fail_unlogged(&mut self, message: String) {
+        self.logging.failed = Some(message.clone());
+        self.failed = Some(message);
     }
 
     pub(super) fn log_changelog_key(&mut self, shown: bool) {
@@ -373,12 +379,16 @@ fn named_entry(entry: &Entry) -> String {
     }
 }
 
-fn named(key: KeyEvent) -> String {
+fn named(key: KeyEvent, keymap: &Keymap) -> String {
     let name = match key.code {
         KeyCode::Char(c) if key.modifiers == KeyModifiers::CONTROL && matches!(c, 'h' | 'l') => {
             format!("C-{c}")
         }
-        KeyCode::Char(c) if BOUND.contains(&c) && KeyModifiers::SHIFT.contains(key.modifiers) => {
+        KeyCode::Char(c)
+            if KeyModifiers::SHIFT.contains(key.modifiers)
+                && (BOUND.contains(&c)
+                    || matches!(keymap.action_on(c), Some(Action::New | Action::End))) =>
+        {
             c.to_string()
         }
         KeyCode::Enter if key.modifiers.is_empty() => "Enter".to_string(),

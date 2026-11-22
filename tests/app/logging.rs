@@ -3,6 +3,7 @@ use std::sync::mpsc::{self, Receiver};
 use crossterm::event::{KeyCode, KeyModifiers};
 use harbour::app::App;
 use harbour::editor::Program;
+use harbour::keymap::{Action, Keymap};
 use harbour::log::Log;
 use harbour::picker::Picker;
 
@@ -62,6 +63,27 @@ fn a_key_harbour_acts_on_is_logged_by_its_name() {
     screen.press('n');
 
     only(&read(&lines), r#" key name="n""#);
+}
+
+#[test]
+fn a_sidebar_key_moved_by_the_keys_table_is_logged_by_its_name() {
+    let keymap = Keymap::default().bind(Action::New, Some('a'));
+    let (app, lines) = logged(App::new(reading_agent()).with_keymap(keymap));
+    let mut screen = Screen::of(app);
+
+    screen.press('a');
+
+    only(&read(&lines), r#" key name="a""#);
+}
+
+#[test]
+fn a_sidebar_key_with_shift_is_logged_by_its_name() {
+    let (app, lines) = logged(App::new(reading_agent()));
+    let mut screen = Screen::of(app);
+
+    screen.key(KeyCode::Char('N'), KeyModifiers::SHIFT);
+
+    only(&read(&lines), r#" key name="N""#);
 }
 
 #[test]

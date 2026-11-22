@@ -41,7 +41,7 @@ impl App {
             }
             After::Cancel => {}
             After::Unknown => {
-                self.failed = Some(format!(
+                self.fail_unlogged(format!(
                     "{prefix} {key} does nothing; {prefix} ? lists the keys",
                     prefix = self.keymap.prefix_name(),
                     key = key_name(key),

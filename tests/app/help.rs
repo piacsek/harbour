@@ -387,7 +387,7 @@ fn the_side_row_without_its_key_still_shows_the_swap_keys() {
 }
 
 #[test]
-fn a_long_prefix_widens_the_keys_column() {
+fn the_space_prefix_is_named_by_its_symbol_so_the_column_keeps_its_width() {
     let keymap = Keymap::default().with_prefix(' ');
     let mut screen = Screen::of(App::new(reading_agent()).with_keymap(keymap));
 
@@ -396,11 +396,11 @@ fn a_long_prefix_widens_the_keys_column() {
 
     let shown = screen.draw();
     assert!(
-        shown.contains("C-Space C-Space send C-Space to the program"),
+        shown.contains("C-\u{2423} C-\u{2423}    send C-\u{2423} to the program"),
         "{shown}"
     );
     assert!(
-        shown.contains("j/k             select the next / previous session"),
+        shown.contains("j/k        select the next / previous session"),
         "{shown}"
     );
 }

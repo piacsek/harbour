@@ -1,5 +1,6 @@
 use harbour::help::{KEYS, rows};
 use harbour::keymap::Keymap;
+use unicode_width::UnicodeWidthStr;
 
 #[test]
 fn the_default_bindings_draw_the_rows_of_keys() {
@@ -23,10 +24,30 @@ fn the_default_bindings_draw_the_rows_of_keys() {
 }
 
 #[test]
+fn the_longest_prefix_keeps_every_row_within_the_narrowest_help() {
+    let rows = rows(&Keymap::default().with_prefix(' '));
+
+    assert!(widest(&rows) <= 57, "{rows:?}");
+}
+
+#[test]
 fn the_keys_hold_the_fourteen_rows_the_narrow_help_fits() {
     assert_eq!(KEYS.len(), 14);
 }
 
 fn owned((key, what): (&str, &str)) -> (String, String) {
     (key.to_string(), what.to_string())
+}
+
+fn widest(rows: &[(String, String)]) -> usize {
+    let keys = rows
+        .iter()
+        .map(|(key, _)| key.width())
+        .max()
+        .unwrap_or_default()
+        .max(10);
+    rows.iter()
+        .map(|(_, what)| keys + 1 + what.width())
+        .max()
+        .unwrap_or_default()
 }
