@@ -159,8 +159,8 @@ fn e_in_the_sidebar_does_nothing_while_the_session_has_no_editor() {
     screen.press('n');
     screen.wait_for("acme agent ready");
 
-    screen.press('e');
-    screen.press('?');
+    screen.prefixed('e');
+    screen.prefixed('?');
 
     let shown = screen.draw();
     assert!(shown.contains(" help "), "{shown}");
@@ -173,7 +173,7 @@ fn e_in_the_sidebar_shows_the_editor_and_focuses_it() {
     screen.key(KeyCode::Char('h'), KeyModifiers::CONTROL);
     screen.key(KeyCode::Char('h'), KeyModifiers::CONTROL);
 
-    screen.press('e');
+    screen.prefixed('e');
     screen.type_text("hello\r");
 
     let shown = screen.wait_for("acme editor got: hello");

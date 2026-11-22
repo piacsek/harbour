@@ -68,7 +68,7 @@ fn another_error_logs_the_stop_before_the_quit() {
 #[test]
 fn a_signal_caught_after_a_confirmed_quit_ends_harbour_by_it() {
     let mut screen = Screen::new(reading_agent());
-    screen.press('q');
+    screen.prefixed('q');
     assert!(!screen.app.running());
 
     let ended = settled(&mut screen.app, Ok(()), &caught(Signal::SIGINT));
@@ -80,7 +80,7 @@ fn a_signal_caught_after_a_confirmed_quit_ends_harbour_by_it() {
 fn a_signal_caught_after_a_confirmed_quit_logs_nothing_more() {
     let (app, lines) = logged(App::new(reading_agent()));
     let mut screen = Screen::of(app);
-    screen.press('q');
+    screen.prefixed('q');
     let quit = read(&lines);
     assert!(
         quit.last().unwrap().ends_with(" quit sessions=0\n"),

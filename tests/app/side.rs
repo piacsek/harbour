@@ -10,7 +10,7 @@ use harbour::picker::Picker;
 
 use crate::finding::FINDER;
 use crate::remembering::{ID, Scratch, TITLE};
-use crate::zoom::{corners, editing_session, raw_reader};
+use crate::zoom::{corners, raw_reader};
 use crate::{Screen, pane_corner, region, script};
 
 #[test]
@@ -40,7 +40,10 @@ fn side_by_side_sizes_claude_code_and_its_editor_to_their_halves() {
 
     screen
         .app
-        .key(KeyEvent::new(KeyCode::Char('\\'), KeyModifiers::ALT));
+        .key(KeyEvent::new(KeyCode::Char('/'), KeyModifiers::CONTROL));
+    screen
+        .app
+        .key(KeyEvent::new(KeyCode::Char('\\'), KeyModifiers::NONE));
     sleep(Duration::from_millis(300));
 
     let shown = screen.wait_for_all(&["acme editor ready", "acme agent 1 size:"]);
@@ -85,18 +88,6 @@ fn alt_backslash_under_120_columns_does_nothing() {
     sleep(Duration::from_millis(300));
 
     assert_eq!(screen.draw(), before);
-}
-
-#[test]
-fn alt_backslash_while_the_editor_has_focus_reaches_the_editor() {
-    let scratch = tempfile::tempdir().unwrap();
-    let mut screen = editing_session(scratch.path());
-
-    side(&mut screen);
-
-    let shown = screen.wait_for("acme editor read:");
-    assert!(shown.contains("acme editor read: 1b"), "{shown}");
-    assert_eq!(pane_corner(&shown), 40, "{shown}");
 }
 
 #[test]
@@ -196,7 +187,7 @@ fn the_width_keys_do_nothing_side_by_side() {
     side(&mut screen);
     screen.wait_for("acme editor ready");
 
-    screen.key(KeyCode::Char('='), KeyModifiers::ALT);
+    screen.prefixed('=');
     side(&mut screen);
     screen.type_text("hi\r");
 
@@ -332,11 +323,11 @@ fn ctrl_2_from_side_by_side_shows_the_second_session_beside_its_editor() {
     screen.key(KeyCode::Char('h'), KeyModifiers::CONTROL);
     screen.press('n');
     screen.wait_for("acme agent 2");
-    screen.key(KeyCode::Char('1'), KeyModifiers::CONTROL);
+    screen.prefixed('1');
     side(&mut screen);
     screen.wait_for("acme editor ready");
 
-    screen.key(KeyCode::Char('2'), KeyModifiers::CONTROL);
+    screen.prefixed('2');
 
     let shown = screen.wait_until("the second editor", |shown| {
         region(shown, 0, 60).contains("acme agent 2")
@@ -358,11 +349,11 @@ fn a_pick_from_the_session_finder_shows_the_picked_session_beside_its_editor() {
     screen.key(KeyCode::Char('h'), KeyModifiers::CONTROL);
     screen.press('n');
     screen.wait_for("acme agent 2");
-    screen.key(KeyCode::Char('1'), KeyModifiers::CONTROL);
+    screen.prefixed('1');
     side(&mut screen);
     screen.wait_for("acme editor ready");
 
-    screen.key(KeyCode::Char('s'), KeyModifiers::ALT);
+    screen.prefixed('s');
     screen.wait_for("acme fzf ready");
     screen.type_text("home 2\r");
 
@@ -382,11 +373,11 @@ fn split(scratch: &Path) -> Screen {
 }
 
 fn zoom(screen: &mut Screen) {
-    screen.key(KeyCode::Char('z'), KeyModifiers::ALT);
+    screen.prefixed('z');
 }
 
 pub(crate) fn side(screen: &mut Screen) {
-    screen.key(KeyCode::Char('\\'), KeyModifiers::ALT);
+    screen.prefixed('\\');
 }
 
 pub(crate) fn editing(scratch: &Path) -> Screen {

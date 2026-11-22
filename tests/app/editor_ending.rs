@@ -108,7 +108,7 @@ fn the_whole_question_shows_in_the_sidebar_of_an_80_column_terminal() {
     let mut screen = in_the_sidebar(scratch.path());
     screen.resize(80, 24);
 
-    screen.press('q');
+    screen.prefixed('q');
 
     let shown = screen.draw();
     let sidebar = words_in(&shown, 26);
@@ -123,7 +123,7 @@ fn q_with_only_an_editor_running_asks_before_quitting() {
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = with_exited_agent(scratch.path());
 
-    screen.press('q');
+    screen.prefixed('q');
 
     let shown = screen.draw();
     assert!(shown.contains("Quit? y/n"), "{shown}");
@@ -136,7 +136,7 @@ fn quitting_ends_editors_and_sessions_within_one_grace_period() {
     let mut screen = editing(scratch.path(), reading_agent(), "trap '' HUP; ");
     screen.key(KeyCode::Char('h'), KeyModifiers::CONTROL);
     screen.key(KeyCode::Char('h'), KeyModifiers::CONTROL);
-    screen.press('q');
+    screen.prefixed('q');
     screen.press('y');
     assert!(!screen.app.running());
     let started = Instant::now();

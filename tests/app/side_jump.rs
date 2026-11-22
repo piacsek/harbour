@@ -68,7 +68,7 @@ fn a_pick_from_the_session_finder_to_a_session_last_in_its_editor_focuses_its_ed
     second_session(&mut screen, Half::Editor);
     split_first(&mut screen);
 
-    screen.key(KeyCode::Char('s'), KeyModifiers::ALT);
+    screen.prefixed('s');
     screen.wait_for("acme fzf ready");
     screen.type_text("home 2\r");
 
@@ -234,7 +234,7 @@ fn live_beside_stopped(scratch: &Scratch) -> Screen {
 }
 
 fn ctrl(screen: &mut Screen, digit: char) {
-    screen.key(KeyCode::Char(digit), KeyModifiers::CONTROL);
+    screen.prefixed(digit);
 }
 
 fn assert_claude_code_focused(screen: &mut Screen) {

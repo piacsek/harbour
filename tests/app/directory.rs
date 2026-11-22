@@ -374,7 +374,7 @@ fn e_in_the_sidebar_shows_the_editor_of_a_directory_claude_code_left() {
     screen.key(KeyCode::Char('h'), KeyModifiers::CONTROL);
     screen.key(KeyCode::Char('h'), KeyModifiers::CONTROL);
 
-    screen.press('e');
+    screen.prefixed('e');
 
     let shown = screen.wait_for("acme editor at acme-one");
     assert!(shown.contains("acme editor at acme-one"), "{shown}");
@@ -397,12 +397,12 @@ fn e_in_the_sidebar_comes_back_round_to_the_first_editor() {
     screen.wait_for("acme editor at acme-two");
     screen.key(KeyCode::Char('h'), KeyModifiers::CONTROL);
     screen.key(KeyCode::Char('h'), KeyModifiers::CONTROL);
-    screen.press('e');
+    screen.prefixed('e');
     screen.wait_for("acme editor at acme-one");
     screen.key(KeyCode::Char('h'), KeyModifiers::CONTROL);
     screen.key(KeyCode::Char('h'), KeyModifiers::CONTROL);
 
-    screen.press('e');
+    screen.prefixed('e');
 
     let shown = screen.wait_for("acme editor at acme-two");
     assert!(shown.contains("acme editor at acme-two"), "{shown}");

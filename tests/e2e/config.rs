@@ -137,7 +137,7 @@ fn a_conversation_resumes_with_the_session_command_from_the_file() {
     server.wait_for_screen("press n to start one");
     server.send_keys(&["n"]);
     server.wait_for_screen_all(&["acme agent started", "Fix the flaky login test"]);
-    server.send_keys(&["q"]);
+    server.send_keys(&["C-/", "q"]);
     server.wait_for_screen("Quit? y/n");
     server.send_keys(&["y"]);
     server.wait_for_screen("harbour exited 0");

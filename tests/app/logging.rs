@@ -59,9 +59,9 @@ fn a_key_harbour_acts_on_is_logged_by_its_name() {
     let (app, lines) = logged(App::new(reading_agent()));
     let mut screen = Screen::of(app);
 
-    screen.press('?');
+    screen.press('n');
 
-    only(&read(&lines), r#" key name="?""#);
+    only(&read(&lines), r#" key name="n""#);
 }
 
 #[test]
@@ -75,26 +75,13 @@ fn a_control_key_harbour_acts_on_is_logged_with_its_modifier() {
 }
 
 #[test]
-fn a_jump_key_is_logged_with_its_modifier() {
+fn a_jump_after_the_prefix_is_logged_by_its_digit() {
     let (app, lines) = logged(App::new(reading_agent()));
     let mut screen = Screen::of(app);
 
-    screen.key(KeyCode::Char('3'), KeyModifiers::CONTROL);
+    screen.prefixed('3');
 
-    only(&read(&lines), r#" key name="C-3""#);
-}
-
-#[test]
-fn a_jump_key_with_shift_is_logged_as_the_jump_key() {
-    let (app, lines) = logged(App::new(reading_agent()));
-    let mut screen = Screen::of(app);
-
-    screen.key(
-        KeyCode::Char('3'),
-        KeyModifiers::CONTROL | KeyModifiers::SHIFT,
-    );
-
-    only(&read(&lines), r#" key name="C-3""#);
+    only(&read(&lines), " prefix key=3\n");
 }
 
 #[test]
@@ -102,9 +89,9 @@ fn the_zoom_key_is_logged_by_its_name() {
     let (app, lines) = logged(App::new(reading_agent()));
     let mut screen = focused(app);
 
-    screen.key(KeyCode::Char('z'), KeyModifiers::ALT);
+    screen.prefixed('z');
 
-    only(&read(&lines), r#" key name="M-z""#);
+    only(&read(&lines), " prefix key=zoom\n");
 }
 
 #[test]
@@ -112,9 +99,9 @@ fn the_side_by_side_key_is_logged_by_its_name() {
     let (app, lines) = logged(App::new(reading_agent()));
     let mut screen = focused(app);
 
-    screen.key(KeyCode::Char('\\'), KeyModifiers::ALT);
+    screen.prefixed('\\');
 
-    only(&read(&lines), r#" key name="M-\\""#);
+    only(&read(&lines), " prefix key=side\n");
 }
 
 #[test]
@@ -122,14 +109,14 @@ fn the_swap_keys_are_logged_by_their_names() {
     let editor = Program::new("acme-edit", script("exec sleep 600"));
     let (app, lines) = logged(App::new(reading_agent()).with_editor(editor));
     let mut screen = focused(app);
-    screen.key(KeyCode::Char('\\'), KeyModifiers::ALT);
+    screen.prefixed('\\');
 
-    screen.key(KeyCode::Char('}'), KeyModifiers::ALT);
-    screen.key(KeyCode::Char('{'), KeyModifiers::ALT);
+    screen.prefixed('}');
+    screen.prefixed('{');
 
     let lines = read(&lines);
-    assert_eq!(count(&lines, r#" key name="M-}""#), 1);
-    assert_eq!(count(&lines, r#" key name="M-{""#), 1);
+    assert_eq!(count(&lines, " prefix key=swap_right\n"), 1);
+    assert_eq!(count(&lines, " prefix key=swap_left\n"), 1);
 }
 
 #[test]
@@ -138,12 +125,12 @@ fn the_find_key_is_logged_by_its_name_and_what_is_typed_into_the_list_is_not() {
     let (app, lines) = logged(App::new(reading_agent()).with_picker(picker));
     let mut screen = focused(app);
 
-    screen.key(KeyCode::Char('s'), KeyModifiers::ALT);
+    screen.prefixed('s');
     screen.wait_for("acme fzf ready");
     screen.type_text("acme-secret");
 
     let lines = read(&lines);
-    only(&lines, r#" key name="M-s""#);
+    only(&lines, " prefix key=find\n");
     assert_eq!(count(&lines, "acme-secret"), 0);
 }
 
@@ -152,9 +139,9 @@ fn the_narrower_key_is_logged_by_its_name() {
     let (app, lines) = logged(App::new(reading_agent()));
     let mut screen = focused(app);
 
-    screen.key(KeyCode::Char('-'), KeyModifiers::ALT);
+    screen.prefixed('-');
 
-    only(&read(&lines), r#" key name="M--""#);
+    only(&read(&lines), " prefix key=narrower\n");
 }
 
 #[test]
@@ -162,21 +149,9 @@ fn the_wider_key_is_logged_by_its_name() {
     let (app, lines) = logged(App::new(reading_agent()));
     let mut screen = focused(app);
 
-    screen.key(KeyCode::Char('='), KeyModifiers::ALT);
+    screen.prefixed('=');
 
-    only(&read(&lines), r#" key name="M-=""#);
-}
-
-#[test]
-fn a_narrower_key_at_the_narrowest_width_is_logged_without_its_name() {
-    let (app, lines) = logged(App::new(reading_agent()).with_sidebar_width(15));
-    let mut screen = focused(app);
-
-    screen.key(KeyCode::Char('-'), KeyModifiers::ALT);
-
-    let lines = read(&lines);
-    only(&lines, " key name=other");
-    assert_eq!(count(&lines, "M--"), 0);
+    only(&read(&lines), " prefix key=wider\n");
 }
 
 #[test]
@@ -187,7 +162,7 @@ fn a_wider_key_that_only_hides_the_help_is_logged_without_its_name() {
     screen.wait_for("acme agent ready");
     screen.press('?');
 
-    screen.key(KeyCode::Char('='), KeyModifiers::ALT);
+    screen.prefixed('=');
 
     let lines = read(&lines);
     assert_eq!(count(&lines, " key name=other"), 1);
@@ -368,7 +343,7 @@ fn q_with_no_session_logs_the_quit() {
     let (app, lines) = logged(App::new(reading_agent()));
     let mut screen = Screen::of(app);
 
-    screen.press('q');
+    screen.prefixed('q');
 
     only(&read(&lines), " quit sessions=0\n");
 }

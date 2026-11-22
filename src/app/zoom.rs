@@ -1,10 +1,8 @@
-use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use ratatui::text::Line;
 use ratatui::widgets::Block;
 
 use super::App;
 use crate::card::age;
-use crate::input::ESCAPED;
 use crate::repo::Place;
 use crate::state::{self, Counts, State};
 use crate::text::clean;
@@ -12,22 +10,6 @@ use crate::transcript::Transcript;
 use crate::zoom::{Headline, guaranteed, info};
 
 impl App {
-    pub(super) fn zoom_by_key(&mut self, key: KeyEvent) -> bool {
-        if !is_zoom(key) {
-            return false;
-        }
-        if self.pane_focused
-            && self
-                .sessions
-                .get(self.selected)
-                .is_some_and(|entry| entry.showing_editor().is_some())
-        {
-            return false;
-        }
-        self.zoom();
-        true
-    }
-
     pub(super) fn zoom(&mut self) {
         let Some(entry) = self.sessions.get_mut(self.selected) else {
             return;
@@ -95,11 +77,4 @@ impl App {
             age: entry.elapsed().map(age),
         })
     }
-}
-
-pub(super) fn is_zoom(key: KeyEvent) -> bool {
-    matches!(key.code, KeyCode::Char('z' | 'Z'))
-        && key.modifiers == KeyModifiers::ALT
-        && key.kind == KeyEventKind::Press
-        && !key.state.contains(ESCAPED)
 }

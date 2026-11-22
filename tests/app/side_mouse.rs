@@ -99,11 +99,11 @@ fn side_by_side(agent: Vec<String>, editor: Program) -> Screen {
     let mut screen = Screen::editing(agent, editor);
     screen.press('n');
     screen.wait_for("acme agent");
-    screen.key(KeyCode::Char('\\'), KeyModifiers::ALT);
+    screen.prefixed('\\');
     screen.wait_for("acme editor ready");
     screen
 }
 
 fn swap(screen: &mut Screen) {
-    screen.key(KeyCode::Char('}'), KeyModifiers::ALT);
+    screen.prefixed('}');
 }

@@ -34,20 +34,13 @@ impl App {
         if self.dismiss(is_yes(key)) {
             return;
         }
-        if self.prefix_key(key) {
-            return;
-        }
         if self.sidebar.is_empty() && !self.sessions.is_empty() {
             self.failed = None;
         }
-        if self.jump_by_key(key)
-            || self.zoom_by_key(key)
-            || self.side_by_key(key)
-            || self.swap_by_key(key)
-            || self.resize_by_key(key)
-            || self.find_by_key(key)
-            || self.navigate_by_key(acted)
-        {
+        if self.prefix_key(key) {
+            return;
+        }
+        if self.navigate_by_key(acted) {
             return;
         }
         if self.pane_focused
@@ -101,15 +94,6 @@ impl App {
             }
             KeyCode::Char(c) if self.keymap.action_on(c) == Some(Action::End) => {
                 self.end_or_remove()
-            }
-            KeyCode::Char('q') => self.quit(),
-            KeyCode::Char('e') => self.next_editor(),
-            KeyCode::Char('?') => self.helping = true,
-            KeyCode::Char('c' | 'C') if (acted.modifiers - KeyModifiers::SHIFT).is_empty() => {
-                self.show_changelog()
-            }
-            KeyCode::Char('u' | 'U') if (acted.modifiers - KeyModifiers::SHIFT).is_empty() => {
-                self.open_usage()
             }
             KeyCode::Char('j') => {
                 self.select((self.selected + 1).min(self.sessions.len().saturating_sub(1)))

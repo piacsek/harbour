@@ -6,7 +6,6 @@ use std::time::{Duration, Instant};
 
 use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use harbour::app::App;
-use harbour::editor::Program;
 use harbour::handoff::{Reply, Verb};
 use harbour::input::ESCAPED;
 use harbour::picker::Picker;
@@ -284,28 +283,6 @@ fn fzf_exiting_with_2_says_it_could_not_start() {
 }
 
 #[test]
-fn alt_s_from_an_editor_reaches_the_editor_and_opens_nothing() {
-    let scratch = tempfile::tempdir().unwrap();
-    let editor = Program::new("acme-edit", asking_editor());
-    let mut screen = Screen::of(
-        App::new(stoppable_agent(scratch.path()))
-            .with_editor(editor)
-            .with_picker(finder()),
-    );
-    screen.press('n');
-    screen.wait_for("acme agent 1");
-    screen.key(KeyCode::Enter, KeyModifiers::NONE);
-    screen.key(KeyCode::Char('l'), KeyModifiers::CONTROL);
-    screen.wait_for("acme editor ready");
-
-    alt_s(&mut screen);
-
-    let shown = screen.wait_for("acme editor read:");
-    assert!(shown.contains("acme editor read: 1b"), "{shown}");
-    assert!(!shown.contains("acme fzf"), "{shown}");
-}
-
-#[test]
 fn alt_s_read_after_an_escape_reaches_the_session_and_opens_nothing() {
     let mut screen = Screen::of(App::new(raw_reader(2)).with_picker(finder()));
     screen.press('n');
@@ -341,7 +318,7 @@ fn alt_s_with_caps_lock_opens_the_list() {
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = stoppable_sessions(scratch.path(), 1);
 
-    screen.key(KeyCode::Char('S'), KeyModifiers::ALT);
+    screen.prefixed('S');
 
     let shown = screen.wait_for("acme fzf ready");
     assert!(shown.contains("acme fzf ready"), "{shown}");
@@ -358,8 +335,8 @@ fn the_keys_harbour_binds_go_to_fzf_while_the_list_is_open() {
     alt_s(&mut screen);
     screen.wait_for("acme fzf ready");
 
-    screen.key(KeyCode::Char('2'), KeyModifiers::CONTROL);
-    screen.key(KeyCode::Char('z'), KeyModifiers::ALT);
+    screen.prefixed('2');
+    screen.prefixed('z');
     screen.press('u');
     screen.key(KeyCode::Esc, KeyModifiers::NONE);
     screen.type_text("\r");
@@ -380,9 +357,9 @@ fn the_width_keys_do_nothing_while_the_list_is_open() {
     alt_s(&mut screen);
     screen.wait_for("acme fzf ready");
 
-    screen.key(KeyCode::Char('='), KeyModifiers::ALT);
-    screen.key(KeyCode::Char('='), KeyModifiers::ALT);
-    screen.key(KeyCode::Char('-'), KeyModifiers::ALT);
+    screen.prefixed('=');
+    screen.prefixed('=');
+    screen.prefixed('-');
     screen.type_text("\r");
 
     let shown = screen.wait_until("the popup to close", |shown| !shown.contains("acme fzf"));
@@ -421,7 +398,7 @@ fn harbour_edit_is_refused_while_the_list_is_open() {
 fn a_pick_while_zoomed_stays_zoomed() {
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = stoppable_sessions(scratch.path(), 3);
-    screen.key(KeyCode::Char('z'), KeyModifiers::ALT);
+    screen.prefixed('z');
     alt_s(&mut screen);
     screen.wait_for("acme fzf ready");
 
@@ -434,7 +411,7 @@ fn a_pick_while_zoomed_stays_zoomed() {
 }
 
 fn alt_s(screen: &mut Screen) {
-    screen.key(KeyCode::Char('s'), KeyModifiers::ALT);
+    screen.prefixed('s');
 }
 
 fn pick(screen: &mut Screen, text: &str) {
@@ -503,14 +480,6 @@ fn resuming_agent() -> Vec<String> {
     script(
         "echo \"acme agent $0 $1 in $(basename \"$PWD\")\"; \
          while :; do read -r line || continue; echo \"acme agent got: $line\"; done",
-    )
-}
-
-fn asking_editor() -> Vec<String> {
-    script(
-        "stty raw -echo; printf '\\033[>4;2m' >&2; echo 'acme editor ready' >&2; \
-         dd bs=1 count=1 2>/dev/null | od -An -tx1 | tr -s ' \\n' '  ' | \
-         sed 's/^/acme editor read:/' >&2; exec sleep 600",
     )
 }
 

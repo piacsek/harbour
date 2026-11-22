@@ -121,7 +121,7 @@ fn the_narrow_layout_shows_the_pane_of_the_card_jumped_to() {
 fn the_help_view_takes_the_key_and_nothing_jumps() {
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = three_sessions(scratch.path());
-    screen.press('?');
+    screen.prefixed('?');
 
     ctrl(&mut screen, '1');
     screen.key(KeyCode::Enter, KeyModifiers::NONE);
@@ -146,10 +146,10 @@ fn a_question_takes_the_key_and_nothing_jumps() {
 }
 
 #[test]
-fn the_picker_gets_the_key_and_nothing_jumps() {
+fn the_picker_gets_the_prefix_and_nothing_jumps() {
     let picker = script(
         "stty raw -echo; echo 'acme picker ready' >&2; \
-         r=$(dd bs=1 count=1 2>/dev/null); echo \"acme picker read:$r\" >&2; exec sleep 600",
+         r=$(dd bs=1 count=2 2>/dev/null); echo \"acme picker read:$r\" >&2; exec sleep 600",
     );
     let mut screen =
         Screen::wide(App::new(script("exec sleep 600")).with_picker(Picker::Command(picker)));
@@ -243,21 +243,6 @@ fn the_keys_a_terminal_without_extended_keys_sends_for_ctrl_one_to_ctrl_nine_rea
 }
 
 #[test]
-fn ctrl_shift_two_jumps_as_ctrl_two_does() {
-    let scratch = tempfile::tempdir().unwrap();
-    let mut screen = three_sessions(scratch.path());
-
-    screen.key(
-        KeyCode::Char('2'),
-        KeyModifiers::CONTROL | KeyModifiers::SHIFT,
-    );
-    screen.type_text("hi\r");
-
-    let shown = screen.wait_for("acme agent 2 got:");
-    assert!(shown.contains("acme agent 2 got: hi"), "{shown}");
-}
-
-#[test]
 fn a_jump_from_a_pane_to_a_card_whose_directory_is_gone_leaves_the_sidebar_focused() {
     let (scratch, mut screen) = live_beside_stopped(120);
     fs::remove_dir_all(scratch.checkout()).unwrap();
@@ -344,7 +329,7 @@ fn a_jump_in_the_narrow_layout_clears_the_message_drawn_over_the_pane() {
 }
 
 fn ctrl(screen: &mut Screen, digit: char) {
-    screen.key(KeyCode::Char(digit), KeyModifiers::CONTROL);
+    screen.prefixed(digit);
 }
 
 fn three_sessions(scratch: &Path) -> Screen {

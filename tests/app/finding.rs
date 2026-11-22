@@ -86,10 +86,10 @@ fn esc_closes_the_popup_and_changes_neither_the_selection_nor_the_focus() {
 }
 
 fn alt_s(screen: &mut Screen) {
-    screen.key(KeyCode::Char('s'), KeyModifiers::ALT);
+    screen.prefixed('s');
 }
 
-fn three_sessions(scratch: &Path) -> Screen {
+pub(crate) fn three_sessions(scratch: &Path) -> Screen {
     let app = App::new(lined_agent(scratch)).with_picker(Picker::Command(vec![FINDER.into()]));
     let mut screen = Screen::of(app);
     for n in 1..=3 {

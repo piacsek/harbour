@@ -151,12 +151,12 @@ fn ctrl_zero_reaches_an_editor_that_asked_for_modify_other_keys_level_two_as_ctr
 
 #[test]
 #[ignore]
-fn ctrl_one_never_reaches_an_editor_that_asked_for_modify_other_keys_level_two() {
+fn the_prefix_never_reaches_an_editor_that_asked_for_modify_other_keys_level_two() {
     let Some((_home, server)) = asking_raw_editor("asked-xterm-jump", "xterm", XTERM) else {
         return;
     };
 
-    server.send_keys(&["C-1", "z"]);
+    server.send_keys(&["C-/", "1", "z"]);
 
     let screen = server.wait_for_screen("read:z");
     assert!(screen.contains("read:z"), "{screen}");
@@ -164,14 +164,14 @@ fn ctrl_one_never_reaches_an_editor_that_asked_for_modify_other_keys_level_two()
 
 #[test]
 #[ignore]
-fn ctrl_one_and_ctrl_two_jump_between_cards_with_extended_keys_on() {
+fn the_prefix_then_a_digit_jumps_between_cards_with_extended_keys_on() {
     let Some((_home, server)) = two_raw_agents("ext-xterm-jump", "xterm") else {
         return;
     };
 
-    server.send_keys(&["C-1", "a"]);
+    server.send_keys(&["C-/", "1", "a"]);
     server.wait_for_screen("read:a");
-    server.send_keys(&["C-2", "b"]);
+    server.send_keys(&["C-/", "2", "b"]);
 
     let screen = server.wait_for_screen("read:b");
     assert!(screen.contains("read:b"), "{screen}");
@@ -180,14 +180,14 @@ fn ctrl_one_and_ctrl_two_jump_between_cards_with_extended_keys_on() {
 
 #[test]
 #[ignore]
-fn ctrl_nine_jumps_to_the_last_card_in_the_csi_u_form() {
+fn the_prefix_then_nine_jumps_to_the_last_card_in_the_csi_u_form() {
     let Some((_home, server)) = two_raw_agents("ext-csi-u-jump", "csi-u") else {
         return;
     };
 
-    server.send_keys(&["C-1", "a"]);
+    server.send_keys(&["C-/", "1", "a"]);
     server.wait_for_screen("read:a");
-    server.send_keys(&["C-9", "b"]);
+    server.send_keys(&["C-/", "9", "b"]);
 
     let screen = server.wait_for_screen("read:b");
     assert!(screen.contains("read:b"), "{screen}");
@@ -325,12 +325,12 @@ fn ctrl_m_ctrl_shift_h_and_ctrl_shift_l_act_as_enter_ctrl_h_and_ctrl_l_with_exte
 
 #[test]
 #[ignore]
-fn alt_z_zooms_the_selected_session_with_extended_keys_on() {
+fn the_prefix_then_z_zooms_the_selected_session_with_extended_keys_on() {
     let Some((_home, server)) = two_raw_agents("ext-xterm-zoom", "xterm") else {
         return;
     };
 
-    server.send_keys(&["M-z", "a"]);
+    server.send_keys(&["C-/", "z", "a"]);
 
     let screen = server.wait_until("the zoomed pane", |screen| {
         corners(screen) == 0 && screen.contains("read:a")
@@ -341,12 +341,12 @@ fn alt_z_zooms_the_selected_session_with_extended_keys_on() {
 
 #[test]
 #[ignore]
-fn alt_z_zooms_the_selected_session_in_the_csi_u_form() {
+fn the_prefix_then_z_zooms_the_selected_session_in_the_csi_u_form() {
     let Some((_home, server)) = two_raw_agents("ext-csi-u-zoom", "csi-u") else {
         return;
     };
 
-    server.send_keys(&["M-z", "a"]);
+    server.send_keys(&["C-/", "z", "a"]);
 
     let screen = server.wait_until("the zoomed pane", |screen| {
         corners(screen) == 0 && screen.contains("read:a")
@@ -371,12 +371,12 @@ fn alt_z_reaches_the_session_as_escape_z_with_extended_keys_off() {
 
 #[test]
 #[ignore]
-fn alt_backslash_shows_claude_code_beside_its_editor_with_extended_keys_on() {
+fn the_prefix_then_backslash_shows_claude_code_beside_its_editor_with_extended_keys_on() {
     let Some((_home, server)) = focused_raw_agent("ext-xterm-side", "on", "xterm") else {
         return;
     };
 
-    server.send_keys(&["M-\\", "a"]);
+    server.send_keys(&["C-/", "\\", "a"]);
 
     let screen = server.wait_until("side by side", |screen| {
         pane_corner(screen) == Some(80) && screen.contains("read:a")
@@ -387,12 +387,12 @@ fn alt_backslash_shows_claude_code_beside_its_editor_with_extended_keys_on() {
 
 #[test]
 #[ignore]
-fn alt_backslash_shows_claude_code_beside_its_editor_in_the_csi_u_form() {
+fn the_prefix_then_backslash_shows_claude_code_beside_its_editor_in_the_csi_u_form() {
     let Some((_home, server)) = focused_raw_agent("ext-csi-u-side", "on", "csi-u") else {
         return;
     };
 
-    server.send_keys(&["M-\\", "a"]);
+    server.send_keys(&["C-/", "\\", "a"]);
 
     let screen = server.wait_until("side by side", |screen| {
         pane_corner(screen) == Some(80) && screen.contains("read:a")
@@ -417,12 +417,12 @@ fn alt_backslash_reaches_the_session_as_escape_backslash_with_extended_keys_off(
 
 #[test]
 #[ignore]
-fn alt_equals_widens_the_sidebar_with_extended_keys_on() {
+fn the_prefix_then_equals_widens_the_sidebar_with_extended_keys_on() {
     let Some((_home, server)) = focused_raw_agent("ext-xterm-wider", "on", "xterm") else {
         return;
     };
 
-    server.send_keys(&["M-=", "a"]);
+    server.send_keys(&["C-/", "=", "a"]);
 
     let screen = server.wait_until("the wider sidebar", |screen| {
         pane_corner(screen) == Some(55) && screen.contains("read:a")
@@ -433,12 +433,12 @@ fn alt_equals_widens_the_sidebar_with_extended_keys_on() {
 
 #[test]
 #[ignore]
-fn alt_minus_narrows_the_sidebar_in_the_csi_u_form() {
+fn the_prefix_then_minus_narrows_the_sidebar_in_the_csi_u_form() {
     let Some((_home, server)) = focused_raw_agent("ext-csi-u-narrower", "on", "csi-u") else {
         return;
     };
 
-    server.send_keys(&["M--", "a"]);
+    server.send_keys(&["C-/", "-", "a"]);
 
     let screen = server.wait_until("the narrower sidebar", |screen| {
         pane_corner(screen) == Some(51) && screen.contains("read:a")
@@ -463,12 +463,12 @@ fn alt_minus_reaches_the_session_as_escape_minus_with_extended_keys_off() {
 
 #[test]
 #[ignore]
-fn alt_closing_brace_puts_claude_code_on_the_right_with_extended_keys_on() {
+fn the_prefix_then_closing_brace_puts_claude_code_on_the_right_with_extended_keys_on() {
     let Some((_home, server)) = side_by_side_raw_agent("ext-xterm-swap", "xterm") else {
         return;
     };
 
-    server.send_keys(&["M-}", "a"]);
+    server.send_keys(&["C-/", "}", "a"]);
 
     let screen = server.wait_until("the swapped halves", |screen| {
         top_left(screen) == Some('┌') && screen.contains("read:a")
@@ -479,14 +479,14 @@ fn alt_closing_brace_puts_claude_code_on_the_right_with_extended_keys_on() {
 
 #[test]
 #[ignore]
-fn alt_opening_brace_puts_claude_code_back_on_the_left_in_the_csi_u_form() {
+fn the_prefix_then_opening_brace_puts_claude_code_back_on_the_left_in_the_csi_u_form() {
     let Some((_home, server)) = side_by_side_raw_agent("ext-csi-u-swap", "csi-u") else {
         return;
     };
-    server.send_keys(&["M-}"]);
+    server.send_keys(&["C-/", "}"]);
     server.wait_until("the swapped halves", |screen| top_left(screen) == Some('┌'));
 
-    server.send_keys(&["M-{", "a"]);
+    server.send_keys(&["C-/", "{", "a"]);
 
     let screen = server.wait_until("the halves back", |screen| {
         top_left(screen) == Some('┏') && screen.contains("read:a")
@@ -519,7 +519,7 @@ fn two_raw_agents(name: &str, format: &str) -> Option<(TempDir, Server)> {
 
 fn side_by_side_raw_agent(name: &str, format: &str) -> Option<(TempDir, Server)> {
     let (home, server) = focused_raw_agent(name, "on", format)?;
-    server.send_keys(&["M-\\"]);
+    server.send_keys(&["C-/", "\\"]);
     server.wait_until("side by side", |screen| pane_corner(screen) == Some(80));
     Some((home, server))
 }

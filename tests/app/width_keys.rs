@@ -3,7 +3,7 @@ use harbour::app::App;
 use harbour::input::ESCAPED;
 
 use crate::usage_states::place;
-use crate::zoom::{editing_session, raw_reader};
+use crate::zoom::raw_reader;
 use crate::{Screen, home, numbered_agent, pane_corner, reading_agent, script, sized_agent};
 
 #[test]
@@ -28,7 +28,8 @@ fn alt_equals_from_the_sidebar_makes_it_two_columns_wider() {
 fn alt_shift_minus_narrows_it_on_a_layout_where_minus_needs_shift() {
     let mut screen = started(30);
 
-    screen.key(KeyCode::Char('-'), KeyModifiers::ALT | KeyModifiers::SHIFT);
+    screen.key(KeyCode::Char('/'), KeyModifiers::CONTROL);
+    screen.key(KeyCode::Char('-'), KeyModifiers::SHIFT);
 
     assert_eq!(pane_corner(&screen.draw()), 28);
 }
@@ -37,7 +38,8 @@ fn alt_shift_minus_narrows_it_on_a_layout_where_minus_needs_shift() {
 fn alt_shift_equals_widens_it_on_a_layout_where_equals_needs_shift() {
     let mut screen = started(30);
 
-    screen.key(KeyCode::Char('='), KeyModifiers::ALT | KeyModifiers::SHIFT);
+    screen.key(KeyCode::Char('/'), KeyModifiers::CONTROL);
+    screen.key(KeyCode::Char('='), KeyModifiers::SHIFT);
 
     assert_eq!(pane_corner(&screen.draw()), 32);
 }
@@ -192,7 +194,7 @@ fn while_zoomed_the_width_keys_do_nothing_and_the_width_is_back_after() {
 #[test]
 fn with_the_help_shown_the_width_keys_do_nothing() {
     let mut screen = started(30);
-    screen.press('?');
+    screen.prefixed('?');
 
     wider(&mut screen);
 
@@ -202,7 +204,7 @@ fn with_the_help_shown_the_width_keys_do_nothing() {
 #[test]
 fn with_a_question_shown_the_width_keys_do_nothing() {
     let mut screen = started(30);
-    screen.press('q');
+    screen.prefixed('q');
 
     wider(&mut screen);
 
@@ -222,25 +224,13 @@ fn with_the_usage_popup_shown_the_width_keys_do_nothing() {
     );
     screen.press('n');
     screen.wait_for("acme agent 1");
-    screen.press('u');
+    screen.prefixed('u');
     screen.wait_for("acme session: 12% spent");
 
     wider(&mut screen);
     screen.key(KeyCode::Esc, KeyModifiers::NONE);
 
     assert_eq!(pane_corner(&screen.draw()), 30);
-}
-
-#[test]
-fn alt_minus_while_the_editor_has_focus_reaches_the_editor() {
-    let scratch = tempfile::tempdir().unwrap();
-    let mut screen = editing_session(scratch.path());
-
-    narrower(&mut screen);
-
-    let shown = screen.wait_for("acme editor read:");
-    assert!(shown.contains("acme editor read: 1b"), "{shown}");
-    assert_eq!(pane_corner(&shown), 40);
 }
 
 #[test]
@@ -365,15 +355,15 @@ fn started(width: u16) -> Screen {
 }
 
 fn narrower(screen: &mut Screen) {
-    screen.key(KeyCode::Char('-'), KeyModifiers::ALT);
+    screen.prefixed('-');
 }
 
 fn wider(screen: &mut Screen) {
-    screen.key(KeyCode::Char('='), KeyModifiers::ALT);
+    screen.prefixed('=');
 }
 
 fn zoom(screen: &mut Screen) {
-    screen.key(KeyCode::Char('z'), KeyModifiers::ALT);
+    screen.prefixed('z');
 }
 
 fn exited_at(columns: u16) -> Screen {

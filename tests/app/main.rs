@@ -37,6 +37,7 @@ mod real_neovim;
 mod reconciling;
 mod refusing;
 mod remembering;
+mod removed;
 mod reserving;
 mod selection;
 mod settling;

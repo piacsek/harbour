@@ -87,7 +87,7 @@ fn alt_y_to_the_quit_question_keeps_harbour_running() {
     let mut screen = Screen::new(reading_agent());
     screen.press('n');
     screen.wait_for("acme agent ready");
-    screen.press('q');
+    screen.prefixed('q');
 
     screen.key(KeyCode::Char('y'), KeyModifiers::ALT);
 
@@ -99,7 +99,7 @@ fn shift_y_to_the_quit_question_quits() {
     let mut screen = Screen::new(reading_agent());
     screen.press('n');
     screen.wait_for("acme agent ready");
-    screen.press('q');
+    screen.prefixed('q');
 
     screen.key(KeyCode::Char('Y'), KeyModifiers::SHIFT);
 
@@ -113,7 +113,7 @@ fn q_with_a_running_session_asks_before_quitting() {
     screen.wait_for("acme agent ready");
 
     screen.resize(60, 20);
-    screen.press('q');
+    screen.prefixed('q');
 
     let shown = screen.draw();
     assert!(shown.contains("Quit? y/n"), "{shown}");
@@ -126,7 +126,7 @@ fn q_with_only_exited_sessions_quits_without_asking() {
     screen.press('n');
     screen.wait_for("exited");
 
-    screen.press('q');
+    screen.prefixed('q');
 
     assert!(!screen.app.running());
 }
@@ -136,7 +136,7 @@ fn y_to_the_quit_question_quits() {
     let mut screen = Screen::new(reading_agent());
     screen.press('n');
     screen.wait_for("acme agent ready");
-    screen.press('q');
+    screen.prefixed('q');
 
     screen.press('y');
 
@@ -168,7 +168,7 @@ fn quitting_ends_every_running_session_within_one_grace_period() {
         screen.press('n');
         screen.wait_for(&format!("acme agent {started}"));
     }
-    screen.press('q');
+    screen.prefixed('q');
     screen.press('y');
     let started = Instant::now();
 

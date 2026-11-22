@@ -2,7 +2,7 @@ use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use harbour::input::ESCAPED;
 
 use crate::side::{editing, side};
-use crate::zoom::{editing_session, raw_reader};
+use crate::zoom::raw_reader;
 use crate::{Screen, pane_corner, region};
 
 #[test]
@@ -64,7 +64,8 @@ fn alt_shift_closing_brace_swaps_the_halves_too() {
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = split(scratch.path());
 
-    screen.key(KeyCode::Char('}'), KeyModifiers::ALT | KeyModifiers::SHIFT);
+    screen.key(KeyCode::Char('/'), KeyModifiers::CONTROL);
+    screen.key(KeyCode::Char('}'), KeyModifiers::SHIFT);
     screen.type_text("hi\r");
 
     let shown = screen.wait_for("acme agent 1 got: hi");
@@ -80,7 +81,8 @@ fn alt_shift_opening_brace_brings_claude_code_back_to_the_left_too() {
     let mut screen = split(scratch.path());
     right(&mut screen);
 
-    screen.key(KeyCode::Char('{'), KeyModifiers::ALT | KeyModifiers::SHIFT);
+    screen.key(KeyCode::Char('/'), KeyModifiers::CONTROL);
+    screen.key(KeyCode::Char('{'), KeyModifiers::SHIFT);
     screen.type_text("hi\r");
 
     let shown = screen.wait_for("acme agent 1 got: hi");
@@ -104,20 +106,6 @@ fn each_program_is_sized_to_the_half_it_moves_to() {
 }
 
 #[test]
-fn in_the_normal_view_the_swap_keys_reach_claude_code() {
-    let mut screen = Screen::new(raw_reader(4));
-    screen.press('n');
-    screen.wait_for("acme agent ready");
-    screen.key(KeyCode::Enter, KeyModifiers::NONE);
-
-    right(&mut screen);
-    left(&mut screen);
-
-    let shown = screen.wait_for("acme agent read: 1b 7d 1b 7b");
-    assert!(shown.contains("acme agent read: 1b 7d 1b 7b"), "{shown}");
-}
-
-#[test]
 fn a_swap_key_after_an_escape_reaches_claude_code() {
     let mut screen = Screen::new(raw_reader(2));
     screen.press('n');
@@ -130,51 +118,6 @@ fn a_swap_key_after_an_escape_reaches_claude_code() {
         KeyEventKind::Press,
         ESCAPED,
     ));
-
-    let shown = screen.wait_for("acme agent read: 1b 7d");
-    assert!(shown.contains("acme agent read: 1b 7d"), "{shown}");
-}
-
-#[test]
-fn a_swap_key_while_the_editor_has_focus_reaches_the_editor() {
-    let scratch = tempfile::tempdir().unwrap();
-    let mut screen = editing_session(scratch.path());
-
-    right(&mut screen);
-
-    let shown = screen.wait_for("acme editor read: 1b");
-    assert!(shown.contains("acme editor read: 1b"), "{shown}");
-    assert_eq!(pane_corner(&shown), 40, "{shown}");
-}
-
-#[test]
-fn side_by_side_a_swap_key_from_the_editor_half_reaches_the_editor() {
-    let scratch = tempfile::tempdir().unwrap();
-    let mut screen = editing_session(scratch.path());
-    ctrl(&mut screen, 'h');
-    side(&mut screen);
-    ctrl(&mut screen, 'l');
-
-    right(&mut screen);
-
-    let shown = screen.wait_for("acme editor read: 1b");
-    assert!(shown.contains("acme editor read: 1b"), "{shown}");
-    assert!(region(&shown, 0, 60).contains("acme agent 1"), "{shown}");
-    assert!(
-        region(&shown, 60, 60).contains("acme editor read:"),
-        "{shown}"
-    );
-}
-
-#[test]
-fn while_zoomed_the_swap_keys_reach_claude_code() {
-    let mut screen = Screen::new(raw_reader(2));
-    screen.press('n');
-    screen.wait_for("acme agent ready");
-    screen.key(KeyCode::Enter, KeyModifiers::NONE);
-    screen.key(KeyCode::Char('z'), KeyModifiers::ALT);
-
-    right(&mut screen);
 
     let shown = screen.wait_for("acme agent read: 1b 7d");
     assert!(shown.contains("acme agent read: 1b 7d"), "{shown}");
@@ -291,11 +234,11 @@ fn split(scratch: &std::path::Path) -> Screen {
 }
 
 fn right(screen: &mut Screen) {
-    screen.key(KeyCode::Char('}'), KeyModifiers::ALT);
+    screen.prefixed('}');
 }
 
 fn left(screen: &mut Screen) {
-    screen.key(KeyCode::Char('{'), KeyModifiers::ALT);
+    screen.prefixed('{');
 }
 
 fn ctrl(screen: &mut Screen, c: char) {

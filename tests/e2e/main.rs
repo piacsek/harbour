@@ -67,7 +67,7 @@ fn q_leaves_the_screen_and_restores_the_terminal() {
     server.run(home.path(), &[], &[]);
     server.wait_for_screen("press n to start one");
 
-    server.send_keys(&["q"]);
+    server.send_keys(&["C-/", "q"]);
 
     let screen = server.wait_for_screen("harbour exited 0");
     assert!(screen.contains("harbour exited 0"), "{screen}");
@@ -241,7 +241,7 @@ fn q_with_a_running_session_asks_and_y_leaves() {
     server.send_keys(&["n"]);
     server.wait_for_screen("acme agent in acme-api");
 
-    server.send_keys(&["q"]);
+    server.send_keys(&["C-/", "q"]);
     let screen = server.wait_for_screen("Quit? y/n");
     assert!(screen.contains("Quit? y/n"), "{screen}");
     server.send_keys(&["y"]);
@@ -339,7 +339,7 @@ fn harbour_status_prints_nothing_once_harbour_quits() {
     server.send_keys(&["n"]);
     wait_for_status(home.path(), WORKING);
 
-    server.send_keys(&["q", "y"]);
+    server.send_keys(&["C-/", "q", "y"]);
     server.wait_for_screen("harbour exited 0");
 
     assert_eq!(wait_for_status(home.path(), ""), "");
@@ -401,7 +401,7 @@ fn the_demo_removes_its_made_up_registry_when_it_ends() {
     server.wait_for_screen("permission prompt");
     assert_eq!(std::fs::read_dir(temp.path()).unwrap().count(), 1);
 
-    server.send_keys(&["q"]);
+    server.send_keys(&["C-/", "q"]);
     server.wait_for_screen("Quit? y/n");
     server.send_keys(&["y"]);
 

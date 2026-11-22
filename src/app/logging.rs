@@ -4,18 +4,13 @@ use std::time::{Duration, Instant};
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use ratatui::layout::Rect;
 
-use super::find::is_find;
-use super::jump::position;
-use super::side::{is_side, swaps};
-use super::split::widens;
-use super::zoom::is_zoom;
 use super::{App, Entry};
 use crate::handoff::{Reply, Verb};
 use crate::log::Log;
 use crate::session::Session;
 use crate::tmux::Direction;
 
-const BOUND: [char; 10] = ['q', 'n', 'x', 'e', '?', 'u', 'j', 'k', 'y', 'Y'];
+const BOUND: [char; 6] = ['n', 'x', 'j', 'k', 'y', 'Y'];
 const SLOW_FRAME: Duration = Duration::from_millis(100);
 
 #[derive(Default)]
@@ -24,7 +19,6 @@ pub(super) struct Logging {
     slow: Option<Duration>,
     started: bool,
     forwarded: bool,
-    resized: bool,
     selected: Option<Selected>,
     lives: Vec<(usize, bool)>,
     editors: Vec<(usize, usize)>,
@@ -131,11 +125,10 @@ impl App {
     }
 
     pub(super) fn log_key(&mut self, key: KeyEvent) {
-        let resized = std::mem::take(&mut self.logging.resized);
         if !std::mem::take(&mut self.logging.forwarded) {
             self.logging
                 .log
-                .write(|| format!("key name={}", named(key, resized)));
+                .write(|| format!("key name={}", named(key)));
         }
         self.log_changes();
     }
@@ -148,10 +141,6 @@ impl App {
             format!("prefix {what}")
         };
         self.logging.log.write(|| line);
-    }
-
-    pub(super) fn log_resized(&mut self) {
-        self.logging.resized = true;
     }
 
     pub(super) fn log_changelog_key(&mut self, shown: bool) {
@@ -384,17 +373,11 @@ fn named_entry(entry: &Entry) -> String {
     }
 }
 
-fn named(key: KeyEvent, resized: bool) -> String {
+fn named(key: KeyEvent) -> String {
     let name = match key.code {
         KeyCode::Char(c) if key.modifiers == KeyModifiers::CONTROL && matches!(c, 'h' | 'l') => {
             format!("C-{c}")
         }
-        _ if let Some(position) = position(key) => format!("C-{position}"),
-        _ if is_zoom(key) => "M-z".to_string(),
-        _ if is_side(key) => "M-\\".to_string(),
-        _ if let Some(right) = swaps(key) => if right { "M-}" } else { "M-{" }.to_string(),
-        _ if is_find(key) => "M-s".to_string(),
-        KeyCode::Char(c) if resized && widens(key).is_some() => format!("M-{c}"),
         KeyCode::Char(c) if BOUND.contains(&c) && KeyModifiers::SHIFT.contains(key.modifiers) => {
             c.to_string()
         }

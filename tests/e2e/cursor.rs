@@ -58,7 +58,7 @@ fn quitting_gives_the_terminal_back_its_default_cursor_shape() {
     server.send_keys(&["Enter", "5", "Enter"]);
     assert_eq!(wait_for_shape(&server, "bar"), "bar");
 
-    server.send_keys(&["C-h", "q", "y"]);
+    server.send_keys(&["C-h", "C-/", "q", "y"]);
 
     server.wait_for_screen("harbour exited 0");
     assert_eq!(wait_for_shape(&server, "default"), "default");

@@ -12,7 +12,7 @@ use crate::{Screen, directory, reading_agent};
 fn c_shows_the_changelog_over_the_whole_screen() {
     let mut screen = reader(RELEASES);
 
-    screen.press('c');
+    screen.prefixed('c');
 
     let shown = screen.draw();
     assert!(shown.contains(" changelog "), "{shown}");
@@ -25,6 +25,7 @@ fn c_shows_the_changelog_over_the_whole_screen() {
 fn shift_c_shows_the_changelog_too() {
     let mut screen = reader(RELEASES);
 
+    screen.key(KeyCode::Char('/'), KeyModifiers::CONTROL);
     screen.key(KeyCode::Char('C'), KeyModifiers::SHIFT);
 
     let shown = screen.draw();
@@ -60,7 +61,7 @@ fn the_view_shows_the_bundled_changelog_by_default() {
         .map(|line| format!("│{:<118}│", line.to_string()))
         .collect();
 
-    screen.press('c');
+    screen.prefixed('c');
 
     let drawn = screen.draw();
     let rows: Vec<&str> = drawn.lines().skip(1).take(expected.len()).collect();
@@ -71,7 +72,7 @@ fn the_view_shows_the_bundled_changelog_by_default() {
 fn the_view_of_a_build_without_releases_says_so() {
     let mut screen = reader("# Changelog\n");
 
-    screen.press('c');
+    screen.prefixed('c');
 
     let shown = screen.draw();
     assert!(
@@ -83,7 +84,7 @@ fn the_view_of_a_build_without_releases_says_so() {
 #[test]
 fn the_next_key_closes_the_view_and_does_nothing_else() {
     let mut screen = reader(RELEASES);
-    screen.press('c');
+    screen.prefixed('c');
 
     screen.press('n');
 
@@ -95,7 +96,7 @@ fn the_next_key_closes_the_view_and_does_nothing_else() {
 #[test]
 fn q_closes_the_view_and_does_not_quit() {
     let mut screen = reader(RELEASES);
-    screen.press('c');
+    screen.prefixed('c');
 
     screen.press('q');
 
@@ -108,7 +109,7 @@ fn q_closes_the_view_and_does_not_quit() {
 fn the_view_opens_at_the_top() {
     let mut screen = reader(&long());
 
-    screen.press('c');
+    screen.prefixed('c');
 
     let shown = screen.draw();
     assert!(shown.contains("│Changelog"), "{shown}");
@@ -119,7 +120,7 @@ fn the_view_opens_at_the_top() {
 #[test]
 fn j_scrolls_one_line_on() {
     let mut screen = reader(&long());
-    screen.press('c');
+    screen.prefixed('c');
 
     screen.press('j');
 
@@ -131,7 +132,7 @@ fn j_scrolls_one_line_on() {
 #[test]
 fn down_scrolls_one_line_on() {
     let mut screen = reader(&long());
-    screen.press('c');
+    screen.prefixed('c');
 
     screen.key(KeyCode::Down, KeyModifiers::NONE);
 
@@ -143,7 +144,7 @@ fn down_scrolls_one_line_on() {
 #[test]
 fn k_scrolls_one_line_back() {
     let mut screen = reader(&long());
-    screen.press('c');
+    screen.prefixed('c');
     screen.press('j');
 
     screen.press('k');
@@ -156,7 +157,7 @@ fn k_scrolls_one_line_back() {
 #[test]
 fn up_scrolls_one_line_back() {
     let mut screen = reader(&long());
-    screen.press('c');
+    screen.prefixed('c');
     screen.press('j');
 
     screen.key(KeyCode::Up, KeyModifiers::NONE);
@@ -169,6 +170,7 @@ fn up_scrolls_one_line_back() {
 #[test]
 fn shift_j_scrolls_one_line_on_under_caps_lock() {
     let mut screen = reader(&long());
+    screen.key(KeyCode::Char('/'), KeyModifiers::CONTROL);
     screen.key(KeyCode::Char('C'), KeyModifiers::SHIFT);
 
     screen.key(KeyCode::Char('J'), KeyModifiers::SHIFT);
@@ -181,6 +183,7 @@ fn shift_j_scrolls_one_line_on_under_caps_lock() {
 #[test]
 fn shift_k_scrolls_one_line_back_under_caps_lock() {
     let mut screen = reader(&long());
+    screen.key(KeyCode::Char('/'), KeyModifiers::CONTROL);
     screen.key(KeyCode::Char('C'), KeyModifiers::SHIFT);
     screen.press('j');
 
@@ -194,6 +197,7 @@ fn shift_k_scrolls_one_line_back_under_caps_lock() {
 #[test]
 fn ctrl_shift_d_scrolls_half_the_view_on_under_caps_lock() {
     let mut screen = reader(&long());
+    screen.key(KeyCode::Char('/'), KeyModifiers::CONTROL);
     screen.key(KeyCode::Char('C'), KeyModifiers::SHIFT);
 
     screen.key(
@@ -209,6 +213,7 @@ fn ctrl_shift_d_scrolls_half_the_view_on_under_caps_lock() {
 #[test]
 fn ctrl_shift_u_scrolls_half_the_view_back_under_caps_lock() {
     let mut screen = reader(&long());
+    screen.key(KeyCode::Char('/'), KeyModifiers::CONTROL);
     screen.key(KeyCode::Char('C'), KeyModifiers::SHIFT);
     screen.key(KeyCode::Char('d'), KeyModifiers::CONTROL);
 
@@ -225,7 +230,7 @@ fn ctrl_shift_u_scrolls_half_the_view_back_under_caps_lock() {
 #[test]
 fn k_at_the_top_keeps_the_view_open() {
     let mut screen = reader(&long());
-    screen.press('c');
+    screen.prefixed('c');
 
     screen.press('k');
 
@@ -237,7 +242,7 @@ fn k_at_the_top_keeps_the_view_open() {
 #[test]
 fn ctrl_d_scrolls_half_the_view_on() {
     let mut screen = reader(&long());
-    screen.press('c');
+    screen.prefixed('c');
 
     screen.key(KeyCode::Char('d'), KeyModifiers::CONTROL);
 
@@ -251,7 +256,7 @@ fn ctrl_d_scrolls_half_the_view_on() {
 #[test]
 fn ctrl_u_scrolls_half_the_view_back() {
     let mut screen = reader(&long());
-    screen.press('c');
+    screen.prefixed('c');
     screen.key(KeyCode::Char('d'), KeyModifiers::CONTROL);
 
     screen.key(KeyCode::Char('u'), KeyModifiers::CONTROL);
@@ -264,7 +269,7 @@ fn ctrl_u_scrolls_half_the_view_back() {
 #[test]
 fn the_last_line_never_leaves_the_bottom() {
     let mut screen = reader(&long());
-    screen.press('c');
+    screen.prefixed('c');
 
     for _ in 0..5 {
         screen.key(KeyCode::Char('d'), KeyModifiers::CONTROL);
@@ -279,7 +284,7 @@ fn the_last_line_never_leaves_the_bottom() {
 #[test]
 fn j_on_a_text_shorter_than_the_view_does_nothing() {
     let mut screen = reader(RELEASES);
-    screen.press('c');
+    screen.prefixed('c');
 
     screen.press('j');
 
@@ -291,11 +296,11 @@ fn j_on_a_text_shorter_than_the_view_does_nothing() {
 #[test]
 fn the_view_opens_at_the_top_again_after_scrolling() {
     let mut screen = reader(&long());
-    screen.press('c');
+    screen.prefixed('c');
     screen.key(KeyCode::Char('d'), KeyModifiers::CONTROL);
     screen.press('x');
 
-    screen.press('c');
+    screen.prefixed('c');
 
     let shown = screen.draw();
     assert!(shown.contains("│Changelog"), "{shown}");
@@ -304,7 +309,7 @@ fn the_view_opens_at_the_top_again_after_scrolling() {
 #[test]
 fn a_taller_terminal_keeps_the_last_line_at_the_bottom() {
     let mut screen = reader(&long());
-    screen.press('c');
+    screen.prefixed('c');
     for _ in 0..5 {
         screen.key(KeyCode::Char('d'), KeyModifiers::CONTROL);
     }
@@ -321,7 +326,7 @@ fn a_taller_terminal_keeps_the_last_line_at_the_bottom() {
 #[test]
 fn the_wheel_scrolls_one_line_on() {
     let mut screen = reader(&long());
-    screen.press('c');
+    screen.prefixed('c');
 
     screen.mouse(MouseEventKind::ScrollDown, 45, 3);
 
@@ -333,7 +338,7 @@ fn the_wheel_scrolls_one_line_on() {
 #[test]
 fn the_wheel_scrolls_one_line_back() {
     let mut screen = reader(&long());
-    screen.press('c');
+    screen.prefixed('c');
     screen.press('j');
     screen.press('j');
 
@@ -348,7 +353,7 @@ fn the_wheel_scrolls_one_line_back() {
 #[test]
 fn page_down_scrolls_a_whole_view_on() {
     let mut screen = reader(&longer());
-    screen.press('c');
+    screen.prefixed('c');
 
     screen.key(KeyCode::PageDown, KeyModifiers::NONE);
 
@@ -362,7 +367,7 @@ fn page_down_scrolls_a_whole_view_on() {
 #[test]
 fn page_up_scrolls_a_whole_view_back() {
     let mut screen = reader(&longer());
-    screen.press('c');
+    screen.prefixed('c');
     screen.key(KeyCode::PageDown, KeyModifiers::NONE);
     screen.press('j');
 
@@ -377,7 +382,7 @@ fn page_up_scrolls_a_whole_view_back() {
 #[test]
 fn a_click_closes_the_view() {
     let mut screen = reader(RELEASES);
-    screen.press('c');
+    screen.prefixed('c');
 
     screen.mouse(MouseEventKind::Down(MouseButton::Left), 45, 3);
 
@@ -388,7 +393,7 @@ fn a_click_closes_the_view() {
 #[test]
 fn a_paste_closes_the_view() {
     let mut screen = reader(RELEASES);
-    screen.press('c');
+    screen.prefixed('c');
 
     screen.app.paste("acme");
 
@@ -399,9 +404,9 @@ fn a_paste_closes_the_view() {
 #[test]
 fn c_while_the_help_shows_closes_the_help_only() {
     let mut screen = reader(RELEASES);
-    screen.press('?');
+    screen.prefixed('?');
 
-    screen.press('c');
+    screen.prefixed('c');
 
     let shown = screen.draw();
     assert!(!shown.contains(" help "), "{shown}");
@@ -429,7 +434,7 @@ fn an_open_of_harbour_edit_closes_the_view_and_shows_the_file() {
     let _asked = answering(scratch.path());
     let mut screen = harbour(scratch.path());
     start_in(&mut screen, scratch.path(), "acme-api", 1);
-    screen.press('c');
+    screen.prefixed('c');
 
     let reply = screen
         .app
@@ -445,7 +450,7 @@ fn opening_the_view_logs_it_in_place_of_the_key() {
     let (app, lines) = logged(App::new(reading_agent()).with_changelog(&long()));
     let mut screen = Screen::of(app);
 
-    screen.press('c');
+    screen.prefixed('c');
 
     let lines = read(&lines);
     only(&lines, " changelog shown");
@@ -456,7 +461,7 @@ fn opening_the_view_logs_it_in_place_of_the_key() {
 fn the_keys_inside_the_view_log_nothing() {
     let (app, lines) = logged(App::new(reading_agent()).with_changelog(&long()));
     let mut screen = Screen::of(app);
-    screen.press('c');
+    screen.prefixed('c');
 
     screen.press('j');
     screen.key(KeyCode::Char('d'), KeyModifiers::CONTROL);
@@ -473,7 +478,7 @@ fn the_keys_inside_the_view_log_nothing() {
 fn a_key_that_closes_the_view_logs_it_closed() {
     let (app, lines) = logged(App::new(reading_agent()).with_changelog(RELEASES));
     let mut screen = Screen::of(app);
-    screen.press('c');
+    screen.prefixed('c');
 
     screen.press('x');
 
@@ -486,7 +491,7 @@ fn a_key_that_closes_the_view_logs_it_closed() {
 fn a_paste_that_closes_the_view_logs_it_closed() {
     let (app, lines) = logged(App::new(reading_agent()).with_changelog(RELEASES));
     let mut screen = Screen::of(app);
-    screen.press('c');
+    screen.prefixed('c');
 
     screen.app.paste("acme");
 
@@ -498,7 +503,7 @@ fn a_paste_that_closes_the_view_logs_it_closed() {
 fn a_click_that_closes_the_view_logs_it_closed() {
     let (app, lines) = logged(App::new(reading_agent()).with_changelog(RELEASES));
     let mut screen = Screen::of(app);
-    screen.press('c');
+    screen.prefixed('c');
 
     screen.mouse(MouseEventKind::Down(MouseButton::Left), 45, 3);
 
@@ -513,7 +518,7 @@ fn an_open_of_harbour_edit_that_closes_the_view_logs_it_closed() {
     let (app, lines) = logged(app_with(scratch.path(), recording_neovim(scratch.path())));
     let mut screen = Screen::of(app);
     start_in(&mut screen, scratch.path(), "acme-api", 1);
-    screen.press('c');
+    screen.prefixed('c');
 
     let reply = screen
         .app

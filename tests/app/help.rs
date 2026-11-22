@@ -9,7 +9,7 @@ const LAST: &str = "status unknown: not Claude Code, or not written yet";
 fn question_mark_shows_the_keys_and_the_last_dot() {
     let mut screen = Screen::new(reading_agent());
 
-    screen.press('?');
+    screen.prefixed('?');
 
     let shown = screen.draw();
     assert!(shown.contains("j/k"), "{shown}");
@@ -24,7 +24,7 @@ fn question_mark_shows_the_keys_and_the_last_dot() {
 fn question_mark_shows_the_editor_keys() {
     let mut screen = Screen::new(reading_agent());
 
-    screen.press('?');
+    screen.prefixed('?');
 
     let shown = screen.draw();
     assert!(
@@ -42,7 +42,7 @@ fn question_mark_shows_the_editor_keys() {
 fn question_mark_shows_the_zoom_key() {
     let mut screen = Screen::new(reading_agent());
 
-    screen.press('?');
+    screen.prefixed('?');
 
     let shown = screen.draw();
     assert!(
@@ -55,7 +55,7 @@ fn question_mark_shows_the_zoom_key() {
 fn question_mark_shows_the_side_by_side_key() {
     let mut screen = Screen::new(reading_agent());
 
-    screen.press('?');
+    screen.prefixed('?');
 
     let shown = screen.draw();
     assert!(
@@ -68,7 +68,7 @@ fn question_mark_shows_the_side_by_side_key() {
 fn question_mark_shows_the_width_keys() {
     let mut screen = Screen::new(reading_agent());
 
-    screen.press('?');
+    screen.prefixed('?');
 
     let shown = screen.draw();
     assert!(
@@ -82,7 +82,7 @@ fn question_mark_says_how_to_resume_and_forget_a_stopped_session() {
     let mut screen = Screen::new(reading_agent());
     screen.resize(80, 24);
 
-    screen.press('?');
+    screen.prefixed('?');
 
     let shown = screen.draw();
     assert!(shown.contains("focus or resume;"), "{shown}");
@@ -94,7 +94,7 @@ fn question_mark_says_how_to_resume_and_forget_a_stopped_session() {
 fn question_mark_explains_the_dots() {
     let mut screen = Screen::new(reading_agent());
 
-    screen.press('?');
+    screen.prefixed('?');
 
     let shown = screen.draw();
     assert!(
@@ -119,7 +119,7 @@ fn the_whole_help_shows_on_an_80_by_24_terminal() {
     let mut screen = Screen::new(reading_agent());
     screen.resize(80, 24);
 
-    screen.press('?');
+    screen.prefixed('?');
 
     let shown = screen.draw();
     assert!(
@@ -134,7 +134,7 @@ fn the_whole_help_shows_on_an_80_by_24_terminal() {
 fn the_whole_help_shows_on_a_20_row_terminal() {
     let mut screen = Screen::new(reading_agent());
 
-    screen.press('?');
+    screen.prefixed('?');
 
     let shown = screen.draw();
     assert!(
@@ -150,7 +150,7 @@ fn the_dots_are_the_last_lines_of_the_help() {
     let mut screen = Screen::new(reading_agent());
     screen.resize(80, 30);
 
-    screen.press('?');
+    screen.prefixed('?');
 
     let shown = screen.draw();
     let after: Vec<&str> = shown
@@ -165,7 +165,7 @@ fn the_dots_are_the_last_lines_of_the_help() {
 fn the_help_fills_a_20_row_terminal_with_no_row_to_spare() {
     let mut screen = Screen::new(reading_agent());
 
-    screen.press('?');
+    screen.prefixed('?');
 
     let shown = screen.draw();
     assert_eq!(spare_rows(&shown), 0, "{shown}");
@@ -176,7 +176,7 @@ fn question_mark_shows_the_usage_key_on_one_row_beside_the_narrowest_sidebar() {
     let mut screen = Screen::new(reading_agent());
     screen.resize(60, 20);
 
-    screen.press('?');
+    screen.prefixed('?');
 
     let shown = screen.draw();
     assert!(
@@ -190,7 +190,7 @@ fn question_mark_shows_the_changelog_key_on_one_row_beside_the_narrowest_sidebar
     let mut screen = Screen::new(reading_agent());
     screen.resize(60, 20);
 
-    screen.press('?');
+    screen.prefixed('?');
 
     let shown = screen.draw();
     assert!(
@@ -204,7 +204,7 @@ fn question_mark_shows_the_find_key_on_one_row_beside_the_narrowest_sidebar() {
     let mut screen = Screen::new(reading_agent());
     screen.resize(60, 20);
 
-    screen.press('?');
+    screen.prefixed('?');
 
     let shown = screen.draw();
     assert!(
@@ -218,7 +218,7 @@ fn question_mark_shows_the_ctrl_l_row_on_one_row_in_the_narrow_layout() {
     let mut screen = Screen::new(reading_agent());
     screen.resize(59, 20);
 
-    screen.press('?');
+    screen.prefixed('?');
 
     let shown = screen.draw();
     assert!(
@@ -232,7 +232,7 @@ fn the_whole_help_shows_beside_the_narrowest_sidebar() {
     let mut screen = Screen::new(reading_agent());
     screen.resize(60, 20);
 
-    screen.press('?');
+    screen.prefixed('?');
 
     let shown = screen.draw();
     assert!(shown.contains("select the next / previous"), "{shown}");
@@ -244,7 +244,7 @@ fn the_whole_help_shows_in_the_narrow_layout_on_20_rows() {
     let mut screen = Screen::new(reading_agent());
     screen.resize(59, 20);
 
-    screen.press('?');
+    screen.prefixed('?');
 
     let shown = screen.draw();
     assert!(shown.contains("select the next / previous"), "{shown}");
@@ -256,7 +256,7 @@ fn no_note_shows_in_the_help() {
     let mut screen = Screen::new(reading_agent());
     screen.resize(80, 24);
 
-    screen.press('?');
+    screen.prefixed('?');
 
     let shown = screen.draw();
     assert!(!shown.contains("HARBOUR_DIR_PICKER"), "{shown}");
@@ -270,7 +270,7 @@ fn no_note_shows_in_the_help() {
 #[test]
 fn the_next_key_hides_the_help_and_does_nothing_else() {
     let mut screen = Screen::new(reading_agent());
-    screen.press('?');
+    screen.prefixed('?');
 
     screen.press('n');
 
@@ -284,7 +284,7 @@ fn a_click_in_the_pane_hides_the_help_and_does_not_focus_the_pane() {
     let mut screen = Screen::new(raw_agent("", 1));
     screen.press('n');
     screen.wait_for("acme agent ready");
-    screen.press('?');
+    screen.prefixed('?');
 
     screen.mouse(MouseEventKind::Down(MouseButton::Left), 45, 3);
     screen.press('z');
@@ -299,7 +299,7 @@ fn a_click_in_the_pane_hides_the_help_and_does_not_focus_the_pane() {
 #[test]
 fn a_paste_hides_the_help() {
     let mut screen = Screen::new(reading_agent());
-    screen.press('?');
+    screen.prefixed('?');
 
     screen.app.paste("acme");
 

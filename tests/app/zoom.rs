@@ -154,7 +154,7 @@ fn a_jump_while_zoomed_shows_the_jumped_to_session_still_zoomed() {
     let mut screen = three_sessions(scratch.path());
     zoom(&mut screen);
 
-    screen.key(KeyCode::Char('2'), KeyModifiers::CONTROL);
+    screen.prefixed('2');
     screen.type_text("hi\r");
 
     let shown = screen.wait_for("acme agent 2 got:");
@@ -189,24 +189,6 @@ fn alt_z_in_the_narrow_layout_shows_the_pane() {
 }
 
 #[test]
-fn alt_z_while_the_editor_has_focus_reaches_the_editor() {
-    let scratch = tempfile::tempdir().unwrap();
-    let editor = Program::new("acme-edit", asking_editor());
-    let mut screen = Screen::editing(lined_agent(scratch.path()), editor);
-    screen.press('n');
-    screen.wait_for("acme agent 1");
-    screen.key(KeyCode::Enter, KeyModifiers::NONE);
-    screen.key(KeyCode::Char('l'), KeyModifiers::CONTROL);
-    screen.wait_for("acme editor ready");
-
-    zoom(&mut screen);
-
-    let shown = screen.wait_for("acme editor read:");
-    assert!(shown.contains("acme editor read: 1b"), "{shown}");
-    assert_eq!(corners(&shown), 2, "{shown}");
-}
-
-#[test]
 fn harbour_edit_opening_a_file_in_another_session_keeps_the_zoom() {
     let scratch = tempfile::tempdir().unwrap();
     let _asked = answering(scratch.path());
@@ -238,7 +220,7 @@ fn a_refused_jump_while_zoomed_brings_the_sidebar_back() {
     zoom(&mut screen);
     fs::remove_dir_all(scratch.checkout()).unwrap();
 
-    screen.key(KeyCode::Char('1'), KeyModifiers::CONTROL);
+    screen.prefixed('1');
 
     let shown = screen.wait_for("Not a directory");
     assert_eq!(corners(&shown), 2, "{shown}");
@@ -249,7 +231,7 @@ fn alt_z_with_caps_lock_on_zooms() {
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = three_sessions(scratch.path());
 
-    screen.key(KeyCode::Char('Z'), KeyModifiers::ALT);
+    screen.prefixed('Z');
     screen.type_text("hi\r");
 
     let shown = screen.wait_for("acme agent 3 got:");
@@ -269,24 +251,6 @@ fn alt_z_from_the_sidebar_on_a_card_showing_its_editor_zooms_claude_code() {
 
     let shown = screen.wait_for("acme agent 1 got:");
     assert!(shown.contains("acme agent 1 got: hi"), "{shown}");
-    assert_eq!(corners(&shown), 0, "{shown}");
-}
-
-#[test]
-fn ctrl_l_while_zoomed_shows_the_editor_zoomed_and_alt_z_reaches_it() {
-    let scratch = tempfile::tempdir().unwrap();
-    let editor = Program::new("acme-edit", asking_editor());
-    let mut screen = Screen::editing(lined_agent(scratch.path()), editor);
-    screen.press('n');
-    screen.wait_for("acme agent 1");
-    zoom(&mut screen);
-
-    screen.key(KeyCode::Char('l'), KeyModifiers::CONTROL);
-    screen.wait_for("acme editor ready");
-    zoom(&mut screen);
-
-    let shown = screen.wait_for("acme editor read:");
-    assert!(shown.contains("acme editor read: 1b"), "{shown}");
     assert_eq!(corners(&shown), 0, "{shown}");
 }
 
@@ -349,7 +313,7 @@ fn a_zoomed_session_gets_no_click_on_the_top_row_and_its_origin_from_the_row_bel
 }
 
 fn zoom(screen: &mut Screen) {
-    screen.key(KeyCode::Char('z'), KeyModifiers::ALT);
+    screen.prefixed('z');
 }
 
 pub(crate) fn corners(shown: &str) -> usize {

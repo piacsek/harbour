@@ -14,7 +14,7 @@ use crate::{Screen, reading_agent, script};
 fn the_popup_shows_the_loading_animation_until_the_report_has_finished() {
     let mut screen = Screen::of(app().with_usage(script("exec sleep 600")));
 
-    screen.press('u');
+    screen.prefixed('u');
 
     let shown = screen.draw();
     assert!(shown.contains(" usage "), "{shown}");
@@ -27,7 +27,7 @@ fn the_popup_shows_the_loading_animation_until_the_report_has_finished() {
 fn the_loading_popup_says_how_to_show_the_text_and_close_it() {
     let mut screen = Screen::of(app().with_usage(script("exec sleep 600")));
 
-    screen.press('u');
+    screen.prefixed('u');
 
     let shown = screen.draw();
     assert!(shown.contains("  t text · Esc close"), "{shown}");
@@ -37,7 +37,7 @@ fn the_loading_popup_says_how_to_show_the_text_and_close_it() {
 #[test]
 fn t_before_anything_printed_says_so_and_how_to_go_back() {
     let mut screen = Screen::of(app().with_usage(script("exec sleep 600")));
-    screen.press('u');
+    screen.prefixed('u');
 
     screen.press('t');
 
@@ -50,7 +50,7 @@ fn t_before_anything_printed_says_so_and_how_to_go_back() {
 #[test]
 fn nothing_printed_yet_is_dim() {
     let mut screen = Screen::of(app().with_usage(script("exec sleep 600")));
-    screen.press('u');
+    screen.prefixed('u');
 
     screen.press('t');
 
@@ -63,7 +63,7 @@ fn nothing_printed_yet_is_dim() {
 fn the_text_view_while_loading_drops_its_note_once_something_printed() {
     let mut screen =
         Screen::of(app().with_usage(script("echo 'acme usage begins'; exec sleep 600")));
-    screen.press('u');
+    screen.prefixed('u');
 
     screen.press('t');
 
@@ -74,7 +74,7 @@ fn the_text_view_while_loading_drops_its_note_once_something_printed() {
 #[test]
 fn the_loading_animation_moves_with_the_clock_while_nothing_else_changes() {
     let mut screen = Screen::of(app().with_usage(script("exec sleep 600")));
-    screen.press('u');
+    screen.prefixed('u');
     let first = bar(&screen.draw());
 
     let shown = screen.wait_until("the patch to move", |shown| bar(shown) != first);
@@ -86,7 +86,7 @@ fn the_loading_animation_moves_with_the_clock_while_nothing_else_changes() {
 fn a_report_that_prints_nothing_says_so() {
     let mut screen = Screen::of(app().with_usage(script("exit 0")));
 
-    screen.press('u');
+    screen.prefixed('u');
 
     let shown = screen.wait_for("printed nothing");
     assert!(!shown.contains("reading usage…"), "{shown}");
@@ -97,7 +97,7 @@ fn a_report_that_fails_keeps_what_it_printed_and_names_its_exit_code() {
     let failing = script("echo 'acme usage: not logged in'; exit 3");
     let mut screen = Screen::of(app().with_usage(failing));
 
-    screen.press('u');
+    screen.prefixed('u');
 
     let shown = screen.wait_for(" exit 3 ");
     assert!(shown.contains("acme usage: not logged in"), "{shown}");
@@ -106,7 +106,7 @@ fn a_report_that_fails_keeps_what_it_printed_and_names_its_exit_code() {
 #[test]
 fn a_report_that_succeeds_names_no_exit_code() {
     let mut screen = Screen::of(app().with_usage(placed_report()));
-    screen.press('u');
+    screen.prefixed('u');
     screen.wait_for("acme usage in");
 
     std::thread::sleep(Duration::from_millis(300));
@@ -119,7 +119,7 @@ fn a_report_that_succeeds_names_no_exit_code() {
 fn the_report_runs_in_harbours_private_folder_without_a_session() {
     let mut screen = Screen::of(app().with_usage(placed_report()));
 
-    screen.press('u');
+    screen.prefixed('u');
 
     let shown = screen.wait_for("acme usage in");
     assert!(shown.contains("acme usage in usage"), "{shown}");
@@ -133,7 +133,7 @@ fn the_report_runs_in_harbours_private_folder_and_not_in_the_selected_sessions_d
     std::fs::write(web.join(".claude/settings.json"), "{}").unwrap();
     let mut screen = placed(&web);
 
-    screen.press('u');
+    screen.prefixed('u');
 
     let shown = screen.wait_for("acme usage in");
     assert!(shown.contains("acme usage in usage"), "{shown}");
@@ -149,7 +149,7 @@ fn the_private_folder_is_made_for_its_owner_only() {
         .with_usage(placed_report());
     let mut screen = Screen::of(app);
 
-    screen.press('u');
+    screen.prefixed('u');
 
     screen.wait_for("acme usage in usage");
     assert_eq!(mode(&place), 0o700);
@@ -166,7 +166,7 @@ fn a_private_folder_left_open_to_others_is_closed_again() {
         .with_usage(placed_report());
     let mut screen = Screen::of(app);
 
-    screen.press('u');
+    screen.prefixed('u');
 
     screen.wait_for("acme usage in usage");
     assert_eq!(mode(&place), 0o700);
@@ -179,7 +179,7 @@ fn without_a_state_folder_u_opens_no_popup_and_says_why() {
         .with_usage(placed_report());
     let mut screen = Screen::of(app);
 
-    screen.press('u');
+    screen.prefixed('u');
 
     let shown = screen.draw();
     assert!(!shown.contains(" usage "), "{shown}");
@@ -199,7 +199,7 @@ fn a_private_folder_that_cannot_be_made_opens_no_popup_and_says_so() {
         .with_usage(placed_report());
     let mut screen = Screen::of(app);
 
-    screen.press('u');
+    screen.prefixed('u');
 
     let shown = screen.draw();
     assert!(!shown.contains(" usage "), "{shown}");
@@ -213,7 +213,7 @@ fn a_report_that_prints_and_exits_at_once_never_flashes_printed_nothing() {
     let mut nothing = 0;
 
     for _ in 0..10 {
-        screen.press('u');
+        screen.prefixed('u');
         screen.wait_until("the quick report", |shown| {
             nothing += usize::from(shown.contains("printed nothing"));
             shown.contains("acme quick report")
@@ -228,7 +228,7 @@ fn a_report_that_prints_and_exits_at_once_never_flashes_printed_nothing() {
 fn a_finished_report_comes_back_whole_after_the_terminal_shrinks_and_widens() {
     let line = "acme weekly limit: 41% spent, resets on the first day of the month";
     let mut screen = Screen::of(app().with_usage(script(&format!("echo '{line}'"))));
-    screen.press('u');
+    screen.prefixed('u');
     screen.wait_for(line);
     std::thread::sleep(Duration::from_millis(300));
     screen.draw();
@@ -246,7 +246,7 @@ fn a_report_whose_child_holds_the_terminal_is_decided_once_it_exits() {
     let held = script("(trap '' HUP; exec sleep 8) & exit 3");
     let mut screen = Screen::of(app().with_usage(held));
 
-    screen.press('u');
+    screen.prefixed('u');
 
     let shown = screen.wait_for(" exit 3 ");
     assert!(shown.contains("printed nothing"), "{shown}");
@@ -257,7 +257,7 @@ fn a_report_longer_than_the_popup_shows_its_start() {
     let long = script("for n in $(seq 1 40); do echo \"acme line $n.\"; done");
     let mut screen = Screen::of(app().with_usage(long));
 
-    screen.press('u');
+    screen.prefixed('u');
 
     let shown = screen.wait_for("acme line 1.");
     assert!(!shown.contains("acme line 40."), "{shown}");
@@ -268,7 +268,7 @@ fn the_popup_takes_a_terminal_smaller_than_it() {
     let mut screen = Screen::of(app().with_usage(placed_report()));
     screen.resize(40, 12);
 
-    screen.press('u');
+    screen.prefixed('u');
 
     let shown = screen.wait_for("acme usage in");
     let first = shown.lines().next().unwrap();
@@ -283,7 +283,7 @@ fn the_popup_is_80_by_30_on_a_larger_terminal() {
     let mut screen = Screen::of(app().with_usage(placed_report()));
     screen.resize(120, 40);
 
-    screen.press('u');
+    screen.prefixed('u');
 
     let shown = screen.wait_for("acme usage in");
     let top = shown

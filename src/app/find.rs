@@ -1,10 +1,7 @@
 use std::path::Path;
 
-use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
-
 use super::{App, Entry, draw, refusal};
 use crate::finder;
-use crate::input::ESCAPED;
 use crate::mouse::Gesture;
 use crate::picker::{self, Pick, Picker};
 
@@ -18,23 +15,6 @@ pub(super) struct Who {
 }
 
 impl App {
-    pub(super) fn find_by_key(&mut self, key: KeyEvent) -> bool {
-        if !is_find(key) {
-            return false;
-        }
-        let on_editor = self
-            .sessions
-            .get(self.selected)
-            .is_some_and(|entry| entry.showing_editor().is_some());
-        if self.pane_focused && on_editor {
-            return false;
-        }
-        if !self.sessions.is_empty() {
-            self.open_finder();
-        }
-        true
-    }
-
     pub(super) fn found(&mut self, finding: Option<Vec<Who>>, line: &[u8]) {
         let Some(who) = finder::chosen(line).and_then(|n| finding?.into_iter().nth(n)) else {
             self.failed = Some(UNREAD.to_string());
@@ -111,11 +91,4 @@ fn who(entry: &Entry) -> Who {
         id: entry.session.is_some().then_some(entry.id),
         remembered: entry.remembered.clone(),
     }
-}
-
-pub(super) fn is_find(key: KeyEvent) -> bool {
-    matches!(key.code, KeyCode::Char('s' | 'S'))
-        && key.modifiers == KeyModifiers::ALT
-        && key.kind == KeyEventKind::Press
-        && !key.state.contains(ESCAPED)
 }

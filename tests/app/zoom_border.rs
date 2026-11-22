@@ -145,7 +145,7 @@ fn leaving_zoom_takes_the_session_off_the_top_row() {
 }
 
 fn zoom(screen: &mut Screen) {
-    screen.key(KeyCode::Char('z'), KeyModifiers::ALT);
+    screen.prefixed('z');
 }
 
 pub(crate) fn started(screen: &mut Screen) {
