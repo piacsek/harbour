@@ -41,7 +41,8 @@ file under `plans/`; its time and tokens are a row of [`plans/metrics.md`](plans
 | 31 | [the usage popup draws its report as bars](plans/phase-31-usage-bars.md) | [v0.26.0](https://github.com/piacsek/harbour/releases/tag/v0.26.0) |
 | 32 | [read the changelog inside harbour with c](plans/phase-32-changelog-view.md) | [v0.27.0](https://github.com/piacsek/harbour/releases/tag/v0.27.0) |
 | 33 | [a loading animation in the usage popup](plans/phase-33-usage-loading.md) | [v0.28.0](https://github.com/piacsek/harbour/releases/tag/v0.28.0) |
-| 34 | [C-j and C-k move to the tmux pane below or above harbour](plans/phase-34-tmux-pane-navigation.md) | |
+| 34 | [C-j and C-k move to the tmux pane below or above harbour](plans/phase-34-tmux-pane-navigation.md) | [v0.29.0](https://github.com/piacsek/harbour/releases/tag/v0.29.0) |
+| 35 | [choose the glyph of the Claude pane](plans/phase-35-claude-icon.md) | |
 
 ## Backlog
 

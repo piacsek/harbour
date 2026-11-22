@@ -9,6 +9,7 @@ use ratatui::style::Color;
 use serde::Deserialize;
 use toml::{Spanned, Value};
 
+use crate::icons::ClaudeIcon;
 use crate::tui::{DIR_PICKER, EDITOR, SESSION_COMMAND};
 
 const LONGEST: u64 = 64 * 1024;
@@ -16,6 +17,7 @@ const PROGRAM: &str = "expected a list of strings: the program, then its argumen
 const WIDTH: &str = "expected a whole number of columns above 0";
 const ACCENT: &str = "expected one of the 16 colour names or #rrggbb";
 const BOOLEAN: &str = "expected true or false";
+const CLAUDE_ICON: &str = "expected \"sparkle\" or \"clawd\"";
 
 #[derive(Debug, PartialEq)]
 pub enum Source {
@@ -46,6 +48,7 @@ pub struct Config {
     sidebar_width: Setting<Option<u16>>,
     accent: Setting<Color>,
     nerd_font: Setting<bool>,
+    claude_icon: Setting<ClaudeIcon>,
     ignored: Vec<&'static str>,
 }
 
@@ -58,6 +61,7 @@ struct Written {
     sidebar_width: Option<Spanned<Value>>,
     accent: Option<Spanned<Value>>,
     nerd_font: Option<Spanned<Value>>,
+    claude_icon: Option<Spanned<Value>>,
 }
 
 struct Reader<'a> {
@@ -133,6 +137,9 @@ impl Config {
             nerd_font: reader
                 .boolean("nerd_font", written.nerd_font)?
                 .map_or_else(|| default(false), from_file),
+            claude_icon: reader
+                .claude_icon(written.claude_icon)?
+                .map_or_else(|| default(ClaudeIcon::Sparkle), from_file),
             path,
             ignored,
         })
@@ -183,6 +190,11 @@ impl Config {
                 "nerd_font",
                 &self.nerd_font.value.to_string(),
                 &self.nerd_font.source,
+            ),
+            line(
+                "claude_icon",
+                &quoted(self.claude_icon.value.name()),
+                &self.claude_icon.source,
             ),
         ]
         .map(|line| line + "\n")
@@ -339,6 +351,17 @@ impl Reader<'_> {
         match value.get_ref() {
             Value::Boolean(on) => Ok(Some(*on)),
             _ => Err(self.refusal(&value.span(), key, BOOLEAN)),
+        }
+    }
+
+    fn claude_icon(&self, value: Option<Spanned<Value>>) -> Result<Option<ClaudeIcon>, Refusal> {
+        let Some(value) = value else {
+            return Ok(None);
+        };
+        match value.get_ref() {
+            Value::String(name) if name == "sparkle" => Ok(Some(ClaudeIcon::Sparkle)),
+            Value::String(name) if name == "clawd" => Ok(Some(ClaudeIcon::Clawd)),
+            _ => Err(self.refusal(&value.span(), "claude_icon", CLAUDE_ICON)),
         }
     }
 

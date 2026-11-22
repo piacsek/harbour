@@ -399,3 +399,31 @@ fn refusal(home: &Path) -> String {
         Err(refusal) => refusal.to_string(),
     }
 }
+
+#[test]
+fn a_claude_icon_harbour_does_not_know_is_refused() {
+    let home = tempfile::tempdir().unwrap();
+    let path = write_config(home.path(), "nerd_font = true\nclaude_icon = \"Clawd\"\n");
+
+    assert_eq!(
+        refusal(home.path()),
+        format!(
+            "{}:2: claude_icon: expected \"sparkle\" or \"clawd\"",
+            path.display()
+        )
+    );
+}
+
+#[test]
+fn a_claude_icon_given_as_a_boolean_is_refused() {
+    let home = tempfile::tempdir().unwrap();
+    let path = write_config(home.path(), "claude_icon = true\n");
+
+    assert_eq!(
+        refusal(home.path()),
+        format!(
+            "{}:1: claude_icon: expected \"sparkle\" or \"clawd\"",
+            path.display()
+        )
+    );
+}
