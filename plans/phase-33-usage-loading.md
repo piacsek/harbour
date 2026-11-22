@@ -96,4 +96,19 @@ report is still being read the popup now shows a loading animation and nothing o
 
 ## Outcome
 
+- Shipped as decided above: `loading` in `src/usage.rs` (15 tests in `tests/usage_loading.rs`),
+  drawn by the popup until the report has finished, from the clock, and `t` while loading.
+  `src/tui.rs` is unchanged.
+- Tasks 2, 3 and 4 shipped as one commit: `loading` alone would have been dead code
+  (`tests/dead_code.rs`), and the tests of a report that never finishes read its text only
+  through `t` while loading, so neither half went green without the other.
+- Every test of a report that keeps running (`tests/app/usage.rs`, `with_usage_open` in
+  `tests/app/handoff.rs`) now presses `t` before reading its text; `acme-secret` in one of them
+  became `acme-hidden`, since its `t` now switches the view.
+- The `usage-loading` shot runs without `--demo` through a scratch `claude` script that sleeps;
+  no other image changed.
+
 ## Hurdles
+
+- `test-seam` Every test that read the text of a report still running had to press `t` first, found only by running the whole `app` target (three outside the usage files) → none
+- `process` Tasks 2 to 4 could not ship apart: the drawing function would have been dead code and the running-report tests needed `t` → none
