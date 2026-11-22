@@ -68,3 +68,5 @@ These parts of conveyor need a product to show or drive, so phase 0 left them ou
 over, renamed and with its tests, in the phase that gives harbour that interface.
 
 - `tests/stage_dispatch.rs`, once harbour has a dispatch to keep in one place.
+- `scripts/screenshots.sh` takes the names of the shots to render, so a change that touches one
+  view leaves the other images alone.

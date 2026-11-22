@@ -29,7 +29,7 @@ harbour, nor C-k one above. Neovim inside harbour already does it: it gets harbo
   `tmux list-keys -T root C-j` (or `C-k`), so the move happens only while tmux binds that key
   itself (as vim-tmux-navigator does; review round 1: a plain tmux user's C-j newline and C-k
   kill in Claude Code must stay), then `tmux display-message -p -t <pane>
-  '#{pane_active}#{window_active}<edge>'`, then, only on an exact `110`, `tmux select-pane -D`
+  '#{pane_active}#{window_active}<edge>'`, then, only on an exact `110 <harbour's terminal>`, `tmux select-pane -D`
   or `-U -t <pane>`. The first two share one deadline of 100 ms (as the Neovim calls do); a
   call past it is killed and counts as no move. `select-pane` gets 100 ms of its own and counts
   as a move once started unless it fails (review round 2). The check also compares
@@ -70,7 +70,6 @@ harbour, nor C-k one above. Neovim inside harbour already does it: it gets harbo
 | tmux answers nothing within 100 ms (a stalled server) | killed; as today, the key late by at most 100 ms (200 ms when the move stalls) |
 | `TMUX_PANE` names a pane that is gone | `display-message` prints no `0`; as today |
 | The layout changes between the check and the move | the move follows tmux's layout at that instant (may wrap), accepted |
-| tmux moved but `select-pane` passed the deadline | killed; counts as no move, so the key also goes on |
 
 ## Tasks
 
@@ -86,4 +85,27 @@ harbour, nor C-k one above. Neovim inside harbour already does it: it gets harbo
 
 ## Outcome
 
+- Shipped: under tmux, C-j and C-k from the sidebar or Claude Code move to the tmux pane below or
+  above harbour, but only while tmux binds the key in its root table (vim-tmux-navigator does),
+  harbour's pane and window are the active ones, the pane is the terminal harbour draws on, and a
+  pane lies that way. Otherwise, and over a shown editor, the keys act as before.
+- Review round 1 found that a plain tmux user with a split lost C-j (newline) and C-k (kill to
+  end of line) in Claude Code. The binding check is the smallest fix that needs no setting; an
+  opt-in setting can replace it later without anyone losing anything.
+- Round 2 found a key that could be both a move and input when tmux was slow, and `TMUX`
+  inherited from another tmux moving that tmux. The move now has its own deadline and takes the
+  key once started; the check compares `#{pane_tty}` with harbour's terminal. `tmux` is found on
+  `PATH` once at start, relative entries from where harbour was opened.
+- Round 3 was clean. Left as minor: Ctrl-Shift-J and K count as C-j and C-k even when tmux's
+  extended keys deliver them past the navigator's C-j binding; `list-keys` with a key argument
+  needs tmux 3.1 or later, so an older tmux never moves; a deleted launch directory turns the
+  feature off; an EINTR in the poll counts as no answer; the tests compare the calls log as one
+  string.
+- Numbered 34, since #124 claimed 33; the branch keeps its name.
+
 ## Hurdles
+
+- `process` The phase number collided with an open pull request that claimed 33 first, so the plan was renamed mid-phase → none
+- `process` Tasks 2 and 3 landed in one commit, since the seam and its first caller were written together → none
+- `tooling` `scripts/screenshots.sh` re-renders every image, so each run needed the untouched ones restored by hand → backlog
+- `design` The first design took C-j and C-k from Claude Code whenever a pane lay that way, which the plan's state table missed: whether tmux binds the key at all → code
