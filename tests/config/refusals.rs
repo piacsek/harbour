@@ -393,13 +393,6 @@ fn a_config_folder_that_cannot_be_searched_is_refused() {
     );
 }
 
-fn refusal(home: &Path) -> String {
-    match read_at(home, None) {
-        Ok(_) => "read without a refusal".to_string(),
-        Err(refusal) => refusal.to_string(),
-    }
-}
-
 #[test]
 fn a_claude_icon_harbour_does_not_know_is_refused() {
     let home = tempfile::tempdir().unwrap();
@@ -426,4 +419,11 @@ fn a_claude_icon_given_as_a_boolean_is_refused() {
             path.display()
         )
     );
+}
+
+fn refusal(home: &Path) -> String {
+    match read_at(home, None) {
+        Ok(_) => "read without a refusal".to_string(),
+        Err(refusal) => refusal.to_string(),
+    }
 }

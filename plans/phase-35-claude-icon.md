@@ -58,4 +58,16 @@ apart, two token cells left `unknown`, four one-offs) and the owner parked the s
 deciding any of them; nothing was applied, and deciding them is a backlog line in `PLAN.md`. Phase 34's ready, merged and released were read from
 GitHub into `plans/metrics.md`.
 
+### Result
+
+`claude_icon` (`"sparkle"` by default, or `"clawd"`) picks the glyph before `claude` on the pane
+border and both side-by-side borders while `nerd_font` is on; `harbour --help` names U+100000 and
+Ghostty's `font-codepoint-map` line, and harbour ships no font or art. Two review rounds: round 1
+found five rule nits (the help screenshot, two plan rows, the parked sweep, the fragment's
+wording), all fixed; round 2 found three minor ones. Declined: renaming `"sparkle"` after its
+glyph (`md-creation`), the name the owner chose.
+
 ## Hurdles
+
+- `test-seam` the side-by-side tests waited for `acme-api · main`, which the card draws with icons in place of the dot once `nerd_font` is on → code
+- `process` the sweep was parked by the owner, so its findings wait in the backlog → backlog
