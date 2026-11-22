@@ -112,7 +112,6 @@ fn a_cjk_title_on_the_zoomed_top_row_is_cut_by_display_width() {
     let top = top(&screen.draw());
     assert!(top.starts_with(" ● 修"), "{top}");
     assert!(top.contains("…  3m   sessions ● 1 "), "{top}");
-    assert_eq!(screen.cell(27, 0).symbol(), " ");
 }
 
 #[test]

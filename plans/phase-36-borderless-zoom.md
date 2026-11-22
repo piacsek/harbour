@@ -64,4 +64,15 @@ Side by side (Alt-\) keeps its borders, its narrow form included.
 
 ## Outcome
 
+- Alt-z draws no box: row 1 holds the headline, the names and the counts as the boxed title held
+  them, with the full width as room, and the zoomed session gets every row below and every column.
+- Side by side keeps its borders, the narrow form under 120 columns included, now passed its room
+  (the width minus the corners) by the caller.
+- Two review rounds: round 1 found the new narrow side-by-side test failing on Linux, where the
+  short temp path left no rule character before the counts; it now pins the counts alone. The
+  cursor one row down and the one-row terminal, two rows of the States table, got tests too.
+
 ## Hurdles
+
+- `test-seam` a test pinned a rule character the macOS temp path's length happened to leave, and failed on Linux CI → code
+- `process` two new tests were green on their first run and had to be shown red by breaking the code → none

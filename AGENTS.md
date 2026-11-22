@@ -319,7 +319,7 @@ one still counts as must when it shows new impact.
   names is the merge (`.github/AGENTS.md`, "What the attestation proves").
 - **The border's and the cards' icons are counted as one column each**: a terminal set to draw
   ambiguous-width characters double-wide pushes the pane's top border out of place with
-  `nerd_font` on (`src/tabs.rs`), and a card's third line can reach the sidebar's border
+  `nerd_font` on, and the zoomed top row's names a column into its counts (`src/tabs.rs`), and a card's third line can reach the sidebar's border
   (`src/card.rs`).
 
 ## Documentation rule
