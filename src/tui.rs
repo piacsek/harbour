@@ -1,20 +1,23 @@
+use std::cell::RefCell;
 use std::collections::VecDeque;
 use std::io;
 use std::os::fd::AsFd;
 use std::panic::PanicHookInfo;
+use std::rc::Rc;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::time::Duration;
 
-use crossterm::cursor::{MoveTo, Show};
+use crossterm::cursor::{Hide, MoveTo, Show};
 use crossterm::event::{
     DisableBracketedPaste, DisableMouseCapture, EnableBracketedPaste, EnableMouseCapture, Event,
     KeyEventKind,
 };
+use crossterm::terminal::{BeginSynchronizedUpdate, EndSynchronizedUpdate};
 use crossterm::{execute, queue};
 use nix::errno::Errno;
-use ratatui::Terminal;
 use ratatui::backend::CrosstermBackend;
+use ratatui::{Terminal, TerminalOptions};
 use signal_hook::consts::{SIGHUP, SIGINT, SIGTERM};
 use signal_hook::low_level::{emulate_default_handler, signal_name};
 
@@ -100,14 +103,14 @@ fn ended(shown: io::Result<Option<i32>>) -> io::Result<()> {
 fn show(app: App) -> io::Result<Option<i32>> {
     let caught = caught()?;
     let app = app.with_mover(Box::new(|directory| std::env::set_current_dir(directory)));
-    let mut terminal = ratatui::init();
+    std::mem::forget(ratatui::init());
     let shape = Shape::default();
     std::panic::set_hook(panic_hook(shape.clone(), std::panic::take_hook()));
     let result = enter_terminal(&mut io::stdout())
-        .and_then(|()| drive(&mut terminal, app, shape.clone(), &caught));
+        .and_then(|()| Frames::new(TerminalOptions::default()))
+        .and_then(|mut frames| drive(&mut frames, app, shape.clone(), &caught));
     let _ = leave_terminal(&mut io::stdout(), &shape);
     let _ = ratatui::try_restore();
-    std::mem::forget(terminal);
     result.map(|ended| ended.or_else(|| signalled(&caught)))
 }
 
@@ -189,7 +192,7 @@ pub fn leave_terminal(out: &mut impl io::Write, shape: &Shape) -> io::Result<()>
 }
 
 fn drive(
-    terminal: &mut ratatui::DefaultTerminal,
+    frames: &mut Frames,
     mut app: App,
     mut shape: Shape,
     caught: &AtomicUsize,
@@ -199,7 +202,7 @@ fn drive(
     let mut pending = VecDeque::new();
     while app.running() {
         let stepped = step(
-            terminal,
+            frames,
             &mut app,
             &mut shape,
             &mut input,
@@ -214,14 +217,14 @@ fn drive(
 }
 
 fn step(
-    terminal: &mut ratatui::DefaultTerminal,
+    frames: &mut Frames,
     app: &mut App,
     shape: &mut Shape,
     input: &mut Input,
     pending: &mut VecDeque<Event>,
     stdin: &io::Stdin,
 ) -> io::Result<()> {
-    frame(terminal, app, shape, &mut io::stdout())?;
+    frames.draw(app, shape, &mut io::stdout().lock())?;
     if pending.is_empty() {
         pending.extend(input.read(stdin.as_fd(), Duration::from_millis(30))?);
     }
@@ -234,22 +237,52 @@ fn step(
     Ok(())
 }
 
-pub fn frame<W: io::Write>(
-    terminal: &mut Terminal<CrosstermBackend<W>>,
-    app: &mut App,
-    shape: &mut Shape,
-    out: &mut impl io::Write,
-) -> io::Result<()> {
-    out.write_all(b"\x1b[?25l")?;
-    terminal.try_draw(|frame| {
-        app.draw(frame);
-        shape.send(out, app.cursor_shape())
-    })?;
-    if let Some(at) = app.cursor_position() {
-        queue!(out, MoveTo(at.x, at.y), Show)?;
-        out.flush()?;
+#[derive(Clone, Default)]
+struct Held(Rc<RefCell<Vec<u8>>>);
+
+impl io::Write for Held {
+    fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
+        self.0.borrow_mut().extend_from_slice(bytes);
+        Ok(bytes.len())
     }
-    Ok(())
+
+    fn flush(&mut self) -> io::Result<()> {
+        Ok(())
+    }
+}
+
+pub struct Frames {
+    held: Held,
+    terminal: Terminal<CrosstermBackend<Held>>,
+}
+
+impl Frames {
+    pub fn new(options: TerminalOptions) -> io::Result<Frames> {
+        let held = Held::default();
+        let terminal = Terminal::with_options(CrosstermBackend::new(held.clone()), options)?;
+        Ok(Frames { held, terminal })
+    }
+
+    pub fn draw(
+        &mut self,
+        app: &mut App,
+        shape: &mut Shape,
+        out: &mut impl io::Write,
+    ) -> io::Result<()> {
+        let mut held = self.held.clone();
+        held.0.borrow_mut().clear();
+        queue!(held, BeginSynchronizedUpdate, Hide)?;
+        self.terminal.try_draw(|frame| {
+            app.draw(frame);
+            shape.send(&mut held, app.cursor_shape())
+        })?;
+        if let Some(at) = app.cursor_position() {
+            queue!(held, MoveTo(at.x, at.y), Show)?;
+        }
+        queue!(held, EndSynchronizedUpdate)?;
+        out.write_all(&held.0.take())?;
+        out.flush()
+    }
 }
 
 fn dir_picker(config: &Config) -> Picker {
