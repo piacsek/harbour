@@ -10,7 +10,7 @@ use crate::{Screen, script};
 const ID: &str = "4c3b2a19-0f8e-4d7c-9b6a-5f4e3d2c1b0a";
 
 #[test]
-fn the_zoomed_border_shows_the_session_and_the_counts() {
+fn the_zoomed_top_row_shows_the_session_and_the_counts() {
     let claude = Claude::new("Fix the login");
     let mut screen = Screen::of(claude.app());
     started(&mut screen);
@@ -39,7 +39,7 @@ fn the_zoomed_session_fills_every_row_below_the_top_one_edge_to_edge() {
 }
 
 #[test]
-fn the_zoomed_border_keeps_the_names_after_the_session() {
+fn the_zoomed_top_row_keeps_the_names_after_the_session() {
     let claude = Claude::new("Fix the login");
     let editor = Program::new("acme-edit", script("exec sleep 600"));
     let mut screen = Screen::of(claude.app().with_editor(editor));
@@ -75,7 +75,7 @@ fn a_long_editor_directory_leaves_the_session_its_dot_and_title() {
 }
 
 #[test]
-fn a_narrow_zoomed_border_cuts_the_session_and_keeps_the_counts() {
+fn a_narrow_zoomed_top_row_cuts_the_session_and_keeps_the_counts() {
     let claude = Claude::new("Fix the login");
     let mut screen = Screen::of(claude.app());
     started(&mut screen);
@@ -88,7 +88,7 @@ fn a_narrow_zoomed_border_cuts_the_session_and_keeps_the_counts() {
 }
 
 #[test]
-fn the_narrowest_zoomed_border_keeps_the_counts_and_the_dot_with_a_column_of_title() {
+fn the_narrowest_zoomed_top_row_keeps_the_counts_and_the_dot_with_a_column_of_title() {
     let claude = Claude::new("Fix the login");
     let mut screen = Screen::of(claude.app());
     started(&mut screen);
@@ -101,7 +101,7 @@ fn the_narrowest_zoomed_border_keeps_the_counts_and_the_dot_with_a_column_of_tit
 }
 
 #[test]
-fn a_cjk_title_on_the_zoomed_border_is_cut_by_display_width() {
+fn a_cjk_title_on_the_zoomed_top_row_is_cut_by_display_width() {
     let claude = Claude::new("修正ログイン");
     let mut screen = Screen::of(claude.app());
     started(&mut screen);
@@ -116,7 +116,24 @@ fn a_cjk_title_on_the_zoomed_border_is_cut_by_display_width() {
 }
 
 #[test]
-fn leaving_zoom_takes_the_session_off_the_border() {
+fn a_one_row_terminal_shows_the_zoomed_top_row_alone() {
+    let claude = Claude::new("Fix the login");
+    let mut screen = Screen::of(claude.app());
+    started(&mut screen);
+    zoom(&mut screen);
+
+    screen.resize(60, 1);
+
+    let shown = screen.draw();
+    assert!(
+        shown.starts_with(" ● Fix the login  acme-api · main  3m "),
+        "{shown}"
+    );
+    assert!(!shown.contains("acme agent"), "{shown}");
+}
+
+#[test]
+fn leaving_zoom_takes_the_session_off_the_top_row() {
     let claude = Claude::new("Fix the login");
     let mut screen = Screen::of(claude.app());
     started(&mut screen);
