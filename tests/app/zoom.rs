@@ -12,7 +12,7 @@ use harbour::input::ESCAPED;
 use crate::handing::answering;
 use crate::handoff::{file, harbour, soon, start_in};
 use crate::remembering::{ID, Scratch, TITLE};
-use crate::{Screen, numbered_agent, pane_corner, script};
+use crate::{Screen, numbered_agent, pane_corner, raw_agent, script};
 
 #[test]
 fn alt_z_from_the_sidebar_shows_the_selected_pane_alone_and_focuses_it() {
@@ -24,7 +24,7 @@ fn alt_z_from_the_sidebar_shows_the_selected_pane_alone_and_focuses_it() {
 
     let shown = screen.wait_for("acme agent 3 got:");
     assert!(shown.contains("acme agent 3 got: hi"), "{shown}");
-    assert_eq!(corners(&shown), 1, "{shown}");
+    assert_eq!(corners(&shown), 0, "{shown}");
 }
 
 #[test]
@@ -49,7 +49,7 @@ fn alt_z_from_the_claude_code_pane_zooms_it() {
 
     zoom(&mut screen);
 
-    assert_eq!(corners(&screen.draw()), 1);
+    assert_eq!(corners(&screen.draw()), 0);
 }
 
 #[test]
@@ -159,7 +159,7 @@ fn a_jump_while_zoomed_shows_the_jumped_to_session_still_zoomed() {
 
     let shown = screen.wait_for("acme agent 2 got:");
     assert!(shown.contains("acme agent 2 got: hi"), "{shown}");
-    assert_eq!(corners(&shown), 1, "{shown}");
+    assert_eq!(corners(&shown), 0, "{shown}");
 }
 
 #[test]
@@ -221,7 +221,7 @@ fn harbour_edit_opening_a_file_in_another_session_keeps_the_zoom() {
 
     let shown = screen.wait_for("acme nvim ready");
     assert!(shown.contains("acme nvim ready"), "{shown}");
-    assert_eq!(corners(&shown), 1, "{shown}");
+    assert_eq!(corners(&shown), 0, "{shown}");
 }
 
 #[test]
@@ -254,7 +254,7 @@ fn alt_z_with_caps_lock_on_zooms() {
 
     let shown = screen.wait_for("acme agent 3 got:");
     assert!(shown.contains("acme agent 3 got: hi"), "{shown}");
-    assert_eq!(corners(&shown), 1, "{shown}");
+    assert_eq!(corners(&shown), 0, "{shown}");
 }
 
 #[test]
@@ -269,7 +269,7 @@ fn alt_z_from_the_sidebar_on_a_card_showing_its_editor_zooms_claude_code() {
 
     let shown = screen.wait_for("acme agent 1 got:");
     assert!(shown.contains("acme agent 1 got: hi"), "{shown}");
-    assert_eq!(corners(&shown), 1, "{shown}");
+    assert_eq!(corners(&shown), 0, "{shown}");
 }
 
 #[test]
@@ -287,7 +287,7 @@ fn ctrl_l_while_zoomed_shows_the_editor_zoomed_and_alt_z_reaches_it() {
 
     let shown = screen.wait_for("acme editor read:");
     assert!(shown.contains("acme editor read: 1b"), "{shown}");
-    assert_eq!(corners(&shown), 1, "{shown}");
+    assert_eq!(corners(&shown), 0, "{shown}");
 }
 
 #[test]
@@ -330,7 +330,22 @@ fn alt_z_from_the_sidebar_clears_the_failure_shown_there() {
 
     let shown = screen.draw();
     assert!(!shown.contains("acme-edit exited"), "{shown}");
-    assert_eq!(corners(&shown), 1, "{shown}");
+    assert_eq!(corners(&shown), 0, "{shown}");
+}
+
+#[test]
+fn a_zoomed_session_gets_no_click_on_the_top_row_and_its_origin_from_the_row_below() {
+    let mut screen = Screen::new(raw_agent("\\033[?1000h\\033[?1006h", 9));
+    screen.press('n');
+    screen.wait_for("acme agent ready");
+    zoom(&mut screen);
+    screen.draw();
+
+    screen.mouse(MouseEventKind::Down(MouseButton::Left), 5, 0);
+    screen.mouse(MouseEventKind::Down(MouseButton::Left), 0, 1);
+
+    let shown = screen.wait_for("acme agent read:");
+    assert!(shown.contains("acme agent read:[<0;1;1M"), "{shown}");
 }
 
 fn zoom(screen: &mut Screen) {

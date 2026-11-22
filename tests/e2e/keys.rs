@@ -333,9 +333,9 @@ fn alt_z_zooms_the_selected_session_with_extended_keys_on() {
     server.send_keys(&["M-z", "a"]);
 
     let screen = server.wait_until("the zoomed pane", |screen| {
-        corners(screen) == 1 && screen.contains("read:a")
+        corners(screen) == 0 && screen.contains("read:a")
     });
-    assert_eq!(corners(&screen), 1, "{screen}");
+    assert_eq!(corners(&screen), 0, "{screen}");
     assert!(screen.contains("read:a"), "{screen}");
 }
 
@@ -349,9 +349,9 @@ fn alt_z_zooms_the_selected_session_in_the_csi_u_form() {
     server.send_keys(&["M-z", "a"]);
 
     let screen = server.wait_until("the zoomed pane", |screen| {
-        corners(screen) == 1 && screen.contains("read:a")
+        corners(screen) == 0 && screen.contains("read:a")
     });
-    assert_eq!(corners(&screen), 1, "{screen}");
+    assert_eq!(corners(&screen), 0, "{screen}");
     assert!(screen.contains("read:a"), "{screen}");
 }
 

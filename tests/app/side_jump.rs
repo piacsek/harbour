@@ -89,8 +89,8 @@ fn a_jump_to_a_session_whose_editor_cannot_start_zooms_its_claude_code_with_the_
     ctrl(&mut screen, '2');
 
     let shown = screen.wait_for("Not a directory");
-    assert_eq!(corners(&shown), 1, "{shown}");
-    assert!(shown.lines().next().unwrap().ends_with('┓'), "{shown}");
+    assert_eq!(corners(&shown), 0, "{shown}");
+    assert!(!shown.lines().next().unwrap().ends_with('┓'), "{shown}");
     assert!(shown.contains("acme agent 2"), "{shown}");
     assert!(!shown.contains("acme editor ready"), "{shown}");
     assert!(screen.cursor().is_some(), "{shown}");

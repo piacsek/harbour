@@ -42,13 +42,13 @@ impl App {
                 .is_some_and(|entry| !entry.ended());
     }
 
-    pub(super) fn zoom_border(
+    pub(super) fn zoom_heading(
         &self,
         block: Block<'static>,
-        width: u16,
+        room: u16,
         counts: Counts,
     ) -> Block<'static> {
-        let room = usize::from(width.saturating_sub(2));
+        let room = usize::from(room);
         let counted = state::title(counts, room);
         let left = room.saturating_sub(counted.width());
         let headline = self.headline_of(self.selected);

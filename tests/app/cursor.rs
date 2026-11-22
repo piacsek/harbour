@@ -24,6 +24,17 @@ fn the_terminal_cursor_sits_on_the_pane_cursor_cell() {
 }
 
 #[test]
+fn a_zoomed_session_keeps_its_cursor_cell_below_the_top_row_from_the_first_column() {
+    let mut screen = Screen::new(shaped_agent("6"));
+    focused_on_the_pane(&mut screen);
+
+    screen.key(KeyCode::Char('z'), KeyModifiers::ALT);
+    screen.draw();
+
+    assert_eq!(screen.cursor(), Some(Position::new(21, 3)));
+}
+
+#[test]
 fn the_app_asks_for_the_shape_the_shown_program_set() {
     let mut screen = Screen::new(shaped_agent("6"));
     screen.press('n');

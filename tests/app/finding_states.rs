@@ -430,7 +430,7 @@ fn a_pick_while_zoomed_stays_zoomed() {
     screen.type_text("hi\r");
 
     let shown = screen.wait_for("acme agent 2 got:");
-    assert_eq!(corners(&shown), 1, "{shown}");
+    assert_eq!(corners(&shown), 0, "{shown}");
 }
 
 fn alt_s(screen: &mut Screen) {
