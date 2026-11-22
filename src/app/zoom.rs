@@ -16,12 +16,22 @@ impl App {
         if !is_zoom(key) {
             return false;
         }
-        let Some(entry) = self.sessions.get_mut(self.selected) else {
-            return true;
-        };
-        if self.pane_focused && entry.showing_editor().is_some() {
+        if self.pane_focused
+            && self
+                .sessions
+                .get(self.selected)
+                .is_some_and(|entry| entry.showing_editor().is_some())
+        {
             return false;
         }
+        self.zoom();
+        true
+    }
+
+    pub(super) fn zoom(&mut self) {
+        let Some(entry) = self.sessions.get_mut(self.selected) else {
+            return;
+        };
         if self.zoomed {
             self.zoomed = false;
         } else if !entry.ended() {
@@ -31,7 +41,6 @@ impl App {
             self.pane_focused = true;
             self.failed = None;
         }
-        true
     }
 
     pub(super) fn settle_zoom(&mut self) {

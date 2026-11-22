@@ -221,7 +221,7 @@ fn a_stopped_card_whose_directory_is_gone_says_why_as_enter_would() {
 
 #[test]
 fn the_keys_a_terminal_without_extended_keys_sends_for_ctrl_one_to_ctrl_nine_reach_the_session() {
-    let mut screen = Screen::new(raw_reader(9));
+    let mut screen = Screen::new(raw_reader(8));
     screen.press('n');
     screen.wait_for("acme agent ready");
     screen.key(KeyCode::Enter, KeyModifiers::NONE);
@@ -232,13 +232,12 @@ fn the_keys_a_terminal_without_extended_keys_sends_for_ctrl_one_to_ctrl_nine_rea
     screen.key(KeyCode::Char('\\'), KeyModifiers::CONTROL);
     screen.key(KeyCode::Char(']'), KeyModifiers::CONTROL);
     screen.key(KeyCode::Char('^'), KeyModifiers::CONTROL);
-    screen.key(KeyCode::Char('_'), KeyModifiers::CONTROL);
     screen.key(KeyCode::Backspace, KeyModifiers::NONE);
     screen.press('9');
 
     let shown = screen.wait_for("acme agent read:");
     assert!(
-        shown.contains("acme agent read: 31 00 1b 1c 1d 1e 1f 7f 39"),
+        shown.contains("acme agent read: 31 00 1b 1c 1d 1e 7f 39"),
         "{shown}"
     );
 }

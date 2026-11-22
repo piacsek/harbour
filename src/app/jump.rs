@@ -19,12 +19,16 @@ impl App {
         let Some(position) = position(key) else {
             return false;
         };
+        self.jump_to(position);
+        true
+    }
+
+    pub(super) fn jump_to(&mut self, position: usize) {
         let index = match position {
             9 => self.sessions.len().saturating_sub(1),
             position => position - 1,
         };
         self.jump(index);
-        true
     }
 }
 

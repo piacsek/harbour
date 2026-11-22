@@ -60,7 +60,7 @@ impl App {
         }
     }
 
-    fn open_finder(&mut self) {
+    pub(super) fn open_finder(&mut self) {
         let fzf = match &self.picker {
             None => vec!["fzf".to_string()],
             Some(Picker::Command(fzf) | Picker::Fuzzy { fzf, .. } | Picker::Listed { fzf, .. }) => {

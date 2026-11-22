@@ -140,6 +140,16 @@ impl App {
         self.log_changes();
     }
 
+    pub(super) fn log_prefix(&mut self, what: &str) {
+        self.logging.forwarded = true;
+        let line = if what.is_empty() {
+            "prefix".to_string()
+        } else {
+            format!("prefix {what}")
+        };
+        self.logging.log.write(|| line);
+    }
+
     pub(super) fn log_resized(&mut self) {
         self.logging.resized = true;
     }

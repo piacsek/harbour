@@ -33,6 +33,9 @@ impl App {
         if self.dismiss(is_yes(key)) {
             return;
         }
+        if self.prefix_key(key) {
+            return;
+        }
         if self.sidebar.is_empty() && !self.sessions.is_empty() {
             self.failed = None;
         }
@@ -85,19 +88,7 @@ impl App {
             self.touch();
             return;
         }
-        let on_editor = self
-            .sessions
-            .get(self.selected)
-            .is_some_and(|entry| entry.showing_editor().is_some());
-        if let Some(session) = self.focused() {
-            let bytes = if on_editor {
-                beside(session, key)
-            } else {
-                keys::encode(key, session.application_cursor())
-            };
-            session.send(&bytes);
-            self.log_input(Input::Shown, bytes.len());
-            self.touch();
+        if self.forward(key) {
             return;
         }
         match acted.code {
@@ -123,6 +114,25 @@ impl App {
         }
     }
 
+    pub(super) fn forward(&mut self, key: KeyEvent) -> bool {
+        let on_editor = self
+            .sessions
+            .get(self.selected)
+            .is_some_and(|entry| entry.showing_editor().is_some());
+        let Some(session) = self.focused() else {
+            return false;
+        };
+        let bytes = if on_editor {
+            beside(session, key)
+        } else {
+            keys::encode(key, session.application_cursor())
+        };
+        session.send(&bytes);
+        self.log_input(Input::Shown, bytes.len());
+        self.touch();
+        true
+    }
+
     pub(super) fn focus_or_resume(&mut self) {
         if !self.resume() {
             self.pane_focused = !self.sessions.is_empty();
@@ -131,7 +141,7 @@ impl App {
         }
     }
 
-    fn next_editor(&mut self) {
+    pub(super) fn next_editor(&mut self) {
         let Some(entry) = self.sessions.get_mut(self.selected) else {
             return;
         };
@@ -146,7 +156,7 @@ impl App {
         self.pane_focused = true;
     }
 
-    fn end_or_remove(&mut self) {
+    pub(super) fn end_or_remove(&mut self) {
         let Some(entry) = self.sessions.get_mut(self.selected) else {
             return;
         };
@@ -158,7 +168,7 @@ impl App {
         }
     }
 
-    fn quit(&mut self) {
+    pub(super) fn quit(&mut self) {
         if self.sessions.iter_mut().any(Entry::running) {
             let changes = changes(self.sessions.iter().flat_map(|entry| &entry.editors));
             self.asking = Some(Question::Quit(changes));
@@ -168,7 +178,7 @@ impl App {
         }
     }
 
-    fn pick_or_start(&mut self) {
+    pub(super) fn pick_or_start(&mut self) {
         let Some(picker) = &self.picker else {
             self.start();
             return;

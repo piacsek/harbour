@@ -44,10 +44,20 @@ for the clean break.
   `changelog.rs`, `usage.rs`, `cursor.rs`, `ending.rs`, `logging.rs`, `neovim.rs`;
   `tests/e2e/` `keys.rs`, `finding.rs`, `editor.rs`. `scripts/screenshots.sh` presses `M-z`,
   `M-\`, `M-}`, `M-s` (with tmux's `extended-keys` on for those shots), `?`, `q`, `u` and `c`.
-- **Not yet checked**: whether Claude Code's prompt binds `C-/` or `C-_` (task 1 runs it in a
-  session and presses both), and which terminals send nothing for `C-/` (macOS Terminal.app is
-  believed to; task 1 writes down what it finds, and the `--help` note names `C-_` and the
-  `prefix` setting for them).
+- **Claude Code 2.1.330 reads `0x1f` as undo** (checked in task 1 from its bundled default
+  keybindings, since its prompt cannot run under a scratch configuration without signing in):
+  `ctrl+_`, `ctrl+-`, `ctrl+shift+-` and `ctrl+shift+_` all map to `chat:undo`, with the tip "To
+  undo typing, press ctrl+_"; nothing binds `ctrl+/`. Claude Code always gets the legacy byte, so
+  `C-/ C-/` reaches its prompt as undo.
+- **A real terminal's bytes under tmux 3.8** (checked in task 1 by writing raw bytes into an
+  attached client's PTY, `TERM=xterm-256color`, `terminal-features xterm*:extkeys`): with the
+  program not asking for extended keys, `0x1f`, `ESC [ 47 ; 5 u` and `ESC [ 27 ; 5 ; 47 ~` all
+  arrive as `0x1f`, with `extended-keys` off, on or always; with `extended-keys` off it is `0x1f`
+  even when the program asks; with it on or always and the program at `modifyOtherKeys` 2, `0x1f`
+  arrives as `ESC [ 27 ; 5 ; 95 ~` (Ctrl with `_`) and both extended forms of `C-/` as
+  `ESC [ 27 ; 5 ; 47 ~`. So the prefix matches Ctrl with `/` or `_` in every form. Which
+  terminals send nothing for `C-/` was not checked on a real one; the `--help` note names `C-_`
+  and the `prefix` setting for them.
 
 ## Decided
 

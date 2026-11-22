@@ -31,6 +31,7 @@ mod navigating;
 mod nearest;
 mod neovim;
 mod picker;
+mod prefix;
 mod real_neovim;
 mod reconciling;
 mod refusing;
@@ -112,6 +113,11 @@ impl Screen {
 
     fn press(&mut self, c: char) {
         self.key(KeyCode::Char(c), KeyModifiers::NONE);
+    }
+
+    fn prefixed(&mut self, c: char) {
+        self.key(KeyCode::Char('/'), KeyModifiers::CONTROL);
+        self.press(c);
     }
 
     fn key(&mut self, code: KeyCode, modifiers: KeyModifiers) {

@@ -11,6 +11,7 @@ pub mod handoff;
 pub mod help;
 pub mod icons;
 pub mod input;
+pub mod keymap;
 pub mod keys;
 pub mod log;
 pub mod memory;

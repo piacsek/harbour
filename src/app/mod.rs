@@ -14,6 +14,7 @@ mod jump;
 mod key;
 mod logging;
 mod navigate;
+mod prefix;
 mod read;
 mod remember;
 mod side;
@@ -30,6 +31,7 @@ use crate::editor::{Changes, Editor, Program};
 use crate::follow::{self, Follow, Mover};
 use crate::handoff::Listener;
 use crate::icons::ClaudeIcon;
+use crate::keymap::Keymap;
 use crate::memory::{Memory, Remembered, Reservation};
 use crate::mouse::{self, Gesture, Target};
 use crate::picker::{Pick, Picked, Picker};
@@ -90,6 +92,8 @@ pub struct App {
     handoff: Option<Listener>,
     temporary: PathBuf,
     tmux: Option<Tmux>,
+    keymap: Keymap,
+    prefixing: prefix::Prefixing,
     logging: logging::Logging,
 }
 
@@ -221,6 +225,8 @@ impl App {
             handoff: None,
             temporary: follow::temporary(),
             tmux: None,
+            keymap: Keymap::default(),
+            prefixing: prefix::Prefixing::default(),
             logging: logging::Logging::default(),
         }
     }
@@ -349,6 +355,7 @@ impl App {
     }
 
     fn paste_handled(&mut self, text: &str) {
+        self.cancel_prefix();
         if self.usage_paste(text) {
             return;
         }
@@ -373,6 +380,9 @@ impl App {
     }
 
     fn mouse_handled(&mut self, event: MouseEvent) {
+        if matches!(event.kind, MouseEventKind::Down(_)) {
+            self.cancel_prefix();
+        }
         if self.usage_mouse(event) {
             return;
         }

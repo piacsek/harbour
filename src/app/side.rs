@@ -27,12 +27,24 @@ impl App {
         if self.pane_focused && entry.showing_editor().is_some() {
             return false;
         }
+        self.toggle_side();
+        true
+    }
+
+    pub(super) fn toggle_side(&mut self) {
         if self.side_by_side {
             self.side_by_side = false;
-            return true;
+            return;
         }
+        let from_editor = self.pane_focused
+            && self
+                .sessions
+                .get(self.selected)
+                .is_some_and(|entry| entry.on_editor && entry.showing_editor().is_some());
         self.enter_side();
-        true
+        if self.side_by_side && from_editor {
+            self.sessions[self.selected].on_editor = true;
+        }
     }
 
     pub(super) fn swap_by_key(&mut self, key: KeyEvent) -> bool {
