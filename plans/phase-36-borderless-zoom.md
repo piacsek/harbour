@@ -14,8 +14,8 @@ Side by side (Alt-\) keeps its borders, its narrow form included.
 - **Everything sized from the pane follows `self.pane`**: the session's PTY resize, the cursor
   cell, mouse clamping (`src/mouse.rs` gets the pane's area), so a bigger inner area needs no
   change there.
-- **Zoom always shows Claude Code**: `zoom_by_key` returns false over a shown editor, so the
-  zoomed pane never holds an editor.
+- **Zoom starts on Claude Code**: `zoom_by_key` returns false over a shown editor, but C-l while
+  zoomed shows the editor zoomed, so the borderless pane can hold either program.
 - **The focus is never in question while zoomed**: the pane always has focus (`settle_zoom` drops
   zoom otherwise), so the thick accent border carried no information there.
 - **`tests/app/zoom_border.rs`** pins the boxed form (`┏ ● Fix the login … ━ sessions ● 1 ┓`);
