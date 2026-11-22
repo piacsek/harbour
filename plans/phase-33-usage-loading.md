@@ -29,7 +29,7 @@ report is still being read the popup now shows a loading animation and nothing o
 - Everything under "What changes", "Decided" and "States" in the issue.
 - **A pure function** in `src/usage.rs`, `loading(step, width, height, accent)`, draws the
   popup's inside while loading: the bar, a blank row and `reading usage…`, centred, with
-  `  Esc close` on the last row, as `lines` puts its hint. The bar has the limit bar's cells for
+  `  t text · Esc close` on the last row, as `lines` puts its hint. The bar has the limit bar's cells for
   the width; the patch is centred on cell `step` modulo the cells: `█` on it, `▓` one cell
   away, `▒` two away, in the accent, every other cell `░` dimmed. At 24 cells a sweep is 24
   steps of 80 ms, 1.92 s; a narrower bar sweeps in fewer steps at the same speed per cell, the
@@ -49,6 +49,13 @@ report is still being read the popup now shows a loading animation and nothing o
 - **The text shown by `t` while loading has no hint**: the report's own screen fills the inside,
   as the raw view after the bars does, and the bottom border names nothing, since `t bars` would
   promise bars that may never come. The smallest option.
+- **Review round 1** (decided by the orchestrator for the owner): the loading hint reads
+  `t text · Esc close`, so a report that hangs on a retry or a login message is never a bar
+  forever with no way to see why; `t` before anything printed shows a dim `nothing printed yet`
+  and `t animation · Esc close` on the last row instead of an empty popup, the smallest option
+  that names the way back. Whether the report has finished is worked out by one helper that both
+  a key and a frame call, so a `t` between the end of the report and the next frame acts on the
+  finished report.
 - **The screenshot** `usage-loading` runs the interface without `--demo`, through a config file
   whose `session_command` is a script named `claude` in the scratch `HOME` that sleeps, so the
   report never finishes and the animation shows; the config and the script are removed after
@@ -58,14 +65,14 @@ report is still being read the popup now shows a loading animation and nothing o
 
 | State | The popup shows, or what happens |
 | --- | --- |
-| Opened, nothing printed yet | the animation, `Esc close` on the last row |
+| Opened, nothing printed yet | the animation, `t text · Esc close` on the last row |
 | The report prints, its process still runs | the animation |
 | The report has finished and reads as bars | the bars, with no text in between |
 | The report has finished and does not read as bars | the printed text, as today |
 | The report printed nothing | `printed nothing`, no animation |
 | Its command failed | ` exit <code> ` in the title and what it printed, or `printed nothing`, no animation |
 | Something the report started keeps the terminal open | the animation until half a second after the exit |
-| `t` or `T` while loading | the text as it arrives, empty while nothing printed; `t` again, the animation |
+| `t` or `T` while loading | the text as it arrives; before anything printed a dim `nothing printed yet` and `t animation · Esc close` on the last row; `t` again, the animation |
 | Ctrl-t, Alt-t, or any other key but Esc and `q` while loading | goes to the report's process, as today |
 | `t` was pressed while loading and the report finishes and parses | the printed text stays, ` t bars ` on the bottom border |
 | `t` was pressed while loading and the report finishes without parsing | the printed text, no ` t bars `; `t` goes to the process again |
@@ -112,3 +119,5 @@ report is still being read the popup now shows a loading animation and nothing o
 
 - `test-seam` Every test that read the text of a report still running had to press `t` first, found only by running the whole `app` target (three outside the usage files) → none
 - `process` Tasks 2 to 4 could not ship apart: the drawing function would have been dead code and the running-report tests needed `t` → none
+- `design` The first version of the shot captured whatever frame was showing, so the image changed on every run; the shot now waits for one fixed frame → code
+- `test-seam` A test asserted 20 dim cells in a row, which only the first step guarantees, so a slow first frame could fail it; it now counts the bar's cells → code

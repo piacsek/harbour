@@ -10,7 +10,9 @@ const NARROWEST_BAR: usize = 4;
 const FILLED: &str = "█";
 const UNFILLED: &str = "░";
 const HINT: &str = "  t raw text · Esc close";
-const LOADING_HINT: &str = "  Esc close";
+const LOADING_HINT: &str = "  t text · Esc close";
+const WAITING_HINT: &str = "  t animation · Esc close";
+const WAITING: &str = "nothing printed yet";
 const LOADING: &str = "reading usage…";
 
 #[derive(Debug, Default)]
@@ -321,6 +323,18 @@ fn filled(percent: &str, cells: usize, colour: Color) -> Vec<Span<'static>> {
         Span::styled(FILLED.repeat(on), Style::new().fg(colour)),
         Span::raw(UNFILLED.repeat(cells - on)),
     ]
+}
+
+pub fn waiting(width: u16, height: u16) -> Vec<Line<'static>> {
+    let width = usize::from(width);
+    let mut rows = vec![Line::default(); usize::from(height)];
+    if let Some(last) = rows.last_mut() {
+        *last = Line::raw(WAITING_HINT);
+    }
+    if let Some(first) = rows.first_mut() {
+        *first = Line::styled(WAITING, Style::new().add_modifier(Modifier::DIM));
+    }
+    rows.into_iter().map(|row| cut(row, width)).collect()
 }
 
 pub fn loading(step: usize, width: u16, height: u16, accent: Color) -> Vec<Line<'static>> {

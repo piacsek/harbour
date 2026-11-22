@@ -6,6 +6,7 @@ use std::time::Duration;
 use crossterm::event::{KeyCode, KeyModifiers};
 use harbour::app::App;
 use harbour::picker::Picker;
+use ratatui::style::Modifier;
 
 use crate::{Screen, reading_agent, script};
 
@@ -18,19 +19,56 @@ fn the_popup_shows_the_loading_animation_until_the_report_has_finished() {
     let shown = screen.draw();
     assert!(shown.contains(" usage "), "{shown}");
     assert!(shown.contains("reading usage…"), "{shown}");
-    assert!(shown.contains("░░░░░░░░░░░░░░░░░░░░"), "{shown}");
+    assert_eq!(cells(&bar(&shown)), 24);
     assert!(!shown.contains("loading…"), "{shown}");
 }
 
 #[test]
-fn the_loading_popup_says_only_how_to_close_it() {
+fn the_loading_popup_says_how_to_show_the_text_and_close_it() {
     let mut screen = Screen::of(app().with_usage(script("exec sleep 600")));
 
     screen.press('u');
 
     let shown = screen.draw();
-    assert!(shown.contains("  Esc close"), "{shown}");
+    assert!(shown.contains("  t text · Esc close"), "{shown}");
     assert!(!shown.contains("t raw text"), "{shown}");
+}
+
+#[test]
+fn t_before_anything_printed_says_so_and_how_to_go_back() {
+    let mut screen = Screen::of(app().with_usage(script("exec sleep 600")));
+    screen.press('u');
+
+    screen.press('t');
+
+    let shown = screen.draw();
+    assert!(shown.contains("nothing printed yet"), "{shown}");
+    assert!(shown.contains("  t animation · Esc close"), "{shown}");
+    assert!(!shown.contains("reading usage…"), "{shown}");
+}
+
+#[test]
+fn nothing_printed_yet_is_dim() {
+    let mut screen = Screen::of(app().with_usage(script("exec sleep 600")));
+    screen.press('u');
+
+    screen.press('t');
+
+    let shown = screen.draw();
+    let (x, y) = at(&shown, "nothing printed yet");
+    assert!(screen.cell(x, y).modifier.contains(Modifier::DIM));
+}
+
+#[test]
+fn the_text_view_while_loading_drops_its_note_once_something_printed() {
+    let mut screen =
+        Screen::of(app().with_usage(script("echo 'acme usage begins'; exec sleep 600")));
+    screen.press('u');
+
+    screen.press('t');
+
+    let shown = screen.wait_for("acme usage begins");
+    assert!(!shown.contains("nothing printed yet"), "{shown}");
 }
 
 #[test]
@@ -258,6 +296,20 @@ fn the_popup_is_80_by_30_on_a_larger_terminal() {
     let right = line.chars().position(|c| c == '┓').unwrap();
     assert_eq!(bottom - top + 1, 30);
     assert_eq!(right - left + 1, 80);
+}
+
+fn cells(bar: &str) -> usize {
+    bar.chars().filter(|c| "░▒▓█".contains(*c)).count()
+}
+
+fn at(shown: &str, text: &str) -> (u16, u16) {
+    let (y, line) = shown
+        .lines()
+        .enumerate()
+        .find(|(_, line)| line.contains(text))
+        .unwrap();
+    let x = line[..line.find(text).unwrap()].chars().count();
+    (u16::try_from(x).unwrap(), u16::try_from(y).unwrap())
 }
 
 fn bar(shown: &str) -> String {

@@ -1,4 +1,7 @@
-use crossterm::event::{KeyCode, KeyModifiers};
+use std::thread::sleep;
+use std::time::Duration;
+
+use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
 use crate::logging::{count, logged, read};
 use crate::usage_states::app;
@@ -208,6 +211,24 @@ fn t_on_a_report_that_does_not_parse_changes_nothing() {
     assert!(shown.contains("acme usage: not logged in"), "{shown}");
     assert!(!shown.contains(" t bars "), "{shown}");
     assert!(!shown.contains("t raw text"), "{shown}");
+}
+
+#[test]
+fn t_after_a_report_that_does_not_parse_finished_goes_to_its_process_before_the_next_frame() {
+    let failing = script("echo 'acme usage: not logged in'; exit 3");
+    let (app, lines) = logged(app().with_usage(failing));
+    let mut screen = Screen::of(app);
+    screen.press('u');
+    sleep(Duration::from_millis(600));
+
+    screen
+        .app
+        .key(KeyEvent::new(KeyCode::Char('t'), KeyModifiers::NONE));
+    screen.draw();
+
+    let lines = read(&lines);
+    assert_eq!(count(&lines, " usage view=raw\n"), 0);
+    assert_eq!(count(&lines, " input to=usage"), 1);
 }
 
 #[test]

@@ -56,7 +56,7 @@ fn the_last_row_is_the_hint() {
     let lines = usage::loading(0, 78, 28, Color::Cyan);
 
     assert_eq!(lines.len(), 28);
-    assert_eq!(row(&lines, 27), "  Esc close");
+    assert_eq!(row(&lines, 27), "  t text · Esc close");
     assert_eq!(row(&lines, 12), format!("{}█▓▒{}", pad(27), empty(21)));
 }
 
@@ -68,7 +68,7 @@ fn four_rows_keep_the_hint_under_the_label() {
     assert_eq!(row(&lines, 0), format!("{}█▓▒{}", pad(27), empty(21)));
     assert_eq!(row(&lines, 1), "");
     assert_eq!(row(&lines, 2), format!("{}reading usage…", pad(32)));
-    assert_eq!(row(&lines, 3), "  Esc close");
+    assert_eq!(row(&lines, 3), "  t text · Esc close");
 }
 
 #[test]

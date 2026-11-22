@@ -7,6 +7,7 @@ use std::time::{Duration, Instant};
 
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers, MouseEvent};
 use nix::unistd::Uid;
+use portable_pty::ExitStatus;
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Rect};
 use ratatui::widgets::{Clear, Paragraph};
@@ -28,13 +29,27 @@ pub(super) struct Usage {
     open: Option<Session>,
     exited: Option<Instant>,
     opened: Instant,
-    finished: bool,
     area: Rect,
     report: Option<Report>,
     raw: bool,
 }
 
 impl Usage {
+    fn finished(&mut self) -> Option<ExitStatus> {
+        let session = self.open.as_mut()?;
+        let drained = session.drained();
+        let exit = session.exit().cloned();
+        if exit.is_some() && self.exited.is_none() {
+            self.exited = Some(Instant::now());
+        }
+        let held = self.exited.is_some_and(|at| at.elapsed() >= HELD);
+        let finished = exit.filter(|_| drained || held);
+        if self.report.is_none() && finished.is_some() {
+            self.report = crate::usage::parse(&session.text());
+        }
+        finished
+    }
+
     pub(super) fn new(session_command: &[String]) -> Usage {
         Usage {
             command: derived(session_command),
@@ -42,7 +57,6 @@ impl Usage {
             open: None,
             exited: None,
             opened: Instant::now(),
-            finished: false,
             area: Rect::default(),
             report: None,
             raw: false,
@@ -91,7 +105,6 @@ impl App {
                 self.usage.open = Some(session);
                 self.usage.exited = None;
                 self.usage.opened = Instant::now();
-                self.usage.finished = false;
                 self.usage.report = None;
                 self.usage.raw = false;
             }
@@ -102,6 +115,10 @@ impl App {
     }
 
     pub(super) fn usage_key(&mut self, key: KeyEvent) -> bool {
+        if self.usage.open.is_none() {
+            return false;
+        }
+        let finished = self.usage.finished().is_some();
         let Some(session) = &self.usage.open else {
             return false;
         };
@@ -113,7 +130,7 @@ impl App {
             self.log_usage_closed();
             return true;
         }
-        if (self.usage.report.is_some() || !self.usage.finished)
+        if (self.usage.report.is_some() || !finished)
             && matches!(key.code, KeyCode::Char('t' | 'T'))
             && key.modifiers - KeyModifiers::SHIFT == KeyModifiers::NONE
         {
@@ -155,24 +172,17 @@ impl App {
     }
 
     pub(super) fn draw_usage(&mut self, frame: &mut Frame) -> bool {
+        if self.usage.open.is_none() {
+            return false;
+        }
+        let finished = self.usage.finished();
         let Some(session) = &mut self.usage.open else {
             return false;
         };
         let area = area(frame.area());
         let mut block = draw::bordered(true, self.accent).title(" usage ");
-        let drained = session.drained();
-        let exit = session.exit().cloned();
-        if exit.is_some() && self.usage.exited.is_none() {
-            self.usage.exited = Some(Instant::now());
-        }
-        let held = self.usage.exited.is_some_and(|at| at.elapsed() >= HELD);
-        let finished = exit.filter(|_| drained || held);
-        self.usage.finished = finished.is_some();
         if let Some(status) = finished.as_ref().filter(|status| !status.success()) {
             block = block.title(format!(" exit{} ", draw::exit_note(status)));
-        }
-        if self.usage.report.is_none() && finished.is_some() {
-            self.usage.report = crate::usage::parse(&session.text());
         }
         let bars = self.usage.report.is_some();
         let report = self.usage.report.as_ref().filter(|_| !self.usage.raw);
@@ -197,7 +207,10 @@ impl App {
             frame.render_widget(Paragraph::new(lines), inner);
         } else if printed {
             frame.render_widget(&*session, inner);
-        } else if finished.is_some() {
+        } else if finished.is_none() {
+            let lines = crate::usage::waiting(inner.width, inner.height);
+            frame.render_widget(Paragraph::new(lines), inner);
+        } else {
             frame.render_widget(Paragraph::new("printed nothing"), inner);
         }
         true

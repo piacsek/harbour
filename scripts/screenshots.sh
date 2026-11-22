@@ -75,7 +75,7 @@ press() {
 }
 
 shoot() {
-  local name="$1" width="$2" height="$3" args="$4" keys="$5" shown="${6:-}"
+  local name="$1" width="$2" height="$3" args="$4" keys="$5" shown="${6:-}" frame="${7:-}"
   t resize-window -t "$shot_window" -x "$width" -y "$height"
   t respawn-pane -k -t "$shot_window" "exec cat"
   t send-keys -R -t "$shot_window"
@@ -89,7 +89,14 @@ shoot() {
     press "$key"
   done
   [ -n "$shown" ] && wait_for "$shown"
-  t capture-pane -e -p -t "$shot_window" | sed -E 's/harbour-demo-[A-Za-z0-9]{6}/harbour-demo-x7q2mf/g' | python3 "$home/truecolor.py" >"$home/$name.ansi"
+  local tries=0
+  t capture-pane -e -p -t "$shot_window" >"$home/$name.raw"
+  until [ -z "$frame" ] || sed -E $'s/\x1b\\[[0-9;:]*m//g' "$home/$name.raw" | grep -F "$frame" >/dev/null; do
+    [ "$tries" -ge 1000 ] && { echo "screenshots.sh: $name never showed the frame $frame" >&2; exit 1; }
+    tries=$((tries + 1))
+    t capture-pane -e -p -t "$shot_window" >"$home/$name.raw"
+  done
+  sed -E 's/harbour-demo-[A-Za-z0-9]{6}/harbour-demo-x7q2mf/g' "$home/$name.raw" | python3 "$home/truecolor.py" >"$home/$name.ansi"
   render "$name" --padding 20,64,20,20 --window --language text
 }
 
@@ -170,7 +177,7 @@ chmod +x "$home/bin/claude"
 cat >"$home/.config/harbour/config.toml" <<TOML
 session_command = ["$home/bin/claude"]
 TOML
-shoot usage-loading 160 26 "" "u" "reading usage…"
+shoot usage-loading 160 26 "" "u" "reading usage…" "░░░░░░░░░░▒▓█▓▒░░░░░░░░░"
 rm -rf "$home/.config" "$home/bin"
 echo "wrote $out/usage-loading.png"
 released="$home/released"
