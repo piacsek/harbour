@@ -72,6 +72,7 @@ fn the_popup_runs_the_session_commands_claude_for_a_usage_report_without_its_arg
     let mut screen = Screen::of(App::new(command).with_usage_place(Some(place())));
 
     screen.press('u');
+    screen.press('t');
 
     let shown = screen.wait_for("acme agent args:");
     assert!(
@@ -116,6 +117,7 @@ fn keys_while_the_popup_is_open_reach_only_the_popup() {
     screen.press('n');
     screen.wait_for("acme agent ready");
     screen.press('u');
+    screen.press('t');
     screen.wait_for("acme usage ready");
 
     screen.type_text("nxjk?u\r");
@@ -135,6 +137,7 @@ fn a_paste_while_the_popup_is_open_reaches_only_the_popup() {
     screen.press('n');
     screen.wait_for("acme agent ready");
     screen.press('u');
+    screen.press('t');
     screen.wait_for("acme usage ready");
 
     screen.app.paste("acme pasted\r");
@@ -156,6 +159,7 @@ fn a_click_while_the_popup_is_open_reaches_only_the_popup() {
     screen.press('n');
     screen.wait_for("acme agent ready");
     screen.press('u');
+    screen.press('t');
     screen.wait_for("acme usage ready");
 
     screen.mouse(MouseEventKind::Down(MouseButton::Left), 110, 5);
@@ -177,9 +181,10 @@ fn u_is_logged_by_name_and_what_reaches_the_popup_by_its_byte_count_only() {
     let (app, lines) = logged(app().with_usage(reading_report()));
     let mut screen = Screen::of(app);
     screen.press('u');
+    screen.press('t');
     screen.wait_for("acme usage ready");
 
-    screen.type_text("acme-secret");
+    screen.type_text("acme-hidden");
     screen.app.paste("acme-pasted");
     screen.draw();
 
@@ -187,7 +192,7 @@ fn u_is_logged_by_name_and_what_reaches_the_popup_by_its_byte_count_only() {
     only(&lines, r#" key name="u""#);
     assert_eq!(count(&lines, " input to=usage bytes=1\n"), 11);
     only(&lines, " input to=usage bytes=11\n");
-    assert_eq!(count(&lines, "acme-secret"), 0);
+    assert_eq!(count(&lines, "acme-hidden"), 0);
     assert_eq!(count(&lines, "acme-pasted"), 0);
 }
 
@@ -282,6 +287,7 @@ fn alt_z_while_the_popup_is_open_does_not_zoom_the_session() {
     screen.press('n');
     screen.wait_for("acme agent ready");
     screen.press('u');
+    screen.press('t');
     screen.wait_for("acme usage ready");
 
     screen.key(KeyCode::Char('z'), KeyModifiers::ALT);
@@ -302,6 +308,7 @@ fn leaves_nothing_behind(width: u16) {
         .with_usage(registered_report(&scratch.sessions(), scratch.dir.path()));
     let mut screen = Screen::at(app, home(), width);
     screen.press('u');
+    screen.press('t');
     screen.wait_for("acme session: 12% spent");
     let pid = std::fs::read_to_string(scratch.dir.path().join("pid")).unwrap();
     let kept = remembered_after_a_while(&mut screen, &scratch.memory());
