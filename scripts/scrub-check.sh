@@ -61,8 +61,8 @@ if [ "${1:-}" = --outgoing ]; then
   done
   search "the outgoing check" matches "branch name" "$(git rev-parse --abbrev-ref HEAD)"
 else
-  search "git grep --untracked" git grep --untracked -niIF -f "$list"
-  search "git grep --cached" git grep --cached -niIF -f "$list"
+  search "git grep --untracked" git --no-pager grep --untracked -niIF -f "$list"
+  search "git grep --cached" git --no-pager grep --cached -niIF -f "$list"
   search "the path check" listed_paths
 fi
 if [ "$found" = 1 ]; then

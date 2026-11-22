@@ -4,8 +4,8 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
 
 use crate::helpers::{
-    another_build, calls, git, isolated, link_dev_binary, link_script, recorder, repository,
-    stderr, stdout,
+    another_build, calls, git, isolated, link_dev_binary, link_script, on_a_terminal, recorder,
+    recording_pager, repository, stderr, stdout,
 };
 
 #[test]
@@ -332,6 +332,24 @@ fn the_template_holds_a_summary_and_the_changes() {
     );
 }
 
+#[test]
+fn ship_on_a_terminal_never_opens_the_pager() {
+    let dir = tempfile::tempdir().unwrap();
+    let work = ship_sandbox(dir.path());
+    link_dev_binary(dir.path(), &another_build(dir.path()));
+    fs::write(work.join("README.md"), "changed\n").unwrap();
+    let paged = dir.path().join("paged");
+
+    ship_on_a_terminal(dir.path(), "docs: readme", &paged);
+
+    assert!(pushed(dir.path()));
+    assert!(
+        !paged.exists(),
+        "{}",
+        fs::read_to_string(&paged).unwrap_or_default()
+    );
+}
+
 fn ship_sandbox(root: &Path) -> PathBuf {
     let work = repository(root);
     git(root, &["init", "-q", "--bare", "origin.git"]);
@@ -448,4 +466,19 @@ fn pushed_parents(root: &Path) -> usize {
     .output()
     .unwrap();
     stdout(&output).split_whitespace().count()
+}
+
+fn ship_on_a_terminal(root: &Path, message: &str, paged: &Path) {
+    let mut path = vec![root.join("bin")];
+    path.extend(std::env::split_paths(&std::env::var_os("PATH").unwrap()));
+    let mut command = portable_pty::CommandBuilder::new(root.join("work/scripts/ship.sh"));
+    command.arg(message);
+    command.cwd(root.join("work"));
+    command.env("GIT_PAGER", recording_pager(root, paged));
+    command.env("HOME", root.join("home"));
+    command.env("PATH", std::env::join_paths(path).unwrap());
+    command.env("CALLS_LOG", root.join("calls.log"));
+    command.env_remove("HARBOUR_DENYLIST");
+    command.env_remove("FAILING_CALL");
+    on_a_terminal(command);
 }
