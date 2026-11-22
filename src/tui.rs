@@ -16,7 +16,8 @@ use crossterm::event::{
 use crossterm::terminal::{BeginSynchronizedUpdate, EndSynchronizedUpdate};
 use crossterm::{execute, queue};
 use nix::errno::Errno;
-use ratatui::backend::CrosstermBackend;
+use ratatui::backend::{Backend, CrosstermBackend};
+use ratatui::layout::Position;
 use ratatui::{Terminal, TerminalOptions};
 use signal_hook::consts::{SIGHUP, SIGINT, SIGTERM};
 use signal_hook::low_level::{emulate_default_handler, signal_name};
@@ -254,13 +255,20 @@ impl io::Write for Held {
 pub struct Frames {
     held: Held,
     terminal: Terminal<CrosstermBackend<Held>>,
+    idle: Vec<u8>,
+    cursor: Option<Option<Position>>,
 }
 
 impl Frames {
     pub fn new(options: TerminalOptions) -> io::Result<Frames> {
         let held = Held::default();
         let terminal = Terminal::with_options(CrosstermBackend::new(held.clone()), options)?;
-        Ok(Frames { held, terminal })
+        Ok(Frames {
+            held,
+            terminal,
+            idle: idle()?,
+            cursor: None,
+        })
     }
 
     pub fn draw(
@@ -271,18 +279,35 @@ impl Frames {
     ) -> io::Result<()> {
         let mut held = self.held.clone();
         held.0.borrow_mut().clear();
-        queue!(held, BeginSynchronizedUpdate, Hide)?;
         self.terminal.try_draw(|frame| {
             app.draw(frame);
             shape.send(&mut held, app.cursor_shape())
         })?;
-        if let Some(at) = app.cursor_position() {
-            queue!(held, MoveTo(at.x, at.y), Show)?;
+        let drawn = held.0.take();
+        let cursor = app.cursor_position();
+        if drawn == self.idle && self.cursor == Some(cursor) {
+            return Ok(());
         }
-        queue!(held, EndSynchronizedUpdate)?;
-        out.write_all(&held.0.take())?;
-        out.flush()
+        let mut bytes = Vec::new();
+        queue!(bytes, BeginSynchronizedUpdate, Hide)?;
+        bytes.extend(drawn);
+        if let Some(at) = cursor {
+            queue!(bytes, MoveTo(at.x, at.y), Show)?;
+        }
+        queue!(bytes, EndSynchronizedUpdate)?;
+        out.write_all(&bytes)?;
+        out.flush()?;
+        self.cursor = Some(cursor);
+        Ok(())
     }
+}
+
+fn idle() -> io::Result<Vec<u8>> {
+    let held = Held::default();
+    let mut backend = CrosstermBackend::new(held.clone());
+    backend.draw(std::iter::empty())?;
+    backend.hide_cursor()?;
+    Ok(held.0.take())
 }
 
 fn dir_picker(config: &Config) -> Picker {
