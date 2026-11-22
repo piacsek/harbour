@@ -13,6 +13,7 @@ use super::{App, Entry};
 use crate::handoff::{Reply, Verb};
 use crate::log::Log;
 use crate::session::Session;
+use crate::tmux::Direction;
 
 const BOUND: [char; 10] = ['q', 'n', 'x', 'e', '?', 'u', 'j', 'k', 'y', 'Y'];
 const SLOW_FRAME: Duration = Duration::from_millis(100);
@@ -163,6 +164,15 @@ impl App {
         self.logging.forwarded = true;
         let view = if raw { "raw" } else { "bars" };
         self.logging.log.write(|| format!("usage view={view}"));
+    }
+
+    pub(super) fn log_tmux(&mut self, direction: Direction) {
+        self.logging.forwarded = true;
+        let pane = match direction {
+            Direction::Below => "below",
+            Direction::Above => "above",
+        };
+        self.logging.log.write(|| format!("tmux pane={pane}"));
     }
 
     pub(super) fn log_stop(&self, cause: &str) {

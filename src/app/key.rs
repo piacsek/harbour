@@ -42,6 +42,7 @@ impl App {
             || self.swap_by_key(key)
             || self.resize_by_key(key)
             || self.find_by_key(key)
+            || self.navigate_by_key(acted)
         {
             return;
         }
