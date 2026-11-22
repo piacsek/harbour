@@ -67,16 +67,47 @@ impl Default for Keymap {
 }
 
 impl Keymap {
+    pub fn with_prefix(mut self, prefix: char) -> Keymap {
+        self.prefix = prefix;
+        self
+    }
+
+    pub fn bind(mut self, action: Action, key: Option<char>) -> Keymap {
+        for (each, bound) in &mut self.bound {
+            if *each == action {
+                *bound = key;
+            }
+        }
+        self
+    }
+
+    pub fn key_of(&self, action: Action) -> Option<char> {
+        self.bound
+            .iter()
+            .find(|(each, _)| *each == action)
+            .and_then(|(_, key)| *key)
+    }
+
+    pub fn clash(&self, action: Action) -> Option<Action> {
+        let key = self.key_of(action)?;
+        self.bound
+            .iter()
+            .find(|(each, other)| {
+                *each != action && other.is_some_and(|other| other.eq_ignore_ascii_case(&key))
+            })
+            .map(|(each, _)| *each)
+    }
+
     pub fn is_prefix(&self, key: KeyEvent) -> bool {
         let KeyCode::Char(c) = key.code else {
             return false;
         };
         key.modifiers - KeyModifiers::SHIFT == KeyModifiers::CONTROL
-            && same_ctrl(self.prefix).contains(&c.to_ascii_lowercase())
+            && same_ctrl(self.prefix, c.to_ascii_lowercase())
     }
 
     pub fn prefix_name(&self) -> String {
-        format!("C-{}", self.prefix)
+        prefix_name(self.prefix)
     }
 
     pub fn prefix_key(&self) -> KeyEvent {
@@ -110,11 +141,67 @@ impl Keymap {
     }
 }
 
-fn same_ctrl(c: char) -> &'static [char] {
-    match c {
-        '/' | '_' => &['/', '_'],
-        _ => &[],
+fn same_ctrl(prefix: char, typed: char) -> bool {
+    match prefix {
+        '/' | '_' => typed == '/' || typed == '_',
+        prefix => typed == prefix,
     }
+}
+
+pub const PREFIX: &str = "expected C-<letter>, C-Space, C-/, C-\\, C-], C-^ or C-_";
+pub const KEY: &str = "expected one printable character other than a space, or \"none\"";
+
+pub fn prefix_name(prefix: char) -> String {
+    match prefix {
+        ' ' => "C-Space".to_string(),
+        prefix => format!("C-{prefix}"),
+    }
+}
+
+pub fn parse_prefix(name: &str) -> Result<char, String> {
+    let Some(rest) = name.strip_prefix("C-") else {
+        return Err(PREFIX.to_string());
+    };
+    if rest.eq_ignore_ascii_case("space") {
+        return Ok(' ');
+    }
+    let mut chars = rest.chars();
+    let (Some(c), None) = (chars.next(), chars.next()) else {
+        return Err(PREFIX.to_string());
+    };
+    match c.to_ascii_lowercase() {
+        'h' | 'i' | 'j' | 'k' | 'l' | 'm' => Err(format!(
+            "{name:?} is taken: C-h, C-j, C-k and C-l are harbour's, C-m is Enter, C-i is Tab"
+        )),
+        c if c.is_ascii_lowercase() || matches!(c, '/' | '\\' | ']' | '^' | '_') => Ok(c),
+        _ => Err(PREFIX.to_string()),
+    }
+}
+
+pub fn parse_key(value: &str) -> Result<Option<char>, String> {
+    if value == "none" {
+        return Ok(None);
+    }
+    let mut chars = value.chars();
+    let (Some(c), None) = (chars.next(), chars.next()) else {
+        return Err(KEY.to_string());
+    };
+    if c.is_ascii_digit() {
+        return Err(format!(
+            "{value:?} is a digit, and the digits are the jumps"
+        ));
+    }
+    if c.is_whitespace() || c.is_control() {
+        return Err(KEY.to_string());
+    }
+    Ok(Some(c))
+}
+
+pub fn action_named(name: &str) -> Option<Action> {
+    ACTIONS
+        .iter()
+        .find(|(_, each, _)| *each == name)
+        .map(|(action, _, _)| *action)
 }
 
 pub fn key_name(key: KeyEvent) -> String {

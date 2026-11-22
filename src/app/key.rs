@@ -3,6 +3,7 @@ use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use super::logging::Input;
 use super::{App, Entry, Question, draw, refusal};
 use crate::editor::{Changes, Editor};
+use crate::keymap::Action;
 use crate::keys::{self, Keyboard};
 use crate::mouse::Gesture;
 use crate::picker::Pick;
@@ -95,9 +96,13 @@ impl App {
             _ if is_ctrl(acted, 'l') => self.focus_or_resume(),
             _ if is_ctrl(acted, 'm') => self.focus_or_resume(),
             KeyCode::Enter => self.focus_or_resume(),
+            KeyCode::Char(c) if self.keymap.action_on(c) == Some(Action::New) => {
+                self.pick_or_start()
+            }
+            KeyCode::Char(c) if self.keymap.action_on(c) == Some(Action::End) => {
+                self.end_or_remove()
+            }
             KeyCode::Char('q') => self.quit(),
-            KeyCode::Char('n') => self.pick_or_start(),
-            KeyCode::Char('x') => self.end_or_remove(),
             KeyCode::Char('e') => self.next_editor(),
             KeyCode::Char('?') => self.helping = true,
             KeyCode::Char('c' | 'C') if (acted.modifiers - KeyModifiers::SHIFT).is_empty() => {

@@ -1,5 +1,6 @@
 mod ages;
 mod asked_keys;
+mod bindings;
 mod cards;
 mod changelog;
 mod cursor;

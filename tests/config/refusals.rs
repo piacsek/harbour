@@ -58,11 +58,11 @@ fn an_unknown_key_is_named_with_its_line() {
 #[test]
 fn a_table_is_an_unknown_key() {
     let home = tempfile::tempdir().unwrap();
-    let path = write_config(home.path(), "\n[keys]\nquit = \"q\"\n");
+    let path = write_config(home.path(), "\n[colours]\nquit = \"q\"\n");
 
     assert_eq!(
         refusal(home.path()),
-        format!("{}:2: keys: unknown key", path.display())
+        format!("{}:2: colours: unknown key", path.display())
     );
 }
 

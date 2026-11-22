@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use std::ffi::OsString;
 use std::fmt;
 use std::io::Read;
@@ -10,6 +11,7 @@ use serde::Deserialize;
 use toml::{Spanned, Value};
 
 use crate::icons::ClaudeIcon;
+use crate::keymap::{self, ACTIONS, Action, Keymap};
 use crate::tui::{DIR_PICKER, EDITOR, SESSION_COMMAND};
 
 const LONGEST: u64 = 64 * 1024;
@@ -18,6 +20,10 @@ const WIDTH: &str = "expected a whole number of columns above 0";
 const ACCENT: &str = "expected one of the 16 colour names or #rrggbb";
 const BOOLEAN: &str = "expected true or false";
 const CLAUDE_ICON: &str = "expected \"sparkle\" or \"clawd\"";
+const KEYS: &str = "expected a table of action = \"key\"";
+const PREFIX_VARIABLE: &str = "HARBOUR_PREFIX";
+
+type Binding = (Action, Setting<Option<char>>);
 
 #[derive(Debug, PartialEq)]
 pub enum Source {
@@ -49,6 +55,8 @@ pub struct Config {
     accent: Setting<Color>,
     nerd_font: Setting<bool>,
     claude_icon: Setting<ClaudeIcon>,
+    prefix: Setting<char>,
+    bindings: Vec<Binding>,
     ignored: Vec<&'static str>,
 }
 
@@ -62,6 +70,14 @@ struct Written {
     accent: Option<Spanned<Value>>,
     nerd_font: Option<Spanned<Value>>,
     claude_icon: Option<Spanned<Value>>,
+    prefix: Option<Spanned<Value>>,
+    keys: Option<Spanned<Value>>,
+}
+
+#[derive(Deserialize, Default)]
+struct Bindings {
+    #[serde(default)]
+    keys: BTreeMap<Spanned<String>, Spanned<Value>>,
 }
 
 struct Reader<'a> {
@@ -110,6 +126,21 @@ impl Config {
         let editor = reader.program("editor", written.editor)?;
         let picker = reader.program("picker", written.picker)?;
         let session_command = reader.program("session_command", written.session_command)?;
+        let prefix = match set(PREFIX_VARIABLE) {
+            Some(setting) => Setting {
+                value: setting
+                    .value
+                    .to_str()
+                    .ok_or_else(|| keymap::PREFIX.to_string())
+                    .and_then(|name| keymap::parse_prefix(name).map_err(|what| what.to_string()))
+                    .map_err(|what| Refusal(format!("{PREFIX_VARIABLE}: {what}")))?,
+                source: setting.source,
+            },
+            None => reader
+                .prefix(written.prefix)?
+                .map_or_else(|| default('/'), from_file),
+        };
+        let bindings = reader.bindings(written.keys)?;
         Ok(Config {
             editor: match (set(EDITOR), editor) {
                 (Some(setting), _) => Setting {
@@ -140,6 +171,8 @@ impl Config {
             claude_icon: reader
                 .claude_icon(written.claude_icon)?
                 .map_or_else(|| default(ClaudeIcon::Sparkle), from_file),
+            prefix,
+            bindings,
             path,
             ignored,
         })
@@ -197,8 +230,22 @@ impl Config {
                 &self.claude_icon.source,
             ),
         ]
+        .into_iter()
+        .chain([line(
+            "prefix",
+            &quoted(&keymap::prefix_name(self.prefix.value)),
+            &self.prefix.source,
+        )])
+        .chain(self.bindings.iter().map(|(action, setting)| {
+            let key = setting.value.map_or("none".to_string(), String::from);
+            line(
+                &format!("keys.{}", keymap::name(*action)),
+                &quoted(&key),
+                &setting.source,
+            )
+        }))
         .map(|line| line + "\n")
-        .concat()
+        .collect()
     }
 
     fn line_of(&self, variable: &str, key: &str, value: &str, source: &Source) -> String {
@@ -247,6 +294,13 @@ impl Config {
 
     pub fn nerd_font(&self) -> &Setting<bool> {
         &self.nerd_font
+    }
+
+    pub fn keymap(&self) -> Keymap {
+        self.bindings.iter().fold(
+            Keymap::default().with_prefix(self.prefix.value),
+            |keymap, (action, setting)| keymap.bind(*action, setting.value),
+        )
     }
 
     pub fn claude_icon(&self) -> &Setting<ClaudeIcon> {
@@ -369,6 +423,77 @@ impl Reader<'_> {
         }
     }
 
+    fn prefix(&self, value: Option<Spanned<Value>>) -> Result<Option<char>, Refusal> {
+        let Some(value) = value else {
+            return Ok(None);
+        };
+        let parsed = match value.get_ref() {
+            Value::String(name) => keymap::parse_prefix(name),
+            _ => Err(keymap::PREFIX.to_string()),
+        };
+        parsed
+            .map(Some)
+            .map_err(|what| self.refusal(&value.span(), "prefix", &what))
+    }
+
+    fn bindings(&self, keys: Option<Spanned<Value>>) -> Result<Vec<Binding>, Refusal> {
+        let mut bindings: Vec<Binding> = ACTIONS
+            .iter()
+            .map(|(action, _, key)| (*action, default(Some(*key))))
+            .collect();
+        let Some(keys) = keys else {
+            return Ok(bindings);
+        };
+        if !keys.get_ref().is_table() {
+            return Err(self.refusal(&keys.span(), "keys", KEYS));
+        }
+        let read: Bindings = toml::from_str(self.text).map_err(|error| self.syntax(&error))?;
+        let mut written: Vec<(Range<usize>, String, Action, Option<char>)> = Vec::new();
+        let mut entries: Vec<_> = read.keys.into_iter().collect();
+        entries.sort_by_key(|(name, _)| name.span().start);
+        for (name, value) in entries {
+            let span = name.span();
+            let key = format!("keys.{}", name.get_ref());
+            let action = keymap::action_named(name.get_ref())
+                .ok_or_else(|| self.refusal(&span, &key, &no_such_action()))?;
+            let bound = match value.get_ref() {
+                Value::String(text) => keymap::parse_key(text),
+                _ => Err(keymap::KEY.to_string()),
+            }
+            .map_err(|what| self.refusal(&span, &key, &what))?;
+            if let Some(c) = bound.filter(|c| {
+                matches!(action, Action::New | Action::End) && matches!(c, 'j' | 'J' | 'k' | 'K')
+            }) {
+                let what = format!("{:?} moves the selection in the sidebar", c.to_string());
+                return Err(self.refusal(&span, &key, &what));
+            }
+            written.push((span, key, action, bound));
+        }
+        let keymap = written
+            .iter()
+            .fold(Keymap::default(), |keymap, (_, _, action, bound)| {
+                keymap.bind(*action, *bound)
+            });
+        for (span, key, action, bound) in written.iter().rev() {
+            if let (Some(other), Some(c)) = (keymap.clash(*action), bound) {
+                let other = keymap::name(other);
+                let what = format!(
+                    "{:?} is {other}'s key too; bind {other} elsewhere",
+                    c.to_string()
+                );
+                return Err(self.refusal(span, key, &what));
+            }
+        }
+        for (_, _, action, bound) in written {
+            for (each, setting) in &mut bindings {
+                if *each == action {
+                    *setting = from_file(bound);
+                }
+            }
+        }
+        Ok(bindings)
+    }
+
     fn refusal(&self, span: &Range<usize>, key: &str, what: &str) -> Refusal {
         Refusal(format!(
             "{}:{}: {key}: {what}",
@@ -468,6 +593,11 @@ fn written(path: &Path) -> Result<String, Refusal> {
         return Err(refused("larger than 64 KiB".to_string()));
     }
     String::from_utf8(bytes).map_err(|_| refused("stream did not contain valid UTF-8".to_string()))
+}
+
+fn no_such_action() -> String {
+    let names: Vec<&str> = ACTIONS.iter().map(|(_, name, _)| *name).collect();
+    format!("no such action; the actions are {}", names.join(", "))
 }
 
 fn chooses_a_conversation(word: &str) -> bool {

@@ -337,6 +337,22 @@ fn the_clawd_icon_from_the_file_leads_the_claude_name_in_the_pane_border() {
     );
 }
 
+#[test]
+#[ignore]
+fn the_bindings_from_the_file_start_a_session_and_name_the_prefix() {
+    let home = tempfile::tempdir().unwrap();
+    write_config(home.path(), "prefix = \"C-]\"\n[keys]\nnew = \"a\"\n");
+    let server = Server::start("config-keys", 200, 20);
+    server.run(home.path(), &[(SESSION_COMMAND, AGENT)], &[]);
+    server.wait_for_screen("No session yet");
+
+    server.send_keys(&["a"]);
+    server.wait_for_screen("acme agent in");
+    server.send_keys(&["C-]", "w"]);
+
+    server.wait_for_screen("C-] w does nothing; C-] ? lists the keys");
+}
+
 fn coloured(server: &Server) -> String {
     let output = server
         .tmux(&["capture-pane", "-p", "-e", "-t", "e2e"])

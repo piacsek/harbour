@@ -241,6 +241,11 @@ impl App {
         self
     }
 
+    pub fn with_keymap(mut self, keymap: Keymap) -> App {
+        self.keymap = keymap;
+        self
+    }
+
     pub fn with_accent(mut self, accent: Color) -> App {
         self.accent = accent;
         self
