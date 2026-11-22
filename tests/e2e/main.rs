@@ -15,6 +15,7 @@ mod finding;
 mod keys;
 mod log;
 mod moving;
+mod navigating;
 mod neovim;
 mod picker;
 mod signals;
