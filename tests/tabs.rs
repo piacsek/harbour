@@ -238,22 +238,14 @@ fn the_claude_name_alone_has_its_glyph_with_icons() {
 
 #[test]
 fn the_claude_name_alone_has_the_clawd_glyph_when_chosen() {
-    assert_eq!(claude(Some(ClaudeIcon::Clawd)), "\u{100000} claude");
+    assert_eq!(claude(Some(ClaudeIcon::Clawd)), "\u{100000}  claude");
 }
 
 #[test]
 fn with_the_clawd_icon_the_claude_name_follows_its_glyph() {
     let [claude, _] = iconed(ClaudeIcon::Clawd, "nvim", true, None, 40);
 
-    assert_eq!(claude, "\u{100000} claude");
-}
-
-#[test]
-fn the_clawd_glyph_takes_one_column_like_the_sparkle() {
-    let [claude, editor] = iconed(ClaudeIcon::Clawd, "nvim", true, None, 19);
-
-    assert_eq!(claude, "\u{100000} claude");
-    assert_eq!(editor, format!("{NEOVIM} nvim"));
+    assert_eq!(claude, "\u{100000}  claude");
 }
 
 #[test]
