@@ -1,6 +1,8 @@
 use std::ffi::{OsStr, OsString};
 use std::io::Read;
 use std::os::fd::AsFd;
+use std::os::unix::ffi::OsStrExt;
+use std::path::{Path, PathBuf};
 use std::process::{Child, ChildStdout, Command, ExitStatus, Stdio};
 use std::time::{Duration, Instant};
 
@@ -18,32 +20,57 @@ pub enum Direction {
 pub struct Tmux {
     program: Vec<OsString>,
     pane: OsString,
+    tty: OsString,
+    deadline: Duration,
 }
 
 impl Tmux {
     pub fn from_env() -> Option<Tmux> {
-        Tmux::from_vars(std::env::var_os("TMUX"), std::env::var_os("TMUX_PANE"))
+        let pane = Tmux::pane(std::env::var_os("TMUX"), std::env::var_os("TMUX_PANE"))?;
+        let tty = nix::unistd::ttyname(std::io::stdin()).ok()?;
+        let opened = std::env::current_dir().ok()?;
+        let path = std::env::var_os("PATH").unwrap_or_default();
+        let program = located("tmux", &path, &opened)?;
+        Some(Tmux::with_program(
+            vec![program.into()],
+            pane,
+            tty.into(),
+            DEADLINE,
+        ))
     }
 
-    pub fn from_vars(tmux: Option<OsString>, pane: Option<OsString>) -> Option<Tmux> {
+    pub fn pane(tmux: Option<OsString>, pane: Option<OsString>) -> Option<OsString> {
         tmux.filter(|tmux| !tmux.is_empty())?;
-        let pane = pane.filter(|pane| !pane.is_empty())?;
-        Some(Tmux::with_program(vec!["tmux".into()], pane))
+        pane.filter(|pane| !pane.is_empty())
     }
 
-    pub fn with_program(program: Vec<OsString>, pane: OsString) -> Tmux {
-        Tmux { program, pane }
+    pub fn with_program(
+        program: Vec<OsString>,
+        pane: OsString,
+        tty: OsString,
+        deadline: Duration,
+    ) -> Tmux {
+        Tmux {
+            program,
+            pane,
+            tty,
+            deadline,
+        }
     }
 
     pub fn select(&self, direction: Direction) -> bool {
-        let deadline = Instant::now() + DEADLINE;
+        let deadline = Instant::now() + self.deadline;
         let (key, edge, flag) = match direction {
             Direction::Below => (
                 "C-j",
-                "#{pane_active}#{window_active}#{pane_at_bottom}",
+                "#{pane_active}#{window_active}#{pane_at_bottom} #{pane_tty}",
                 "-D",
             ),
-            Direction::Above => ("C-k", "#{pane_active}#{window_active}#{pane_at_top}", "-U"),
+            Direction::Above => (
+                "C-k",
+                "#{pane_active}#{window_active}#{pane_at_top} #{pane_tty}",
+                "-U",
+            ),
         };
         let pane = self.pane.as_os_str();
         let bound: [&OsStr; 4] = [
@@ -66,28 +93,39 @@ impl Tmux {
             .run(&check, Stdio::piped(), deadline)
             .and_then(|mut child| child.stdout.take())
             .and_then(|stdout| answer(stdout, deadline));
-        answer.is_some_and(|answer| answer.trim_ascii() == b"110")
-            && self
-                .run(
-                    &["select-pane".as_ref(), flag.as_ref(), "-t".as_ref(), pane],
-                    Stdio::null(),
-                    deadline,
-                )
-                .is_some()
+        let expected = [b"110 ", self.tty.as_bytes()].concat();
+        if answer.is_none_or(|answer| answer.trim_ascii_end() != expected) {
+            return false;
+        }
+        let select: [&OsStr; 4] = ["select-pane".as_ref(), flag.as_ref(), "-t".as_ref(), pane];
+        let Some(mut child) = self.spawn(&select, Stdio::null()) else {
+            return false;
+        };
+        waited(&mut child, Instant::now() + self.deadline).is_none_or(|status| status.success())
     }
 
     fn run(&self, args: &[&OsStr], stdout: Stdio, deadline: Instant) -> Option<Child> {
+        let mut child = self.spawn(args, stdout)?;
+        waited(&mut child, deadline)?.success().then_some(child)
+    }
+
+    fn spawn(&self, args: &[&OsStr], stdout: Stdio) -> Option<Child> {
         let (program, before) = self.program.split_first()?;
-        let mut child = Command::new(program)
+        Command::new(program)
             .args(before)
             .args(args)
             .stdin(Stdio::null())
             .stdout(stdout)
             .stderr(Stdio::null())
             .spawn()
-            .ok()?;
-        waited(&mut child, deadline)?.success().then_some(child)
+            .ok()
     }
+}
+
+pub fn located(program: &str, path: &OsStr, opened: &Path) -> Option<PathBuf> {
+    std::env::split_paths(path)
+        .map(|directory| opened.join(directory).join(program))
+        .find(|candidate| crate::picker::executable(candidate))
 }
 
 fn answer(mut stdout: ChildStdout, deadline: Instant) -> Option<Vec<u8>> {

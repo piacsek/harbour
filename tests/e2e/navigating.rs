@@ -31,10 +31,12 @@ fn ctrl_j_in_claude_code_with_nothing_below_reaches_it_and_ctrl_k_moves_above() 
     let harbour = active(&server);
     server.send_keys(&["n"]);
     server.wait_for_screen("acme agent in acme-api");
-    server.send_keys(&["Enter"]);
+    focus_claude(&server);
     let above = split(&server, &harbour, "-vb");
 
     send(&server, &harbour, "hello");
+    let typed = server.wait_for_screen("hello");
+    assert!(typed.contains("hello"), "{typed}");
     send(&server, &harbour, "C-j");
 
     let screen = server.wait_for_screen("acme agent got: hello");
@@ -52,10 +54,12 @@ fn ctrl_j_in_claude_code_reaches_it_when_tmux_binds_no_ctrl_j() {
     let harbour = active(&server);
     server.send_keys(&["n"]);
     server.wait_for_screen("acme agent in acme-api");
-    server.send_keys(&["Enter"]);
+    focus_claude(&server);
     split(&server, &harbour, "-v");
 
     send(&server, &harbour, "hello");
+    let typed = server.wait_for_screen("hello");
+    assert!(typed.contains("hello"), "{typed}");
     send(&server, &harbour, "C-j");
 
     let screen = server.wait_for_screen("acme agent got: hello");
@@ -64,13 +68,22 @@ fn ctrl_j_in_claude_code_reaches_it_when_tmux_binds_no_ctrl_j() {
 }
 
 fn bind(server: &Server) {
-    for (key, flag) in [("C-j", "-D"), ("C-k", "-U")] {
-        let status = server
-            .tmux(&["bind-key", "-n", key, "select-pane", flag])
-            .status()
-            .unwrap();
-        assert!(status.success(), "could not bind {key}");
-    }
+    let below = server
+        .tmux(&["bind-key", "-n", "C-j", "select-pane", "-D"])
+        .status()
+        .unwrap();
+    assert!(below.success(), "could not bind C-j");
+    let above = server
+        .tmux(&["bind-key", "-n", "C-k", "select-pane", "-U"])
+        .status()
+        .unwrap();
+    assert!(above.success(), "could not bind C-k");
+}
+
+fn focus_claude(server: &Server) {
+    server.send_keys(&["Enter"]);
+    let focused = server.wait_for_screen("┏ claude");
+    assert!(focused.contains("┏ claude"), "{focused}");
 }
 
 fn opened(name: &str, home: &Path) -> Server {
@@ -110,7 +123,6 @@ fn send(server: &Server, pane: &str, key: &str) {
         .status()
         .unwrap();
     assert!(status.success(), "could not send {key}");
-    sleep(Duration::from_millis(100));
 }
 
 fn active(server: &Server) -> String {

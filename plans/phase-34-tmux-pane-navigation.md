@@ -30,9 +30,12 @@ harbour, nor C-k one above. Neovim inside harbour already does it: it gets harbo
   itself (as vim-tmux-navigator does; review round 1: a plain tmux user's C-j newline and C-k
   kill in Claude Code must stay), then `tmux display-message -p -t <pane>
   '#{pane_active}#{window_active}<edge>'`, then, only on an exact `110`, `tmux select-pane -D`
-  or `-U -t <pane>`; true only when all three exit 0. The calls share one deadline of 100 ms (as
-  the Neovim calls do); a call past it is killed and counts as no move. stdin and stderr are
-  null. `tmux` is looked up on `PATH`, and the client finds harbour's server through `TMUX`.
+  or `-U -t <pane>`. The first two share one deadline of 100 ms (as the Neovim calls do); a
+  call past it is killed and counts as no move. `select-pane` gets 100 ms of its own and counts
+  as a move once started unless it fails (review round 2). The check also compares
+  `#{pane_tty}` with harbour's terminal. stdin and stderr are null. `tmux` is looked up on
+  `PATH` once at start, relative entries from where harbour was opened, and the client finds
+  harbour's server through `TMUX`.
   `Tmux::with_program`, a test seam on the `SEAMS` list, takes a program and its arguments in
   place of `tmux`, so the in-process tests hand it a `/bin/sh -c` script.
 - **Where harbour asks**: in `key`, after the jump, zoom, side, swap, width and finder keys and
@@ -47,7 +50,7 @@ harbour, nor C-k one above. Neovim inside harbour already does it: it gets harbo
   the same where it names C-h and C-l. `KEYS` gets no row: the move matters only with that
   pattern in `tmux.conf`, which `--help` explains, and the help view keeps its 20 rows. No view
   of the interface changes, so `docs/details.png` stays; `docs/help.png` is taken again.
-- **Known limit**: the tmux calls run on the key thread, at most 100 ms a key.
+- **Known limit**: the tmux calls run on the key thread, at most 200 ms a key.
 
 ## States
 
@@ -56,13 +59,15 @@ harbour, nor C-k one above. Neovim inside harbour already does it: it gets harbo
 | Not under tmux | as today |
 | Under tmux, C-j (C-k) not bound in tmux's root table | as today; only `list-keys` runs |
 | Harbour's pane or window not the active one (`synchronize-panes`, `send-keys`) | as today |
+| `TMUX` and `TMUX_PANE` inherited from another tmux (a terminal started from a tmux shell) | as today: the pane's `#{pane_tty}` is not harbour's terminal |
+| `select-pane` slower than its own 100 ms | the key is taken, never also forwarded |
 | Under tmux, a pane below, sidebar focused | tmux focus moves to the pane below; the selection stays |
 | Under tmux, a pane below, Claude Code focused (zoomed, side by side on its half, exited too) | tmux focus moves; Claude Code gets nothing |
 | Under tmux, nothing below (bottom edge, zoomed tmux window) | as today: the sidebar selects the next card, Claude Code gets the key |
 | A shown editor has focus (side by side its half too) | the editor gets the key; tmux is not asked |
 | The usage popup, the picker, the changelog view, the help or a question | as today; tmux is not asked |
 | `tmux` not on `PATH`, or exits non-zero | as today |
-| tmux answers nothing within 100 ms (a stalled server) | killed; as today, the key late by at most 100 ms |
+| tmux answers nothing within 100 ms (a stalled server) | killed; as today, the key late by at most 100 ms (200 ms when the move stalls) |
 | `TMUX_PANE` names a pane that is gone | `display-message` prints no `0`; as today |
 | The layout changes between the check and the move | the move follows tmux's layout at that instant (may wrap), accepted |
 | tmux moved but `select-pane` passed the deadline | killed; counts as no move, so the key also goes on |

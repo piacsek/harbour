@@ -1,4 +1,5 @@
 use std::path::Path;
+use std::time::Duration;
 
 use crossterm::event::{KeyCode, KeyModifiers};
 use harbour::app::App;
@@ -8,7 +9,7 @@ use harbour::tmux::Tmux;
 use crate::logging::{logged, only, read};
 use crate::{Screen, numbered_agent, script};
 
-const BELOW: &str = "list-keys -T root C-j\ndisplay-message -p -t %7 #{pane_active}#{window_active}#{pane_at_bottom}\nselect-pane -D -t %7\n";
+const BELOW: &str = "list-keys -T root C-j\ndisplay-message -p -t %7 #{pane_active}#{window_active}#{pane_at_bottom} #{pane_tty}\nselect-pane -D -t %7\n";
 
 #[test]
 fn ctrl_j_in_the_sidebar_moves_to_the_tmux_pane_below_and_keeps_the_selection() {
@@ -34,7 +35,7 @@ fn ctrl_k_in_the_sidebar_moves_to_the_tmux_pane_above() {
 
     assert_eq!(
         calls(scratch.path()),
-        "list-keys -T root C-k\ndisplay-message -p -t %7 #{pane_active}#{window_active}#{pane_at_top}\nselect-pane -U -t %7\n"
+        "list-keys -T root C-k\ndisplay-message -p -t %7 #{pane_active}#{window_active}#{pane_at_top} #{pane_tty}\nselect-pane -U -t %7\n"
     );
     let shown = screen.wait_for("acme agent 2");
     assert!(!shown.contains("acme agent 1"), "{shown}");
@@ -49,7 +50,7 @@ fn ctrl_j_in_the_sidebar_at_the_bottom_of_the_window_selects_the_next_card() {
 
     assert_eq!(
         calls(scratch.path()),
-        "list-keys -T root C-j\ndisplay-message -p -t %7 #{pane_active}#{window_active}#{pane_at_bottom}\n"
+        "list-keys -T root C-j\ndisplay-message -p -t %7 #{pane_active}#{window_active}#{pane_at_bottom} #{pane_tty}\n"
     );
     screen.wait_for("acme agent 2");
 }
@@ -102,10 +103,13 @@ fn ctrl_j_in_claude_code_reaches_it_when_tmux_binds_no_ctrl_j() {
         vec![
             "/bin/sh".into(),
             "-c".into(),
-            "case $1 in list-keys) exit 1 ;; display-message) echo 110 ;; esac".into(),
+            "case $1 in list-keys) exit 1 ;; display-message) echo '110 /dev/acme-tty' ;; esac"
+                .into(),
             "tmux".into(),
         ],
         "%7".into(),
+        "/dev/acme-tty".into(),
+        Duration::from_secs(5),
     );
     let mut screen = focused(App::new(reader("agent")).with_tmux(unbound));
 
@@ -138,7 +142,12 @@ fn ctrl_j_in_claude_code_at_the_bottom_of_the_window_reaches_claude_code() {
 
 #[test]
 fn ctrl_j_in_claude_code_reaches_it_when_tmux_fails() {
-    let failing = Tmux::with_program(vec!["/nonexistent/acme-tmux".into()], "%7".into());
+    let failing = Tmux::with_program(
+        vec!["/nonexistent/acme-tmux".into()],
+        "%7".into(),
+        "/dev/acme-tty".into(),
+        Duration::from_secs(5),
+    );
     let mut screen = focused(App::new(reader("agent")).with_tmux(failing));
 
     screen.key(KeyCode::Char('j'), KeyModifiers::CONTROL);
@@ -236,13 +245,15 @@ fn tmux(scratch: &Path, edge: &str) -> Tmux {
             "/bin/sh".into(),
             "-c".into(),
             format!(
-                "echo \"$*\" >> '{}'; case $1 in display-message) echo {edge} ;; esac",
+                "echo \"$*\" >> '{}'; case $1 in display-message) echo '{edge} /dev/acme-tty' ;; esac",
                 calls.display()
             )
             .into(),
             "tmux".into(),
         ],
         "%7".into(),
+        "/dev/acme-tty".into(),
+        Duration::from_secs(5),
     )
 }
 

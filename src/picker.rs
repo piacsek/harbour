@@ -215,7 +215,7 @@ fn startable(program: &str, from: &Path) -> io::Result<()> {
     }
 }
 
-fn executable(path: &Path) -> bool {
+pub(crate) fn executable(path: &Path) -> bool {
     fs::metadata(path).is_ok_and(|meta| meta.is_file() && meta.permissions().mode() & 0o111 != 0)
 }
 
