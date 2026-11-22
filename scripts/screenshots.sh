@@ -164,6 +164,15 @@ TOML
 shoot icons 160 26 "" "n Enter C-l" "Backoff::exponential"
 rm -rf "$home/.config" "$home/bin" "$home/.claude" "$home/acme-api/.git"
 echo "wrote $out/icons.png"
+mkdir -p "$home/.config/harbour" "$home/bin"
+printf '#!/bin/sh\nexec sleep 600\n' >"$home/bin/claude"
+chmod +x "$home/bin/claude"
+cat >"$home/.config/harbour/config.toml" <<TOML
+session_command = ["$home/bin/claude"]
+TOML
+shoot usage-loading 160 26 "" "u" "reading usage…"
+rm -rf "$home/.config" "$home/bin"
+echo "wrote $out/usage-loading.png"
 released="$home/released"
 mkdir -p "$released"
 cp -R "$root/src" "$root/Cargo.toml" "$root/Cargo.lock" "$root/rust-toolchain.toml" "$released/"
