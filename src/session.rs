@@ -7,7 +7,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{self, Sender};
 use std::sync::{Arc, Mutex};
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use nix::sys::signal::{Signal, killpg};
 use nix::unistd::Pid;
@@ -20,6 +20,7 @@ use tui_term::widget::{Cursor, PseudoTerminal};
 use crate::keys::{Asked, Keyboard};
 
 const HANGUP_GRACE: Duration = Duration::from_millis(200);
+const HIDDEN_GRACE: Duration = Duration::from_millis(60);
 
 type Parser = vt100::Parser<Replies>;
 
@@ -129,6 +130,9 @@ impl Session {
                         }
                     }
                     escaped = buffer[read - 1] == 0x1b;
+                    let screen = parser.screen();
+                    let (hidden, at) = (screen.hide_cursor(), screen.cursor_position());
+                    parser.callbacks_mut().track(hidden, at, Instant::now());
                     std::mem::take(&mut parser.callbacks_mut().bytes)
                 };
                 if !replies.is_empty() {
@@ -238,20 +242,15 @@ impl Session {
             .map_or(Keyboard::Legacy, Asked::keyboard)
     }
 
-    pub fn cursor_shape(&self) -> u8 {
-        self.parser.lock().unwrap().callbacks().shape
-    }
-
-    pub fn cursor(&self, area: Rect) -> Option<Position> {
-        let parser = self.parser.lock().unwrap();
-        let screen = parser.screen();
-        if screen.hide_cursor() {
-            return None;
-        }
-        let (row, col) = screen.cursor_position();
-        let col = col.min(screen.size().1.saturating_sub(1));
-        let at = Position::new(area.x.checked_add(col)?, area.y.checked_add(row)?);
-        area.contains(at).then_some(at)
+    pub fn draw(&self, area: Rect, buffer: &mut Buffer, now: Instant) -> (Option<Position>, u8) {
+        let mut parser = self.parser.lock().unwrap();
+        let (rows, cols) = parser.screen().size();
+        contained(&mut parser, rows, cols, |parser| {
+            PseudoTerminal::new(parser.screen())
+                .cursor(Cursor::default().visibility(false))
+                .render(area, buffer);
+        });
+        (cursor(&parser, area, now), parser.callbacks().shape)
     }
 
     pub fn drained(&self) -> bool {
@@ -335,6 +334,7 @@ fn contained(parser: &mut Parser, rows: u16, cols: u16, work: impl FnOnce(&mut P
                 panics,
                 asked,
                 shape,
+                ..Replies::default()
             },
         );
         parser.process(&modes);
@@ -384,14 +384,20 @@ fn spawn_writer(mut pty: Box<dyn Write + Send>) -> Sender<Vec<u8>> {
 
 impl Widget for &Session {
     fn render(self, area: Rect, buffer: &mut Buffer) {
-        let mut parser = self.parser.lock().unwrap();
-        let (rows, cols) = parser.screen().size();
-        contained(&mut parser, rows, cols, |parser| {
-            PseudoTerminal::new(parser.screen())
-                .cursor(Cursor::default().visibility(false))
-                .render(area, buffer);
-        });
+        self.draw(area, buffer, Instant::now());
     }
+}
+
+fn cursor(parser: &Parser, area: Rect, now: Instant) -> Option<Position> {
+    let screen = parser.screen();
+    let (row, col) = if screen.hide_cursor() {
+        parser.callbacks().lingering(now)?
+    } else {
+        screen.cursor_position()
+    };
+    let col = col.min(screen.size().1.saturating_sub(1));
+    let at = Position::new(area.x.checked_add(col)?, area.y.checked_add(row)?);
+    area.contains(at).then_some(at)
 }
 
 #[derive(Default)]
@@ -401,9 +407,25 @@ struct Replies {
     panics: usize,
     asked: Option<Asked>,
     shape: u8,
+    seen: Option<(u16, u16)>,
+    hidden_at: Option<Instant>,
 }
 
 impl Replies {
+    fn track(&mut self, hidden: bool, at: (u16, u16), now: Instant) {
+        if hidden {
+            self.hidden_at.get_or_insert(now);
+        } else {
+            self.seen = Some(at);
+            self.hidden_at = None;
+        }
+    }
+
+    fn lingering(&self, now: Instant) -> Option<(u16, u16)> {
+        let hidden = self.hidden_at?;
+        (now.saturating_duration_since(hidden) < HIDDEN_GRACE).then_some(self.seen?)
+    }
+
     fn forget_asked(&mut self) {
         if let Some(asked) = &mut self.asked {
             *asked = Asked::default();

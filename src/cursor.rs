@@ -13,7 +13,6 @@ impl Shape {
             return Ok(());
         }
         write!(out, "\x1b[{wanted} q")?;
-        out.flush()?;
         self.sent.store(wanted, Ordering::SeqCst);
         Ok(())
     }
