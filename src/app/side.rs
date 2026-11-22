@@ -7,6 +7,7 @@ use ratatui::widgets::Block;
 use super::App;
 use super::key::beside;
 use super::logging::Input;
+use crate::icons::ClaudeIcon;
 use crate::input::ESCAPED;
 use crate::mouse::{self, Gesture, Target};
 use crate::state::{self, Counts};
@@ -206,7 +207,7 @@ impl App {
         let right_room = usize::from(right_width.saturating_sub(2));
         let counted = state::title(counts, right_room);
         let named_room = right_room.saturating_sub(counted.width());
-        let claude_left = claude_title(self.nerd_font, left_room - kept, claude_style);
+        let claude_left = claude_title(self.shown_claude_icon(), left_room - kept, claude_style);
         let mut spans = headline
             .map(|headline| info(&headline, left_room - claude_left.width()))
             .unwrap_or_default();
@@ -214,7 +215,7 @@ impl App {
             let used = Line::from(spans.clone()).width();
             (
                 self.editor_title(left_room - used, editor_style),
-                claude_title(self.nerd_font, named_room, claude_style),
+                claude_title(self.shown_claude_icon(), named_room, claude_style),
             )
         } else {
             (claude_left, self.editor_title(named_room, editor_style))
@@ -225,6 +226,10 @@ impl App {
             left_block.title(Line::from(spans)),
             right_block.title(right_name).title(counted.right_aligned()),
         ])
+    }
+
+    fn shown_claude_icon(&self) -> Option<ClaudeIcon> {
+        self.nerd_font.then_some(self.claude_icon)
     }
 
     fn editor_title(&self, room: usize, style: Modifier) -> Line<'static> {
@@ -299,8 +304,8 @@ pub(super) fn swaps(key: KeyEvent) -> Option<bool> {
     }
 }
 
-fn claude_title(nerd_font: bool, room: usize, style: Modifier) -> Line<'static> {
-    let claude = named(tabs::claude(nerd_font), style);
+fn claude_title(icon: Option<ClaudeIcon>, room: usize, style: Modifier) -> Line<'static> {
+    let claude = named(tabs::claude(icon), style);
     if claude.width() <= room {
         claude
     } else {

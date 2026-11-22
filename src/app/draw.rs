@@ -251,7 +251,13 @@ impl App {
         let entry = self.sessions.get(self.selected)?;
         let directory = entry.editor().map(|editor| editor.label.as_str());
         let [claude, editor] = if self.nerd_font {
-            tabs::iconed(program.name(), program.is_neovim(), directory, room)
+            tabs::iconed(
+                self.claude_icon,
+                program.name(),
+                program.is_neovim(),
+                directory,
+                room,
+            )
         } else {
             tabs::strip(program.name(), directory, room)
         };

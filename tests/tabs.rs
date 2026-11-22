@@ -1,3 +1,4 @@
+use harbour::icons::ClaudeIcon;
 use harbour::tabs::{claude, editor_named, iconed, strip};
 
 #[test]
@@ -90,7 +91,7 @@ fn nothing_shows_where_not_even_the_separators_fit() {
 
 #[test]
 fn with_icons_each_name_follows_its_glyph_and_a_space() {
-    let [claude, editor] = iconed("nvim", true, None, 40);
+    let [claude, editor] = iconed(ClaudeIcon::Sparkle, "nvim", true, None, 40);
 
     assert_eq!(claude, format!("{SPARKLE} claude"));
     assert_eq!(editor, format!("{NEOVIM} nvim"));
@@ -98,7 +99,7 @@ fn with_icons_each_name_follows_its_glyph_and_a_space() {
 
 #[test]
 fn with_icons_another_editor_gets_no_glyph() {
-    let [claude, editor] = iconed("acme-edit", false, None, 40);
+    let [claude, editor] = iconed(ClaudeIcon::Sparkle, "acme-edit", false, None, 40);
 
     assert_eq!(claude, format!("{SPARKLE} claude"));
     assert_eq!(editor, "acme-edit");
@@ -106,7 +107,13 @@ fn with_icons_another_editor_gets_no_glyph() {
 
 #[test]
 fn with_icons_the_directory_follows_the_editor_when_it_fits() {
-    let [claude, editor] = iconed("nvim", true, Some("~/work/acme/api"), 40);
+    let [claude, editor] = iconed(
+        ClaudeIcon::Sparkle,
+        "nvim",
+        true,
+        Some("~/work/acme/api"),
+        40,
+    );
 
     assert_eq!(claude, format!("{SPARKLE} claude"));
     assert_eq!(editor, format!("{NEOVIM} nvim: ~/work/acme/api"));
@@ -114,7 +121,13 @@ fn with_icons_the_directory_follows_the_editor_when_it_fits() {
 
 #[test]
 fn with_icons_the_directory_loses_its_start_first_at_a_slash() {
-    let [claude, editor] = iconed("nvim", true, Some("~/work/acme/api"), 31);
+    let [claude, editor] = iconed(
+        ClaudeIcon::Sparkle,
+        "nvim",
+        true,
+        Some("~/work/acme/api"),
+        31,
+    );
 
     assert_eq!(claude, format!("{SPARKLE} claude"));
     assert_eq!(editor, format!("{NEOVIM} nvim: …/acme/api"));
@@ -122,7 +135,7 @@ fn with_icons_the_directory_loses_its_start_first_at_a_slash() {
 
 #[test]
 fn with_icons_a_wide_directory_name_is_cut_by_display_width() {
-    let [claude, editor] = iconed("nvim", true, Some("~/acme/日本語"), 26);
+    let [claude, editor] = iconed(ClaudeIcon::Sparkle, "nvim", true, Some("~/acme/日本語"), 26);
 
     assert_eq!(claude, format!("{SPARKLE} claude"));
     assert_eq!(editor, format!("{NEOVIM} nvim: …本語"));
@@ -130,7 +143,13 @@ fn with_icons_a_wide_directory_name_is_cut_by_display_width() {
 
 #[test]
 fn with_icons_the_directory_goes_when_not_even_its_last_column_fits() {
-    let [claude, editor] = iconed("nvim", true, Some("~/work/acme/api"), 22);
+    let [claude, editor] = iconed(
+        ClaudeIcon::Sparkle,
+        "nvim",
+        true,
+        Some("~/work/acme/api"),
+        22,
+    );
 
     assert_eq!(claude, format!("{SPARKLE} claude"));
     assert_eq!(editor, format!("{NEOVIM} nvim"));
@@ -138,7 +157,7 @@ fn with_icons_the_directory_goes_when_not_even_its_last_column_fits() {
 
 #[test]
 fn with_icons_the_glyphs_stay_while_the_editor_name_fits_whole() {
-    let [claude, editor] = iconed("nvim", true, None, 19);
+    let [claude, editor] = iconed(ClaudeIcon::Sparkle, "nvim", true, None, 19);
 
     assert_eq!(claude, format!("{SPARKLE} claude"));
     assert_eq!(editor, format!("{NEOVIM} nvim"));
@@ -146,7 +165,7 @@ fn with_icons_the_glyphs_stay_while_the_editor_name_fits_whole() {
 
 #[test]
 fn with_icons_the_glyphs_go_before_the_editor_name_is_cut() {
-    let [claude, editor] = iconed("nvim", true, None, 18);
+    let [claude, editor] = iconed(ClaudeIcon::Sparkle, "nvim", true, None, 18);
 
     assert_eq!(claude, "claude");
     assert_eq!(editor, "nvim");
@@ -154,7 +173,13 @@ fn with_icons_the_glyphs_go_before_the_editor_name_is_cut() {
 
 #[test]
 fn with_icons_the_directory_does_not_come_back_once_the_glyphs_go() {
-    let [claude, editor] = iconed("nvim", true, Some("~/work/acme/api"), 18);
+    let [claude, editor] = iconed(
+        ClaudeIcon::Sparkle,
+        "nvim",
+        true,
+        Some("~/work/acme/api"),
+        18,
+    );
 
     assert_eq!(claude, "claude");
     assert_eq!(editor, "nvim");
@@ -162,7 +187,7 @@ fn with_icons_the_directory_does_not_come_back_once_the_glyphs_go() {
 
 #[test]
 fn with_icons_the_editor_name_is_cut_once_the_glyphs_are_gone() {
-    let [claude, editor] = iconed("nvim", true, None, 13);
+    let [claude, editor] = iconed(ClaudeIcon::Sparkle, "nvim", true, None, 13);
 
     assert_eq!(claude, "claude");
     assert_eq!(editor, "n…");
@@ -170,7 +195,7 @@ fn with_icons_the_editor_name_is_cut_once_the_glyphs_are_gone() {
 
 #[test]
 fn with_icons_a_wide_editor_name_keeps_its_glyph_only_whole() {
-    let [claude, editor] = iconed("編集器", true, None, 21);
+    let [claude, editor] = iconed(ClaudeIcon::Sparkle, "編集器", true, None, 21);
 
     assert_eq!(claude, format!("{SPARKLE} claude"));
     assert_eq!(editor, format!("{NEOVIM} 編集器"));
@@ -178,7 +203,7 @@ fn with_icons_a_wide_editor_name_keeps_its_glyph_only_whole() {
 
 #[test]
 fn with_icons_a_wide_editor_name_too_wide_for_its_glyph_shows_without_one() {
-    let [claude, editor] = iconed("編集器", true, None, 20);
+    let [claude, editor] = iconed(ClaudeIcon::Sparkle, "編集器", true, None, 20);
 
     assert_eq!(claude, "claude");
     assert_eq!(editor, "編集器");
@@ -186,7 +211,13 @@ fn with_icons_a_wide_editor_name_too_wide_for_its_glyph_shows_without_one() {
 
 #[test]
 fn with_icons_nothing_shows_in_the_narrowest_pane() {
-    let [claude, editor] = iconed("nvim", true, Some("~/work/acme/api"), 6);
+    let [claude, editor] = iconed(
+        ClaudeIcon::Sparkle,
+        "nvim",
+        true,
+        Some("~/work/acme/api"),
+        6,
+    );
 
     assert_eq!(claude, "");
     assert_eq!(editor, "");
@@ -194,12 +225,35 @@ fn with_icons_nothing_shows_in_the_narrowest_pane() {
 
 #[test]
 fn the_claude_name_alone_is_plain_without_icons() {
-    assert_eq!(claude(false), "claude");
+    assert_eq!(claude(None), "claude");
 }
 
 #[test]
 fn the_claude_name_alone_has_its_glyph_with_icons() {
-    assert_eq!(claude(true), format!("{SPARKLE} claude"));
+    assert_eq!(
+        claude(Some(ClaudeIcon::Sparkle)),
+        format!("{SPARKLE} claude")
+    );
+}
+
+#[test]
+fn the_claude_name_alone_has_the_clawd_glyph_when_chosen() {
+    assert_eq!(claude(Some(ClaudeIcon::Clawd)), "\u{100000} claude");
+}
+
+#[test]
+fn with_the_clawd_icon_the_claude_name_follows_its_glyph() {
+    let [claude, _] = iconed(ClaudeIcon::Clawd, "nvim", true, None, 40);
+
+    assert_eq!(claude, "\u{100000} claude");
+}
+
+#[test]
+fn the_clawd_glyph_takes_one_column_like_the_sparkle() {
+    let [claude, editor] = iconed(ClaudeIcon::Clawd, "nvim", true, None, 19);
+
+    assert_eq!(claude, "\u{100000} claude");
+    assert_eq!(editor, format!("{NEOVIM} nvim"));
 }
 
 #[test]

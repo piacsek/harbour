@@ -121,7 +121,7 @@ fn zoom(screen: &mut Screen) {
 
 pub(crate) fn started(screen: &mut Screen) {
     screen.press('n');
-    screen.wait_for_all(&["acme-api · main", "3m"]);
+    screen.wait_for_all(&["acme-api", "main", "3m"]);
 }
 
 pub(crate) fn top(shown: &str) -> String {

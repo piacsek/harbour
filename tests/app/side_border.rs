@@ -1,5 +1,7 @@
 use crossterm::event::{KeyCode, KeyModifiers};
+use harbour::app::App;
 use harbour::editor::Program;
+use harbour::icons::ClaudeIcon;
 use ratatui::style::Modifier;
 
 use crate::zoom_border::{Claude, started, top};
@@ -119,10 +121,58 @@ fn swapped_a_cjk_title_keeps_the_headline_it_has_unswapped() {
     assert!(left.starts_with(&headline), "{headline}\n{swapped}");
 }
 
+#[test]
+fn with_the_clawd_icon_the_claude_code_half_names_claude_after_its_glyph() {
+    let mut screen = shown_side_by_side(
+        Claude::new("Fix the login")
+            .app()
+            .with_nerd_font()
+            .with_claude_icon(ClaudeIcon::Clawd),
+    );
+
+    let top = top(&screen.draw());
+
+    let left: String = top.chars().take(60).collect();
+    assert!(left.contains("  \u{100000} claude ━"), "{left}");
+}
+
+#[test]
+fn swapped_with_the_clawd_icon_the_right_half_names_claude_after_its_glyph() {
+    let mut screen = shown_side_by_side(
+        Claude::new("Fix the login")
+            .app()
+            .with_nerd_font()
+            .with_claude_icon(ClaudeIcon::Clawd),
+    );
+    screen.key(KeyCode::Char('}'), KeyModifiers::ALT);
+
+    let top = top(&screen.draw());
+
+    let right: String = top.chars().skip(60).collect();
+    assert!(right.starts_with("┏ \u{100000} claude ━"), "{right}");
+}
+
+#[test]
+fn without_the_nerd_font_the_clawd_icon_draws_no_glyph() {
+    let mut screen = shown_side_by_side(
+        Claude::new("Fix the login")
+            .app()
+            .with_claude_icon(ClaudeIcon::Clawd),
+    );
+
+    let top = top(&screen.draw());
+
+    let left: String = top.chars().take(60).collect();
+    assert!(left.contains("  3m  claude ━"), "{left}");
+}
+
 fn side_by_side(title: &str) -> Screen {
-    let claude = Claude::new(title);
+    shown_side_by_side(Claude::new(title).app())
+}
+
+fn shown_side_by_side(app: App) -> Screen {
     let editor = Program::new("acme-edit", script("exec sleep 600"));
-    let mut screen = Screen::of(claude.app().with_editor(editor));
+    let mut screen = Screen::of(app.with_editor(editor));
     screen.resize(120, 20);
     started(&mut screen);
     screen.key(KeyCode::Char('\\'), KeyModifiers::ALT);
