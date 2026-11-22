@@ -10,7 +10,7 @@ use crate::remembering::{ID, OTHER_ID, Scratch, TITLE};
 use crate::{Screen, script};
 
 #[test]
-fn ctrl_two_from_the_sidebar_selects_the_second_card_and_focuses_its_pane() {
+fn the_prefix_then_two_from_the_sidebar_selects_the_second_card_and_focuses_its_pane() {
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = three_sessions(scratch.path());
 
@@ -22,7 +22,7 @@ fn ctrl_two_from_the_sidebar_selects_the_second_card_and_focuses_its_pane() {
 }
 
 #[test]
-fn ctrl_one_from_inside_a_pane_jumps_and_the_pane_gets_nothing() {
+fn the_prefix_then_one_from_inside_a_pane_jumps_and_the_pane_gets_nothing() {
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = three_sessions(scratch.path());
     screen.key(KeyCode::Enter, KeyModifiers::NONE);
@@ -38,7 +38,7 @@ fn ctrl_one_from_inside_a_pane_jumps_and_the_pane_gets_nothing() {
 }
 
 #[test]
-fn ctrl_nine_jumps_to_the_last_card() {
+fn the_prefix_then_nine_jumps_to_the_last_card() {
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = three_sessions(scratch.path());
     screen.press('k');
@@ -93,7 +93,7 @@ fn ctrl_five_with_three_cards_from_inside_a_pane_reaches_no_session() {
 }
 
 #[test]
-fn ctrl_nine_with_no_card_does_nothing() {
+fn the_prefix_then_nine_with_no_card_does_nothing() {
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = Screen::new(lined_agent(scratch.path()));
 
@@ -186,7 +186,7 @@ fn an_editor_that_asked_for_extended_keys_gets_nothing_from_a_jump() {
 }
 
 #[test]
-fn ctrl_two_resumes_the_second_stopped_card() {
+fn the_prefix_then_two_resumes_the_second_stopped_card() {
     let scratch = Scratch::new();
     scratch.remember(ID, "The first one", 0);
     scratch.remember(OTHER_ID, TITLE, 1);

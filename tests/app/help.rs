@@ -1,4 +1,6 @@
 use crossterm::event::{KeyCode, KeyModifiers, MouseButton, MouseEventKind};
+use harbour::app::App;
+use harbour::keymap::{Action, Keymap};
 use ratatui::style::Color;
 
 use crate::{Screen, directory, raw_agent, reading_agent};
@@ -14,7 +16,7 @@ fn question_mark_shows_the_keys_and_the_last_dot() {
     let shown = screen.draw();
     assert!(shown.contains("j/k"), "{shown}");
     assert!(
-        shown.contains("end it and its editors, or forget an ended one"),
+        shown.contains("n/x        start / end or forget a session, C-/ too"),
         "{shown}"
     );
     assert!(shown.contains(LAST), "{shown}");
@@ -31,9 +33,8 @@ fn question_mark_shows_the_editor_keys() {
         shown.contains("focus or resume; C-l in Claude Code: editor"),
         "{shown}"
     );
-    assert!(shown.contains("end it and its editors"), "{shown}");
     assert!(
-        shown.contains("show the next editor, one per directory"),
+        shown.contains("C-/ e      show the next editor, one per directory"),
         "{shown}"
     );
 }
@@ -46,7 +47,7 @@ fn question_mark_shows_the_zoom_key() {
 
     let shown = screen.draw();
     assert!(
-        shown.contains("M-z        zoom the session to the whole screen, or back"),
+        shown.contains("C-/ z      zoom the session to the whole screen, or back"),
         "{shown}"
     );
 }
@@ -59,7 +60,7 @@ fn question_mark_shows_the_side_by_side_key() {
 
     let shown = screen.draw();
     assert!(
-        shown.contains("M-\\        side by side (120+ columns); M-{/M-} swap"),
+        shown.contains("C-/ \\ {}   side by side (120+ columns); swap the halves"),
         "{shown}"
     );
 }
@@ -72,7 +73,7 @@ fn question_mark_shows_the_width_keys() {
 
     let shown = screen.draw();
     assert!(
-        shown.contains("M--/M-=    narrow / widen the sidebar by 2 columns"),
+        shown.contains("C-/ -/=    narrow / widen the sidebar by 2 columns"),
         "{shown}"
     );
 }
@@ -86,7 +87,7 @@ fn question_mark_says_how_to_resume_and_forget_a_stopped_session() {
 
     let shown = screen.draw();
     assert!(shown.contains("focus or resume;"), "{shown}");
-    assert!(shown.contains("or forget an ended one"), "{shown}");
+    assert!(shown.contains("end or forget a session"), "{shown}");
     assert!(shown.contains("○ idle, exited, or stopped"), "{shown}");
 }
 
@@ -172,7 +173,7 @@ fn the_help_fills_a_20_row_terminal_with_no_row_to_spare() {
 }
 
 #[test]
-fn question_mark_shows_the_usage_key_on_one_row_beside_the_narrowest_sidebar() {
+fn question_mark_shows_the_usage_and_changelog_keys_on_one_row_beside_the_narrowest_sidebar() {
     let mut screen = Screen::new(reading_agent());
     screen.resize(60, 20);
 
@@ -180,13 +181,13 @@ fn question_mark_shows_the_usage_key_on_one_row_beside_the_narrowest_sidebar() {
 
     let shown = screen.draw();
     assert!(
-        shown.contains("u          show Claude Code's usage and limits"),
+        shown.contains("C-/ u/c    Claude Code's usage / the changelog"),
         "{shown}"
     );
 }
 
 #[test]
-fn question_mark_shows_the_changelog_key_on_one_row_beside_the_narrowest_sidebar() {
+fn question_mark_shows_the_help_and_quit_keys_on_one_row_beside_the_narrowest_sidebar() {
     let mut screen = Screen::new(reading_agent());
     screen.resize(60, 20);
 
@@ -194,7 +195,7 @@ fn question_mark_shows_the_changelog_key_on_one_row_beside_the_narrowest_sidebar
 
     let shown = screen.draw();
     assert!(
-        shown.contains("?/c        show or hide the help / the changelog"),
+        shown.contains("C-/ ?/q    this help / quit, asking while anything runs"),
         "{shown}"
     );
 }
@@ -208,7 +209,7 @@ fn question_mark_shows_the_find_key_on_one_row_beside_the_narrowest_sidebar() {
 
     let shown = screen.draw();
     assert!(
-        shown.contains("M-s        jump to a session by part of its name"),
+        shown.contains("C-/ s      jump to a session by part of its name"),
         "{shown}"
     );
 }
@@ -222,7 +223,7 @@ fn question_mark_shows_the_ctrl_l_row_on_one_row_in_the_narrow_layout() {
 
     let shown = screen.draw();
     assert!(
-        shown.contains("C-l/Enter  focus or resume; C-l in Claude Code: editor"),
+        shown.contains("Enter/C-l  focus or resume; C-l in Claude Code: editor"),
         "{shown}"
     );
 }
@@ -305,6 +306,103 @@ fn a_paste_hides_the_help() {
 
     let shown = screen.draw();
     assert!(!shown.contains(LAST), "{shown}");
+}
+
+#[test]
+fn the_help_names_a_configured_prefix_in_its_rows() {
+    let keymap = Keymap::default().with_prefix(']');
+    let mut screen = Screen::of(App::new(reading_agent()).with_keymap(keymap));
+
+    screen.key(KeyCode::Char(']'), KeyModifiers::CONTROL);
+    screen.press('?');
+
+    let shown = screen.draw();
+    assert!(
+        shown.contains("C-] z      zoom the session to the whole screen, or back"),
+        "{shown}"
+    );
+    assert!(
+        shown.contains("C-] C-]    send C-] to the program"),
+        "{shown}"
+    );
+    assert!(
+        shown.contains("n/x        start / end or forget a session, C-] too"),
+        "{shown}"
+    );
+}
+
+#[test]
+fn the_help_names_the_key_an_action_is_bound_to() {
+    let keymap = Keymap::default().bind(Action::Zoom, Some('f'));
+    let mut screen = Screen::of(App::new(reading_agent()).with_keymap(keymap));
+
+    screen.prefixed('?');
+
+    let shown = screen.draw();
+    assert!(
+        shown.contains("C-/ f      zoom the session to the whole screen, or back"),
+        "{shown}"
+    );
+}
+
+#[test]
+fn the_help_leaves_out_the_row_of_an_unbound_action() {
+    let keymap = Keymap::default().bind(Action::Zoom, None);
+    let mut screen = Screen::of(App::new(reading_agent()).with_keymap(keymap));
+
+    screen.prefixed('?');
+
+    let shown = screen.draw();
+    assert!(!shown.contains("zoom the session"), "{shown}");
+}
+
+#[test]
+fn a_pair_row_with_one_side_unbound_shows_the_other_alone() {
+    let keymap = Keymap::default()
+        .bind(Action::Sidebar, None)
+        .bind(Action::End, None);
+    let mut screen = Screen::of(App::new(reading_agent()).with_keymap(keymap));
+
+    screen.prefixed('?');
+
+    let shown = screen.draw();
+    assert!(shown.contains("C-/ l      focus the pane"), "{shown}");
+    assert!(
+        shown.contains("n          start a session, C-/ too"),
+        "{shown}"
+    );
+}
+
+#[test]
+fn the_side_row_without_its_key_still_shows_the_swap_keys() {
+    let keymap = Keymap::default()
+        .bind(Action::Side, None)
+        .bind(Action::SwapLeft, None);
+    let mut screen = Screen::of(App::new(reading_agent()).with_keymap(keymap));
+
+    screen.prefixed('?');
+
+    let shown = screen.draw();
+    assert!(shown.contains("C-/ }      swap the halves"), "{shown}");
+}
+
+#[test]
+fn a_long_prefix_widens_the_keys_column() {
+    let keymap = Keymap::default().with_prefix(' ');
+    let mut screen = Screen::of(App::new(reading_agent()).with_keymap(keymap));
+
+    screen.key(KeyCode::Char(' '), KeyModifiers::CONTROL);
+    screen.press('?');
+
+    let shown = screen.draw();
+    assert!(
+        shown.contains("C-Space C-Space send C-Space to the program"),
+        "{shown}"
+    );
+    assert!(
+        shown.contains("j/k             select the next / previous session"),
+        "{shown}"
+    );
 }
 
 fn glyph_at(shown: &str, text: &str) -> (u16, u16) {

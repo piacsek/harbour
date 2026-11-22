@@ -1,6 +1,9 @@
 use std::time::{Duration, Instant};
 
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+use ratatui::style::{Modifier, Style};
+use ratatui::text::{Line, Span};
+use unicode_width::UnicodeWidthStr;
 
 use super::App;
 use crate::keymap::{Action, After, key_name, name};
@@ -46,6 +49,31 @@ impl App {
             }
         }
         true
+    }
+
+    pub(super) fn waiting_mark(&self) -> Option<Span<'static>> {
+        self.prefixing.waiting.then(|| {
+            Span::styled(
+                self.keymap.prefix_name(),
+                Style::new().fg(self.accent).add_modifier(Modifier::BOLD),
+            )
+        })
+    }
+
+    pub(super) fn bordered_mark(&self) -> Option<Line<'static>> {
+        let mark = self.waiting_mark()?;
+        Some(Line::from(vec![Span::from(" "), mark, Span::from(" ")]).right_aligned())
+    }
+
+    pub(super) fn help_hint(&self) -> Option<String> {
+        let key = self.keymap.key_of(Action::Help)?;
+        Some(format!("{} {key} help", self.keymap.prefix_name()))
+    }
+
+    pub(super) fn bordered_hint(&self, room: u16) -> Option<Line<'static>> {
+        let hint = format!(" {} ", self.help_hint()?);
+        (hint.width() <= usize::from(room))
+            .then(|| Line::styled(hint, Modifier::DIM).right_aligned())
     }
 
     pub(super) fn cancel_prefix(&mut self) {

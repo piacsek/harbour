@@ -409,7 +409,7 @@ fn c_while_the_help_shows_closes_the_help_only() {
     screen.prefixed('c');
 
     let shown = screen.draw();
-    assert!(!shown.contains(" help "), "{shown}");
+    assert!(!shown.contains("┌ help "), "{shown}");
     assert!(!shown.contains(" changelog "), "{shown}");
 }
 

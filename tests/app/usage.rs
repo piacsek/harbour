@@ -128,7 +128,7 @@ fn keys_while_the_popup_is_open_reach_only_the_popup() {
     let after = typed_into_the_session_after(&mut screen);
     assert!(!after.contains("acme agent got: nxjk?u"), "{after}");
     assert!(!after.contains("acme-home 2"), "{after}");
-    assert!(!after.contains(" help "), "{after}");
+    assert!(!after.contains("┌ help "), "{after}");
 }
 
 #[test]
@@ -285,7 +285,7 @@ fn alt_u_opens_no_popup() {
 }
 
 #[test]
-fn alt_z_while_the_popup_is_open_does_not_zoom_the_session() {
+fn the_prefix_then_z_while_the_popup_is_open_does_not_zoom_the_session() {
     let mut screen = Screen::of(app().with_usage(reading_report()));
     screen.press('n');
     screen.wait_for("acme agent ready");

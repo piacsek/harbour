@@ -9,11 +9,11 @@ use crate::{Screen, script};
 pub(crate) const FINDER: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/finder/fzf");
 
 #[test]
-fn alt_s_lists_the_sessions_in_fzf_and_enter_jumps_to_the_chosen_one() {
+fn the_prefix_then_s_lists_the_sessions_in_fzf_and_enter_jumps_to_the_chosen_one() {
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = three_sessions(scratch.path());
 
-    alt_s(&mut screen);
+    find_by_prefix(&mut screen);
     screen.wait_for("acme fzf ready");
     screen.type_text("home 2\r");
     screen.wait_until("the popup to close", |shown| !shown.contains("acme fzf"));
@@ -28,7 +28,7 @@ fn the_popup_says_sessions_and_hands_fzf_one_line_per_card_in_sidebar_order() {
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = three_sessions(scratch.path());
 
-    alt_s(&mut screen);
+    find_by_prefix(&mut screen);
 
     let shown = screen.wait_for("acme fzf ready");
     assert!(shown.contains("┏ sessions ━"), "{shown}");
@@ -71,7 +71,7 @@ fn fzf_is_given_the_options_that_hide_and_skip_the_number() {
 fn esc_closes_the_popup_and_changes_neither_the_selection_nor_the_focus() {
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = three_sessions(scratch.path());
-    alt_s(&mut screen);
+    find_by_prefix(&mut screen);
     screen.wait_for("acme fzf ready");
 
     screen.key(KeyCode::Esc, KeyModifiers::NONE);
@@ -85,7 +85,7 @@ fn esc_closes_the_popup_and_changes_neither_the_selection_nor_the_focus() {
     assert!(shown.contains("acme agent 2 got: hi"), "{shown}");
 }
 
-fn alt_s(screen: &mut Screen) {
+fn find_by_prefix(screen: &mut Screen) {
     screen.prefixed('s');
 }
 

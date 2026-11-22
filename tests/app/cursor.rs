@@ -82,7 +82,7 @@ fn the_help_view_shows_no_cursor_and_the_default_shape() {
 
     screen.prefixed('?');
 
-    screen.wait_for(" help ");
+    screen.wait_for("┌ help ");
     assert_eq!(screen.cursor(), None);
     assert_eq!(screen.app.cursor_shape(), 0);
 }

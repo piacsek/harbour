@@ -163,7 +163,7 @@ fn e_in_the_sidebar_does_nothing_while_the_session_has_no_editor() {
     screen.prefixed('?');
 
     let shown = screen.draw();
-    assert!(shown.contains(" help "), "{shown}");
+    assert!(shown.contains("┌ help "), "{shown}");
     assert!(!shown.contains("acme editor in"), "{shown}");
 }
 

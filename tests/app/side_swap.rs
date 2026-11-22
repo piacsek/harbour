@@ -6,7 +6,7 @@ use crate::zoom::raw_reader;
 use crate::{Screen, pane_corner, region};
 
 #[test]
-fn alt_closing_brace_puts_claude_code_on_the_right_and_its_editor_on_the_left() {
+fn the_prefix_then_closing_brace_puts_claude_code_on_the_right_and_its_editor_on_the_left() {
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = split(scratch.path());
 
@@ -25,7 +25,7 @@ fn alt_closing_brace_puts_claude_code_on_the_right_and_its_editor_on_the_left() 
 }
 
 #[test]
-fn alt_opening_brace_brings_claude_code_back_to_the_left() {
+fn the_prefix_then_opening_brace_brings_claude_code_back_to_the_left() {
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = split(scratch.path());
     right(&mut screen);
@@ -45,7 +45,7 @@ fn alt_opening_brace_brings_claude_code_back_to_the_left() {
 }
 
 #[test]
-fn alt_opening_brace_with_claude_code_on_the_left_leaves_it_there() {
+fn the_prefix_then_opening_brace_with_claude_code_on_the_left_leaves_it_there() {
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = split(scratch.path());
 
@@ -60,7 +60,7 @@ fn alt_opening_brace_with_claude_code_on_the_left_leaves_it_there() {
 }
 
 #[test]
-fn alt_shift_closing_brace_swaps_the_halves_too() {
+fn the_prefix_then_shifted_closing_brace_swaps_the_halves_too() {
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = split(scratch.path());
 
@@ -76,7 +76,7 @@ fn alt_shift_closing_brace_swaps_the_halves_too() {
 }
 
 #[test]
-fn alt_shift_opening_brace_brings_claude_code_back_to_the_left_too() {
+fn the_prefix_then_shifted_opening_brace_brings_claude_code_back_to_the_left_too() {
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = split(scratch.path());
     right(&mut screen);

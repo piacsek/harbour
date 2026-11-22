@@ -12,8 +12,8 @@ use crate::side::{agent, editing, editor, side};
 use crate::{Screen, pane_corner, region, script};
 
 #[test]
-fn alt_backslash_with_the_editor_already_running_puts_that_editor_beside_with_claude_code_focused()
-{
+fn the_prefix_then_backslash_with_the_editor_already_running_puts_that_editor_beside_with_claude_code_focused()
+ {
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = editing(scratch.path());
     screen.key(KeyCode::Enter, KeyModifiers::NONE);
@@ -141,7 +141,7 @@ fn a_jump_to_an_exited_session_ends_the_mode_and_brings_the_sidebar_back() {
 }
 
 #[test]
-fn alt_backslash_shows_the_editor_chosen_with_e_on_the_right() {
+fn the_prefix_then_backslash_shows_the_editor_chosen_with_e_on_the_right() {
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = two_editors(scratch.path());
     to_the_first_editor(&mut screen);

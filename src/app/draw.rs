@@ -69,7 +69,16 @@ impl App {
             summary.publish(counts);
         }
         let title = state::title(counts, usize::from(sidebar.width.saturating_sub(2)));
-        let sidebar_block = bordered(!self.pane_focused, self.accent).title(title);
+        let mut sidebar_block = bordered(!self.pane_focused, self.accent).title(title);
+        let room = sidebar.width.saturating_sub(2);
+        let sidebar_mark = if pane.is_empty() {
+            self.bordered_mark()
+        } else {
+            None
+        };
+        if let Some(bottom) = sidebar_mark.or_else(|| self.bordered_hint(room)) {
+            sidebar_block = sidebar_block.title_bottom(bottom);
+        }
         let below_rows = sidebar_block.inner(sidebar);
         let beside = self
             .halves(frame.area())
@@ -95,6 +104,13 @@ impl App {
             pane_block = self.zoom_heading(pane_block, pane.width.saturating_sub(2), counts);
         } else if let Some(tabs) = self.tabs(usize::from(pane.width.saturating_sub(2))) {
             pane_block = pane_block.title(tabs);
+        }
+        if let Some(mark) = self.bordered_mark().filter(|_| !self.zoomed) {
+            if split && self.pane_focused && on_editor {
+                beside_block = beside_block.title_bottom(mark);
+            } else {
+                pane_block = pane_block.title_bottom(mark);
+            }
         }
         self.pane = pane_block.inner(if pane.is_empty() { frame.area() } else { pane });
         self.shown_pane = if pane.is_empty() {
@@ -142,7 +158,10 @@ impl App {
         let mut cursor = (None, 0);
         match self.sessions.get(self.selected) {
             None => {
-                let message = self.failed.as_deref().unwrap_or(HINT);
+                let mut message = vec![Line::from(self.failed.as_deref().unwrap_or(HINT))];
+                if let Some(hint) = self.help_hint() {
+                    message.extend([Line::default(), Line::styled(hint, Modifier::DIM)]);
+                }
                 frame.render_widget(
                     Paragraph::new(HINT)
                         .wrap(Wrap { trim: false })
@@ -281,9 +300,16 @@ impl App {
     }
 
     fn draw_help(&self, frame: &mut Frame) {
-        let keys = help::KEYS
+        let rows = help::rows(&self.keymap);
+        let width = rows
             .iter()
-            .map(|(key, what)| Line::from(format!("{key:<10} {what}")));
+            .map(|(key, _)| key.chars().count())
+            .max()
+            .unwrap_or_default()
+            .max(10);
+        let keys = rows
+            .into_iter()
+            .map(|(key, what)| Line::from(format!("{key:<width$} {what}")));
         let lines: Vec<Line> = keys.chain(state::legend()).collect();
         frame.render_widget(Clear, frame.area());
         frame.render_widget(

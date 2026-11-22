@@ -25,7 +25,7 @@ const WAITING: &str = "harbour is waiting for an answer; try again after it";
 fn a_session_that_ended_while_the_list_was_open_is_selected_as_its_exited_card() {
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = stoppable_sessions(scratch.path(), 3);
-    alt_s(&mut screen);
+    find_by_prefix(&mut screen);
     screen.wait_for("acme fzf ready");
 
     stop(scratch.path(), 1);
@@ -51,7 +51,7 @@ fn a_stopped_card_merged_while_the_list_was_open_jumps_to_the_session_that_holds
     screen.press('n');
     screen.wait_for(LIVE);
     screen.key(KeyCode::Char('h'), KeyModifiers::CONTROL);
-    alt_s(&mut screen);
+    find_by_prefix(&mut screen);
     screen.wait_for("acme fzf ready");
 
     fs::write(&go, "").unwrap();
@@ -166,7 +166,7 @@ fn a_session_that_had_exited_before_the_list_opened_is_selected() {
     let mut screen = stoppable_sessions(scratch.path(), 3);
     stop(scratch.path(), 1);
     screen.wait_for("exited");
-    alt_s(&mut screen);
+    find_by_prefix(&mut screen);
     screen.wait_for("acme fzf ready");
 
     screen.type_text("home 1\r");
@@ -185,7 +185,7 @@ fn a_stopped_card_picked_resumes() {
     scratch.transcript(OTHER_ID, r#"{"type":"user","message":{}}"#);
     let mut screen = Screen::of(scratch.app(resuming_agent()).with_picker(finder()));
     screen.wait_for(TITLE);
-    alt_s(&mut screen);
+    find_by_prefix(&mut screen);
     screen.wait_for("acme fzf ready");
 
     screen.type_text(&format!("{TITLE}\r"));
@@ -240,7 +240,7 @@ fn a_picker_that_is_not_fzf_says_the_finder_needs_fzf() {
     screen.wait_for("acme agent ready");
     screen.key(KeyCode::Char('h'), KeyModifiers::CONTROL);
 
-    alt_s(&mut screen);
+    find_by_prefix(&mut screen);
 
     let shown = screen.wait_for("needs fzf");
     assert!(shown.contains("needs fzf, not /bin/sh"), "{shown}");
@@ -260,7 +260,7 @@ fn a_missing_fzf_says_it_could_not_start() {
     screen.wait_for("acme agent ready");
     screen.key(KeyCode::Char('h'), KeyModifiers::CONTROL);
 
-    alt_s(&mut screen);
+    find_by_prefix(&mut screen);
 
     let shown = screen.wait_for("Could not start");
     assert!(
@@ -273,7 +273,7 @@ fn a_missing_fzf_says_it_could_not_start() {
 fn fzf_exiting_with_2_says_it_could_not_start() {
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = stoppable_sessions(scratch.path(), 1);
-    alt_s(&mut screen);
+    find_by_prefix(&mut screen);
     screen.wait_for("acme fzf ready");
 
     screen.type_text("broken\r");
@@ -301,12 +301,12 @@ fn alt_s_read_after_an_escape_reaches_the_session_and_opens_nothing() {
 }
 
 #[test]
-fn alt_s_with_no_card_does_nothing() {
+fn the_prefix_then_s_with_no_card_does_nothing() {
     let mut screen = Screen::of(
         App::new(script("echo 'acme agent ready'; exec sleep 600")).with_picker(finder()),
     );
 
-    alt_s(&mut screen);
+    find_by_prefix(&mut screen);
     screen.press('n');
 
     let shown = screen.wait_for("acme agent ready");
@@ -314,7 +314,7 @@ fn alt_s_with_no_card_does_nothing() {
 }
 
 #[test]
-fn alt_s_with_caps_lock_opens_the_list() {
+fn the_prefix_then_s_with_caps_lock_opens_the_list() {
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = stoppable_sessions(scratch.path(), 1);
 
@@ -332,7 +332,7 @@ fn the_keys_harbour_binds_go_to_fzf_while_the_list_is_open() {
         .with_usage_place(Some(scratch.path().join("usage")))
         .with_usage(script("echo 'acme usage open'; exec sleep 600"));
     let mut screen = started(app, 3);
-    alt_s(&mut screen);
+    find_by_prefix(&mut screen);
     screen.wait_for("acme fzf ready");
 
     screen.prefixed('2');
@@ -354,7 +354,7 @@ fn the_width_keys_do_nothing_while_the_list_is_open() {
         .with_picker(finder())
         .with_sidebar_width(30);
     let mut screen = started(app, 2);
-    alt_s(&mut screen);
+    find_by_prefix(&mut screen);
     screen.wait_for("acme fzf ready");
 
     screen.prefixed('=');
@@ -370,7 +370,7 @@ fn the_width_keys_do_nothing_while_the_list_is_open() {
 fn a_paste_goes_to_fzf_while_the_list_is_open() {
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = stoppable_sessions(scratch.path(), 3);
-    alt_s(&mut screen);
+    find_by_prefix(&mut screen);
     screen.wait_for("acme fzf ready");
 
     screen.app.paste("home 2");
@@ -386,7 +386,7 @@ fn a_paste_goes_to_fzf_while_the_list_is_open() {
 fn harbour_edit_is_refused_while_the_list_is_open() {
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = stoppable_sessions(scratch.path(), 1);
-    alt_s(&mut screen);
+    find_by_prefix(&mut screen);
     screen.wait_for("acme fzf ready");
 
     let reply = screen.app.hand(Verb::Open, &notes(), soon());
@@ -399,7 +399,7 @@ fn a_pick_while_zoomed_stays_zoomed() {
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = stoppable_sessions(scratch.path(), 3);
     screen.prefixed('z');
-    alt_s(&mut screen);
+    find_by_prefix(&mut screen);
     screen.wait_for("acme fzf ready");
 
     screen.type_text("home 2\r");
@@ -410,12 +410,12 @@ fn a_pick_while_zoomed_stays_zoomed() {
     assert_eq!(corners(&shown), 0, "{shown}");
 }
 
-fn alt_s(screen: &mut Screen) {
+fn find_by_prefix(screen: &mut Screen) {
     screen.prefixed('s');
 }
 
 fn pick(screen: &mut Screen, text: &str) {
-    alt_s(screen);
+    find_by_prefix(screen);
     screen.wait_for("acme fzf ready");
     screen.type_text(&format!("{text}\r"));
 }

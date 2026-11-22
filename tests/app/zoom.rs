@@ -15,7 +15,7 @@ use crate::remembering::{ID, Scratch, TITLE};
 use crate::{Screen, numbered_agent, pane_corner, raw_agent, script};
 
 #[test]
-fn alt_z_from_the_sidebar_shows_the_selected_pane_alone_and_focuses_it() {
+fn the_prefix_then_z_from_the_sidebar_shows_the_selected_pane_alone_and_focuses_it() {
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = three_sessions(scratch.path());
 
@@ -28,7 +28,7 @@ fn alt_z_from_the_sidebar_shows_the_selected_pane_alone_and_focuses_it() {
 }
 
 #[test]
-fn alt_z_from_a_zoomed_pane_brings_the_sidebar_back_and_keeps_the_pane_focused() {
+fn the_prefix_then_z_from_a_zoomed_pane_brings_the_sidebar_back_and_keeps_the_pane_focused() {
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = three_sessions(scratch.path());
     zoom(&mut screen);
@@ -42,7 +42,7 @@ fn alt_z_from_a_zoomed_pane_brings_the_sidebar_back_and_keeps_the_pane_focused()
 }
 
 #[test]
-fn alt_z_from_the_claude_code_pane_zooms_it() {
+fn the_prefix_then_z_from_the_claude_code_pane_zooms_it() {
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = three_sessions(scratch.path());
     screen.key(KeyCode::Enter, KeyModifiers::NONE);
@@ -53,7 +53,7 @@ fn alt_z_from_the_claude_code_pane_zooms_it() {
 }
 
 #[test]
-fn the_session_never_receives_alt_z() {
+fn the_session_never_receives_the_prefix_then_z() {
     let mut screen = Screen::new(raw_reader(1));
     screen.press('n');
     screen.wait_for("acme agent ready");
@@ -86,7 +86,7 @@ fn alt_z_read_after_an_escape_reaches_the_session_and_zooms_nothing() {
 }
 
 #[test]
-fn alt_z_with_no_session_does_nothing() {
+fn the_prefix_then_z_with_no_session_does_nothing() {
     let mut screen = Screen::new(script("exec sleep 600"));
     let before = screen.draw();
 
@@ -96,7 +96,7 @@ fn alt_z_with_no_session_does_nothing() {
 }
 
 #[test]
-fn alt_z_on_a_stopped_card_does_nothing() {
+fn the_prefix_then_z_on_a_stopped_card_does_nothing() {
     let scratch = Scratch::new();
     scratch.remember(ID, TITLE, 0);
     scratch.transcript(ID, r#"{"type":"user","message":{}}"#);
@@ -109,7 +109,7 @@ fn alt_z_on_a_stopped_card_does_nothing() {
 }
 
 #[test]
-fn alt_z_on_an_exited_session_does_nothing() {
+fn the_prefix_then_z_on_an_exited_session_does_nothing() {
     let mut screen = Screen::new(script("echo 'acme agent done'"));
     screen.press('n');
     let before = screen.wait_for("exited");
@@ -176,7 +176,7 @@ fn leaving_zoom_brings_back_the_configured_sidebar_width() {
 }
 
 #[test]
-fn alt_z_in_the_narrow_layout_shows_the_pane() {
+fn the_prefix_then_z_in_the_narrow_layout_shows_the_pane() {
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = three_sessions(scratch.path());
     screen.resize(50, 20);
@@ -227,7 +227,7 @@ fn a_refused_jump_while_zoomed_brings_the_sidebar_back() {
 }
 
 #[test]
-fn alt_z_with_caps_lock_on_zooms() {
+fn the_prefix_then_z_with_caps_lock_on_zooms() {
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = three_sessions(scratch.path());
 
@@ -240,7 +240,7 @@ fn alt_z_with_caps_lock_on_zooms() {
 }
 
 #[test]
-fn alt_z_from_the_sidebar_on_a_card_showing_its_editor_zooms_claude_code() {
+fn the_prefix_then_z_from_the_sidebar_on_a_card_showing_its_editor_zooms_claude_code() {
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = editing_session(scratch.path());
     screen.mouse(MouseEventKind::Down(MouseButton::Left), 2, 2);
@@ -279,7 +279,7 @@ fn leaving_zoom_keeps_the_sidebar_scrolled_where_it_was() {
 }
 
 #[test]
-fn alt_z_from_the_sidebar_clears_the_failure_shown_there() {
+fn the_prefix_then_z_from_the_sidebar_clears_the_failure_shown_there() {
     let scratch = tempfile::tempdir().unwrap();
     let editor = Program::new("acme-edit", script("exit 1"));
     let mut screen = Screen::editing(lined_agent(scratch.path()), editor);

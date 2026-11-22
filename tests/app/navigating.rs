@@ -176,13 +176,13 @@ fn ctrl_j_under_the_help_closes_it_and_tmux_is_not_asked() {
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = two_cards(scratch.path(), tmux(scratch.path(), "110"));
     screen.prefixed('?');
-    screen.wait_for(" help ");
+    screen.wait_for("┌ help ");
 
     screen.key(KeyCode::Char('j'), KeyModifiers::CONTROL);
 
     assert_eq!(calls(scratch.path()), "");
     let shown = screen.wait_for("acme agent 1");
-    assert!(!shown.contains(" help "), "{shown}");
+    assert!(!shown.contains("┌ help "), "{shown}");
 }
 
 #[test]

@@ -1,4 +1,4 @@
-use ratatui::text::Line;
+use ratatui::text::{Line, Span};
 use ratatui::widgets::Block;
 
 use super::App;
@@ -40,7 +40,10 @@ impl App {
         counts: Counts,
     ) -> Block<'static> {
         let room = usize::from(room);
-        let counted = state::title(counts, room);
+        let mut counted = state::title(counts, room);
+        if let Some(mark) = self.waiting_mark().filter(|_| self.zoomed) {
+            counted.spans.splice(0..0, [Span::from(" "), mark]);
+        }
         let left = room.saturating_sub(counted.width());
         let headline = self.headline_of(self.selected);
         let kept = headline

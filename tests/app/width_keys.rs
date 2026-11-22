@@ -7,7 +7,7 @@ use crate::zoom::raw_reader;
 use crate::{Screen, home, numbered_agent, pane_corner, reading_agent, script, sized_agent};
 
 #[test]
-fn alt_minus_from_the_sidebar_makes_it_two_columns_narrower() {
+fn the_prefix_then_minus_from_the_sidebar_makes_it_two_columns_narrower() {
     let mut screen = started(30);
 
     narrower(&mut screen);
@@ -16,7 +16,7 @@ fn alt_minus_from_the_sidebar_makes_it_two_columns_narrower() {
 }
 
 #[test]
-fn alt_equals_from_the_sidebar_makes_it_two_columns_wider() {
+fn the_prefix_then_equals_from_the_sidebar_makes_it_two_columns_wider() {
     let mut screen = started(30);
 
     wider(&mut screen);
@@ -25,7 +25,7 @@ fn alt_equals_from_the_sidebar_makes_it_two_columns_wider() {
 }
 
 #[test]
-fn alt_shift_minus_narrows_it_on_a_layout_where_minus_needs_shift() {
+fn the_prefix_then_shifted_minus_narrows_it_on_a_layout_where_minus_needs_shift() {
     let mut screen = started(30);
 
     screen.key(KeyCode::Char('/'), KeyModifiers::CONTROL);
@@ -35,7 +35,7 @@ fn alt_shift_minus_narrows_it_on_a_layout_where_minus_needs_shift() {
 }
 
 #[test]
-fn alt_shift_equals_widens_it_on_a_layout_where_equals_needs_shift() {
+fn the_prefix_then_shifted_equals_widens_it_on_a_layout_where_equals_needs_shift() {
     let mut screen = started(30);
 
     screen.key(KeyCode::Char('/'), KeyModifiers::CONTROL);
@@ -45,7 +45,8 @@ fn alt_shift_equals_widens_it_on_a_layout_where_equals_needs_shift() {
 }
 
 #[test]
-fn alt_equals_from_the_claude_code_pane_widens_the_sidebar_and_keeps_the_pane_focused() {
+fn the_prefix_then_equals_from_the_claude_code_pane_widens_the_sidebar_and_keeps_the_pane_focused()
+{
     let mut screen = Screen::at(
         App::new(reading_agent()).with_sidebar_width(30),
         home(),
@@ -122,7 +123,7 @@ fn with_no_session_the_border_moves_too() {
 }
 
 #[test]
-fn alt_minus_stops_at_fifteen_columns() {
+fn the_prefix_then_minus_stops_at_fifteen_columns() {
     let mut screen = started(16);
 
     narrower(&mut screen);
@@ -132,7 +133,7 @@ fn alt_minus_stops_at_fifteen_columns() {
 }
 
 #[test]
-fn alt_minus_leaves_a_configured_width_under_fifteen_as_it_is() {
+fn the_prefix_then_minus_leaves_a_configured_width_under_fifteen_as_it_is() {
     let mut screen = started(10);
 
     narrower(&mut screen);
@@ -141,7 +142,7 @@ fn alt_minus_leaves_a_configured_width_under_fifteen_as_it_is() {
 }
 
 #[test]
-fn alt_equals_widens_a_configured_width_under_fifteen() {
+fn the_prefix_then_equals_widens_a_configured_width_under_fifteen() {
     let mut screen = started(10);
 
     wider(&mut screen);
@@ -150,7 +151,7 @@ fn alt_equals_widens_a_configured_width_under_fifteen() {
 }
 
 #[test]
-fn alt_equals_stops_at_half_the_terminal() {
+fn the_prefix_then_equals_stops_at_half_the_terminal() {
     let mut screen = started(59);
 
     wider(&mut screen);
@@ -160,7 +161,7 @@ fn alt_equals_stops_at_half_the_terminal() {
 }
 
 #[test]
-fn alt_equals_at_half_the_terminal_keeps_the_width_for_a_wider_terminal() {
+fn the_prefix_then_equals_at_half_the_terminal_keeps_the_width_for_a_wider_terminal() {
     let mut screen = started(60);
 
     wider(&mut screen);

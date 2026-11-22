@@ -55,7 +55,7 @@ fn question_mark_in_the_sidebar_shows_no_help() {
     screen.press('?');
 
     let shown = screen.draw();
-    assert!(!shown.contains(" help "), "{shown}");
+    assert!(!shown.contains("┌ help "), "{shown}");
 }
 
 #[test]

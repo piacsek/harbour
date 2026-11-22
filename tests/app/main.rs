@@ -27,6 +27,7 @@ mod layout;
 mod logging;
 mod logging_edits;
 mod logging_lives;
+mod marks;
 mod moving;
 mod navigating;
 mod nearest;
