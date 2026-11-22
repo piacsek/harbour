@@ -209,7 +209,7 @@ fn ctrl_backspace_as_ctrl_h(key: KeyEvent) -> KeyEvent {
 
 fn ctrl_shift_as_ctrl(key: KeyEvent) -> KeyEvent {
     match key.code {
-        KeyCode::Char(c @ ('h' | 'H' | 'l' | 'L'))
+        KeyCode::Char(c @ ('h' | 'H' | 'j' | 'J' | 'k' | 'K' | 'l' | 'L'))
             if key.modifiers - KeyModifiers::SHIFT == KeyModifiers::CONTROL =>
         {
             KeyEvent::new(KeyCode::Char(c.to_ascii_lowercase()), KeyModifiers::CONTROL)

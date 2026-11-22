@@ -8,12 +8,12 @@ use harbour::tmux::Tmux;
 use crate::logging::{logged, only, read};
 use crate::{Screen, numbered_agent, script};
 
-const BELOW: &str = "display-message -p -t %7 #{pane_at_bottom}\nselect-pane -D -t %7\n";
+const BELOW: &str = "list-keys -T root C-j\ndisplay-message -p -t %7 #{pane_active}#{window_active}#{pane_at_bottom}\nselect-pane -D -t %7\n";
 
 #[test]
 fn ctrl_j_in_the_sidebar_moves_to_the_tmux_pane_below_and_keeps_the_selection() {
     let scratch = tempfile::tempdir().unwrap();
-    let mut screen = two_cards(scratch.path(), tmux(scratch.path(), "0"));
+    let mut screen = two_cards(scratch.path(), tmux(scratch.path(), "110"));
 
     screen.key(KeyCode::Char('j'), KeyModifiers::CONTROL);
 
@@ -25,7 +25,7 @@ fn ctrl_j_in_the_sidebar_moves_to_the_tmux_pane_below_and_keeps_the_selection() 
 #[test]
 fn ctrl_k_in_the_sidebar_moves_to_the_tmux_pane_above() {
     let scratch = tempfile::tempdir().unwrap();
-    let mut screen = two_cards(scratch.path(), tmux(scratch.path(), "0"));
+    let mut screen = two_cards(scratch.path(), tmux(scratch.path(), "110"));
     screen.key(KeyCode::Char('j'), KeyModifiers::NONE);
     screen.wait_for("acme agent 2");
     std::fs::remove_file(scratch.path().join("calls")).ok();
@@ -34,7 +34,7 @@ fn ctrl_k_in_the_sidebar_moves_to_the_tmux_pane_above() {
 
     assert_eq!(
         calls(scratch.path()),
-        "display-message -p -t %7 #{pane_at_top}\nselect-pane -U -t %7\n"
+        "list-keys -T root C-k\ndisplay-message -p -t %7 #{pane_active}#{window_active}#{pane_at_top}\nselect-pane -U -t %7\n"
     );
     let shown = screen.wait_for("acme agent 2");
     assert!(!shown.contains("acme agent 1"), "{shown}");
@@ -43,13 +43,13 @@ fn ctrl_k_in_the_sidebar_moves_to_the_tmux_pane_above() {
 #[test]
 fn ctrl_j_in_the_sidebar_at_the_bottom_of_the_window_selects_the_next_card() {
     let scratch = tempfile::tempdir().unwrap();
-    let mut screen = two_cards(scratch.path(), tmux(scratch.path(), "1"));
+    let mut screen = two_cards(scratch.path(), tmux(scratch.path(), "111"));
 
     screen.key(KeyCode::Char('j'), KeyModifiers::CONTROL);
 
     assert_eq!(
         calls(scratch.path()),
-        "display-message -p -t %7 #{pane_at_bottom}\n"
+        "list-keys -T root C-j\ndisplay-message -p -t %7 #{pane_active}#{window_active}#{pane_at_bottom}\n"
     );
     screen.wait_for("acme agent 2");
 }
@@ -73,7 +73,7 @@ fn ctrl_j_in_the_sidebar_outside_tmux_selects_the_next_card() {
 #[test]
 fn ctrl_shift_j_moves_as_ctrl_j_does() {
     let scratch = tempfile::tempdir().unwrap();
-    let mut screen = two_cards(scratch.path(), tmux(scratch.path(), "0"));
+    let mut screen = two_cards(scratch.path(), tmux(scratch.path(), "110"));
 
     screen.key(
         KeyCode::Char('J'),
@@ -84,9 +84,40 @@ fn ctrl_shift_j_moves_as_ctrl_j_does() {
 }
 
 #[test]
+fn ctrl_shift_j_in_the_sidebar_at_the_bottom_of_the_window_selects_the_next_card() {
+    let scratch = tempfile::tempdir().unwrap();
+    let mut screen = two_cards(scratch.path(), tmux(scratch.path(), "111"));
+
+    screen.key(
+        KeyCode::Char('J'),
+        KeyModifiers::CONTROL | KeyModifiers::SHIFT,
+    );
+
+    screen.wait_for("acme agent 2");
+}
+
+#[test]
+fn ctrl_j_in_claude_code_reaches_it_when_tmux_binds_no_ctrl_j() {
+    let unbound = Tmux::with_program(
+        vec![
+            "/bin/sh".into(),
+            "-c".into(),
+            "case $1 in list-keys) exit 1 ;; display-message) echo 110 ;; esac".into(),
+            "tmux".into(),
+        ],
+        "%7".into(),
+    );
+    let mut screen = focused(App::new(reader("agent")).with_tmux(unbound));
+
+    screen.key(KeyCode::Char('j'), KeyModifiers::CONTROL);
+
+    screen.wait_for("acme agent read: 0a");
+}
+
+#[test]
 fn ctrl_j_in_claude_code_moves_to_the_tmux_pane_below_and_sends_nothing() {
     let scratch = tempfile::tempdir().unwrap();
-    let mut screen = focused(App::new(reader("agent")).with_tmux(tmux(scratch.path(), "0")));
+    let mut screen = focused(App::new(reader("agent")).with_tmux(tmux(scratch.path(), "110")));
 
     screen.key(KeyCode::Char('j'), KeyModifiers::CONTROL);
     screen.press('z');
@@ -98,7 +129,7 @@ fn ctrl_j_in_claude_code_moves_to_the_tmux_pane_below_and_sends_nothing() {
 #[test]
 fn ctrl_j_in_claude_code_at_the_bottom_of_the_window_reaches_claude_code() {
     let scratch = tempfile::tempdir().unwrap();
-    let mut screen = focused(App::new(reader("agent")).with_tmux(tmux(scratch.path(), "1")));
+    let mut screen = focused(App::new(reader("agent")).with_tmux(tmux(scratch.path(), "111")));
 
     screen.key(KeyCode::Char('j'), KeyModifiers::CONTROL);
 
@@ -120,7 +151,7 @@ fn ctrl_j_in_a_shown_editor_reaches_the_editor_and_tmux_is_not_asked() {
     let scratch = tempfile::tempdir().unwrap();
     let app = App::new(reader("agent"))
         .with_editor(Program::new("acme-edit", reader("editor")))
-        .with_tmux(tmux(scratch.path(), "0"));
+        .with_tmux(tmux(scratch.path(), "110"));
     let mut screen = focused(app);
     screen.key(KeyCode::Char('l'), KeyModifiers::CONTROL);
     screen.wait_for("acme editor ready");
@@ -134,7 +165,7 @@ fn ctrl_j_in_a_shown_editor_reaches_the_editor_and_tmux_is_not_asked() {
 #[test]
 fn ctrl_j_under_the_help_closes_it_and_tmux_is_not_asked() {
     let scratch = tempfile::tempdir().unwrap();
-    let mut screen = two_cards(scratch.path(), tmux(scratch.path(), "0"));
+    let mut screen = two_cards(scratch.path(), tmux(scratch.path(), "110"));
     screen.press('?');
     screen.wait_for(" help ");
 
@@ -148,7 +179,7 @@ fn ctrl_j_under_the_help_closes_it_and_tmux_is_not_asked() {
 #[test]
 fn a_move_to_the_tmux_pane_below_is_logged_in_place_of_the_key() {
     let scratch = tempfile::tempdir().unwrap();
-    let (app, lines) = logged(App::new(reader("agent")).with_tmux(tmux(scratch.path(), "0")));
+    let (app, lines) = logged(App::new(reader("agent")).with_tmux(tmux(scratch.path(), "110")));
     let mut screen = focused(app);
     read(&lines);
 
@@ -169,7 +200,7 @@ fn a_move_to_the_tmux_pane_below_is_logged_in_place_of_the_key() {
 #[test]
 fn a_move_to_the_tmux_pane_above_is_logged() {
     let scratch = tempfile::tempdir().unwrap();
-    let (app, lines) = logged(App::new(reader("agent")).with_tmux(tmux(scratch.path(), "0")));
+    let (app, lines) = logged(App::new(reader("agent")).with_tmux(tmux(scratch.path(), "110")));
     let mut screen = focused(app);
     read(&lines);
 

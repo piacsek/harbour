@@ -30,8 +30,9 @@ C-l opens nvim at Claude Code's repository root; HARBOUR_EDITOR names another.
 C-Backspace acts as C-h. In Neovim, C-h goes back only from the leftmost window,
 in normal mode.
 With vim-tmux-navigator, add harbour to the processes it sends C-h, C-j, C-k
-and C-l to. Under tmux, C-j and C-k from the sidebar and Claude Code move to
-the pane below or above harbour, when there is one.
+and C-l to. When tmux binds C-j and C-k itself, as that plugin does, C-j and
+C-k from the sidebar and Claude Code move to the pane below or above harbour,
+when there is one.
 Under tmux, a newline is Shift-Enter with extended-keys on, else Alt-Enter.
 C-1 to C-8 jump to that card, C-9 to the last; under tmux they need
 extended-keys on. On macOS, Mission Control's Switch to Desktop N shortcuts can

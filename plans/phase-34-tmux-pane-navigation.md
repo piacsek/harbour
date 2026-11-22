@@ -26,8 +26,11 @@ harbour, nor C-k one above. Neovim inside harbour already does it: it gets harbo
 
 - **A module `src/tmux.rs`**: `Tmux`, made from `TMUX` and `TMUX_PANE` when both are set and not
   empty (`Tmux::from_env`, read by `src/tui.rs`, never by the demo), and `select(direction)`:
-  `tmux display-message -p -t <pane> <edge>`, then, only on an exact `0`, `tmux select-pane -D`
-  or `-U -t <pane>`; true only when both exit 0. Both calls share one deadline of 100 ms (as
+  `tmux list-keys -T root C-j` (or `C-k`), so the move happens only while tmux binds that key
+  itself (as vim-tmux-navigator does; review round 1: a plain tmux user's C-j newline and C-k
+  kill in Claude Code must stay), then `tmux display-message -p -t <pane>
+  '#{pane_active}#{window_active}<edge>'`, then, only on an exact `110`, `tmux select-pane -D`
+  or `-U -t <pane>`; true only when all three exit 0. The calls share one deadline of 100 ms (as
   the Neovim calls do); a call past it is killed and counts as no move. stdin and stderr are
   null. `tmux` is looked up on `PATH`, and the client finds harbour's server through `TMUX`.
   `Tmux::with_program`, a test seam on the `SEAMS` list, takes a program and its arguments in
@@ -51,6 +54,8 @@ harbour, nor C-k one above. Neovim inside harbour already does it: it gets harbo
 | State | C-j (C-k the same, above) |
 | --- | --- |
 | Not under tmux | as today |
+| Under tmux, C-j (C-k) not bound in tmux's root table | as today; only `list-keys` runs |
+| Harbour's pane or window not the active one (`synchronize-panes`, `send-keys`) | as today |
 | Under tmux, a pane below, sidebar focused | tmux focus moves to the pane below; the selection stays |
 | Under tmux, a pane below, Claude Code focused (zoomed, side by side on its half, exited too) | tmux focus moves; Claude Code gets nothing |
 | Under tmux, nothing below (bottom edge, zoomed tmux window) | as today: the sidebar selects the next card, Claude Code gets the key |

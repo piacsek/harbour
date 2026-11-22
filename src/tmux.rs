@@ -37,11 +37,24 @@ impl Tmux {
 
     pub fn select(&self, direction: Direction) -> bool {
         let deadline = Instant::now() + DEADLINE;
-        let (edge, flag) = match direction {
-            Direction::Below => ("#{pane_at_bottom}", "-D"),
-            Direction::Above => ("#{pane_at_top}", "-U"),
+        let (key, edge, flag) = match direction {
+            Direction::Below => (
+                "C-j",
+                "#{pane_active}#{window_active}#{pane_at_bottom}",
+                "-D",
+            ),
+            Direction::Above => ("C-k", "#{pane_active}#{window_active}#{pane_at_top}", "-U"),
         };
         let pane = self.pane.as_os_str();
+        let bound: [&OsStr; 4] = [
+            "list-keys".as_ref(),
+            "-T".as_ref(),
+            "root".as_ref(),
+            key.as_ref(),
+        ];
+        if self.run(&bound, Stdio::null(), deadline).is_none() {
+            return false;
+        }
         let check: [&OsStr; 5] = [
             "display-message".as_ref(),
             "-p".as_ref(),
@@ -53,7 +66,7 @@ impl Tmux {
             .run(&check, Stdio::piped(), deadline)
             .and_then(|mut child| child.stdout.take())
             .and_then(|stdout| answer(stdout, deadline));
-        answer.is_some_and(|answer| answer.trim_ascii() == b"0")
+        answer.is_some_and(|answer| answer.trim_ascii() == b"110")
             && self
                 .run(
                     &["select-pane".as_ref(), flag.as_ref(), "-t".as_ref(), pane],

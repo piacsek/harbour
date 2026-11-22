@@ -11,6 +11,7 @@ use super::{AGENT, Server};
 fn ctrl_j_in_the_sidebar_moves_tmux_to_the_pane_below_harbour() {
     let home = tempfile::tempdir().unwrap();
     let server = opened("navigating-sidebar", home.path());
+    bind(&server);
     let harbour = active(&server);
     server.send_keys(&["n"]);
     server.wait_for_screen("acme agent in acme-api");
@@ -26,6 +27,7 @@ fn ctrl_j_in_the_sidebar_moves_tmux_to_the_pane_below_harbour() {
 fn ctrl_j_in_claude_code_with_nothing_below_reaches_it_and_ctrl_k_moves_above() {
     let home = tempfile::tempdir().unwrap();
     let server = opened("navigating-claude", home.path());
+    bind(&server);
     let harbour = active(&server);
     server.send_keys(&["n"]);
     server.wait_for_screen("acme agent in acme-api");
@@ -40,6 +42,35 @@ fn ctrl_j_in_claude_code_with_nothing_below_reaches_it_and_ctrl_k_moves_above() 
     assert_eq!(active(&server), harbour);
     send(&server, &harbour, "C-k");
     assert_eq!(wait_for_active(&server, &above), above);
+}
+
+#[test]
+#[ignore]
+fn ctrl_j_in_claude_code_reaches_it_when_tmux_binds_no_ctrl_j() {
+    let home = tempfile::tempdir().unwrap();
+    let server = opened("navigating-unbound", home.path());
+    let harbour = active(&server);
+    server.send_keys(&["n"]);
+    server.wait_for_screen("acme agent in acme-api");
+    server.send_keys(&["Enter"]);
+    split(&server, &harbour, "-v");
+
+    send(&server, &harbour, "hello");
+    send(&server, &harbour, "C-j");
+
+    let screen = server.wait_for_screen("acme agent got: hello");
+    assert!(screen.contains("acme agent got: hello"), "{screen}");
+    assert_eq!(active(&server), harbour);
+}
+
+fn bind(server: &Server) {
+    for (key, flag) in [("C-j", "-D"), ("C-k", "-U")] {
+        let status = server
+            .tmux(&["bind-key", "-n", key, "select-pane", flag])
+            .status()
+            .unwrap();
+        assert!(status.success(), "could not bind {key}");
+    }
 }
 
 fn opened(name: &str, home: &Path) -> Server {

@@ -60,7 +60,7 @@ zoxide ranks; `HARBOUR_DIR_PICKER` names another picker. Without fzf, sessions s
 directory harbour was opened in. Sessions end when harbour quits. Inside tmux with
 vim-tmux-navigator, add `harbour` to the pattern of processes it passes `C-h`, `C-j`, `C-k`
 and `C-l` to; `C-j` and `C-k` from the sidebar or Claude Code then move to the tmux pane below
-or above harbour.
+or above harbour, while tmux binds them itself.
 
 ## Development
 
