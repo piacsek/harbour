@@ -89,6 +89,8 @@ report is still being read the popup now shows a loading animation and nothing o
 | The accent is one of the 16 colour names or `#rrggbb` | the patch in that colour, the rest of the bar dim |
 | No key, no output, nothing else changes | the animation still moves: the loop draws a frame at least every 30 ms |
 | The popup closes or the report finishes | the animation stops; the loop goes on as before, no more and no less often |
+| The narrowest sidebar (15 columns) | unaffected: the popup is centred on the whole terminal, 80 by 30 or the terminal when smaller, never on the sidebar |
+| A session or directory with a CJK name | unaffected: the popup draws no session or directory name; its label and hints are fixed text |
 
 ## Tasks
 
@@ -103,7 +105,7 @@ report is still being read the popup now shows a loading animation and nothing o
 
 ## Outcome
 
-- Shipped as decided above: `loading` in `src/usage.rs` (15 tests in `tests/usage_loading.rs`),
+- Shipped as decided above: `loading` in `src/usage.rs` (15 tests in `tests/usage/loading.rs`),
   drawn by the popup until the report has finished, from the clock, and `t` while loading.
   `src/tui.rs` is unchanged.
 - Tasks 2, 3 and 4 shipped as one commit: `loading` alone would have been dead code
@@ -114,6 +116,8 @@ report is still being read the popup now shows a loading animation and nothing o
   became `acme-hidden`, since its `t` now switches the view.
 - The `usage-loading` shot runs without `--demo` through a scratch `claude` script that sleeps;
   no other image changed.
+- `t` while loading switches the view, so a report waiting for typed input could not get a `t`;
+  `claude -p` takes none, declined for good and written into "Known limits" in `AGENTS.md`.
 
 ## Hurdles
 
@@ -121,3 +125,5 @@ report is still being read the popup now shows a loading animation and nothing o
 - `process` Tasks 2 to 4 could not ship apart: the drawing function would have been dead code and the running-report tests needed `t` → none
 - `design` The first version of the shot captured whatever frame was showing, so the image changed on every run; the shot now waits for one fixed frame → code
 - `test-seam` A test asserted 20 dim cells in a row, which only the first step guarantees, so a slow first frame could fail it; it now counts the bar's cells → code
+- `review-loop` The second round asked for the usage tests as one folder, a time bound on the shot's frame wait and a draw-driven wait in place of a fixed sleep → code
+- `review-loop` `t` while loading never reaching the report was declined for good → known limit

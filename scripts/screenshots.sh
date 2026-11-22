@@ -89,11 +89,11 @@ shoot() {
     press "$key"
   done
   [ -n "$shown" ] && wait_for "$shown"
-  local tries=0
+  local deadline=$((SECONDS + 6))
   t capture-pane -e -p -t "$shot_window" >"$home/$name.raw"
   until [ -z "$frame" ] || sed -E $'s/\x1b\\[[0-9;:]*m//g' "$home/$name.raw" | grep -F "$frame" >/dev/null; do
-    [ "$tries" -ge 1000 ] && { echo "screenshots.sh: $name never showed the frame $frame" >&2; exit 1; }
-    tries=$((tries + 1))
+    [ "$SECONDS" -ge "$deadline" ] && { echo "screenshots.sh: $name never showed the frame $frame within 5 s" >&2; exit 1; }
+    sleep 0.02
     t capture-pane -e -p -t "$shot_window" >"$home/$name.raw"
   done
   sed -E 's/harbour-demo-[A-Za-z0-9]{6}/harbour-demo-x7q2mf/g' "$home/$name.raw" | python3 "$home/truecolor.py" >"$home/$name.ansi"
