@@ -187,7 +187,13 @@ pub fn enter_terminal(out: &mut impl io::Write) -> io::Result<()> {
 
 pub fn leave_terminal(out: &mut impl io::Write, shape: &Shape) -> io::Result<()> {
     shape.leave(out)?;
-    execute!(out, DisableMouseCapture, DisableBracketedPaste, Show)?;
+    execute!(
+        out,
+        DisableMouseCapture,
+        DisableBracketedPaste,
+        EndSynchronizedUpdate,
+        Show
+    )?;
     out.write_all(EXTENDED_KEYS_OFF)?;
     out.flush()
 }
