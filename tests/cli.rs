@@ -349,7 +349,9 @@ usage: harbour [--demo | --help | --version | changelog | status | log | config 
 
 With no argument on a terminal, harbour opens a sidebar of Claude Code sessions
 beside a live pane. --demo opens the same with made-up sessions: no claude needed.
-In harbour, ? shows the keys and what the dots mean, and c the changelog.
+C-/ is harbour's prefix: press it, then a key, from the sidebar or any pane.
+C-/ ? shows the keys and what the dots mean, C-/ c the changelog, and C-/ C-/
+sends C-/ to the program. Most terminals send C-/ as C-_, the same key.
 Settings come from $XDG_CONFIG_HOME/harbour/config.toml, else
 ~/.config/harbour/config.toml, read at start: editor, picker and
 session_command (each a list: the program, then its arguments), sidebar_width
@@ -359,13 +361,13 @@ Font icons) and claude_icon (the glyph before claude with nerd_font on:
 draws; in Ghostty, map it with font-codepoint-map = U+100000=<font family>).
 HARBOUR_EDITOR, HARBOUR_DIR_PICKER and HARBOUR_SESSION_COMMAND outrank the
 file's editor, picker and session_command; the other settings are read from
-the file only. config prints each setting and where it comes from.
+the file only. prefix names another prefix (C-] or C-Space, for one), and a
+[keys] table moves an action to another key, or to none, as zoom = \"f\" or
+usage = \"none\". config prints each setting and where it comes from.
 n runs fzf over the directory harbour was opened in and zoxide's list;
 HARBOUR_DIR_PICKER names another picker.
-M-s lists every session in fzf and Enter jumps to the one picked; with a picker
-other than fzf it says so. It works only where the terminal sends Alt-s as an
-extended key (under tmux, extended-keys on), and never from an editor. Under
-tmux, Esc then s typed fast in Claude Code arrives as Alt-s and opens the list.
+C-/ s lists every session in fzf and Enter jumps to the one picked; with a
+picker other than fzf it says so.
 C-l opens nvim at Claude Code's repository root; HARBOUR_EDITOR names another.
 C-Backspace acts as C-h. In Neovim, C-h goes back only from the leftmost window,
 in normal mode.
@@ -374,28 +376,19 @@ and C-l to. When tmux binds C-j and C-k itself, as that plugin does, C-j and
 C-k from the sidebar and Claude Code move to the pane below or above harbour,
 when there is one.
 Under tmux, a newline is Shift-Enter with extended-keys on, else Alt-Enter.
-C-1 to C-8 jump to that card, C-9 to the last; under tmux they need
-extended-keys on. On macOS, Mission Control's Switch to Desktop N shortcuts can
-take them first.
+C-/ 1 to C-/ 8 jump to that card, C-/ 9 to the last.
 A terminal tmux does not know (Ghostty for one) also needs this line in
-tmux.conf for C-1 to C-9 and Shift-Enter, with its TERM outside tmux before
+tmux.conf for Shift-Enter, with its TERM outside tmux before
 the colon; then tmux source-file ~/.tmux.conf, detach and attach again:
   set -as terminal-features 'xterm-ghostty:extkeys'
-M-z zooms the selected session to the whole screen, and back. It works only
-where the terminal sends Alt-z as an extended key (under tmux, extended-keys
-on), and never from an editor: C-h first (from Neovim, Esc then C-h). Under
-tmux, Esc then z typed fast in Claude Code arrives as Alt-z and zooms.
-M-- and M-= make the sidebar 2 columns narrower or wider, from 15 columns to
-half the terminal, until harbour quits; like M-z, only as extended keys and
-never from an editor. Under tmux, Esc then - or = typed fast in Claude Code
-arrives as the Alt key and changes the width.
-M-\\ shows Claude Code on the left and its editor on the right, each in half the
+C-/ z zooms the selected session to the whole screen, and back.
+C-/ - and C-/ = make the sidebar 2 columns narrower or wider, from 15 columns to
+half the terminal, until harbour quits.
+C-/ \\ shows Claude Code on the left and its editor on the right, each in half the
 terminal, and back; C-l and C-h move between the halves. It needs 120 columns;
-narrower, the focused half fills the screen until the terminal widens. Like M-z,
-only as an extended key and never from the editor half: C-h first (C-l when
-swapped). M-{ and M-} put Claude Code in the left or the right half, also only
-from its half. Under tmux, Esc then { or } typed fast in Claude Code arrives as
-the Alt key. Swapped, Neovim gives up C-l only from its rightmost window.
+narrower, the focused half fills the screen until the terminal widens. C-/ {
+and C-/ } put Claude Code in the left or the right half. Swapped, Neovim gives
+up C-l only from its rightmost window.
 status prints how many sessions of every running harbour are blocked, working,
 idle or unknown. For tmux, put #(harbour status) in your status-right, for example
   set -g status-right '#(harbour status) %H:%M'
