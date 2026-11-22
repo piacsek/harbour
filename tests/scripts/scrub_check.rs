@@ -3,7 +3,9 @@ use std::os::unix::fs::{PermissionsExt, symlink};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
 
-use crate::helpers::{git, isolated, link_script, repository, stderr, stdout};
+use crate::helpers::{
+    git, isolated, link_script, on_a_terminal, recording_pager, repository, stderr, stdout,
+};
 
 #[test]
 fn a_listed_term_only_in_the_index_fails_the_scrub() {
@@ -524,6 +526,22 @@ fn a_non_ascii_listed_name_renamed_away_before_head_fails_the_outgoing_scrub() {
     );
 }
 
+#[test]
+fn the_scrub_on_a_terminal_never_opens_the_pager() {
+    let dir = tempfile::tempdir().unwrap();
+    let work = scrub_sandbox(dir.path());
+    let list = denylist(dir.path(), "zz-secret-term\n");
+    let paged = dir.path().join("paged");
+
+    scrub_on_a_terminal(&work, &list, &paged);
+
+    assert!(
+        !paged.exists(),
+        "{}",
+        fs::read_to_string(&paged).unwrap_or_default()
+    );
+}
+
 fn scrub_sandbox(root: &Path) -> PathBuf {
     let work = repository(root);
     link_script(&work, "scrub-check.sh");
@@ -584,4 +602,13 @@ fn short(work: &Path, rev: &str) -> String {
 fn running_as_root() -> bool {
     let output = Command::new("id").arg("-u").output().unwrap();
     stdout(&output).trim() == "0"
+}
+
+fn scrub_on_a_terminal(work: &Path, list: &Path, paged: &Path) {
+    let mut command = portable_pty::CommandBuilder::new(work.join("scripts/scrub-check.sh"));
+    command.cwd(work);
+    command.env("GIT_PAGER", recording_pager(work.parent().unwrap(), paged));
+    command.env("HOME", work.parent().unwrap().join("home"));
+    command.env("HARBOUR_DENYLIST", list);
+    on_a_terminal(command);
 }

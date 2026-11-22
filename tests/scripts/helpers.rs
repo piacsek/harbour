@@ -1,6 +1,6 @@
 use std::fs;
 use std::io::Write;
-use std::os::unix::fs::symlink;
+use std::os::unix::fs::{PermissionsExt, symlink};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output, Stdio};
 
@@ -157,4 +157,34 @@ pub fn piped_on(search_path: &std::ffi::OsStr, script: &str, input: &str) -> Out
         .write_all(input.as_bytes())
         .unwrap();
     child.wait_with_output().unwrap()
+}
+
+pub fn recording_pager(root: &Path, paged: &Path) -> PathBuf {
+    let pager = root.join("pager.sh");
+    fs::write(
+        &pager,
+        format!(
+            "#!/bin/sh\necho \"$0\" >> '{}'\ncat >/dev/null\n",
+            paged.display()
+        ),
+    )
+    .unwrap();
+    fs::set_permissions(&pager, fs::Permissions::from_mode(0o755)).unwrap();
+    pager
+}
+
+pub fn on_a_terminal(mut command: portable_pty::CommandBuilder) {
+    command.env("GIT_CONFIG_GLOBAL", "/dev/null");
+    command.env("GIT_CONFIG_NOSYSTEM", "1");
+    command.env_remove("GIT_DIR");
+    command.env_remove("GIT_WORK_TREE");
+    command.env_remove("GIT_INDEX_FILE");
+    let pty = portable_pty::native_pty_system()
+        .openpty(portable_pty::PtySize::default())
+        .unwrap();
+    let mut child = pty.slave.spawn_command(command).unwrap();
+    drop(pty.slave);
+    let mut reader = pty.master.try_clone_reader().unwrap();
+    std::thread::spawn(move || std::io::copy(&mut reader, &mut std::io::sink()));
+    child.wait().unwrap();
 }

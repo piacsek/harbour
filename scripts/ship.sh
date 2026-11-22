@@ -33,7 +33,7 @@ if ! scripts/scrub-check.sh --outgoing; then
   exit 1
 fi
 git push -q -u origin "$branch"
-git log --oneline -1
+git --no-pager log --oneline -1
 if ! gh pr view "$branch" --json number >/dev/null 2>&1; then
   template=.github/pull_request_template.md
   if [ -f "$template" ]; then
