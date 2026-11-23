@@ -1,12 +1,13 @@
 use crossterm::event::{KeyCode, KeyModifiers};
 use ratatui::style::Color;
+use ratatui::widgets::BorderType;
 
 use harbour::app::App;
 use harbour::picker::Picker;
 
 use crate::{
-    Screen, focused, focused_title, numbered_agent, pane_corner, reading_agent, script, top_left,
-    unfocused_char,
+    Screen, drawn_only_by, focused, focused_title, numbered_agent, pane_corner, reading_agent,
+    script, top_left, unfocused_char,
 };
 
 const ACCENT: Color = Color::Rgb(0xd7, 0x87, 0x5f);
@@ -221,6 +222,12 @@ fn the_picker_popup_takes_the_accent_border() {
     let (x, y) = corner_of(&shown, " directory ");
     assert!(focused(screen.cell(x, y).symbol()));
     assert_eq!(screen.cell(x, y).fg, ACCENT);
+}
+
+#[test]
+fn a_glyph_both_styles_draw_tells_neither_apart() {
+    assert!(!drawn_only_by("│", BorderType::Rounded, BorderType::Plain));
+    assert!(drawn_only_by("╭", BorderType::Rounded, BorderType::Plain));
 }
 
 fn accented(command: Vec<String>) -> Screen {

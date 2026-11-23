@@ -1,21 +1,15 @@
 use harbour::app::{FOCUSED_BORDER, UNFOCUSED_BORDER};
-use ratatui::symbols::border;
 use ratatui::widgets::BorderType;
+use unicode_width::UnicodeWidthChar;
 
-const BORDERS: [border::Set<'static>; 12] = [
-    BorderType::Plain.to_border_set(),
-    BorderType::Rounded.to_border_set(),
-    BorderType::Double.to_border_set(),
-    BorderType::Thick.to_border_set(),
-    BorderType::LightDoubleDashed.to_border_set(),
-    BorderType::HeavyDoubleDashed.to_border_set(),
-    BorderType::LightTripleDashed.to_border_set(),
-    BorderType::HeavyTripleDashed.to_border_set(),
-    BorderType::LightQuadrupleDashed.to_border_set(),
-    BorderType::HeavyQuadrupleDashed.to_border_set(),
-    BorderType::QuadrantInside.to_border_set(),
-    BorderType::QuadrantOutside.to_border_set(),
-];
+#[path = "../support/borders.rs"]
+mod styles;
+use styles::BORDERS;
+
+#[test]
+fn a_wide_character_before_a_corner_counts_two_columns() {
+    assert!(focused_at("修┏━\n  ┃", 2));
+}
 
 pub(crate) fn corner(c: char) -> bool {
     BORDERS.iter().any(|set| set.top_left.starts_with(c))
@@ -35,7 +29,7 @@ pub(crate) fn unfocused_at(screen: &str, column: usize) -> bool {
 
 fn drawn_at(screen: &str, column: usize, style: BorderType) -> bool {
     let set = style.to_border_set();
-    let mut lines = screen.lines().map(|line| line.chars().nth(column));
+    let mut lines = screen.lines().map(|line| at_column(line, column));
     let top = lines.next().flatten();
     let side = lines.next().flatten();
     top.is_some_and(|c| set.top_left.starts_with(c))
@@ -49,8 +43,22 @@ pub(crate) fn vertical(c: char) -> bool {
 pub(crate) fn focused_on(screen: &str, title: &str) -> bool {
     let top = screen.lines().next().unwrap_or_default();
     let label = format!(" {title}");
-    top.char_indices().enumerate().any(|(column, (at, c))| {
+    columns(top).any(|(column, at, c)| {
         corner(c) && top[at + c.len_utf8()..].starts_with(&label) && focused_at(screen, column)
+    })
+}
+
+fn at_column(line: &str, column: usize) -> Option<char> {
+    columns(line)
+        .find(|(start, _, _)| *start == column)
+        .map(|(_, _, c)| c)
+}
+
+fn columns(line: &str) -> impl Iterator<Item = (usize, usize, char)> + '_ {
+    line.char_indices().scan(0, |start, (at, c)| {
+        let column = *start;
+        *start += c.width().unwrap_or(0);
+        Some((column, at, c))
     })
 }
 

@@ -289,14 +289,7 @@ fn third_line(shown: &str, title: &str) -> String {
     let mut lines = shown.lines();
     lines.find(|line| line.contains(title));
     lines.next();
-    lines
-        .next()
-        .unwrap_or_default()
-        .chars()
-        .skip(1)
-        .skip_while(|c| ['▌', ' '].contains(c))
-        .take_while(|c| !crate::vertical(*c))
-        .collect::<String>()
+    crate::inside(lines.next().unwrap_or_default())
         .trim_end()
         .to_string()
 }

@@ -26,11 +26,14 @@ after the Clawd glyph: `tests/tabs.rs`, `tests/app/side_border.rs`, `tests/e2e/c
   `tests/e2e/borders.rs`) read them, and a test that spells a pane border builds it from their sets. Only
   `focus::a_focused_pane_has_the_thick_border` names a pane border's glyphs (`┌`, `┏`) and
   `marks::the_waiting_prefix_shows_on_the_panes_bottom_border` its `┘`, so a new style fails only
-  those owners; both helper files list every `BorderType`. A glyph alone may not tell two styles
+  those owners; both helper files take every `BorderType` from `tests/support/borders.rs`, whose
+  exhaustive `match` stops compiling when ratatui adds one. A glyph alone may not tell two styles
   apart (the light dashed sets share `┌` with the plain one, the rounded set `│` and `─`), so
   `focused` and `unfocused` pass only a glyph of one style that the other does not draw, and fail
   on a shared one rather than pass with the wrong pane focused; the e2e checks of which pane has
-  focus read the corner and the side below it (`focused_at`, `unfocused_at`, `focused_on`).
+  focus read the corner and the side below it at one display column (`focused_at`,
+  `unfocused_at`, `focused_on`). The quadrant sets draw `▌`, the selected card's bar, so `vertical`
+  and `drawn` match it: a card row's text is read with `inside`, which skips the bar.
   A popup's own border is not a pane's: the help's and the changelog's plain `│` and `┌ help`
   are named in `tests/app/help.rs` and `tests/app/changelog.rs`. A card's indent is found
   (`column_of`) or trimmed, never counted, outside `tests/card/`.

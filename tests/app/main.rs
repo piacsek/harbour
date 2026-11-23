@@ -79,8 +79,11 @@ use ratatui::widgets::BorderType;
 use ratatui::{Terminal, TerminalOptions, Viewport};
 use tempfile::TempDir;
 
+#[path = "../support/borders.rs"]
+mod borders;
 #[path = "../support/timing.rs"]
 mod timing;
+use borders::BORDERS;
 use timing::deadline;
 
 const HOME: &str = "acme-home";
@@ -322,14 +325,17 @@ fn pane_corner(shown: &str) -> u16 {
 fn below(shown: &str, text: &str) -> String {
     let mut lines = shown.lines();
     lines.find(|line| line.contains(text));
-    let next = lines.next().unwrap_or_default();
-    next.chars()
+    inside(lines.next().unwrap_or_default())
+        .trim_end()
+        .to_string()
+}
+
+fn inside(line: &str) -> String {
+    line.chars()
         .skip(1)
         .skip_while(|c| ['▌', ' '].contains(c))
         .take_while(|c| !vertical(*c))
-        .collect::<String>()
-        .trim_end()
-        .to_string()
+        .collect()
 }
 
 fn failure(wait: impl FnOnce()) -> String {
@@ -347,21 +353,6 @@ fn sidebar_title(shown: &str) -> String {
     let end = inside.find(horizontal).unwrap_or(inside.len());
     inside[..end].to_string()
 }
-
-const BORDERS: [border::Set<'static>; 12] = [
-    BorderType::Plain.to_border_set(),
-    BorderType::Rounded.to_border_set(),
-    BorderType::Double.to_border_set(),
-    BorderType::Thick.to_border_set(),
-    BorderType::LightDoubleDashed.to_border_set(),
-    BorderType::HeavyDoubleDashed.to_border_set(),
-    BorderType::LightTripleDashed.to_border_set(),
-    BorderType::HeavyTripleDashed.to_border_set(),
-    BorderType::LightQuadrupleDashed.to_border_set(),
-    BorderType::HeavyQuadrupleDashed.to_border_set(),
-    BorderType::QuadrantInside.to_border_set(),
-    BorderType::QuadrantOutside.to_border_set(),
-];
 
 fn parts(set: &border::Set<'static>) -> [&'static str; 8] {
     [

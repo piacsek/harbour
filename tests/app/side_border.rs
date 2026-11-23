@@ -113,7 +113,11 @@ fn swapped_a_cjk_title_on_the_left_half_is_cut_by_display_width() {
 
     assert_eq!(screen.cell(2, 0).symbol(), "●");
     assert_eq!(screen.cell(4, 0).symbol(), "修");
-    assert!(top.contains("…  3m  "), "{top}");
+    let left = top
+        .split(|c| top_left(c) && focused_char(c))
+        .next()
+        .unwrap_or_default();
+    assert!(counts(left).ends_with("…  3m  acme-e…"), "{top}");
     assert!(unfocused(screen.cell(59, 0).symbol()));
     assert!(focused(screen.cell(60, 0).symbol()));
 }
