@@ -14,6 +14,7 @@ fn question_mark_shows_the_keys_and_the_last_dot() {
     screen.prefixed('?');
 
     let shown = screen.draw();
+    assert!(shown.starts_with("┌ help "), "{shown}");
     assert!(shown.contains("j/k"), "{shown}");
     assert!(
         shown.contains("n/x        start / end or forget a session, C-/ too"),

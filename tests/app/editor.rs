@@ -3,7 +3,7 @@ use harbour::app::App;
 use harbour::editor::Program;
 use ratatui::style::Modifier;
 
-use crate::{Screen, in_order, reading_agent, script, sidebar_title, vertical};
+use crate::{Screen, in_order, reading_agent, script, shows_titled, sidebar_title, vertical};
 
 #[test]
 fn ctrl_l_in_claude_code_starts_the_editor_in_the_session_directory_and_shows_it() {
@@ -163,7 +163,7 @@ fn e_in_the_sidebar_does_nothing_while_the_session_has_no_editor() {
     screen.prefixed('?');
 
     let shown = screen.draw();
-    assert!(shown.contains("┌ help "), "{shown}");
+    assert!(shows_titled(&shown, "help"), "{shown}");
     assert!(!shown.contains("acme editor in"), "{shown}");
 }
 

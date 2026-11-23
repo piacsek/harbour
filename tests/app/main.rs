@@ -445,6 +445,10 @@ fn title(shown: &str, style: impl Fn(char) -> bool) -> String {
     inside[..end].trim().to_string()
 }
 
+fn shows_titled(shown: &str, text: &str) -> bool {
+    shown.lines().any(|line| title(line, |_| true) == text)
+}
+
 fn frames() -> Frames {
     Frames::new(TerminalOptions {
         viewport: Viewport::Fixed(Rect::new(0, 0, 120, 20)),

@@ -478,10 +478,11 @@ fn the_prefix_then_closing_brace_puts_claude_code_on_the_right_with_extended_key
     server.send_keys(&["C-/", "}", "a"]);
 
     let screen = server.wait_until("the swapped halves", |screen| {
-        top_left(screen).is_some_and(|c| !focused_corner(c)) && screen.contains("read:a")
+        top_left(screen).is_some_and(|c| corner(c) && !focused_corner(c))
+            && screen.contains("read:a")
     });
     assert!(
-        top_left(&screen).is_some_and(|c| !focused_corner(c)),
+        top_left(&screen).is_some_and(|c| corner(c) && !focused_corner(c)),
         "{screen}"
     );
     assert_eq!(pane_corner(&screen), Some(80), "{screen}");
@@ -495,7 +496,7 @@ fn the_prefix_then_opening_brace_puts_claude_code_back_on_the_left_in_the_csi_u_
     };
     server.send_keys(&["C-/", "}"]);
     server.wait_until("the swapped halves", |screen| {
-        top_left(screen).is_some_and(|c| !focused_corner(c))
+        top_left(screen).is_some_and(|c| corner(c) && !focused_corner(c))
     });
 
     server.send_keys(&["C-/", "{", "a"]);

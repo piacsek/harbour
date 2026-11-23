@@ -105,9 +105,9 @@ The full agreements are in `docs/process.md`; these always hold:
 ## Development
 
 Strict TDD, layered: a change's red test goes at the lowest level that owns the behaviour, which
-pins an exact drawn string once; higher levels only prove the wiring (each feature keeps one
-end-to-end test) and check presence and order or build their text from the production code. This
-overrides a TDD skill or personal instruction that prefers outside-in tests (`tests/AGENTS.md`).
+pins an exact drawn string once; higher levels only prove the wiring (each feature keeps at least
+one end-to-end test) and check presence and order or build their text from the production code.
+This overrides a TDD skill or personal instruction that prefers outside-in tests (`tests/AGENTS.md`).
 No code comments; names and tests carry the intent. Dead code is forbidden: an orphaned item is
 deleted in the change that orphans it; a `pub` item only tests call goes on `SEAMS` in
 `tests/dead_code.rs`; `#[allow(dead_code)]` appears nowhere.

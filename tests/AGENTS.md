@@ -20,9 +20,13 @@ after the Clawd glyph: `tests/tabs.rs`, `tests/app/side_border.rs`, `tests/e2e/c
   checks presence and order (`in_order(top, &["claude", "acme-edit"])`: the glyph before the
   name, the name before the editor), never the literal again.
 - **Borders are checked by role, not by glyph.** Only `focus::a_focused_pane_has_the_thick_border`
-  names `┏`; other tests use the helpers in each binary's `main.rs` (`focused`, `unfocused`,
-  `focused_title`, `top_left`, `vertical`, `drawn`), which accept any ratatui border set.
-  A card's indent is found (`column_of`) or trimmed, never counted, outside `tests/card.rs`.
+  names `┏`, `help::question_mark_shows_the_keys_and_the_last_dot` names `┌ help` and
+  `marks::the_waiting_prefix_shows_on_the_panes_bottom_border` names `┘`; other tests use the
+  helpers in each binary's `main.rs` (`focused`, `unfocused`, `focused_title`, `shows_titled`,
+  `top_left`, `vertical`, `drawn`). `unfocused` is the plain set unfocused panes are drawn with
+  and `focused` any other ratatui set, so a new focused style fails only its owner, while a new
+  unfocused style fails every focus check. A card's indent is found (`column_of`) or trimmed,
+  never counted, outside `tests/card/`.
 - **Each level has one job.** Pure tests pin exact strings and every edge of a table (every
   width, every spacing). In-process `tests/app/` tests check what shows, in what order and in
   which pane. `tests/e2e/` proves each user-facing feature (a key, a subcommand, a view, a

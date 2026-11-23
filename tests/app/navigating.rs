@@ -7,7 +7,7 @@ use harbour::editor::Program;
 use harbour::tmux::Tmux;
 
 use crate::logging::{logged, only, read};
-use crate::{Screen, numbered_agent, script};
+use crate::{Screen, numbered_agent, script, shows_titled};
 
 const BELOW: &str = "list-keys -T root\ndisplay-message -p -t %7 #{pane_active}#{window_active}#{pane_at_bottom} #{pane_tty}\nselect-pane -D -t %7\n";
 
@@ -176,13 +176,13 @@ fn ctrl_j_under_the_help_closes_it_and_tmux_is_not_asked() {
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = two_cards(scratch.path(), tmux(scratch.path(), "110"));
     screen.prefixed('?');
-    screen.wait_for("┌ help ");
+    screen.wait_until("the help", |shown| shows_titled(shown, "help"));
 
     screen.key(KeyCode::Char('j'), KeyModifiers::CONTROL);
 
     assert_eq!(calls(scratch.path()), "");
     let shown = screen.wait_for("acme agent 1");
-    assert!(!shown.contains("┌ help "), "{shown}");
+    assert!(!shows_titled(&shown, "help"), "{shown}");
 }
 
 #[test]

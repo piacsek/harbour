@@ -11,7 +11,9 @@ use harbour::picker::Picker;
 use ratatui::layout::Position;
 use ratatui::style::Modifier;
 
-use crate::{Screen, frames, home, pane_corner, reading_agent, script, unfocused_title};
+use crate::{
+    Screen, frames, home, pane_corner, reading_agent, script, shows_titled, unfocused_title,
+};
 
 #[test]
 fn the_terminal_cursor_sits_on_the_pane_cursor_cell() {
@@ -82,7 +84,7 @@ fn the_help_view_shows_no_cursor_and_the_default_shape() {
 
     screen.prefixed('?');
 
-    screen.wait_for("┌ help ");
+    screen.wait_until("the help", |shown| shows_titled(shown, "help"));
     assert_eq!(screen.cursor(), None);
     assert_eq!(screen.app.cursor_shape(), 0);
 }

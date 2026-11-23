@@ -5,9 +5,7 @@ use harbour::keymap::{Action, Keymap};
 use ratatui::style::{Color, Modifier};
 
 use crate::side::{agent, editor, side};
-use crate::{
-    Screen, drawn, focused_char, reading_agent, region, script, starts_focused, unfocused_char,
-};
+use crate::{Screen, drawn, focused_char, reading_agent, region, script, starts_focused};
 
 #[test]
 fn the_waiting_prefix_shows_on_the_panes_bottom_border() {
@@ -16,8 +14,7 @@ fn the_waiting_prefix_shows_on_the_panes_bottom_border() {
     screen.key(KeyCode::Char('/'), KeyModifiers::CONTROL);
 
     let shown = screen.draw();
-    assert!(before_corner(&bottom(&shown)).ends_with(" C-/ "), "{shown}");
-    assert!(bottom(&shown).ends_with(unfocused_char), "{shown}");
+    assert!(bottom(&shown).ends_with(" C-/ ┘"), "{shown}");
 }
 
 #[test]
