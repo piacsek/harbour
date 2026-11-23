@@ -7,7 +7,7 @@ description: Run the periodic sweep of harbour's phase hurdles and time-and-toke
 
 The sweep reads what the phases since the last sweep wrote down (`## Hurdles` in each
 `plans/phase-N-*.md`, the rows of `plans/metrics.md`) and turns what keeps going wrong into a
-change. "The sweep" and "Hurdles" in the root `AGENTS.md` are the rules; read them first. The
+change. "The sweep" and "Hurdles" in `docs/process.md` are the rules; read them first. The
 script counts; the judgment below is yours, and every decision is the user's.
 
 ## 1. Gather
@@ -19,7 +19,7 @@ script counts; the judgment below is yours, and every decision is the user's.
 3. Read the sweep before this one (the newest `### Sweep`), if any: what it decided and
    which rules it added.
 4. For every metrics row the report lists under "Empty cells" with Ready, Merged or Released
-   empty, read them from GitHub with the commands under "Time and tokens" in `AGENTS.md`.
+   empty, read them from GitHub with the commands under "Time and tokens" in `docs/process.md`.
    What cannot be read stays `unknown`; never estimate a time.
 
 ## 2. Analyse

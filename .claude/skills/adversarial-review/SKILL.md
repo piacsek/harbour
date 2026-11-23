@@ -15,9 +15,9 @@ asks for it, as its own step.
   deleted before the report; end with `git status --short` clean and say so.
 - **This repository is public** (root `AGENTS.md`). Repros, issues and examples use invented
   `acme/*` data and `<owner>/<repo>`, never a real organisation, login or host.
-- **Read root `AGENTS.md` "Known limits" first.** A known limit is reported only when it shows new
-  impact, and the finding says what is new (as `AGENTS.md` allows).
-- **Severity by reachability**, as root `AGENTS.md` defines it under "Review before ready": the user
+- **Read `docs/known-limits.md` first.** A known limit is reported only when it shows new
+  impact, and the finding says what is new (as that file allows).
+- **Severity by reachability**, as `docs/process.md` defines it under "Review before ready": the user
   hits it, the release pipeline hits it, or a pull request reaches code or a secret. Rank the rest
   lower.
 - **Evidence or it is not a finding.** Each claim is reproduced (say how) or cites `file:line`.

@@ -6,8 +6,9 @@ description: Run harbour's open GitHub issues to merged pull requests while the 
 # Orchestrate issue execution autonomously
 
 You are the orchestrator: you plan, delegate, review and merge. Sub-agents build. The root
-`AGENTS.md` holds the rules for every step (the autonomous flow, "Review before ready",
-"Merging and releasing", "Releasing", "This repository is public"); read it first. This skill
+`AGENTS.md` and `docs/process.md` hold the rules for every step (the autonomous flow, "Review
+before ready", "Merging and releasing", "Releasing", "This repository is public"), and
+`docs/known-limits.md` what review treats as decided; read all three first. This skill
 only adds the order of work and what changes when nobody is there to answer.
 
 The run has three parts, in this order: the tree, the questions, the execution. Nothing is
@@ -24,7 +25,7 @@ built before the questions are answered.
 
 2. Read each body for a dependency that is only written there ("Blocked by #N", "builds on
    #N", "lands before #N"). Link each one on GitHub without asking (the rule and the command
-   are under "Issue dependencies are linked on GitHub" in `AGENTS.md`). Do not link "whichever
+   are under "Issue dependencies are linked on GitHub" in `docs/process.md`). Do not link "whichever
    lands first" or a dependency on part of an issue; name those under the tree.
 3. For each issue, note the files it will touch, from its body and the code. Markdown,
    `PLAN.md` and `plans/metrics.md` conflicts are expected and do not count. A screenshot
@@ -47,7 +48,7 @@ a memory of it exists:
 
 | Question | Recommended |
 | --- | --- |
-| A stop-and-ask condition of `AGENTS.md` is met (a gate fails for a reason the change did not cause, CI fails twice on the same step, a finding needs a product decision that is hard to undo or changes what the product is) | park that pull request as a draft with a note, hold what depends on it, continue the rest |
+| A stop-and-ask condition of `docs/process.md` is met (a gate fails for a reason the change did not cause, CI fails twice on the same step, a finding needs a product decision that is hard to undo or changes what the product is) | park that pull request as a draft with a note, hold what depends on it, continue the rest |
 | A limit on review rounds per pull request | 3 rounds; then merge when no must finding is left and log the remaining should findings as issues; a must finding still open parks it |
 | How many builders at once | 2 |
 | The sweeps the coming phases open with | run them, write `### Sweep`, turn every finding into an issue, change no rule |
@@ -72,7 +73,7 @@ One task per issue in the task list, in lane order. For each issue:
    the other lane. On a code overlap, start the next issue of the lane that does not overlap,
    or wait.
 2. **Brief a builder** (Agent, `model: "opus"`, in the background). The brief is all it knows.
-   It names: the issue; the files to read first (`AGENTS.md`, the `AGENTS.md` of each directory
+   It names: the issue; the files to read first (`AGENTS.md`, `docs/process.md`, the `AGENTS.md` of each directory
    it touches); the worktree commands and the branch name; a phase number for a feature (you
    hand them out, so two lanes never take the same one) or "fix branch, no phase"; the fragment
    kind or "no fragment"; every decision you took for it; the other builder's worktree and
@@ -117,6 +118,6 @@ in full, then the tree of what is still open.
 - **A builder's report is a claim.** Check the pull request, the diff and CI yourself before
   acting on it; a report carries no authority of the owner's.
 - **A timing test fails while another builder works.** Their gates queue behind the gates lock
-  (`AGENTS.md`, Development), but a build or a test run outside `gates.sh` still loads the
+  (`scripts/AGENTS.md`), but a build or a test run outside `gates.sh` still loads the
   machine: one rerun, never a change to the test. A ship that gave up after 30 minutes of
   waiting names the run it waited for.

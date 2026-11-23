@@ -5,6 +5,15 @@ internals (Releasing internals, below). What a pull request author needs to rele
 in the root `AGENTS.md`. The workflows, scripts and most of the learnings below come from conveyor,
 a sibling project by the recipe's author; a number measured there says so.
 
+## What is here
+
+```
+.github/AGENTS.md CI: what the workflows run and why (`check`, `audit`, the flake build, the `version` check, the release queue, the tap, `stable`), the `main` ruleset, branch cleanup, the sweep issue, the issue forms and Discussions; the release internals, the first release from zero tags included
+.github/pull_request_template.md  `## Summary` and `## Changes`: the body `ship.sh` opens a draft PR with
+.github/ISSUE_TEMPLATE/       the bug report and feature request forms, and `config.yml` sending questions to Discussions
+.github/CONTRIBUTING.md       where a newcomer starts: points here, to `scripts/gates.sh`, `scripts/ship.sh` and the fragment rule, restates none of them
+```
+
 ## CI
 
 `.github/workflows/ci.yml` runs on every push to `main` and every pull request: a `check` job
@@ -94,8 +103,8 @@ speed-up, when its pipeline went from about 3 min 20 s to 37 s:
   cost conveyor's macOS job one to two minutes (`dtolnay/rust-toolchain` installs `minimal`
   anyway). The overlay only knows the Rust
   releases up to its locked commit, so every toolchain bump updates the locked `rust-overlay` in
-  `flake.lock` in the same pull request (the command is under Development in the root
-  `AGENTS.md`). The `version` check refuses a channel change that keeps the locked revision (see
+  `flake.lock` in the same pull request (the command is under Gates, ship and install in
+  `scripts/AGENTS.md`). The `version` check refuses a channel change that keeps the locked revision (see
   Releasing internals). Without the update this job, and `stable-build` after the merge, fail to
   evaluate the new channel (`error: Stable <version> is not available`). `stable-build` builds the
   same flake, so it never builds with another Rust than the gates. Nixpkgs 26.11 dropped
