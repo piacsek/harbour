@@ -130,6 +130,7 @@ fn a_line_fzf_prints_without_its_number_names_fzf_default_opts() {
         sidebar_text(shown).contains("FZF_DEFAULT_OPTS")
     });
     assert!(selected_line(&shown).contains("acme-home 3"), "{shown}");
+    assert!(sidebar_text(&shown).contains("acme-home 3"), "{shown}");
 }
 
 #[test]
@@ -564,8 +565,8 @@ fn corners(shown: &str) -> usize {
 fn sidebar_text(shown: &str) -> String {
     shown
         .lines()
-        .filter_map(|line| line.split(crate::vertical).nth(1))
-        .map(str::trim_end)
+        .filter(|line| line.starts_with(crate::vertical))
+        .map(|line| crate::inside(line).trim_end().to_string())
         .collect::<Vec<_>>()
         .join(" ")
 }

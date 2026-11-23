@@ -75,11 +75,15 @@ use ratatui::backend::TestBackend;
 use ratatui::buffer::Cell;
 use ratatui::layout::{Position, Rect};
 use ratatui::symbols::border;
+use ratatui::widgets::BorderType;
 use ratatui::{Terminal, TerminalOptions, Viewport};
 use tempfile::TempDir;
 
+#[path = "../support/borders.rs"]
+mod borders;
 #[path = "../support/timing.rs"]
 mod timing;
+use borders::BORDERS;
 use timing::deadline;
 
 const HOME: &str = "acme-home";
@@ -321,14 +325,17 @@ fn pane_corner(shown: &str) -> u16 {
 fn below(shown: &str, text: &str) -> String {
     let mut lines = shown.lines();
     lines.find(|line| line.contains(text));
-    let next = lines.next().unwrap_or_default();
-    next.chars()
-        .skip(1)
-        .take_while(|c| !vertical(*c))
-        .collect::<String>()
-        .trim_start_matches(['▌', ' '])
+    inside(lines.next().unwrap_or_default())
         .trim_end()
         .to_string()
+}
+
+fn inside(line: &str) -> String {
+    line.chars()
+        .skip(1)
+        .skip_while(|c| ['▌', ' '].contains(c))
+        .take_while(|c| !vertical(*c))
+        .collect()
 }
 
 fn failure(wait: impl FnOnce()) -> String {
@@ -346,19 +353,6 @@ fn sidebar_title(shown: &str) -> String {
     let end = inside.find(horizontal).unwrap_or(inside.len());
     inside[..end].to_string()
 }
-
-const BORDERS: [border::Set<'static>; 10] = [
-    border::PLAIN,
-    border::ROUNDED,
-    border::DOUBLE,
-    border::THICK,
-    border::LIGHT_DOUBLE_DASHED,
-    border::HEAVY_DOUBLE_DASHED,
-    border::LIGHT_TRIPLE_DASHED,
-    border::HEAVY_TRIPLE_DASHED,
-    border::LIGHT_QUADRUPLE_DASHED,
-    border::HEAVY_QUADRUPLE_DASHED,
-];
 
 fn parts(set: &border::Set<'static>) -> [&'static str; 8] {
     [
@@ -398,7 +392,7 @@ fn horizontal(c: char) -> bool {
 }
 
 fn focused(symbol: &str) -> bool {
-    parts(&FOCUSED_BORDER.to_border_set()).contains(&symbol)
+    drawn_only_by(symbol, FOCUSED_BORDER, UNFOCUSED_BORDER)
 }
 
 fn starts_focused(line: &str) -> bool {
@@ -410,7 +404,12 @@ fn focused_char(c: char) -> bool {
 }
 
 fn unfocused(symbol: &str) -> bool {
-    parts(&UNFOCUSED_BORDER.to_border_set()).contains(&symbol)
+    drawn_only_by(symbol, UNFOCUSED_BORDER, FOCUSED_BORDER)
+}
+
+fn drawn_only_by(symbol: &str, style: BorderType, other: BorderType) -> bool {
+    parts(&style.to_border_set()).contains(&symbol)
+        && !parts(&other.to_border_set()).contains(&symbol)
 }
 
 fn unfocused_char(c: char) -> bool {

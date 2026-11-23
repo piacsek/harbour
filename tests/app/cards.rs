@@ -289,25 +289,11 @@ fn third_line(shown: &str, title: &str) -> String {
     let mut lines = shown.lines();
     lines.find(|line| line.contains(title));
     lines.next();
-    lines
-        .next()
-        .unwrap_or_default()
-        .chars()
-        .skip(1)
-        .take_while(|c| !crate::vertical(*c))
-        .collect::<String>()
-        .trim_start_matches(['▌', ' '])
+    crate::inside(lines.next().unwrap_or_default())
         .trim_end()
         .to_string()
 }
 
 fn top_card(shown: &str) -> String {
-    shown
-        .lines()
-        .nth(1)
-        .unwrap()
-        .chars()
-        .skip(3)
-        .take_while(|c| !crate::vertical(*c))
-        .collect()
+    crate::inside(shown.lines().nth(1).unwrap())
 }
