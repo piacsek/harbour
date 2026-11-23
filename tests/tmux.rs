@@ -179,12 +179,13 @@ fn a_tmux_that_cannot_start_is_no_move() {
 
 #[test]
 fn a_tmux_that_never_answers_is_given_up_on_at_the_deadline() {
+    let stall = (5 * deadline()).as_secs();
     let scratch = tempfile::tempdir().unwrap();
     let tmux = Tmux::with_program(
         program(
             scratch.path(),
             &format!(
-                "case $1 in {BOUND} display-message) sleep 30; echo '110 /dev/acme-tty' ;; esac"
+                "case $1 in {BOUND} display-message) sleep {stall}; echo '110 /dev/acme-tty' ;; esac"
             ),
         ),
         "%7".into(),
@@ -203,12 +204,13 @@ fn a_tmux_that_never_answers_is_given_up_on_at_the_deadline() {
 
 #[test]
 fn an_answer_whose_output_stays_open_after_it_exits_is_read_at_once() {
+    let stall = (5 * deadline()).as_secs();
     let scratch = tempfile::tempdir().unwrap();
     let tmux = Tmux::with_program(
         program(
             scratch.path(),
             &format!(
-                "case $1 in {BOUND} display-message) echo '110 /dev/acme-tty'; sleep 30 & ;; esac"
+                "case $1 in {BOUND} display-message) echo '110 /dev/acme-tty'; sleep {stall} & ;; esac"
             ),
         ),
         "%7".into(),
@@ -334,12 +336,13 @@ fn a_pane_on_another_terminal_than_harbour_moves_nothing() {
 
 #[test]
 fn a_select_that_outlives_the_deadline_counts_as_a_move() {
+    let stall = (5 * deadline()).as_secs();
     let scratch = tempfile::tempdir().unwrap();
     let tmux = Tmux::with_program(
         program(
             scratch.path(),
             &format!(
-                "case $1 in {BOUND} display-message) echo '110 /dev/acme-tty' ;; select-pane) exec sleep 30 ;; esac"
+                "case $1 in {BOUND} display-message) echo '110 /dev/acme-tty' ;; select-pane) exec sleep {stall} ;; esac"
             ),
         ),
         "%7".into(),

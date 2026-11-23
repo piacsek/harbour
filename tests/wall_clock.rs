@@ -55,34 +55,111 @@ fn a_duration_after_a_seam_call_ends_is_not_found() {
     assert!(literal_seam_deadlines(source).is_empty());
 }
 
+#[test]
+fn a_constant_bound_that_allows_equality_is_found() {
+    let source = "    assert!(elapsed <= Duration::from_millis(500));\n";
+
+    assert_eq!(constant_upper_bounds(source), vec![1]);
+}
+
+#[test]
+fn a_constant_bound_written_the_other_way_round_is_found() {
+    let source = "    assert!(Duration::from_millis(500) > elapsed);\n";
+
+    assert_eq!(constant_upper_bounds(source), vec![1]);
+}
+
+#[test]
+fn a_constant_wait_for_something_that_must_arrive_is_found() {
+    let source = "    let first = asked.recv_timeout(Duration::from_secs(5)).unwrap();\n";
+
+    assert_eq!(constant_upper_bounds(source), vec![1]);
+}
+
+#[test]
+fn a_constant_wait_for_something_that_must_not_arrive_is_not_found() {
+    let source = "    assert!(asked.recv_timeout(Duration::from_millis(200)).is_err());\n";
+
+    assert!(constant_upper_bounds(source).is_empty());
+}
+
+#[test]
+fn a_literal_deadline_in_a_seam_call_that_opens_with_an_argument_is_found() {
+    let source = "    let tmux = Tmux::with_program(vec![\n        program(),\n    ],\n        Duration::from_secs(5),\n    );\n";
+
+    assert_eq!(literal_seam_deadlines(source), vec![4]);
+}
+
+#[test]
+fn a_literal_deadline_after_a_script_with_a_lone_parenthesis_is_found() {
+    let source = "    let tmux = Tmux::with_program(\n        program(\n            \"case $1 in a) sleep 9 ;; esac\",\n        ),\n        Duration::from_secs(5),\n    );\n";
+
+    assert_eq!(literal_seam_deadlines(source), vec![5]);
+}
+
 fn constant_upper_bounds(source: &str) -> Vec<usize> {
     numbered(source)
-        .filter(|(_, line)| line.contains("< Duration::from_"))
+        .filter(|(_, line)| bounds_by_a_constant(line))
         .map(|(number, _)| number)
         .collect()
 }
 
+fn bounds_by_a_constant(line: &str) -> bool {
+    line.contains("< Duration::from_")
+        || line.contains("<= Duration::from_")
+        || (line.contains("recv_timeout(Duration::from_") && !line.contains(".is_err()"))
+        || constant_on_the_left(line)
+}
+
+fn constant_on_the_left(line: &str) -> bool {
+    line.match_indices("Duration::from_").any(|(start, _)| {
+        let rest = &line[start..];
+        rest.find(')')
+            .is_some_and(|close| rest[close + 1..].trim_start().starts_with('>'))
+    })
+}
+
 fn literal_seam_deadlines(source: &str) -> Vec<usize> {
     let mut found = Vec::new();
-    let mut opened_at: Option<usize> = None;
+    let mut call = Call::default();
     for (number, line) in numbered(source) {
-        let opens = SEAMS.iter().any(|seam| line.contains(seam));
-        if (opened_at.is_some() || opens) && line.contains("Duration::from_") {
+        let opened = SEAMS.iter().find_map(|seam| line.find(seam));
+        let inside = call.depth > 0;
+        if (inside || opened.is_some()) && line.contains("Duration::from_") {
             found.push(number);
         }
-        if opens && line.trim_end().ends_with('(') {
-            opened_at = Some(indent(line));
-        } else if line.trim_start().starts_with(')')
-            && opened_at.is_some_and(|opened| indent(line) <= opened)
-        {
-            opened_at = None;
+        match opened {
+            Some(start) if !inside => call.read(&line[start..]),
+            _ if inside => call.read(line),
+            _ => {}
         }
     }
     found
 }
 
-fn indent(line: &str) -> usize {
-    line.len() - line.trim_start().len()
+#[derive(Default)]
+struct Call {
+    depth: i32,
+    quoted: bool,
+}
+
+impl Call {
+    fn read(&mut self, text: &str) {
+        let mut escaped = false;
+        for character in text.chars() {
+            match character {
+                _ if escaped => escaped = false,
+                '\\' if self.quoted => escaped = true,
+                '"' => self.quoted = !self.quoted,
+                '(' if !self.quoted => self.depth += 1,
+                ')' if !self.quoted => self.depth -= 1,
+                _ => {}
+            }
+        }
+        if self.depth <= 0 {
+            *self = Call::default();
+        }
+    }
 }
 
 fn numbered(source: &str) -> impl Iterator<Item = (usize, &str)> {

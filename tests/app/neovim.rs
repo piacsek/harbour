@@ -51,8 +51,8 @@ fn ctrl_h_asks_neovim_its_mode_then_whether_its_window_is_leftmost() {
 
     screen.key(KeyCode::Char('h'), KeyModifiers::CONTROL);
 
-    let first = asked.recv_timeout(Duration::from_secs(5)).unwrap();
-    let second = asked.recv_timeout(Duration::from_secs(5)).unwrap();
+    let first = asked.recv_timeout(5 * deadline()).unwrap();
+    let second = asked.recv_timeout(5 * deadline()).unwrap();
     assert_eq!(first, "nvim_get_mode");
     assert_eq!(second, format!("nvim_eval {LEFTMOST}"));
 }
@@ -96,7 +96,8 @@ fn ctrl_h_shows_claude_code_when_nothing_listens_on_the_socket() {
 #[test]
 fn ctrl_h_shows_claude_code_soon_when_neovim_never_answers() {
     let scratch = tempfile::tempdir().unwrap();
-    let mut screen = open_with(fake_neovim(scratch.path(), "exec sleep 600"));
+    let mut screen =
+        open_with(fake_neovim(scratch.path(), "exec sleep 600").with_patience(deadline()));
     let _asked = answering(&socket(scratch.path()), None, None);
 
     let before = Instant::now();
@@ -105,7 +106,8 @@ fn ctrl_h_shows_claude_code_soon_when_neovim_never_answers() {
 
     let shown = screen.wait_for("acme agent ready");
     assert!(shown.contains("acme agent ready"), "{shown}");
-    assert!(waited < deadline(), "{waited:?}");
+    assert!(waited >= deadline(), "{waited:?}");
+    assert!(waited < 2 * deadline(), "{waited:?}");
 }
 
 #[test]
@@ -128,8 +130,8 @@ fn x_asks_neovim_whether_it_has_unsaved_changes() {
 
     screen.press('x');
 
-    let first = asked.recv_timeout(Duration::from_secs(5)).unwrap();
-    let second = asked.recv_timeout(Duration::from_secs(5)).unwrap();
+    let first = asked.recv_timeout(5 * deadline()).unwrap();
+    let second = asked.recv_timeout(5 * deadline()).unwrap();
     assert_eq!(first, "nvim_get_mode");
     assert_eq!(second, format!("nvim_eval {UNSAVED}"));
 }
@@ -313,8 +315,8 @@ fn swapped_ctrl_l_asks_neovim_its_mode_then_whether_its_window_is_rightmost() {
 
     screen.key(KeyCode::Char('l'), KeyModifiers::CONTROL);
 
-    let first = asked.recv_timeout(Duration::from_secs(5)).unwrap();
-    let second = asked.recv_timeout(Duration::from_secs(5)).unwrap();
+    let first = asked.recv_timeout(5 * deadline()).unwrap();
+    let second = asked.recv_timeout(5 * deadline()).unwrap();
     assert_eq!(first, "nvim_get_mode");
     assert_eq!(second, format!("nvim_eval {RIGHTMOST}"));
 }

@@ -27,10 +27,13 @@ fn a_socket_that_never_accepts_gives_no_answer_by_the_deadline() {
     let (answered, answer) = mpsc::channel();
 
     thread::spawn(move || {
-        let _ = answered.send(nvim::mode(&socket, Instant::now() + deadline()));
+        let started = Instant::now();
+        let mode = nvim::mode(&socket, started + deadline());
+        let _ = answered.send((mode, started.elapsed()));
     });
 
-    let answer = answer.recv_timeout(2 * deadline());
-    assert!(matches!(answer, Ok(None)));
+    let (mode, elapsed) = answer.recv_timeout(5 * deadline()).unwrap();
+    assert!(mode.is_none());
+    assert!(elapsed < 2 * deadline(), "{elapsed:?}");
     drop(listener);
 }

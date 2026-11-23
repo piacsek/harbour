@@ -18,6 +18,7 @@ use crate::{Screen, numbered_agent, script};
 
 #[path = "../support/timing.rs"]
 pub(crate) mod timing;
+use timing::deadline;
 
 #[test]
 fn with_no_session_nothing_holds_a_file() {
@@ -463,7 +464,7 @@ fn harbour_edit_reaching_a_listening_harbour_opens_the_file_there() {
 const WAITING: &str = "harbour is waiting for an answer; try again after it";
 
 pub(crate) fn soon() -> Instant {
-    Instant::now() + Duration::from_secs(5)
+    Instant::now() + 5 * deadline()
 }
 
 pub(crate) fn harbour(scratch: &Path) -> Screen {

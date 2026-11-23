@@ -7,11 +7,12 @@ use harbour::editor::{Changes, Editor, Program, Unopened, socket_base};
 use harbour::nvim::{self, Mode};
 use tempfile::TempDir;
 
+use crate::handoff::timing::deadline;
+
 const CLEAN_NVIM: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/nvim/nvim");
 const WAITING: &str = "refused: Neovim is waiting for a key; answer it and try again";
 const PRESS_ENTER: &str = ":echo \"acme\\nprompt\"\r";
 const PATIENCE: Duration = Duration::from_secs(10);
-const OPENING: Duration = Duration::from_secs(5);
 const INHERITED: [&str; 5] = ["NVIM", "NVIM_APPNAME", "VIMINIT", "TMUX", "TMUX_PANE"];
 const ESCAPE: &str = "\x1b";
 const CTRL_W: &str = "\x17";
@@ -375,7 +376,7 @@ impl Scratch {
             command.push(format!("{name}={value}"));
         }
         command.push(CLEAN_NVIM.into());
-        let program = Program::neovim("nvim", command).with_patience(OPENING);
+        let program = Program::neovim("nvim", command).with_patience(5 * deadline());
         let editor = Editor::start(
             &program,
             &self.path().join("work"),

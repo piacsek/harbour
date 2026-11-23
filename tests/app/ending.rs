@@ -177,5 +177,5 @@ fn quitting_ends_every_running_session_within_one_grace_period() {
     drop(screen);
 
     let elapsed = started.elapsed();
-    assert!(elapsed < 5 * HANGUP_GRACE, "{elapsed:?}");
+    assert!(elapsed < 3 * HANGUP_GRACE, "{elapsed:?}");
 }

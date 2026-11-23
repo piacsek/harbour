@@ -74,9 +74,12 @@ after the Clawd glyph: `tests/tabs.rs`, `tests/app/side_border.rs`, `tests/e2e/c
   stalls `5 * deadline()` and asserts `elapsed < deadline()`; any other deadline a seam takes is
   `5 * deadline()`. Where the time is the product's own latency and no deadline can be injected,
   the bound is a test constant mirroring `src` (`HANGUP_GRACE`, `OPEN_PATIENCE`, `ASKING`) with
-  the loosest margin a regression still breaks. `tests/wall_clock.rs` fails on a `< Duration::from_`
-  bound and on a literal `Duration::from_` handed to `with_program` or `with_patience`; it cannot
-  see a literal reached through a `let` or a `const`.
+  the loosest margin a regression still breaks. `tests/wall_clock.rs` fails on a `<` or `<=`
+  bound by a `Duration::from_`, a `Duration::from_` on the left of `>`, a
+  `recv_timeout(Duration::from_` not followed by `.is_err()` on its line, and a literal
+  `Duration::from_` anywhere inside a `with_program` or `with_patience` call. It cannot see a
+  literal reached through a `let`, a `const` or a helper (an `Instant` built from one), a bound
+  split across lines, or a seam call holding a raw string with a parenthesis or a quote.
 
 - **No test starts the real `claude`.** A session runs the program `HARBOUR_SESSION_COMMAND`
   names (`SESSION_COMMAND` in `src/tui.rs`, on the `SEAMS` list), `claude` when it is unset.

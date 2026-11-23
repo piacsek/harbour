@@ -356,7 +356,7 @@ pub(crate) enum Edit {
 }
 
 pub(crate) fn called(asked: &Receiver<(String, Vec<Value>)>) -> (String, Vec<Value>) {
-    asked.recv_timeout(Duration::from_secs(5)).unwrap()
+    asked.recv_timeout(5 * deadline()).unwrap()
 }
 
 pub(crate) fn answering(scratch: &Path) -> Receiver<(String, Vec<Value>)> {
