@@ -7,7 +7,7 @@ use harbour::repo::Place;
 use harbour::transcript::Facts;
 use ratatui::style::{Color, Modifier};
 
-use crate::{all_facts, alone, at, card, every_fact, idle, place, row, sidebar};
+use crate::{all_facts, alone, at, card, every_fact, exited, idle, place, row, sidebar, stopped};
 
 #[test]
 fn the_repository_is_blue() {
@@ -179,6 +179,59 @@ fn the_unknown_dot_is_in_the_default_foreground() {
     let buffer = alone(card, 40);
 
     assert_eq!(at(&buffer, 0, "·").fg, Color::Reset);
+}
+
+#[test]
+fn an_unselected_exited_card_is_dimmed_on_every_row() {
+    let (_, buffer) = sidebar(&[idle(), exited()], 0, 40);
+
+    assert!(
+        at(&buffer, 4, "acme-api 1")
+            .modifier
+            .contains(Modifier::DIM)
+    );
+    assert!(at(&buffer, 5, "exited 1").modifier.contains(Modifier::DIM));
+    assert!(at(&buffer, 6, "acme-api").modifier.contains(Modifier::DIM));
+}
+
+#[test]
+fn an_unselected_exited_card_keeps_its_red_exit_under_the_dim() {
+    let (_, buffer) = sidebar(&[idle(), exited()], 0, 40);
+
+    assert_eq!(at(&buffer, 5, "exited 1").fg, Color::Red);
+}
+
+#[test]
+fn an_unselected_stopped_card_is_dimmed() {
+    let (_, buffer) = sidebar(&[idle(), stopped()], 0, 40);
+
+    assert!(
+        at(&buffer, 4, "acme-api 1")
+            .modifier
+            .contains(Modifier::DIM)
+    );
+}
+
+#[test]
+fn a_selected_exited_card_is_not_dimmed() {
+    let (_, buffer) = sidebar(&[idle(), exited()], 1, 40);
+
+    assert!(
+        !at(&buffer, 4, "acme-api 1")
+            .modifier
+            .contains(Modifier::DIM)
+    );
+}
+
+#[test]
+fn a_running_card_is_not_dimmed() {
+    let (_, buffer) = sidebar(&[exited(), idle()], 0, 40);
+
+    assert!(
+        !at(&buffer, 4, "acme-api 1")
+            .modifier
+            .contains(Modifier::DIM)
+    );
 }
 
 fn ended(how: Ended) -> Card {

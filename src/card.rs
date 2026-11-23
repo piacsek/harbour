@@ -261,6 +261,8 @@ impl Sidebar {
                 buffer.set_line(area.x + 2, y, line, area.width.saturating_sub(2));
                 if chosen {
                     buffer.set_style(Rect::new(area.x, y, area.width, 1), Modifier::BOLD);
+                } else if card.state == State::Exited {
+                    buffer.set_style(Rect::new(area.x, y, area.width, 1), Modifier::DIM);
                 }
             }
         }
