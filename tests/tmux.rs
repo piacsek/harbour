@@ -206,16 +206,9 @@ fn a_tmux_that_never_answers_is_given_up_on_at_the_deadline() {
 fn an_answer_whose_output_stays_open_after_it_exits_is_read_at_once() {
     let stall = (5 * deadline()).as_secs();
     let scratch = tempfile::tempdir().unwrap();
-    let tmux = Tmux::with_program(
-        program(
-            scratch.path(),
-            &format!(
-                "case $1 in {BOUND} display-message) echo '110 /dev/acme-tty'; sleep {stall} & ;; esac"
-            ),
-        ),
-        "%7".into(),
-        "/dev/acme-tty".into(),
-        5 * deadline(),
+    let tmux = answering(
+        scratch.path(),
+        &format!("echo '110 /dev/acme-tty'; sleep {stall} &"),
     );
     let began = Instant::now();
 

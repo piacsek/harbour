@@ -1,10 +1,10 @@
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 use crossterm::event::{KeyCode, KeyModifiers, MouseButton, MouseEventKind};
 
-use crate::{Screen, below, directory, numbered_agent, raw_agent, reading_agent, script};
-
-pub(crate) const HANGUP_GRACE: Duration = Duration::from_millis(200);
+use crate::{
+    HANGUP_GRACE, Screen, below, directory, numbered_agent, raw_agent, reading_agent, script,
+};
 
 #[test]
 fn x_on_a_running_session_asks_before_ending_it() {

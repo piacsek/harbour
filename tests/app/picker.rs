@@ -11,7 +11,7 @@ use harbour::picker::Picker;
 
 use crate::{Screen, directory, failure, home, reading_agent, script, starts_focused};
 
-use crate::handoff::timing::deadline;
+use crate::deadline;
 
 #[test]
 fn a_wait_for_a_popup_that_stays_open_fails_showing_it() {

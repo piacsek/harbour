@@ -14,7 +14,7 @@ use crate::directory::{cwd, following_with, repository, write_transcript};
 use crate::handoff::{editing, file, harbour, harbour_with, soon, start_in};
 use crate::script;
 
-use crate::handoff::timing::deadline;
+use crate::deadline;
 
 const OPEN_PATIENCE: Duration = Duration::from_secs(1);
 
@@ -47,7 +47,7 @@ fn an_open_that_starts_a_neovim_that_never_answers_closes_it_and_leaves_the_file
     let reply = screen.app.hand(
         Verb::Open,
         &file(scratch.path(), "acme-api"),
-        Instant::now() + Duration::from_millis(600),
+        Instant::now() + deadline(),
     );
 
     assert_eq!(reply, Reply::Untaken(CLOSED.to_string()));
@@ -63,11 +63,9 @@ fn an_open_that_starts_a_neovim_which_exits_at_once_says_so_without_waiting() {
     start_in(&mut screen, scratch.path(), "acme-api", 1);
     let started = Instant::now();
 
-    let reply = screen.app.hand(
-        Verb::Open,
-        &file(scratch.path(), "acme-api"),
-        Instant::now() + 5 * deadline(),
-    );
+    let reply = screen
+        .app
+        .hand(Verb::Open, &file(scratch.path(), "acme-api"), soon());
 
     let elapsed = started.elapsed();
     assert_eq!(reply, Reply::Untaken(EXITED.to_string()));
@@ -82,7 +80,7 @@ fn a_neovim_harbour_closed_for_not_answering_is_started_anew_by_ctrl_l() {
     screen.app.hand(
         Verb::Open,
         &file(scratch.path(), "acme-api"),
-        Instant::now() + Duration::from_millis(600),
+        Instant::now() + deadline(),
     );
     fs::remove_file(scratch.path().join("args")).unwrap();
 
@@ -116,7 +114,7 @@ fn an_open_whose_deadline_runs_out_before_a_running_neovim_answers_says_harbour_
     let reply = screen.app.hand(
         Verb::Open,
         &file(scratch.path(), "acme-api"),
-        Instant::now() + Duration::from_millis(500),
+        Instant::now() + OPEN_PATIENCE / 2,
     );
 
     assert_eq!(reply, Reply::Refused(BUSY.to_string()));
@@ -144,11 +142,9 @@ fn an_open_that_starts_a_neovim_which_stops_at_a_prompt_on_loading_the_file_is_r
     let _asked = answering_in(scratch.path(), "n", false, Duration::ZERO, Edit::Prompting);
     let started = Instant::now();
 
-    let reply = screen.app.hand(
-        Verb::Open,
-        &file(scratch.path(), "acme-api"),
-        Instant::now() + 5 * deadline(),
-    );
+    let reply = screen
+        .app
+        .hand(Verb::Open, &file(scratch.path(), "acme-api"), soon());
 
     let elapsed = started.elapsed();
     assert_eq!(reply, Reply::Refused(WAITING.to_string()));

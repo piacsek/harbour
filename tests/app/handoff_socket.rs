@@ -16,7 +16,7 @@ use crate::handing::answering;
 use crate::handoff::{app_with, file, listening, socket_in, soon, start_in};
 use crate::{Screen, script};
 
-use crate::handoff::timing::deadline;
+use crate::deadline;
 
 #[test]
 fn a_flood_of_silent_connections_leaves_keys_prompt() {

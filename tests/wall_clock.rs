@@ -1,7 +1,15 @@
 use std::path::{Path, PathBuf};
 
 const GUARD: &str = "tests/wall_clock.rs";
-const SEAMS: &[&str] = &["with_program(", "with_patience("];
+const SEAMS: &[&str] = &[
+    "with_program(",
+    "with_patience(",
+    "hand(",
+    "finish(",
+    "retrying_every(",
+    "nvim::mode(",
+    "nvim::eval(",
+];
 
 #[test]
 fn no_test_bounds_elapsed_time_from_above_by_a_constant() {
@@ -97,6 +105,56 @@ fn a_literal_deadline_after_a_script_with_a_lone_parenthesis_is_found() {
     assert_eq!(literal_seam_deadlines(source), vec![5]);
 }
 
+#[test]
+fn a_constant_bound_on_a_count_of_milliseconds_is_found() {
+    let source = "    assert!(elapsed.as_millis() < 500);\n";
+
+    assert_eq!(constant_upper_bounds(source), vec![1]);
+}
+
+#[test]
+fn a_constant_bound_on_a_count_of_seconds_that_allows_equality_is_found() {
+    let source = "    assert!(elapsed.as_secs() <= 2);\n";
+
+    assert_eq!(constant_upper_bounds(source), vec![1]);
+}
+
+#[test]
+fn a_literal_deadline_handed_to_the_app_is_found() {
+    let source = "    let reply = screen.app.hand(\n        Verb::Open,\n        &file(scratch.path(), \"acme-api\"),\n        Instant::now() + Duration::from_millis(500),\n    );\n";
+
+    assert_eq!(literal_seam_deadlines(source), vec![4]);
+}
+
+#[test]
+fn a_literal_deadline_handed_to_finish_is_found() {
+    let source = "    let elapsed = finish(Duration::from_millis(500));\n";
+
+    assert_eq!(literal_seam_deadlines(source), vec![1]);
+}
+
+#[test]
+fn a_literal_retry_interval_is_found_but_no_retry_is_not() {
+    let source = "    Listener::retrying_every(socket, Duration::from_millis(5));\n    Listener::retrying_every(socket, Duration::ZERO);\n";
+
+    assert_eq!(literal_seam_deadlines(source), vec![1]);
+}
+
+#[test]
+fn a_literal_deadline_handed_to_neovim_is_found() {
+    let source = "    nvim::mode(&socket, Instant::now() + Duration::from_secs(1));\n    nvim::eval(&socket, \"1\", Instant::now() + Duration::from_secs(1));\n";
+
+    assert_eq!(literal_seam_deadlines(source), vec![1, 2]);
+}
+
+#[test]
+fn a_literal_deadline_after_a_parenthesis_in_a_character_is_found() {
+    let source =
+        "    screen.app.hand(\n        key(')'),\n        Duration::from_secs(5),\n    );\n";
+
+    assert_eq!(literal_seam_deadlines(source), vec![3]);
+}
+
 fn constant_upper_bounds(source: &str) -> Vec<usize> {
     numbered(source)
         .filter(|(_, line)| bounds_by_a_constant(line))
@@ -109,6 +167,9 @@ fn bounds_by_a_constant(line: &str) -> bool {
         || line.contains("<= Duration::from_")
         || (line.contains("recv_timeout(Duration::from_") && !line.contains(".is_err()"))
         || constant_on_the_left(line)
+        || ["as_millis() <", "as_secs() <"]
+            .iter()
+            .any(|count| line.contains(count))
 }
 
 fn constant_on_the_left(line: &str) -> bool {
@@ -137,6 +198,22 @@ fn literal_seam_deadlines(source: &str) -> Vec<usize> {
     found
 }
 
+fn skip_character_literal(characters: &mut std::iter::Peekable<std::str::Chars>) {
+    let rest: String = characters.clone().take(3).collect();
+    let literal = match rest.chars().next() {
+        Some('\\') => rest
+            .char_indices()
+            .skip(2)
+            .find(|(_, character)| *character == '\'')
+            .map(|(end, _)| end + 1),
+        Some(_) if rest.chars().nth(1) == Some('\'') => Some(2),
+        _ => None,
+    };
+    for _ in 0..literal.unwrap_or(0) {
+        characters.next();
+    }
+}
+
 #[derive(Default)]
 struct Call {
     depth: i32,
@@ -146,9 +223,11 @@ struct Call {
 impl Call {
     fn read(&mut self, text: &str) {
         let mut escaped = false;
-        for character in text.chars() {
+        let mut characters = text.chars().peekable();
+        while let Some(character) = characters.next() {
             match character {
                 _ if escaped => escaped = false,
+                '\'' if !self.quoted => skip_character_literal(&mut characters),
                 '\\' if self.quoted => escaped = true,
                 '"' => self.quoted = !self.quoted,
                 '(' if !self.quoted => self.depth += 1,

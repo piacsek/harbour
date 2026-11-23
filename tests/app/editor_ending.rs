@@ -6,7 +6,7 @@ use crossterm::event::{KeyCode, KeyModifiers};
 use harbour::editor::Program;
 use ratatui::style::Modifier;
 
-use crate::ending::HANGUP_GRACE;
+use crate::HANGUP_GRACE;
 use crate::{Screen, below, reading_agent, region, script};
 
 #[test]

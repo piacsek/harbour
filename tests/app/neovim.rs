@@ -12,7 +12,7 @@ use rmpv::Value;
 
 use crate::{Screen, pane_corner, reading_agent, script};
 
-use crate::handoff::timing::deadline;
+use crate::deadline;
 
 const LEFTMOST: &str = "winnr('h') == winnr()";
 const RIGHTMOST: &str = "winnr('l') == winnr()";
@@ -108,6 +108,21 @@ fn ctrl_h_shows_claude_code_soon_when_neovim_never_answers() {
     assert!(shown.contains("acme agent ready"), "{shown}");
     assert!(waited >= deadline(), "{waited:?}");
     assert!(waited < 2 * deadline(), "{waited:?}");
+}
+
+#[test]
+fn ctrl_h_gives_up_on_a_silent_neovim_well_within_the_deadline_by_default() {
+    let scratch = tempfile::tempdir().unwrap();
+    let mut screen = open_with(fake_neovim(scratch.path(), "exec sleep 600"));
+    let _asked = answering(&socket(scratch.path()), None, None);
+
+    let before = Instant::now();
+    screen.key(KeyCode::Char('h'), KeyModifiers::CONTROL);
+    let waited = before.elapsed();
+
+    let shown = screen.wait_for("acme agent ready");
+    assert!(shown.contains("acme agent ready"), "{shown}");
+    assert!(waited < deadline(), "{waited:?}");
 }
 
 #[test]

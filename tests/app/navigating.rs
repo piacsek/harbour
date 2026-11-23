@@ -8,7 +8,7 @@ use harbour::tmux::Tmux;
 use crate::logging::{logged, only, read};
 use crate::{Screen, numbered_agent, script, shows_titled};
 
-use crate::handoff::timing::deadline;
+use crate::deadline;
 
 const BELOW: &str = "list-keys -T root\ndisplay-message -p -t %7 #{pane_active}#{window_active}#{pane_at_bottom} #{pane_tty}\nselect-pane -D -t %7\n";
 

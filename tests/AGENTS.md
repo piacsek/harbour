@@ -69,17 +69,21 @@ after the Clawd glyph: `tests/tabs.rs`, `tests/app/side_border.rs`, `tests/e2e/c
 - **No elapsed-time bound is an idle-machine constant.** A busy machine stretches every wait, so
   an upper bound on elapsed time comes from `deadline()` in `tests/support/timing.rs` (2 s, times
   the whole number in `HARBOUR_TEST_SLOWDOWN`, 1 when unset), pulled in with `#[path]` (in
-  `tests/app/` once, as `handoff::timing`). A test of giving up injects `deadline()` and asserts
-  `elapsed >= deadline()` and `elapsed < 2 * deadline()`; a test of returning early injects or
-  stalls `5 * deadline()` and asserts `elapsed < deadline()`; any other deadline a seam takes is
-  `5 * deadline()`. Where the time is the product's own latency and no deadline can be injected,
-  the bound is a test constant mirroring `src` (`HANGUP_GRACE`, `OPEN_PATIENCE`, `ASKING`) with
-  the loosest margin a regression still breaks. `tests/wall_clock.rs` fails on a `<` or `<=`
-  bound by a `Duration::from_`, a `Duration::from_` on the left of `>`, a
-  `recv_timeout(Duration::from_` not followed by `.is_err()` on its line, and a literal
-  `Duration::from_` anywhere inside a `with_program` or `with_patience` call. It cannot see a
-  literal reached through a `let`, a `const` or a helper (an `Instant` built from one), a bound
-  split across lines, or a seam call holding a raw string with a parenthesis or a quote.
+  `tests/app/` once, by `main.rs`). A test of giving up injects `deadline()` and asserts
+  `elapsed >= deadline()` and `elapsed < 2 * deadline()`, or only the upper bound where a platform
+  refuses at once (a socket that never accepts is refused at once on macOS, so `tests/nvim.rs`
+  asserts only it); a test of returning early injects or stalls `5 * deadline()` and asserts
+  `elapsed < deadline()`; any other deadline a seam or a waiting helper takes is `5 * deadline()`.
+  Where the time is the product's own latency and no deadline can be injected, the bound is a
+  test constant mirroring `src` (`HANGUP_GRACE`, `OPEN_PATIENCE`, `ASKING`) with the loosest
+  margin a regression still breaks. `tests/wall_clock.rs` fails on a `<` or `<=` bound by a
+  `Duration::from_` or after `as_millis()` or `as_secs()`, a `Duration::from_` on the left of `>`,
+  a `recv_timeout(Duration::from_` not followed by `.is_err()` on its line, and a literal
+  `Duration::from_` anywhere inside a call of `with_program`, `with_patience`, `hand`, `finish`,
+  `retrying_every`, `nvim::mode` or `nvim::eval`. It cannot see a literal reached through a `let`,
+  a `const` or a helper of its own (a poll loop's `Instant`), a bound split across lines or
+  written `>` with the count on the right, or a seam call holding a raw string or a character
+  escape longer than one character with a parenthesis.
 
 - **No test starts the real `claude`.** A session runs the program `HARBOUR_SESSION_COMMAND`
   names (`SESSION_COMMAND` in `src/tui.rs`, on the `SEAMS` list), `claude` when it is unset.

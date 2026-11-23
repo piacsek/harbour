@@ -377,7 +377,8 @@ fn dropping_a_listener_during_a_flood_of_connections_returns_at_once() {
 }
 
 fn arrived(listener: &mut Listener) -> harbour::handoff::Request {
-    for _ in 0..200 {
+    let until = Instant::now() + 5 * deadline();
+    while Instant::now() < until {
         if let Some(request) = listener.incoming() {
             return request;
         }
@@ -388,9 +389,7 @@ fn arrived(listener: &mut Listener) -> harbour::handoff::Request {
 
 fn sent(socket: &Path, verb: &str, expires: u128, file: &[u8]) -> UnixStream {
     let mut stream = UnixStream::connect(socket).unwrap();
-    stream
-        .set_read_timeout(Some(Duration::from_secs(2)))
-        .unwrap();
+    stream.set_read_timeout(Some(5 * deadline())).unwrap();
     let mut request = format!("{verb} {expires}\0").into_bytes();
     request.extend_from_slice(file);
     stream.write_all(&request).unwrap();
