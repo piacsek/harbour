@@ -7,11 +7,12 @@ use harbour::editor::{Changes, Editor, Program, Unopened, socket_base};
 use harbour::nvim::{self, Mode};
 use tempfile::TempDir;
 
+use crate::deadline;
+
 const CLEAN_NVIM: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/nvim/nvim");
 const WAITING: &str = "refused: Neovim is waiting for a key; answer it and try again";
 const PRESS_ENTER: &str = ":echo \"acme\\nprompt\"\r";
 const PATIENCE: Duration = Duration::from_secs(10);
-const OPENING: Duration = Duration::from_secs(5);
 const INHERITED: [&str; 5] = ["NVIM", "NVIM_APPNAME", "VIMINIT", "TMUX", "TMUX_PANE"];
 const ESCAPE: &str = "\x1b";
 const CTRL_W: &str = "\x17";
@@ -375,7 +376,7 @@ impl Scratch {
             command.push(format!("{name}={value}"));
         }
         command.push(CLEAN_NVIM.into());
-        let program = Program::neovim("nvim", command).with_patience(OPENING);
+        let program = Program::neovim("nvim", command).with_patience(5 * deadline());
         let editor = Editor::start(
             &program,
             &self.path().join("work"),
@@ -468,9 +469,9 @@ impl Drop for Neovim {
 }
 
 pub(super) fn reached(socket: &Path, what: &str, patience: Duration, done: impl Fn(&Mode) -> bool) {
-    let deadline = Instant::now() + patience;
+    let until = Instant::now() + patience;
     loop {
-        let mode = nvim::mode(socket, Instant::now() + Duration::from_secs(1));
+        let mode = nvim::mode(socket, Instant::now() + deadline());
         if mode.as_ref().is_some_and(&done) {
             return;
         }
@@ -478,7 +479,7 @@ pub(super) fn reached(socket: &Path, what: &str, patience: Duration, done: impl 
             format!("{:?} blocking {}", mode.mode, mode.blocking)
         });
         assert!(
-            Instant::now() < deadline,
+            Instant::now() < until,
             "waited {patience:?} for {what}, last mode: {last}"
         );
         std::thread::sleep(Duration::from_millis(20));
@@ -486,14 +487,14 @@ pub(super) fn reached(socket: &Path, what: &str, patience: Duration, done: impl 
 }
 
 pub(super) fn held(socket: &Path, expression: &str, patience: Duration) {
-    let deadline = Instant::now() + patience;
+    let until = Instant::now() + patience;
     loop {
-        let value = nvim::eval(socket, expression, Instant::now() + Duration::from_secs(1));
+        let value = nvim::eval(socket, expression, Instant::now() + deadline());
         if value == Some(1) {
             return;
         }
         assert!(
-            Instant::now() < deadline,
+            Instant::now() < until,
             "waited {patience:?} for {expression}, last value: {value:?}"
         );
         std::thread::sleep(Duration::from_millis(20));

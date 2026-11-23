@@ -5,6 +5,11 @@ use std::time::{Duration, Instant};
 
 use harbour::nvim;
 
+#[path = "support/timing.rs"]
+mod timing;
+
+use timing::deadline;
+
 #[test]
 fn a_socket_that_never_accepts_gives_no_answer_by_the_deadline() {
     let scratch = tempfile::tempdir().unwrap();
@@ -22,13 +27,13 @@ fn a_socket_that_never_accepts_gives_no_answer_by_the_deadline() {
     let (answered, answer) = mpsc::channel();
 
     thread::spawn(move || {
-        let _ = answered.send(nvim::mode(
-            &socket,
-            Instant::now() + Duration::from_millis(100),
-        ));
+        let started = Instant::now();
+        let mode = nvim::mode(&socket, started + deadline());
+        let _ = answered.send((mode, started.elapsed()));
     });
 
-    let answer = answer.recv_timeout(Duration::from_secs(2));
-    assert!(matches!(answer, Ok(None)));
+    let (mode, elapsed) = answer.recv_timeout(5 * deadline()).unwrap();
+    assert!(mode.is_none());
+    assert!(elapsed < 2 * deadline(), "{elapsed:?}");
     drop(listener);
 }

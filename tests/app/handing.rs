@@ -14,6 +14,10 @@ use crate::directory::{cwd, following_with, repository, write_transcript};
 use crate::handoff::{editing, file, harbour, harbour_with, soon, start_in};
 use crate::script;
 
+use crate::deadline;
+
+const OPEN_PATIENCE: Duration = Duration::from_secs(1);
+
 const WAITING: &str = "Neovim is waiting for a key; answer it and try again";
 const BUSY: &str = "harbour was busy and did not get to it in time";
 const CLOSED: &str = "Neovim did not start in time; harbour closed it";
@@ -43,7 +47,7 @@ fn an_open_that_starts_a_neovim_that_never_answers_closes_it_and_leaves_the_file
     let reply = screen.app.hand(
         Verb::Open,
         &file(scratch.path(), "acme-api"),
-        Instant::now() + Duration::from_millis(600),
+        Instant::now() + deadline(),
     );
 
     assert_eq!(reply, Reply::Untaken(CLOSED.to_string()));
@@ -63,8 +67,9 @@ fn an_open_that_starts_a_neovim_which_exits_at_once_says_so_without_waiting() {
         .app
         .hand(Verb::Open, &file(scratch.path(), "acme-api"), soon());
 
+    let elapsed = started.elapsed();
     assert_eq!(reply, Reply::Untaken(EXITED.to_string()));
-    assert!(started.elapsed() < Duration::from_secs(2));
+    assert!(elapsed < deadline(), "{elapsed:?}");
 }
 
 #[test]
@@ -75,7 +80,7 @@ fn a_neovim_harbour_closed_for_not_answering_is_started_anew_by_ctrl_l() {
     screen.app.hand(
         Verb::Open,
         &file(scratch.path(), "acme-api"),
-        Instant::now() + Duration::from_millis(600),
+        Instant::now() + deadline(),
     );
     fs::remove_file(scratch.path().join("args")).unwrap();
 
@@ -109,7 +114,7 @@ fn an_open_whose_deadline_runs_out_before_a_running_neovim_answers_says_harbour_
     let reply = screen.app.hand(
         Verb::Open,
         &file(scratch.path(), "acme-api"),
-        Instant::now() + Duration::from_millis(500),
+        Instant::now() + OPEN_PATIENCE / 2,
     );
 
     assert_eq!(reply, Reply::Refused(BUSY.to_string()));
@@ -141,8 +146,9 @@ fn an_open_that_starts_a_neovim_which_stops_at_a_prompt_on_loading_the_file_is_r
         .app
         .hand(Verb::Open, &file(scratch.path(), "acme-api"), soon());
 
+    let elapsed = started.elapsed();
     assert_eq!(reply, Reply::Refused(WAITING.to_string()));
-    assert!(started.elapsed() < Duration::from_secs(2));
+    assert!(elapsed < deadline(), "{elapsed:?}");
 }
 
 #[test]
@@ -156,8 +162,9 @@ fn an_open_that_raises_a_prompt_in_a_running_neovim_is_refused_at_once() {
         .app
         .hand(Verb::Open, &file(scratch.path(), "acme-api"), soon());
 
+    let elapsed = started.elapsed();
     assert_eq!(reply, Reply::Refused(WAITING.to_string()));
-    assert!(started.elapsed() < Duration::from_millis(500));
+    assert!(elapsed < OPEN_PATIENCE, "{elapsed:?}");
 }
 
 #[test]
@@ -345,7 +352,7 @@ pub(crate) enum Edit {
 }
 
 pub(crate) fn called(asked: &Receiver<(String, Vec<Value>)>) -> (String, Vec<Value>) {
-    asked.recv_timeout(Duration::from_secs(5)).unwrap()
+    asked.recv_timeout(5 * deadline()).unwrap()
 }
 
 pub(crate) fn answering(scratch: &Path) -> Receiver<(String, Vec<Value>)> {

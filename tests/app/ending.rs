@@ -1,8 +1,10 @@
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 use crossterm::event::{KeyCode, KeyModifiers, MouseButton, MouseEventKind};
 
-use crate::{Screen, below, directory, numbered_agent, raw_agent, reading_agent, script};
+use crate::{
+    HANGUP_GRACE, Screen, below, directory, numbered_agent, raw_agent, reading_agent, script,
+};
 
 #[test]
 fn x_on_a_running_session_asks_before_ending_it() {
@@ -174,5 +176,6 @@ fn quitting_ends_every_running_session_within_one_grace_period() {
 
     drop(screen);
 
-    assert!(started.elapsed() < Duration::from_millis(600));
+    let elapsed = started.elapsed();
+    assert!(elapsed < 3 * HANGUP_GRACE, "{elapsed:?}");
 }

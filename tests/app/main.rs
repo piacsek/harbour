@@ -79,7 +79,12 @@ use ratatui::widgets::BorderType;
 use ratatui::{Terminal, TerminalOptions, Viewport};
 use tempfile::TempDir;
 
+#[path = "../support/timing.rs"]
+mod timing;
+use timing::deadline;
+
 const HOME: &str = "acme-home";
+const HANGUP_GRACE: Duration = Duration::from_millis(200);
 
 struct Screen {
     app: App,
@@ -202,7 +207,8 @@ impl Screen {
     }
 
     fn wait_for_stable(&mut self) -> String {
-        let deadline = Instant::now() + Duration::from_secs(5);
+        let patience = 5 * deadline();
+        let until = Instant::now() + patience;
         let mut last = self.draw();
         let mut since = Instant::now();
         loop {
@@ -215,22 +221,23 @@ impl Screen {
                 return shown;
             }
             assert!(
-                Instant::now() < deadline,
-                "waited 5 s for the screen to stop changing, last screen:\n{last}"
+                Instant::now() < until,
+                "waited {patience:?} for the screen to stop changing, last screen:\n{last}"
             );
         }
     }
 
     fn wait_until(&mut self, what: &str, mut done: impl FnMut(&str) -> bool) -> String {
-        let deadline = Instant::now() + Duration::from_secs(5);
+        let patience = 5 * deadline();
+        let until = Instant::now() + patience;
         loop {
             let shown = self.draw();
             if done(&shown) {
                 return shown;
             }
             assert!(
-                Instant::now() < deadline,
-                "waited 5 s for {what}, last screen:\n{shown}"
+                Instant::now() < until,
+                "waited {patience:?} for {what}, last screen:\n{shown}"
             );
             sleep(Duration::from_millis(20));
         }

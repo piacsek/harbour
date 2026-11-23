@@ -6,6 +6,11 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use harbour::log::{self, Log};
 
+#[path = "support/timing.rs"]
+mod timing;
+
+use timing::deadline;
+
 #[test]
 fn a_log_writes_its_lines_to_the_file_named_by_its_pid() {
     let scratch = tempfile::tempdir().unwrap();
@@ -175,7 +180,7 @@ fn a_finished_log_holds_every_line_written_before_it_finished() {
         log.write(|| format!("input to=picker bytes={line}"));
     }
 
-    log.finish(Duration::from_secs(10));
+    log.finish(5 * deadline());
 
     let text = fs::read_to_string(own_file(&dir)).unwrap();
     assert!(text.ends_with(" input to=picker bytes=1999\n"), "{text}");
@@ -194,9 +199,11 @@ fn finishing_a_log_whose_disk_stalls_waits_no_longer_than_it_was_given() {
     log.write(|| "quit sessions=0".to_string());
 
     let started = Instant::now();
-    log.finish(Duration::from_millis(200));
+    log.finish(deadline());
 
-    assert!(started.elapsed() < Duration::from_secs(2));
+    let elapsed = started.elapsed();
+    assert!(elapsed >= deadline(), "{elapsed:?}");
+    assert!(elapsed < 2 * deadline(), "{elapsed:?}");
 }
 
 #[test]
@@ -229,7 +236,7 @@ fn a_symlink_at_the_log_file_is_never_followed() {
     let log = Log::open(&dir);
     log.write(|| "start".to_string());
 
-    log.finish(Duration::from_secs(10));
+    log.finish(5 * deadline());
 
     assert_eq!(fs::read_to_string(&target).unwrap(), "acme kept\n");
 }
@@ -245,7 +252,7 @@ fn a_log_folder_that_is_a_symlink_is_never_used() {
     let log = Log::open(&dir);
     log.write(|| "start".to_string());
 
-    log.finish(Duration::from_secs(10));
+    log.finish(5 * deadline());
 
     assert_eq!(mode(&target), 0o755);
     assert!(!own_file(&target).exists());
@@ -263,7 +270,8 @@ fn a_log_whose_folder_cannot_be_made_drops_its_lines() {
         log.write(|| "input to=1 bytes=1".to_string());
     }
 
-    assert!(started.elapsed() < Duration::from_secs(1));
+    let elapsed = started.elapsed();
+    assert!(elapsed < deadline(), "{elapsed:?}");
 }
 
 #[test]
@@ -282,7 +290,8 @@ fn a_log_on_a_path_that_stalls_never_delays_a_write() {
         log.write(|| "input to=1 bytes=1".to_string());
     }
 
-    assert!(started.elapsed() < Duration::from_secs(1));
+    let elapsed = started.elapsed();
+    assert!(elapsed < deadline(), "{elapsed:?}");
 }
 
 #[test]
