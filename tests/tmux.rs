@@ -273,6 +273,24 @@ fn a_key_listed_after_a_long_root_table_is_bound() {
 }
 
 #[test]
+fn a_key_listed_after_a_root_table_larger_than_a_pipe_holds_is_bound() {
+    let scratch = tempfile::tempdir().unwrap();
+    let tmux = Tmux::with_program(
+        program(
+            scratch.path(),
+            "case $1 in list-keys) i=0; while [ $i -lt 4000 ]; do echo \"bind-key -T root M-$i display-message acme-binding-number-$i\"; i=$((i+1)); done; echo 'bind-key -T root C-j select-pane -D' ;; display-message) echo '110 /dev/acme-tty' ;; esac",
+        ),
+        "%7".into(),
+        "/dev/acme-tty".into(),
+        Duration::from_secs(2),
+    );
+
+    let moved = tmux.select(Direction::Below);
+
+    assert!(moved);
+}
+
+#[test]
 fn a_pane_that_is_not_the_active_one_moves_nothing() {
     let scratch = tempfile::tempdir().unwrap();
     let tmux = answering(scratch.path(), "echo '010 /dev/acme-tty'");

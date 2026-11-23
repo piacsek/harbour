@@ -101,8 +101,10 @@ impl Tmux {
 
     fn output(&self, args: &[&OsStr], deadline: Instant) -> Option<Vec<u8>> {
         let mut child = self.spawn(args, Stdio::piped())?;
-        waited(&mut child, deadline)?.success().then_some(())?;
-        answer(child.stdout.take()?, deadline)
+        let stdout = child.stdout.take()?;
+        let answer = drained(&mut child, stdout, deadline);
+        let status = waited(&mut child, deadline)?;
+        status.success().then_some(answer?)
     }
 
     fn spawn(&self, args: &[&OsStr], stdout: Stdio) -> Option<Child> {
@@ -134,27 +136,30 @@ fn binds(listed: &[u8], key: &str) -> bool {
     })
 }
 
-fn answer(mut stdout: ChildStdout, deadline: Instant) -> Option<Vec<u8>> {
+fn drained(child: &mut Child, mut stdout: ChildStdout, deadline: Instant) -> Option<Vec<u8>> {
     let mut answer = Vec::new();
     let mut buffer = [0; 4096];
     loop {
-        let timeout = if answer.is_empty() {
-            PollTimeout::try_from(deadline.saturating_duration_since(Instant::now()))
-                .unwrap_or(PollTimeout::ZERO)
+        let exited = child.try_wait().ok()?.is_some();
+        let left = deadline.checked_duration_since(Instant::now())?;
+        let wait = if exited {
+            Duration::ZERO
         } else {
-            PollTimeout::ZERO
+            POLL.min(left)
         };
         let mut watched = [PollFd::new(stdout.as_fd(), PollFlags::POLLIN)];
-        if nix::poll::poll(&mut watched, timeout).ok()? == 0 {
-            break;
+        if nix::poll::poll(&mut watched, PollTimeout::try_from(wait).ok()?).ok()? == 0 {
+            if exited {
+                return Some(answer);
+            }
+            continue;
         }
         let read = stdout.read(&mut buffer).ok()?;
         if read == 0 {
-            break;
+            return Some(answer);
         }
         answer.extend_from_slice(&buffer[..read]);
     }
-    (!answer.is_empty()).then_some(answer)
 }
 
 fn waited(child: &mut Child, deadline: Instant) -> Option<ExitStatus> {
