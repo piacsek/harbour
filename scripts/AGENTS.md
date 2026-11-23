@@ -161,8 +161,8 @@ base with `origin/main` and the working tree, untracked files included, under `s
 `cargo test --lib --bins` with a `--test` for every other target it finds as `tests/*.rs` or
 `tests/*/main.rs` (but `e2e` when tmux is installed, since its own step runs it), then `cargo test --doc`, and prints `==> skipping the script tests: <reason>; CI runs them`. No
 repository, no `origin/main` or no merge base runs everything. The skip is safe because the
-`check` shards of `ci.yml` run the tests themselves (`cargo nextest run --locked`), not `gates.sh`, and `check` is
-required to merge into `main`. A script test that starts reading another path of this
+`shard` legs of `ci.yml` run the tests themselves (`cargo nextest run --locked`), not `gates.sh`, and the `check`
+gate over them is required to merge into `main`. A script test that starts reading another path of this
 repository puts that path on the list in the script.
 With tmux installed, `gates.sh` then runs the `#[ignore]` end-to-end tests last, in a run of
 their own: `cargo test --test e2e -- --include-ignored --test-threads=2`. At one thread per core

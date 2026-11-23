@@ -12,7 +12,7 @@ fn the_required_check_passes_only_when_both_shards_passed() {
 }
 
 #[test]
-fn the_shards_install_nothing_beyond_the_toolchain_tmux_and_nextest() {
+fn only_one_job_installs_a_package_with_apt_get() {
     assert_eq!(ci().matches("apt-get install").count(), 1, "{}", ci());
 }
 
@@ -37,6 +37,21 @@ fn the_workflow_grants_only_read_access_to_the_contents() {
 }
 
 #[test]
+fn a_job_header_with_a_trailing_comment_counts_as_a_job() {
+    assert_eq!(job_header("  shard: # the test legs"), Some("shard"));
+}
+
+#[test]
+fn a_job_header_ending_in_a_carriage_return_counts_as_a_job() {
+    assert_eq!(job_header("  shard:\r"), Some("shard"));
+}
+
+#[test]
+fn a_step_key_is_not_a_job_header() {
+    assert_eq!(job_header("    steps:"), None);
+}
+
+#[test]
 fn every_job_of_every_workflow_has_a_timeout() {
     assert_eq!(jobs_without_a_timeout(), Vec::<String>::new());
 }
@@ -51,15 +66,14 @@ fn jobs_without_a_timeout() -> Vec<String> {
         let mut job: Option<String> = None;
         let mut timed = false;
         for line in jobs.lines().skip(2) {
-            let header = line.starts_with("  ") && !line.starts_with("   ") && line.ends_with(':');
-            if header {
+            if let Some(name) = job_header(line) {
                 if let Some(name) = job.take().filter(|_| !timed) {
                     missing.push(name);
                 }
                 job = Some(format!(
-                    "{} {}",
+                    "{} {}:",
                     path.file_name().unwrap().to_string_lossy(),
-                    line.trim()
+                    name
                 ));
                 timed = false;
             }
@@ -71,6 +85,17 @@ fn jobs_without_a_timeout() -> Vec<String> {
     }
     missing.sort();
     missing
+}
+
+fn job_header(line: &str) -> Option<&str> {
+    let line = line.trim_end_matches('\r');
+    let line = line.split(" #").next().unwrap().trim_end();
+    let name = line.strip_prefix("  ")?.strip_suffix(':')?;
+    let valid = !name.is_empty()
+        && name
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-');
+    valid.then_some(name)
 }
 
 fn nextest_config() -> String {
@@ -98,6 +123,7 @@ priority = 100
 ";
 
 const SHARD_JOB: &str = "  shard:
+    name: shard (${{ matrix.name }})
     strategy:
       fail-fast: false
       matrix:
@@ -130,12 +156,14 @@ const SHARD_JOB: &str = "  shard:
       - if: matrix.rest
         run: cargo clippy --locked --all-targets -- -D warnings
       - run: cargo nextest run --locked --config-file .github/nextest.toml --run-ignored all ${{ matrix.tests }}
+      - if: matrix.rest
+        run: cargo test --doc --locked
     timeout-minutes: 10
 ";
 
 const CHECK_JOB: &str = "  check:
     needs: shard
-    if: always()
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     steps:
       - env:

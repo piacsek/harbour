@@ -42,8 +42,8 @@ speed-up, when its pipeline went from about 3 min 20 s to 37 s:
   `tests/e2e/`), each with one `cargo nextest run --locked --run-ignored all`, nextest installed
   by `taiki-e/install-action` at a pinned version. One matrix job keeps the one `toolchain:` line
   `tests/toolchain.rs` reads, and each leg keeps a cache of its own (`key: ${{ matrix.name }}`).
-  `check` (`needs: shard`, `if: always()`) passes only when both legs succeeded, so the ruleset
-  keeps requiring one name. `cargo test` ran the 44 test binaries one after another,
+  `check` (`needs: shard`, `if: ${{ !cancelled() }}`) passes only when both legs succeeded, so
+  the ruleset keeps requiring one name, and a cancelled run leaves it cancelled, not red. `cargo test` ran the 44 test binaries one after another,
   186 s of the 226 s `check` took in November 2026; one nextest pool of every binary still took
   162 s, so the `app` target, about 350 s of the 610 s of test time, got a runner of its own.
   nextest runs each test in a process of its own, which also ends the fork race of
@@ -52,9 +52,9 @@ speed-up, when its pipeline went from about 3 min 20 s to 37 s:
   two-thread tail runs beside the other targets instead of after them, since three `check` runs had
   lost an e2e screen wait at one thread per core; it retries nothing, so a flaky test fails the
   run and is fixed rather than hidden, and runs every test before failing, so one run names
-  every flaky test. nextest runs no doctests; `src/` has none, since it holds no comments. The
+  every flaky test. nextest runs no doctests, so the `rest` leg runs `cargo test --doc` after it. The
   local gates stay on `cargo test`, which needs no tool installed.
-- **Every job has a `timeout-minutes`**, about three times its normal run, so a hung tmux or
+- **Every job has a `timeout-minutes`**, a few times its normal run and at least 5, so a hung tmux or
   Neovim test cannot hold a runner for GitHub's 6-hour default. `tests/scripts/ci_workflow.rs`
   fails while a job lacks one.
 - **Here the tests set the floor, not setup.** In conveyor, job setup, checkout, toolchain and
