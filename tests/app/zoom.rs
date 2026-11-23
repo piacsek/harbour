@@ -9,8 +9,7 @@ use harbour::handoff::Verb;
 use crate::handing::answering;
 use crate::handoff::{file, harbour, soon, start_in};
 use crate::remembering::{ID, Scratch, TITLE};
-use crate::switching::settled;
-use crate::{Screen, numbered_agent, pane_corner, raw_agent, script};
+use crate::{Screen, numbered_agent, pane_corner, raw_agent, script, settled};
 
 #[test]
 fn the_prefix_then_z_from_the_sidebar_shows_the_selected_pane_alone_and_focuses_it() {

@@ -1,7 +1,7 @@
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use crate::real_neovim::{held, reached};
-use crate::{Screen, failure, reading_agent, script};
+use crate::{Screen, deadline, failure, reading_agent, script, settled};
 
 #[test]
 fn a_wait_for_text_that_never_shows_fails_naming_it_and_showing_the_screen() {
@@ -50,6 +50,29 @@ fn a_screen_that_changes_slower_than_the_500_ms_tick_is_not_yet_stable() {
         failure.contains("for the screen to stop changing"),
         "{failure}"
     );
+}
+
+#[test]
+fn a_wait_for_nothing_to_happen_returns_on_the_first_draw_that_shows_it() {
+    let mut screen = Screen::new(script("exec sleep 600"));
+    let mut draws = 0;
+
+    settled(&mut screen, |_| {
+        draws += 1;
+        draws == 2
+    });
+
+    assert_eq!(draws, 2);
+}
+
+#[test]
+fn a_wait_for_nothing_to_happen_keeps_drawing_for_its_whole_window() {
+    let mut screen = Screen::new(script("exec sleep 600"));
+    let started = Instant::now();
+
+    settled(&mut screen, |_| false);
+
+    assert!(started.elapsed() >= deadline() * 3 / 4);
 }
 
 #[test]

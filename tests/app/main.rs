@@ -465,3 +465,14 @@ fn frames() -> Frames {
     })
     .unwrap()
 }
+
+fn settled(screen: &mut Screen, mut happened: impl FnMut(&str) -> bool) -> String {
+    let until = Instant::now() + deadline() * 3 / 4;
+    loop {
+        let shown = screen.draw();
+        if happened(&shown) || Instant::now() > until {
+            return shown;
+        }
+        sleep(Duration::from_millis(20));
+    }
+}
