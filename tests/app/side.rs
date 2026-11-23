@@ -56,7 +56,8 @@ fn the_prefix_then_backslash_on_a_stopped_card_does_nothing() {
     scratch.remember(ID, TITLE, 0);
     scratch.transcript(ID, r#"{"type":"user","message":{}}"#);
     let mut screen = scratch.watching(script("exec sleep 600"));
-    let before = screen.wait_for(TITLE);
+    screen.wait_for(TITLE);
+    let before = screen.wait_for_stable();
 
     side(&mut screen);
 
@@ -82,7 +83,8 @@ fn the_prefix_then_backslash_under_120_columns_does_nothing() {
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = editing(scratch.path());
     screen.resize(119, 20);
-    let before = screen.wait_for("acme agent 1 size: 18 77");
+    screen.wait_for("acme agent 1 size: 18 77");
+    let before = screen.wait_for_stable();
 
     side(&mut screen);
     sleep(Duration::from_millis(300));

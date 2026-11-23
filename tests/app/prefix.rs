@@ -377,7 +377,7 @@ fn a_closing_brace_after_the_prefix_from_the_editor_half_swaps_the_halves() {
 fn a_closing_brace_after_the_prefix_does_nothing_when_not_side_by_side() {
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = on_the_editor(scratch.path());
-    let before = screen.draw();
+    let before = screen.wait_for_stable();
 
     screen.prefixed('}');
 
