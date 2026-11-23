@@ -108,8 +108,8 @@ conveyor, where these suites come from; the ones about sessions were hit in harb
   stock image lacks: covering them means installing tmux in the container (the `check` job of
   `ci.yml` installs it with `apt-get`) and running them as `gates.sh` does, after the rest, at
   2 threads (see the trap above): `cargo test --test e2e -- --include-ignored --test-threads=2`.
-  CI itself runs `cargo test --locked -- --include-ignored`: every target together, at the
-  default thread count.
+  CI runs every target in one `cargo nextest run`, the `e2e` target at 2 threads
+  (`.github/AGENTS.md`).
 
 - **A screen assertion waits for the text it asserts, never for a neighbouring signal.** A
   session's exit can be seen before its last output is parsed, and one write can reach the

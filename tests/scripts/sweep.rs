@@ -280,6 +280,7 @@ jobs:
       - env:
           GH_TOKEN: ${{ github.token }}
         run: scripts/sweep-issue.sh
+    timeout-minutes: 5
 ";
 
 fn plan(root: &Path, phase: u32, hurdles: &str) {

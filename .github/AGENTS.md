@@ -11,6 +11,7 @@ a sibling project by the recipe's author; a number measured there says so.
 .github/AGENTS.md CI: what the workflows run and why (`check`, `audit`, the flake build, the `version` check, the release queue, the tap, `stable`), the `main` ruleset, branch cleanup, the sweep issue, the issue forms and Discussions; the release internals, the first release from zero tags included
 .github/pull_request_template.md  `## Summary` and `## Changes`: the body `ship.sh` opens a draft PR with
 .github/ISSUE_TEMPLATE/       the bug report and feature request forms, and `config.yml` sending questions to Discussions
+.github/nextest.toml          the `check` job's cargo-nextest settings: the `e2e` target at two threads, no retries, a hung test ended after 3 min
 .github/workflows/            ci.yml, version.yml, release.yml, sweep.yml and delete-closed-branch.yml, each a bullet below
 .github/CLAUDE.md             a symlink to this file, so it loads when work touches `.github/`
 .github/CONTRIBUTING.md       where a newcomer starts: points here, to `scripts/gates.sh`, `scripts/ship.sh` and the fragment rule, restates none of them
@@ -19,7 +20,7 @@ a sibling project by the recipe's author; a number measured there says so.
 ## CI
 
 `.github/workflows/ci.yml` runs on every push to `main` and every pull request: a `check` job
-(`cargo fmt --check`, clippy `-D warnings` and `cargo test -- --include-ignored`, both with `--locked`, with tmux
+(`cargo fmt --check`, clippy `-D warnings` and `cargo nextest run --run-ignored all`, both with `--locked`, with tmux
 installed for the e2e tests of `tests/e2e/`), an `audit` job
 (`cargo audit`), and the flake build behind its `paths` and `flake-ok` jobs (below).
 `tests/scripts/ci_workflow.rs` pins the `check` job step by step. Learnings from conveyor's CI
@@ -36,15 +37,23 @@ speed-up, when its pipeline went from about 3 min 20 s to 37 s:
   tool (`cargo-insta`, `cargo-deny`).
 - **Do not build what another workflow already builds.** `check` runs no `cargo build --release`:
   `release.yml` is what proves the release profile.
-- **One test invocation.** `cargo test -- --include-ignored` runs every suite, the tmux e2e
-  tests included, in one pass; two invocations rebuild the
-  test harness twice for nothing. The local gates split the end-to-end target out at two
-  threads on purpose, for the machine load of development (`tests/AGENTS.md`); `check` keeps
-  one pass because none of the last 30 CI runs read in November 2026 failed that way. Revisit
-  this when a `check` run fails on a screen wait that timed out.
-- **The floor is setup.** Job setup, checkout, toolchain and the `Swatinem/rust-cache` restore
-  take most of `check`; fmt, clippy and tests are seconds. Shaving further means caching a
-  container image, not touching cargo.
+- **One test invocation, one pool.** `check` runs every test, the tmux e2e tests included, with
+  one `cargo nextest run`, installed by `taiki-e/install-action` at a pinned version. `cargo test`
+  ran the 44 test binaries one after another, 186 s of the 226 s `check` took in November 2026;
+  nextest runs the tests of every binary in one pool of the runner's cores, each in a process of
+  its own, which also ends the fork race of `tests/AGENTS.md` in CI. `.github/nextest.toml`
+  holds the `e2e` target to two threads, as the local gates do, since three `check` runs had
+  lost an e2e screen wait at one thread per core; it retries nothing, so a flaky test fails the
+  run and is fixed rather than hidden, and runs every test before failing, so one run names
+  every flaky test. nextest runs no doctests; `src/` has none, since it holds no comments. The
+  local gates stay on `cargo test`, which needs no tool installed.
+- **Every job has a `timeout-minutes`**, about three times its normal run, so a hung tmux or
+  Neovim test cannot hold a runner for GitHub's 6-hour default. `tests/scripts/ci_workflow.rs`
+  fails while a job lacks one.
+- **Here the tests set the floor, not setup.** In conveyor, job setup, checkout, toolchain and
+  the `Swatinem/rust-cache` restore took most of its `check`, and fmt, clippy and tests took
+  seconds. In harbour the test step took 186 s of `check`'s 226 s in November 2026, so time is
+  won in how the tests run (the bullet above), not in caching setup.
 - **Trade-off taken.** `rustsec/audit-check` opens a GitHub issue when a new advisory hits
   `main`; with plain `cargo audit` a red `audit` check is the only signal. Add a `schedule`
   trigger if advisories should be caught between pushes.

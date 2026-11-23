@@ -34,6 +34,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: scripts/release-tag.sh >> "$GITHUB_OUTPUT"
+    timeout-minutes: 5
 
   build:
     needs: tag
@@ -91,6 +92,7 @@ jobs:
         with:
           name: ${{ matrix.os }}
           path: harbour-*.tar.gz*
+    timeout-minutes: 20
 
   publish:
     needs: [tag, build]
@@ -133,6 +135,7 @@ jobs:
           files: dist/*
           generate_release_notes: true
           previous_tag: ${{ steps.previous.outputs.previous_tag }}
+    timeout-minutes: 10
 
   tap:
     needs: [tag, publish]
@@ -169,6 +172,7 @@ jobs:
           git add Formula/harbour.rb
           git diff --cached --quiet || git commit -m "harbour $VERSION"
           git push
+    timeout-minutes: 5
 
   stable-build:
     needs: [tag, publish]
@@ -206,6 +210,7 @@ jobs:
           printed="$(./result/bin/harbour --version)"
           test "$printed" = "harbour $VERSION" || { echo "the flake at v$VERSION prints $printed"; exit 1; }
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+    timeout-minutes: 15
 
   stable:
     needs: [stable-build]
@@ -234,3 +239,4 @@ jobs:
       - name: Point stable at the tag
         if: steps.stable.outputs.version == needs.stable-build.outputs.version
         run: git -C release push origin "+HEAD:refs/heads/stable"
+    timeout-minutes: 5
