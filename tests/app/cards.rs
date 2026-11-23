@@ -295,12 +295,5 @@ fn third_line(shown: &str, title: &str) -> String {
 }
 
 fn top_card(shown: &str) -> String {
-    shown
-        .lines()
-        .nth(1)
-        .unwrap()
-        .chars()
-        .skip(3)
-        .take_while(|c| !crate::vertical(*c))
-        .collect()
+    crate::inside(shown.lines().nth(1).unwrap())
 }

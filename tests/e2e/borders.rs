@@ -8,7 +8,12 @@ use styles::BORDERS;
 
 #[test]
 fn a_wide_character_before_a_corner_counts_two_columns() {
-    assert!(focused_at("修┏━\n  ┃", 2));
+    let set = FOCUSED_BORDER.to_border_set();
+    let screen = format!(
+        "修{}{}\n  {}",
+        set.top_left, set.horizontal_top, set.vertical_left
+    );
+    assert!(focused_at(&screen, 2));
 }
 
 pub(crate) fn corner(c: char) -> bool {
@@ -17,6 +22,7 @@ pub(crate) fn corner(c: char) -> bool {
 
 pub(crate) fn focused_corner(c: char) -> bool {
     FOCUSED_BORDER.to_border_set().top_left.starts_with(c)
+        && !UNFOCUSED_BORDER.to_border_set().top_left.starts_with(c)
 }
 
 pub(crate) fn focused_at(screen: &str, column: usize) -> bool {

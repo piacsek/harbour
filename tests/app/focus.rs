@@ -226,8 +226,17 @@ fn the_picker_popup_takes_the_accent_border() {
 
 #[test]
 fn a_glyph_both_styles_draw_tells_neither_apart() {
-    assert!(!drawn_only_by("│", BorderType::Rounded, BorderType::Plain));
-    assert!(drawn_only_by("╭", BorderType::Rounded, BorderType::Plain));
+    let rounded = BorderType::Rounded.to_border_set();
+    assert!(!drawn_only_by(
+        rounded.vertical_left,
+        BorderType::Rounded,
+        BorderType::Plain
+    ));
+    assert!(drawn_only_by(
+        rounded.top_left,
+        BorderType::Rounded,
+        BorderType::Plain
+    ));
 }
 
 fn accented(command: Vec<String>) -> Screen {

@@ -10,7 +10,7 @@ use harbour::picker::Picker;
 use crate::finding::FINDER;
 use crate::remembering::{ID, Scratch, TITLE};
 use crate::zoom::{corners, raw_reader};
-use crate::{Screen, focused_char, pane_corner, region, script, settled, starts_focused};
+use crate::{Screen, drawn, pane_corner, region, script, settled, starts_focused};
 
 #[test]
 fn the_prefix_then_backslash_from_the_sidebar_shows_claude_code_left_and_its_editor_right() {
@@ -260,10 +260,7 @@ fn the_editor_exiting_leaves_claude_code_zoomed() {
 
     let shown = screen.wait_until("the editor gone", |shown| !shown.contains("acme editor"));
     assert_eq!(corners(&shown), 0, "{shown}");
-    assert!(
-        !shown.lines().next().unwrap().ends_with(focused_char),
-        "{shown}"
-    );
+    assert!(!shown.lines().next().unwrap().ends_with(drawn), "{shown}");
     assert!(shown.contains("acme agent 1"), "{shown}");
 }
 
