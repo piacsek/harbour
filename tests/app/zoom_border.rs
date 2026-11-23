@@ -101,6 +101,21 @@ fn the_narrowest_zoomed_top_row_keeps_the_counts_and_the_dot_with_a_column_of_ti
 }
 
 #[test]
+fn the_waiting_prefix_on_a_narrow_zoomed_top_row_makes_room_for_itself() {
+    let claude = Claude::new("Fix the login");
+    let mut screen = Screen::of(claude.app());
+    started(&mut screen);
+    zoom(&mut screen);
+    screen.resize(16, 20);
+
+    screen.key(KeyCode::Char('/'), KeyModifiers::CONTROL);
+
+    let top = top(&screen.draw());
+    assert!(top.starts_with(" ●"), "{top}");
+    assert!(top.ends_with(" C-/ ●1 "), "{top}");
+}
+
+#[test]
 fn a_cjk_title_on_the_zoomed_top_row_is_cut_by_display_width() {
     let claude = Claude::new("修正ログイン");
     let mut screen = Screen::of(claude.app());
@@ -145,7 +160,7 @@ fn leaving_zoom_takes_the_session_off_the_top_row() {
 }
 
 fn zoom(screen: &mut Screen) {
-    screen.key(KeyCode::Char('z'), KeyModifiers::ALT);
+    screen.prefixed('z');
 }
 
 pub(crate) fn started(screen: &mut Screen) {

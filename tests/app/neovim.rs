@@ -285,7 +285,7 @@ fn q_names_unsaved_changes_in_neovim() {
     let mut screen = in_the_sidebar(scratch.path());
     let _asked = ready(&socket(scratch.path()), Some(1));
 
-    screen.press('q');
+    screen.prefixed('q');
 
     let shown = screen.draw();
     assert!(shown.contains("Unsaved changes. Quit? y/n"), "{shown}");
@@ -479,9 +479,9 @@ fn swapped(scratch: &Path) -> Screen {
     let mut screen = Screen::editing(reading_agent(), neovim);
     screen.press('n');
     screen.wait_for("acme agent ready");
-    screen.key(KeyCode::Char('\\'), KeyModifiers::ALT);
+    screen.prefixed('\\');
     screen.wait_for("acme nvim ready");
-    screen.key(KeyCode::Char('}'), KeyModifiers::ALT);
+    screen.prefixed('}');
     screen.key(KeyCode::Char('h'), KeyModifiers::CONTROL);
     screen
 }

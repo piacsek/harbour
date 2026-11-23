@@ -41,19 +41,19 @@ harbour config      # the settings file's path and where each setting comes from
 | Key | Action |
 |---|---|
 | `j/k` | select the next / previous session |
-| `n` | pick a directory and start a session there |
-| `C-l/Enter` | focus or resume; C-l in Claude Code: editor |
+| `Enter/C-l` | focus or resume; C-l in Claude Code: editor |
 | `C-h` | focus the sidebar; from an editor, Claude Code |
-| `C-1..C-9` | focus or resume that card; C-9 the last |
-| `M-z` | zoom the session to the whole screen, or back |
-| `M--/M-=` | narrow / widen the sidebar by 2 columns |
-| `M-\` | side by side (120+ columns); M-{/M-} swap |
-| `M-s` | jump to a session by part of its name |
-| `e` | show the next editor, one per directory |
-| `x` | end it and its editors, or forget an ended one |
-| `u` | show Claude Code's usage and limits |
-| `?/c` | show or hide the help / the changelog |
-| `q` | quit, after a yes while anything runs |
+| `n/x` | start / end or forget a session, C-/ too |
+| `C-/ 1..9` | focus or resume that card; 9 the last |
+| `C-/ z` | zoom the session to the whole screen, or back |
+| `C-/ \ {}` | side by side (120+ columns); swap the halves |
+| `C-/ s` | jump to a session by part of its name |
+| `C-/ e` | show the next editor, one per directory |
+| `C-/ h/l` | focus the sidebar / the pane |
+| `C-/ -/=` | narrow / widen the sidebar by 2 columns |
+| `C-/ u/c` | Claude Code's usage / the changelog |
+| `C-/ ?/q` | this help / quit, asking while anything runs |
+| `C-/ C-/` | send C-/ to the program |
 
 `n` picks the directory with fzf, from the directory harbour was opened in and the ones
 zoxide ranks; `HARBOUR_DIR_PICKER` names another picker. Without fzf, sessions start in the

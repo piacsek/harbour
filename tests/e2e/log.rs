@@ -33,7 +33,7 @@ fn with_harbour_log_empty_harbour_makes_no_log_folder() {
     server.run(home.path(), &[("HARBOUR_LOG", "")], &[]);
     server.wait_for_screen("No session yet");
 
-    server.send_keys(&["q"]);
+    server.send_keys(&["C-/", "q"]);
 
     server.wait_for_screen("harbour exited 0");
     assert!(!home.path().join(".local/state/harbour/log").exists());

@@ -12,8 +12,8 @@ use crate::side::{agent, editing, editor, side};
 use crate::{Screen, pane_corner, region, script};
 
 #[test]
-fn alt_backslash_with_the_editor_already_running_puts_that_editor_beside_with_claude_code_focused()
-{
+fn the_prefix_then_backslash_with_the_editor_already_running_puts_that_editor_beside_with_claude_code_focused()
+ {
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = editing(scratch.path());
     screen.key(KeyCode::Enter, KeyModifiers::NONE);
@@ -30,43 +30,6 @@ fn alt_backslash_with_the_editor_already_running_puts_that_editor_beside_with_cl
     );
     assert_eq!(pane_corner(&shown), 60, "{shown}");
     assert!(screen.cursor().unwrap().x < 60, "{shown}");
-}
-
-#[test]
-fn alt_backslash_from_the_editor_half_reaches_the_editor_and_keeps_the_mode() {
-    let scratch = tempfile::tempdir().unwrap();
-    let mut screen = raw_editor_beside(scratch.path(), "");
-
-    side(&mut screen);
-
-    let shown = screen.wait_for("acme editor read:");
-    assert!(shown.contains("acme editor read: 1b 5c"), "{shown}");
-    assert_eq!(pane_corner(&shown), 60, "{shown}");
-    assert!(screen.cursor().unwrap().x > 60, "{shown}");
-}
-
-#[test]
-fn alt_backslash_reaches_an_editor_that_asked_for_extended_keys_in_its_encoding() {
-    let scratch = tempfile::tempdir().unwrap();
-    let mut screen = raw_editor_beside(scratch.path(), "printf '\\033[>4;2m'; ");
-
-    side(&mut screen);
-
-    let shown = screen.wait_for("acme editor read:");
-    assert!(shown.contains("acme editor read: 1b 5b"), "{shown}");
-    assert_eq!(pane_corner(&shown), 60, "{shown}");
-}
-
-#[test]
-fn the_width_keys_from_the_editor_half_reach_the_editor() {
-    let scratch = tempfile::tempdir().unwrap();
-    let mut screen = raw_editor_beside(scratch.path(), "");
-
-    screen.key(KeyCode::Char('='), KeyModifiers::ALT);
-
-    let shown = screen.wait_for("acme editor read:");
-    assert!(shown.contains("acme editor read: 1b 3d"), "{shown}");
-    assert_eq!(pane_corner(&shown), 60, "{shown}");
 }
 
 #[test]
@@ -92,7 +55,7 @@ fn esc_in_the_session_finder_leaves_side_by_side_as_it_was() {
         .with_editor(Program::new("acme-edit", editor()))
         .with_picker(Picker::Command(vec![FINDER.into()]));
     let mut screen = split_of(app);
-    screen.key(KeyCode::Char('s'), KeyModifiers::ALT);
+    screen.prefixed('s');
     screen.wait_for("acme fzf ready");
 
     screen.key(KeyCode::Esc, KeyModifiers::NONE);
@@ -163,11 +126,11 @@ fn a_jump_to_an_exited_session_ends_the_mode_and_brings_the_sidebar_back() {
     screen.wait_for("acme agent 1");
     screen.press('n');
     screen.wait_for("acme agent 2");
-    screen.key(KeyCode::Char('1'), KeyModifiers::CONTROL);
+    screen.prefixed('1');
     side(&mut screen);
     screen.wait_for("acme editor ready");
 
-    screen.key(KeyCode::Char('2'), KeyModifiers::CONTROL);
+    screen.prefixed('2');
 
     let shown = screen.wait_until("the sidebar back", |shown| {
         !shown.contains("acme editor ready")
@@ -178,7 +141,7 @@ fn a_jump_to_an_exited_session_ends_the_mode_and_brings_the_sidebar_back() {
 }
 
 #[test]
-fn alt_backslash_shows_the_editor_chosen_with_e_on_the_right() {
+fn the_prefix_then_backslash_shows_the_editor_chosen_with_e_on_the_right() {
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = two_editors(scratch.path());
     to_the_first_editor(&mut screen);
@@ -206,19 +169,19 @@ fn a_jump_away_and_back_side_by_side_still_shows_the_editor_chosen_with_e() {
     screen.wait_until("the second session", |shown| {
         shown.contains("acme-start 2") && shown.contains("acme agent ready")
     });
-    screen.key(KeyCode::Char('1'), KeyModifiers::CONTROL);
+    screen.prefixed('1');
     screen.key(KeyCode::Char('h'), KeyModifiers::CONTROL);
     to_the_first_editor(&mut screen);
     side(&mut screen);
     screen.wait_until("side by side", |shown| {
         region(shown, 100, 100).contains("acme editor at acme-one")
     });
-    screen.key(KeyCode::Char('2'), KeyModifiers::CONTROL);
+    screen.prefixed('2');
     screen.wait_until("the second session side by side", |shown| {
         region(shown, 100, 100).contains("acme editor at acme-start")
     });
 
-    screen.key(KeyCode::Char('1'), KeyModifiers::CONTROL);
+    screen.prefixed('1');
 
     let shown = screen.wait_until("the first session side by side", |shown| {
         !region(shown, 100, 100).contains("acme editor at acme-start")
@@ -266,20 +229,6 @@ fn split_of(app: App) -> Screen {
     screen
 }
 
-fn raw_editor_beside(scratch: &Path, asking: &str) -> Screen {
-    let editor = Program::new(
-        "acme-edit",
-        script(&format!(
-            "stty raw -echo; {asking}echo 'acme editor ready'; \
-             dd bs=1 count=2 2>/dev/null | od -An -tx1 | tr -s ' \\n' '  ' | \
-             sed 's/^/acme editor read:/'; exec sleep 600"
-        )),
-    );
-    let mut screen = split_of(App::new(agent(scratch)).with_editor(editor));
-    screen.key(KeyCode::Char('l'), KeyModifiers::CONTROL);
-    screen
-}
-
 fn two_editors(scratch: &Path) -> Screen {
     let one = repository(scratch, "acme-one");
     let two = repository(scratch, "acme-two");
@@ -298,7 +247,7 @@ fn two_editors(scratch: &Path) -> Screen {
 }
 
 fn to_the_first_editor(screen: &mut Screen) {
-    screen.press('e');
+    screen.prefixed('e');
     screen.wait_for("acme editor at acme-one");
     screen.key(KeyCode::Char('h'), KeyModifiers::CONTROL);
     screen.wait_for("acme agent ready");

@@ -1,5 +1,6 @@
 mod ages;
 mod asked_keys;
+mod bindings;
 mod cards;
 mod changelog;
 mod cursor;
@@ -26,15 +27,18 @@ mod layout;
 mod logging;
 mod logging_edits;
 mod logging_lives;
+mod marks;
 mod moving;
 mod navigating;
 mod nearest;
 mod neovim;
 mod picker;
+mod prefix;
 mod real_neovim;
 mod reconciling;
 mod refusing;
 mod remembering;
+mod removed;
 mod reserving;
 mod selection;
 mod settling;
@@ -112,6 +116,11 @@ impl Screen {
 
     fn press(&mut self, c: char) {
         self.key(KeyCode::Char(c), KeyModifiers::NONE);
+    }
+
+    fn prefixed(&mut self, c: char) {
+        self.key(KeyCode::Char('/'), KeyModifiers::CONTROL);
+        self.press(c);
     }
 
     fn key(&mut self, code: KeyCode, modifiers: KeyModifiers) {

@@ -377,7 +377,7 @@ fn open_while_the_help_is_shown_closes_it_and_opens_the_file() {
     let _asked = answering(scratch.path());
     let mut screen = harbour(scratch.path());
     start_in(&mut screen, scratch.path(), "acme-api", 1);
-    screen.press('?');
+    screen.prefixed('?');
 
     let reply = screen
         .app
@@ -499,7 +499,7 @@ fn with_usage_open(scratch: &Path) -> Screen {
         .with_usage(script("echo 'acme usage open'; exec sleep 600"));
     let mut screen = Screen::of(app);
     start_in(&mut screen, scratch, "acme-api", 1);
-    screen.press('u');
+    screen.prefixed('u');
     screen.press('t');
     screen.wait_for("acme usage open");
     screen

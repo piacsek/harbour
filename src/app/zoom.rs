@@ -1,10 +1,8 @@
-use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
-use ratatui::text::Line;
+use ratatui::text::{Line, Span};
 use ratatui::widgets::Block;
 
 use super::App;
 use crate::card::age;
-use crate::input::ESCAPED;
 use crate::repo::Place;
 use crate::state::{self, Counts, State};
 use crate::text::clean;
@@ -12,16 +10,10 @@ use crate::transcript::Transcript;
 use crate::zoom::{Headline, guaranteed, info};
 
 impl App {
-    pub(super) fn zoom_by_key(&mut self, key: KeyEvent) -> bool {
-        if !is_zoom(key) {
-            return false;
-        }
+    pub(super) fn zoom(&mut self) {
         let Some(entry) = self.sessions.get_mut(self.selected) else {
-            return true;
+            return;
         };
-        if self.pane_focused && entry.showing_editor().is_some() {
-            return false;
-        }
         if self.zoomed {
             self.zoomed = false;
         } else if !entry.ended() {
@@ -31,7 +23,6 @@ impl App {
             self.pane_focused = true;
             self.failed = None;
         }
-        true
     }
 
     pub(super) fn settle_zoom(&mut self) {
@@ -49,7 +40,14 @@ impl App {
         counts: Counts,
     ) -> Block<'static> {
         let room = usize::from(room);
-        let counted = state::title(counts, room);
+        let mark = self
+            .waiting_mark()
+            .filter(|mark| self.zoomed && mark.width() < room);
+        let marked = mark.as_ref().map_or(0, |mark| mark.width() + 1);
+        let mut counted = state::title(counts, room - marked);
+        if let Some(mark) = mark {
+            counted.spans.splice(0..0, [Span::from(" "), mark]);
+        }
         let left = room.saturating_sub(counted.width());
         let headline = self.headline_of(self.selected);
         let kept = headline
@@ -86,11 +84,4 @@ impl App {
             age: entry.elapsed().map(age),
         })
     }
-}
-
-pub(super) fn is_zoom(key: KeyEvent) -> bool {
-    matches!(key.code, KeyCode::Char('z' | 'Z'))
-        && key.modifiers == KeyModifiers::ALT
-        && key.kind == KeyEventKind::Press
-        && !key.state.contains(ESCAPED)
 }

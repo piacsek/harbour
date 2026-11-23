@@ -21,7 +21,7 @@ fn q_with_a_running_session_says_its_sessions_come_back_stopped() {
     let ready = screen.wait_for("acme agent ready");
     assert!(ready.contains("acme agent ready"), "{ready}");
 
-    screen.press('q');
+    screen.prefixed('q');
 
     let shown = screen.draw();
     assert!(shown.contains(COME_BACK), "{shown}");
@@ -46,7 +46,7 @@ fn a_signal_while_the_quit_question_shows_stops_harbour() {
     screen.press('n');
     let ready = screen.wait_for("acme agent ready");
     assert!(ready.contains("acme agent ready"), "{ready}");
-    screen.press('q');
+    screen.prefixed('q');
 
     screen.app.stop("signal name=TERM");
 
@@ -60,7 +60,7 @@ fn q_in_a_harbour_that_remembers_nothing_does_not_say_sessions_come_back() {
     let ready = screen.wait_for("acme agent ready");
     assert!(ready.contains("acme agent ready"), "{ready}");
 
-    screen.press('q');
+    screen.prefixed('q');
 
     let shown = screen.draw();
     assert!(!shown.contains(COME_BACK), "{shown}");
@@ -75,7 +75,7 @@ fn q_with_only_stopped_cards_quits_without_asking() {
     let before = screen.wait_for(TITLE);
     assert!(before.contains(TITLE), "{before}");
 
-    screen.press('q');
+    screen.prefixed('q');
 
     assert!(!screen.app.running());
 }

@@ -1,13 +1,10 @@
 use std::fs;
 use std::path::Path;
 
-use crossterm::event::{
-    KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseButton, MouseEventKind,
-};
+use crossterm::event::{KeyCode, KeyEvent, KeyModifiers, MouseButton, MouseEventKind};
 use harbour::app::App;
 use harbour::editor::Program;
 use harbour::handoff::Verb;
-use harbour::input::ESCAPED;
 
 use crate::handing::answering;
 use crate::handoff::{file, harbour, soon, start_in};
@@ -15,7 +12,7 @@ use crate::remembering::{ID, Scratch, TITLE};
 use crate::{Screen, numbered_agent, pane_corner, raw_agent, script};
 
 #[test]
-fn alt_z_from_the_sidebar_shows_the_selected_pane_alone_and_focuses_it() {
+fn the_prefix_then_z_from_the_sidebar_shows_the_selected_pane_alone_and_focuses_it() {
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = three_sessions(scratch.path());
 
@@ -28,7 +25,7 @@ fn alt_z_from_the_sidebar_shows_the_selected_pane_alone_and_focuses_it() {
 }
 
 #[test]
-fn alt_z_from_a_zoomed_pane_brings_the_sidebar_back_and_keeps_the_pane_focused() {
+fn the_prefix_then_z_from_a_zoomed_pane_brings_the_sidebar_back_and_keeps_the_pane_focused() {
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = three_sessions(scratch.path());
     zoom(&mut screen);
@@ -42,7 +39,7 @@ fn alt_z_from_a_zoomed_pane_brings_the_sidebar_back_and_keeps_the_pane_focused()
 }
 
 #[test]
-fn alt_z_from_the_claude_code_pane_zooms_it() {
+fn the_prefix_then_z_from_the_claude_code_pane_zooms_it() {
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = three_sessions(scratch.path());
     screen.key(KeyCode::Enter, KeyModifiers::NONE);
@@ -53,7 +50,7 @@ fn alt_z_from_the_claude_code_pane_zooms_it() {
 }
 
 #[test]
-fn the_session_never_receives_alt_z() {
+fn the_session_never_receives_the_prefix_then_z() {
     let mut screen = Screen::new(raw_reader(1));
     screen.press('n');
     screen.wait_for("acme agent ready");
@@ -73,12 +70,9 @@ fn alt_z_read_after_an_escape_reaches_the_session_and_zooms_nothing() {
     screen.wait_for("acme agent ready");
     screen.key(KeyCode::Enter, KeyModifiers::NONE);
 
-    screen.app.key(KeyEvent::new_with_kind_and_state(
-        KeyCode::Char('z'),
-        KeyModifiers::ALT,
-        KeyEventKind::Press,
-        ESCAPED,
-    ));
+    screen
+        .app
+        .key(KeyEvent::new(KeyCode::Char('z'), KeyModifiers::ALT));
 
     let shown = screen.wait_for("acme agent read:");
     assert!(shown.contains("acme agent read: 1b"), "{shown}");
@@ -86,7 +80,7 @@ fn alt_z_read_after_an_escape_reaches_the_session_and_zooms_nothing() {
 }
 
 #[test]
-fn alt_z_with_no_session_does_nothing() {
+fn the_prefix_then_z_with_no_session_does_nothing() {
     let mut screen = Screen::new(script("exec sleep 600"));
     let before = screen.draw();
 
@@ -96,7 +90,7 @@ fn alt_z_with_no_session_does_nothing() {
 }
 
 #[test]
-fn alt_z_on_a_stopped_card_does_nothing() {
+fn the_prefix_then_z_on_a_stopped_card_does_nothing() {
     let scratch = Scratch::new();
     scratch.remember(ID, TITLE, 0);
     scratch.transcript(ID, r#"{"type":"user","message":{}}"#);
@@ -109,7 +103,7 @@ fn alt_z_on_a_stopped_card_does_nothing() {
 }
 
 #[test]
-fn alt_z_on_an_exited_session_does_nothing() {
+fn the_prefix_then_z_on_an_exited_session_does_nothing() {
     let mut screen = Screen::new(script("echo 'acme agent done'"));
     screen.press('n');
     let before = screen.wait_for("exited");
@@ -154,7 +148,7 @@ fn a_jump_while_zoomed_shows_the_jumped_to_session_still_zoomed() {
     let mut screen = three_sessions(scratch.path());
     zoom(&mut screen);
 
-    screen.key(KeyCode::Char('2'), KeyModifiers::CONTROL);
+    screen.prefixed('2');
     screen.type_text("hi\r");
 
     let shown = screen.wait_for("acme agent 2 got:");
@@ -176,7 +170,7 @@ fn leaving_zoom_brings_back_the_configured_sidebar_width() {
 }
 
 #[test]
-fn alt_z_in_the_narrow_layout_shows_the_pane() {
+fn the_prefix_then_z_in_the_narrow_layout_shows_the_pane() {
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = three_sessions(scratch.path());
     screen.resize(50, 20);
@@ -186,24 +180,6 @@ fn alt_z_in_the_narrow_layout_shows_the_pane() {
 
     let shown = screen.wait_for("acme agent 3 got:");
     assert!(shown.contains("acme agent 3 got: hi"), "{shown}");
-}
-
-#[test]
-fn alt_z_while_the_editor_has_focus_reaches_the_editor() {
-    let scratch = tempfile::tempdir().unwrap();
-    let editor = Program::new("acme-edit", asking_editor());
-    let mut screen = Screen::editing(lined_agent(scratch.path()), editor);
-    screen.press('n');
-    screen.wait_for("acme agent 1");
-    screen.key(KeyCode::Enter, KeyModifiers::NONE);
-    screen.key(KeyCode::Char('l'), KeyModifiers::CONTROL);
-    screen.wait_for("acme editor ready");
-
-    zoom(&mut screen);
-
-    let shown = screen.wait_for("acme editor read:");
-    assert!(shown.contains("acme editor read: 1b"), "{shown}");
-    assert_eq!(corners(&shown), 2, "{shown}");
 }
 
 #[test]
@@ -238,18 +214,18 @@ fn a_refused_jump_while_zoomed_brings_the_sidebar_back() {
     zoom(&mut screen);
     fs::remove_dir_all(scratch.checkout()).unwrap();
 
-    screen.key(KeyCode::Char('1'), KeyModifiers::CONTROL);
+    screen.prefixed('1');
 
     let shown = screen.wait_for("Not a directory");
     assert_eq!(corners(&shown), 2, "{shown}");
 }
 
 #[test]
-fn alt_z_with_caps_lock_on_zooms() {
+fn the_prefix_then_z_with_caps_lock_on_zooms() {
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = three_sessions(scratch.path());
 
-    screen.key(KeyCode::Char('Z'), KeyModifiers::ALT);
+    screen.prefixed('Z');
     screen.type_text("hi\r");
 
     let shown = screen.wait_for("acme agent 3 got:");
@@ -258,7 +234,7 @@ fn alt_z_with_caps_lock_on_zooms() {
 }
 
 #[test]
-fn alt_z_from_the_sidebar_on_a_card_showing_its_editor_zooms_claude_code() {
+fn the_prefix_then_z_from_the_sidebar_on_a_card_showing_its_editor_zooms_claude_code() {
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = editing_session(scratch.path());
     screen.mouse(MouseEventKind::Down(MouseButton::Left), 2, 2);
@@ -269,24 +245,6 @@ fn alt_z_from_the_sidebar_on_a_card_showing_its_editor_zooms_claude_code() {
 
     let shown = screen.wait_for("acme agent 1 got:");
     assert!(shown.contains("acme agent 1 got: hi"), "{shown}");
-    assert_eq!(corners(&shown), 0, "{shown}");
-}
-
-#[test]
-fn ctrl_l_while_zoomed_shows_the_editor_zoomed_and_alt_z_reaches_it() {
-    let scratch = tempfile::tempdir().unwrap();
-    let editor = Program::new("acme-edit", asking_editor());
-    let mut screen = Screen::editing(lined_agent(scratch.path()), editor);
-    screen.press('n');
-    screen.wait_for("acme agent 1");
-    zoom(&mut screen);
-
-    screen.key(KeyCode::Char('l'), KeyModifiers::CONTROL);
-    screen.wait_for("acme editor ready");
-    zoom(&mut screen);
-
-    let shown = screen.wait_for("acme editor read:");
-    assert!(shown.contains("acme editor read: 1b"), "{shown}");
     assert_eq!(corners(&shown), 0, "{shown}");
 }
 
@@ -315,7 +273,7 @@ fn leaving_zoom_keeps_the_sidebar_scrolled_where_it_was() {
 }
 
 #[test]
-fn alt_z_from_the_sidebar_clears_the_failure_shown_there() {
+fn the_prefix_then_z_from_the_sidebar_clears_the_failure_shown_there() {
     let scratch = tempfile::tempdir().unwrap();
     let editor = Program::new("acme-edit", script("exit 1"));
     let mut screen = Screen::editing(lined_agent(scratch.path()), editor);
@@ -349,7 +307,7 @@ fn a_zoomed_session_gets_no_click_on_the_top_row_and_its_origin_from_the_row_bel
 }
 
 fn zoom(screen: &mut Screen) {
-    screen.key(KeyCode::Char('z'), KeyModifiers::ALT);
+    screen.prefixed('z');
 }
 
 pub(crate) fn corners(shown: &str) -> usize {

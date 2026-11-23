@@ -69,7 +69,16 @@ impl App {
             summary.publish(counts);
         }
         let title = state::title(counts, usize::from(sidebar.width.saturating_sub(2)));
-        let sidebar_block = bordered(!self.pane_focused, self.accent).title(title);
+        let mut sidebar_block = bordered(!self.pane_focused, self.accent).title(title);
+        let room = sidebar.width.saturating_sub(2);
+        let sidebar_mark = if pane.is_empty() {
+            self.bordered_mark()
+        } else {
+            None
+        };
+        if let Some(bottom) = sidebar_mark.or_else(|| self.bordered_hint(room)) {
+            sidebar_block = sidebar_block.title_bottom(bottom);
+        }
         let below_rows = sidebar_block.inner(sidebar);
         let beside = self
             .halves(frame.area())
@@ -95,6 +104,13 @@ impl App {
             pane_block = self.zoom_heading(pane_block, pane.width.saturating_sub(2), counts);
         } else if let Some(tabs) = self.tabs(usize::from(pane.width.saturating_sub(2))) {
             pane_block = pane_block.title(tabs);
+        }
+        if let Some(mark) = self.bordered_mark().filter(|_| !self.zoomed) {
+            if split && self.pane_focused && on_editor {
+                beside_block = beside_block.title_bottom(mark);
+            } else {
+                pane_block = pane_block.title_bottom(mark);
+            }
         }
         self.pane = pane_block.inner(if pane.is_empty() { frame.area() } else { pane });
         self.shown_pane = if pane.is_empty() {
@@ -142,7 +158,10 @@ impl App {
         let mut cursor = (None, 0);
         match self.sessions.get(self.selected) {
             None => {
-                let message = self.failed.as_deref().unwrap_or(HINT);
+                let mut message = vec![Line::from(self.failed.as_deref().unwrap_or(HINT))];
+                if let Some(hint) = self.help_hint() {
+                    message.extend([Line::default(), Line::styled(hint, Modifier::DIM)]);
+                }
                 frame.render_widget(
                     Paragraph::new(HINT)
                         .wrap(Wrap { trim: false })
@@ -198,27 +217,27 @@ impl App {
                 }
             }
         }
-        let mut free = below_rows;
+        let bottom = if sidebar.is_empty() && !self.sessions.is_empty() {
+            self.pane
+        } else {
+            below_rows
+        };
+        let mut free = bottom;
         if let Some(question) = self.asking {
-            let mut lines = question_lines(question, below_rows.width);
+            let mut lines = question_lines(question, bottom.width);
             if matches!(question, Question::Quit(_)) {
-                lines.splice(0..0, self.quit_note(below_rows.width));
+                lines.splice(0..0, self.quit_note(bottom.width));
             }
             free = draw_bottom(frame, lines, free);
         }
         if let Some(failed) = &self.failed {
-            let area = if sidebar.is_empty() && !self.sessions.is_empty() {
-                self.pane
-            } else {
-                free
-            };
-            let above = draw_bottom(frame, failure_lines(failed, area.width), area);
-            if cursor
-                .0
-                .is_some_and(|at| area.contains(at) && !above.contains(at))
-            {
-                cursor.0 = None;
-            }
+            free = draw_bottom(frame, failure_lines(failed, free.width), free);
+        }
+        if cursor
+            .0
+            .is_some_and(|at| bottom.contains(at) && !free.contains(at))
+        {
+            cursor.0 = None;
         }
         if self.helping {
             self.draw_help(frame);
@@ -281,9 +300,17 @@ impl App {
     }
 
     fn draw_help(&self, frame: &mut Frame) {
-        let keys = help::KEYS
+        let rows = help::rows(&self.keymap);
+        let width = rows
             .iter()
-            .map(|(key, what)| Line::from(format!("{key:<10} {what}")));
+            .map(|(key, _)| text::columns(key))
+            .max()
+            .unwrap_or_default()
+            .max(10);
+        let keys = rows.into_iter().map(|(key, what)| {
+            let pad = width - text::columns(&key);
+            Line::from(format!("{key}{:pad$} {what}", ""))
+        });
         let lines: Vec<Line> = keys.chain(state::legend()).collect();
         frame.render_widget(Clear, frame.area());
         frame.render_widget(

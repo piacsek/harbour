@@ -223,17 +223,13 @@ fn c_l_in_the_demo_opens_a_made_up_editor() {
 
 #[test]
 #[ignore]
-fn alt_backslash_in_the_demo_shows_its_made_up_editor_beside_claude_code() {
+fn the_prefix_then_backslash_in_the_demo_shows_its_made_up_editor_beside_claude_code() {
     let home = tempfile::tempdir().unwrap();
     let server = Server::start("demo-side", 160, 26);
-    if !server.server_option(&["extended-keys", "on"]) {
-        eprintln!("skipping demo-side: this tmux cannot turn extended-keys on");
-        return;
-    }
     server.run(home.path(), &[], &["--demo"]);
     server.wait_for_screen("acme agent");
 
-    server.send_keys(&["M-\\"]);
+    server.send_keys(&["C-/", "\\"]);
 
     let screen = server.wait_for_screen("src/retry.rs");
     let top: Vec<char> = screen.lines().next().unwrap().chars().collect();
@@ -244,13 +240,13 @@ fn alt_backslash_in_the_demo_shows_its_made_up_editor_beside_claude_code() {
 
 #[test]
 #[ignore]
-fn u_in_the_demo_shows_a_made_up_usage_report() {
+fn the_prefix_then_u_in_the_demo_shows_a_made_up_usage_report() {
     let home = tempfile::tempdir().unwrap();
     let server = Server::start("demo-usage", 160, 26);
     server.run(home.path(), &[], &["--demo"]);
     server.wait_for_screen("acme agent");
 
-    server.send_keys(&["u"]);
+    server.send_keys(&["C-/", "u"]);
 
     let screen = server.wait_for_screen_all(&[
         " usage ",

@@ -1,8 +1,6 @@
-use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use ratatui::layout::{Constraint, Layout, Rect};
 
 use super::App;
-use crate::input::ESCAPED;
 
 const NARROW: u16 = 60;
 const NARROWEST: u16 = 15;
@@ -20,30 +18,18 @@ impl App {
         }
     }
 
-    pub(super) fn resize_by_key(&mut self, key: KeyEvent) -> bool {
-        let Some(wider) = widens(key) else {
-            return false;
-        };
-        if self.pane_focused
-            && self
-                .sessions
-                .get(self.selected)
-                .is_some_and(|entry| entry.showing_editor().is_some())
-        {
-            return false;
-        }
+    pub(super) fn resize(&mut self, wider: bool) -> bool {
         if self.sidebar.is_empty() || self.shown_pane.is_empty() {
-            return true;
+            return false;
         }
         let drawn = self.sidebar.width;
         let widest = self.screen.width / 2;
         let width = match wider {
             true if drawn < widest => (drawn + 2).min(widest),
             false if drawn > NARROWEST => (drawn - 2).max(NARROWEST),
-            _ => return true,
+            _ => return false,
         };
         self.sidebar_width = Some(width);
-        self.log_resized();
         true
     }
 
@@ -53,20 +39,6 @@ impl App {
         } else {
             (area, Rect::default())
         }
-    }
-}
-
-pub(super) fn widens(key: KeyEvent) -> Option<bool> {
-    if key.modifiers - KeyModifiers::SHIFT != KeyModifiers::ALT
-        || key.kind != KeyEventKind::Press
-        || key.state.contains(ESCAPED)
-    {
-        return None;
-    }
-    match key.code {
-        KeyCode::Char('-') => Some(false),
-        KeyCode::Char('=') => Some(true),
-        _ => None,
     }
 }
 

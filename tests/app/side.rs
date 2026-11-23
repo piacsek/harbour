@@ -2,19 +2,18 @@ use std::path::Path;
 use std::thread::sleep;
 use std::time::Duration;
 
-use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
+use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use harbour::app::App;
 use harbour::editor::Program;
-use harbour::input::ESCAPED;
 use harbour::picker::Picker;
 
 use crate::finding::FINDER;
 use crate::remembering::{ID, Scratch, TITLE};
-use crate::zoom::{corners, editing_session, raw_reader};
+use crate::zoom::{corners, raw_reader};
 use crate::{Screen, pane_corner, region, script};
 
 #[test]
-fn alt_backslash_from_the_sidebar_shows_claude_code_left_and_its_editor_right() {
+fn the_prefix_then_backslash_from_the_sidebar_shows_claude_code_left_and_its_editor_right() {
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = editing(scratch.path());
 
@@ -40,7 +39,10 @@ fn side_by_side_sizes_claude_code_and_its_editor_to_their_halves() {
 
     screen
         .app
-        .key(KeyEvent::new(KeyCode::Char('\\'), KeyModifiers::ALT));
+        .key(KeyEvent::new(KeyCode::Char('/'), KeyModifiers::CONTROL));
+    screen
+        .app
+        .key(KeyEvent::new(KeyCode::Char('\\'), KeyModifiers::NONE));
     sleep(Duration::from_millis(300));
 
     let shown = screen.wait_for_all(&["acme editor ready", "acme agent 1 size:"]);
@@ -49,7 +51,7 @@ fn side_by_side_sizes_claude_code_and_its_editor_to_their_halves() {
 }
 
 #[test]
-fn alt_backslash_on_a_stopped_card_does_nothing() {
+fn the_prefix_then_backslash_on_a_stopped_card_does_nothing() {
     let scratch = Scratch::new();
     scratch.remember(ID, TITLE, 0);
     scratch.transcript(ID, r#"{"type":"user","message":{}}"#);
@@ -62,7 +64,7 @@ fn alt_backslash_on_a_stopped_card_does_nothing() {
 }
 
 #[test]
-fn alt_backslash_on_an_exited_session_does_nothing() {
+fn the_prefix_then_backslash_on_an_exited_session_does_nothing() {
     let editor = Program::new("acme-edit", editor());
     let mut screen = Screen::editing(script("echo 'acme agent done'"), editor);
     screen.press('n');
@@ -75,7 +77,7 @@ fn alt_backslash_on_an_exited_session_does_nothing() {
 }
 
 #[test]
-fn alt_backslash_under_120_columns_does_nothing() {
+fn the_prefix_then_backslash_under_120_columns_does_nothing() {
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = editing(scratch.path());
     screen.resize(119, 20);
@@ -88,19 +90,7 @@ fn alt_backslash_under_120_columns_does_nothing() {
 }
 
 #[test]
-fn alt_backslash_while_the_editor_has_focus_reaches_the_editor() {
-    let scratch = tempfile::tempdir().unwrap();
-    let mut screen = editing_session(scratch.path());
-
-    side(&mut screen);
-
-    let shown = screen.wait_for("acme editor read:");
-    assert!(shown.contains("acme editor read: 1b"), "{shown}");
-    assert_eq!(pane_corner(&shown), 40, "{shown}");
-}
-
-#[test]
-fn alt_backslash_does_not_split_when_the_editor_cannot_start() {
+fn the_prefix_then_backslash_does_not_split_when_the_editor_cannot_start() {
     let missing = Program::new("acme-edit", vec!["acme-editor-missing".to_string()]);
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = Screen::editing(agent(scratch.path()), missing);
@@ -114,7 +104,7 @@ fn alt_backslash_does_not_split_when_the_editor_cannot_start() {
 }
 
 #[test]
-fn alt_backslash_again_brings_the_sidebar_back_with_claude_code_focused() {
+fn the_prefix_then_backslash_again_brings_the_sidebar_back_with_claude_code_focused() {
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = editing(scratch.path());
     side(&mut screen);
@@ -129,7 +119,7 @@ fn alt_backslash_again_brings_the_sidebar_back_with_claude_code_focused() {
 }
 
 #[test]
-fn alt_z_from_side_by_side_zooms_claude_code() {
+fn the_prefix_then_z_from_side_by_side_zooms_claude_code() {
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = editing(scratch.path());
     side(&mut screen);
@@ -144,7 +134,7 @@ fn alt_z_from_side_by_side_zooms_claude_code() {
 }
 
 #[test]
-fn alt_backslash_from_a_zoom_shows_side_by_side_and_again_the_sidebar() {
+fn the_prefix_then_backslash_from_a_zoom_shows_side_by_side_and_again_the_sidebar() {
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = editing(scratch.path());
     screen.key(KeyCode::Enter, KeyModifiers::NONE);
@@ -159,7 +149,7 @@ fn alt_backslash_from_a_zoom_shows_side_by_side_and_again_the_sidebar() {
 }
 
 #[test]
-fn alt_backslash_with_no_session_does_nothing() {
+fn the_prefix_then_backslash_with_no_session_does_nothing() {
     let editor = Program::new("acme-edit", editor());
     let mut screen = Screen::editing(script("exec sleep 600"), editor);
     let before = screen.draw();
@@ -177,12 +167,9 @@ fn alt_backslash_read_after_an_escape_reaches_claude_code_and_splits_nothing() {
     screen.wait_for("acme agent ready");
     screen.key(KeyCode::Enter, KeyModifiers::NONE);
 
-    screen.app.key(KeyEvent::new_with_kind_and_state(
-        KeyCode::Char('\\'),
-        KeyModifiers::ALT,
-        KeyEventKind::Press,
-        ESCAPED,
-    ));
+    screen
+        .app
+        .key(KeyEvent::new(KeyCode::Char('\\'), KeyModifiers::ALT));
 
     let shown = screen.wait_for("acme agent read:");
     assert!(shown.contains("acme agent read: 1b 5c"), "{shown}");
@@ -196,7 +183,7 @@ fn the_width_keys_do_nothing_side_by_side() {
     side(&mut screen);
     screen.wait_for("acme editor ready");
 
-    screen.key(KeyCode::Char('='), KeyModifiers::ALT);
+    screen.prefixed('=');
     side(&mut screen);
     screen.type_text("hi\r");
 
@@ -332,11 +319,11 @@ fn ctrl_2_from_side_by_side_shows_the_second_session_beside_its_editor() {
     screen.key(KeyCode::Char('h'), KeyModifiers::CONTROL);
     screen.press('n');
     screen.wait_for("acme agent 2");
-    screen.key(KeyCode::Char('1'), KeyModifiers::CONTROL);
+    screen.prefixed('1');
     side(&mut screen);
     screen.wait_for("acme editor ready");
 
-    screen.key(KeyCode::Char('2'), KeyModifiers::CONTROL);
+    screen.prefixed('2');
 
     let shown = screen.wait_until("the second editor", |shown| {
         region(shown, 0, 60).contains("acme agent 2")
@@ -358,11 +345,11 @@ fn a_pick_from_the_session_finder_shows_the_picked_session_beside_its_editor() {
     screen.key(KeyCode::Char('h'), KeyModifiers::CONTROL);
     screen.press('n');
     screen.wait_for("acme agent 2");
-    screen.key(KeyCode::Char('1'), KeyModifiers::CONTROL);
+    screen.prefixed('1');
     side(&mut screen);
     screen.wait_for("acme editor ready");
 
-    screen.key(KeyCode::Char('s'), KeyModifiers::ALT);
+    screen.prefixed('s');
     screen.wait_for("acme fzf ready");
     screen.type_text("home 2\r");
 
@@ -382,11 +369,11 @@ fn split(scratch: &Path) -> Screen {
 }
 
 fn zoom(screen: &mut Screen) {
-    screen.key(KeyCode::Char('z'), KeyModifiers::ALT);
+    screen.prefixed('z');
 }
 
 pub(crate) fn side(screen: &mut Screen) {
-    screen.key(KeyCode::Char('\\'), KeyModifiers::ALT);
+    screen.prefixed('\\');
 }
 
 pub(crate) fn editing(scratch: &Path) -> Screen {

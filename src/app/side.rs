@@ -1,4 +1,4 @@
-use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseEvent, MouseEventKind};
+use crossterm::event::{KeyEvent, MouseEvent, MouseEventKind};
 use ratatui::layout::{Constraint, Layout, Position, Rect};
 use ratatui::style::Modifier;
 use ratatui::text::{Line, Span};
@@ -8,7 +8,6 @@ use super::App;
 use super::key::beside;
 use super::logging::Input;
 use crate::icons::ClaudeIcon;
-use crate::input::ESCAPED;
 use crate::mouse::{self, Gesture, Target};
 use crate::state::{self, Counts};
 use crate::tabs;
@@ -17,38 +16,20 @@ use crate::zoom::{guaranteed, info};
 const WIDEST: u16 = 120;
 
 impl App {
-    pub(super) fn side_by_key(&mut self, key: KeyEvent) -> bool {
-        if !is_side(key) {
-            return false;
-        }
-        let Some(entry) = self.sessions.get(self.selected) else {
-            return true;
-        };
-        if self.pane_focused && entry.showing_editor().is_some() {
-            return false;
-        }
+    pub(super) fn toggle_side(&mut self) {
         if self.side_by_side {
             self.side_by_side = false;
-            return true;
+            return;
         }
-        self.enter_side();
-        true
-    }
-
-    pub(super) fn swap_by_key(&mut self, key: KeyEvent) -> bool {
-        let Some(right) = swaps(key) else {
-            return false;
-        };
-        if !self.side_by_side
-            || self
+        let from_editor = self.pane_focused
+            && self
                 .sessions
                 .get(self.selected)
-                .is_some_and(|entry| entry.showing_editor().is_some())
-        {
-            return false;
+                .is_some_and(|entry| entry.on_editor && entry.showing_editor().is_some());
+        self.enter_side();
+        if self.side_by_side && from_editor {
+            self.sessions[self.selected].on_editor = true;
         }
-        self.swapped = right;
-        true
     }
 
     pub(super) fn swapped_ctrl(&mut self, key: KeyEvent, ctrl_h: bool) -> bool {
@@ -280,27 +261,6 @@ impl App {
             self.side_by_side = false;
             self.zoomed = true;
         }
-    }
-}
-
-pub(super) fn is_side(key: KeyEvent) -> bool {
-    key.code == KeyCode::Char('\\')
-        && key.modifiers == KeyModifiers::ALT
-        && key.kind == KeyEventKind::Press
-        && !key.state.contains(ESCAPED)
-}
-
-pub(super) fn swaps(key: KeyEvent) -> Option<bool> {
-    if key.modifiers - KeyModifiers::SHIFT != KeyModifiers::ALT
-        || key.kind != KeyEventKind::Press
-        || key.state.contains(ESCAPED)
-    {
-        return None;
-    }
-    match key.code {
-        KeyCode::Char('{') => Some(false),
-        KeyCode::Char('}') => Some(true),
-        _ => None,
     }
 }
 

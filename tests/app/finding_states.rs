@@ -4,11 +4,9 @@ use std::process::Command;
 use std::thread::sleep;
 use std::time::{Duration, Instant};
 
-use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
+use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use harbour::app::App;
-use harbour::editor::Program;
 use harbour::handoff::{Reply, Verb};
-use harbour::input::ESCAPED;
 use harbour::picker::Picker;
 
 use crate::finding::FINDER;
@@ -26,7 +24,7 @@ const WAITING: &str = "harbour is waiting for an answer; try again after it";
 fn a_session_that_ended_while_the_list_was_open_is_selected_as_its_exited_card() {
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = stoppable_sessions(scratch.path(), 3);
-    alt_s(&mut screen);
+    find_by_prefix(&mut screen);
     screen.wait_for("acme fzf ready");
 
     stop(scratch.path(), 1);
@@ -52,7 +50,7 @@ fn a_stopped_card_merged_while_the_list_was_open_jumps_to_the_session_that_holds
     screen.press('n');
     screen.wait_for(LIVE);
     screen.key(KeyCode::Char('h'), KeyModifiers::CONTROL);
-    alt_s(&mut screen);
+    find_by_prefix(&mut screen);
     screen.wait_for("acme fzf ready");
 
     fs::write(&go, "").unwrap();
@@ -167,7 +165,7 @@ fn a_session_that_had_exited_before_the_list_opened_is_selected() {
     let mut screen = stoppable_sessions(scratch.path(), 3);
     stop(scratch.path(), 1);
     screen.wait_for("exited");
-    alt_s(&mut screen);
+    find_by_prefix(&mut screen);
     screen.wait_for("acme fzf ready");
 
     screen.type_text("home 1\r");
@@ -186,7 +184,7 @@ fn a_stopped_card_picked_resumes() {
     scratch.transcript(OTHER_ID, r#"{"type":"user","message":{}}"#);
     let mut screen = Screen::of(scratch.app(resuming_agent()).with_picker(finder()));
     screen.wait_for(TITLE);
-    alt_s(&mut screen);
+    find_by_prefix(&mut screen);
     screen.wait_for("acme fzf ready");
 
     screen.type_text(&format!("{TITLE}\r"));
@@ -241,7 +239,7 @@ fn a_picker_that_is_not_fzf_says_the_finder_needs_fzf() {
     screen.wait_for("acme agent ready");
     screen.key(KeyCode::Char('h'), KeyModifiers::CONTROL);
 
-    alt_s(&mut screen);
+    find_by_prefix(&mut screen);
 
     let shown = screen.wait_for("needs fzf");
     assert!(shown.contains("needs fzf, not /bin/sh"), "{shown}");
@@ -261,7 +259,7 @@ fn a_missing_fzf_says_it_could_not_start() {
     screen.wait_for("acme agent ready");
     screen.key(KeyCode::Char('h'), KeyModifiers::CONTROL);
 
-    alt_s(&mut screen);
+    find_by_prefix(&mut screen);
 
     let shown = screen.wait_for("Could not start");
     assert!(
@@ -274,7 +272,7 @@ fn a_missing_fzf_says_it_could_not_start() {
 fn fzf_exiting_with_2_says_it_could_not_start() {
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = stoppable_sessions(scratch.path(), 1);
-    alt_s(&mut screen);
+    find_by_prefix(&mut screen);
     screen.wait_for("acme fzf ready");
 
     screen.type_text("broken\r");
@@ -284,39 +282,14 @@ fn fzf_exiting_with_2_says_it_could_not_start() {
 }
 
 #[test]
-fn alt_s_from_an_editor_reaches_the_editor_and_opens_nothing() {
-    let scratch = tempfile::tempdir().unwrap();
-    let editor = Program::new("acme-edit", asking_editor());
-    let mut screen = Screen::of(
-        App::new(stoppable_agent(scratch.path()))
-            .with_editor(editor)
-            .with_picker(finder()),
-    );
-    screen.press('n');
-    screen.wait_for("acme agent 1");
-    screen.key(KeyCode::Enter, KeyModifiers::NONE);
-    screen.key(KeyCode::Char('l'), KeyModifiers::CONTROL);
-    screen.wait_for("acme editor ready");
-
-    alt_s(&mut screen);
-
-    let shown = screen.wait_for("acme editor read:");
-    assert!(shown.contains("acme editor read: 1b"), "{shown}");
-    assert!(!shown.contains("acme fzf"), "{shown}");
-}
-
-#[test]
 fn alt_s_read_after_an_escape_reaches_the_session_and_opens_nothing() {
     let mut screen = Screen::of(App::new(raw_reader(2)).with_picker(finder()));
     screen.press('n');
     screen.wait_for("acme agent ready");
 
-    screen.app.key(KeyEvent::new_with_kind_and_state(
-        KeyCode::Char('s'),
-        KeyModifiers::ALT,
-        KeyEventKind::Press,
-        ESCAPED,
-    ));
+    screen
+        .app
+        .key(KeyEvent::new(KeyCode::Char('s'), KeyModifiers::ALT));
 
     let shown = screen.wait_for("acme agent read:");
     assert!(shown.contains("acme agent read: 1b 73"), "{shown}");
@@ -324,12 +297,12 @@ fn alt_s_read_after_an_escape_reaches_the_session_and_opens_nothing() {
 }
 
 #[test]
-fn alt_s_with_no_card_does_nothing() {
+fn the_prefix_then_s_with_no_card_does_nothing() {
     let mut screen = Screen::of(
         App::new(script("echo 'acme agent ready'; exec sleep 600")).with_picker(finder()),
     );
 
-    alt_s(&mut screen);
+    find_by_prefix(&mut screen);
     screen.press('n');
 
     let shown = screen.wait_for("acme agent ready");
@@ -337,11 +310,11 @@ fn alt_s_with_no_card_does_nothing() {
 }
 
 #[test]
-fn alt_s_with_caps_lock_opens_the_list() {
+fn the_prefix_then_s_with_caps_lock_opens_the_list() {
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = stoppable_sessions(scratch.path(), 1);
 
-    screen.key(KeyCode::Char('S'), KeyModifiers::ALT);
+    screen.prefixed('S');
 
     let shown = screen.wait_for("acme fzf ready");
     assert!(shown.contains("acme fzf ready"), "{shown}");
@@ -355,11 +328,11 @@ fn the_keys_harbour_binds_go_to_fzf_while_the_list_is_open() {
         .with_usage_place(Some(scratch.path().join("usage")))
         .with_usage(script("echo 'acme usage open'; exec sleep 600"));
     let mut screen = started(app, 3);
-    alt_s(&mut screen);
+    find_by_prefix(&mut screen);
     screen.wait_for("acme fzf ready");
 
-    screen.key(KeyCode::Char('2'), KeyModifiers::CONTROL);
-    screen.key(KeyCode::Char('z'), KeyModifiers::ALT);
+    screen.prefixed('2');
+    screen.prefixed('z');
     screen.press('u');
     screen.key(KeyCode::Esc, KeyModifiers::NONE);
     screen.type_text("\r");
@@ -377,12 +350,12 @@ fn the_width_keys_do_nothing_while_the_list_is_open() {
         .with_picker(finder())
         .with_sidebar_width(30);
     let mut screen = started(app, 2);
-    alt_s(&mut screen);
+    find_by_prefix(&mut screen);
     screen.wait_for("acme fzf ready");
 
-    screen.key(KeyCode::Char('='), KeyModifiers::ALT);
-    screen.key(KeyCode::Char('='), KeyModifiers::ALT);
-    screen.key(KeyCode::Char('-'), KeyModifiers::ALT);
+    screen.prefixed('=');
+    screen.prefixed('=');
+    screen.prefixed('-');
     screen.type_text("\r");
 
     let shown = screen.wait_until("the popup to close", |shown| !shown.contains("acme fzf"));
@@ -393,7 +366,7 @@ fn the_width_keys_do_nothing_while_the_list_is_open() {
 fn a_paste_goes_to_fzf_while_the_list_is_open() {
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = stoppable_sessions(scratch.path(), 3);
-    alt_s(&mut screen);
+    find_by_prefix(&mut screen);
     screen.wait_for("acme fzf ready");
 
     screen.app.paste("home 2");
@@ -409,7 +382,7 @@ fn a_paste_goes_to_fzf_while_the_list_is_open() {
 fn harbour_edit_is_refused_while_the_list_is_open() {
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = stoppable_sessions(scratch.path(), 1);
-    alt_s(&mut screen);
+    find_by_prefix(&mut screen);
     screen.wait_for("acme fzf ready");
 
     let reply = screen.app.hand(Verb::Open, &notes(), soon());
@@ -421,8 +394,8 @@ fn harbour_edit_is_refused_while_the_list_is_open() {
 fn a_pick_while_zoomed_stays_zoomed() {
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = stoppable_sessions(scratch.path(), 3);
-    screen.key(KeyCode::Char('z'), KeyModifiers::ALT);
-    alt_s(&mut screen);
+    screen.prefixed('z');
+    find_by_prefix(&mut screen);
     screen.wait_for("acme fzf ready");
 
     screen.type_text("home 2\r");
@@ -433,12 +406,12 @@ fn a_pick_while_zoomed_stays_zoomed() {
     assert_eq!(corners(&shown), 0, "{shown}");
 }
 
-fn alt_s(screen: &mut Screen) {
-    screen.key(KeyCode::Char('s'), KeyModifiers::ALT);
+fn find_by_prefix(screen: &mut Screen) {
+    screen.prefixed('s');
 }
 
 fn pick(screen: &mut Screen, text: &str) {
-    alt_s(screen);
+    find_by_prefix(screen);
     screen.wait_for("acme fzf ready");
     screen.type_text(&format!("{text}\r"));
 }
@@ -503,14 +476,6 @@ fn resuming_agent() -> Vec<String> {
     script(
         "echo \"acme agent $0 $1 in $(basename \"$PWD\")\"; \
          while :; do read -r line || continue; echo \"acme agent got: $line\"; done",
-    )
-}
-
-fn asking_editor() -> Vec<String> {
-    script(
-        "stty raw -echo; printf '\\033[>4;2m' >&2; echo 'acme editor ready' >&2; \
-         dd bs=1 count=1 2>/dev/null | od -An -tx1 | tr -s ' \\n' '  ' | \
-         sed 's/^/acme editor read:/' >&2; exec sleep 600",
     )
 }
 

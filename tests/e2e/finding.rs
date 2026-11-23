@@ -7,26 +7,12 @@ const FINDER: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/finder
 
 #[test]
 #[ignore]
-fn alt_s_lists_the_sessions_with_extended_keys_on() {
-    let Some((_home, server)) = focused_raw_agent("find-xterm", "on", "xterm") else {
+fn the_prefix_then_s_lists_the_sessions_with_extended_keys_off() {
+    let Some((_home, server)) = focused_raw_agent("find-prefix", "off", "xterm") else {
         return;
     };
 
-    server.send_keys(&["M-s"]);
-
-    let screen = server.wait_for_screen("acme fzf ready");
-    assert!(screen.contains("acme fzf ready"), "{screen}");
-    assert!(!screen.contains("read:^"), "{screen}");
-}
-
-#[test]
-#[ignore]
-fn alt_s_lists_the_sessions_in_the_csi_u_form() {
-    let Some((_home, server)) = focused_raw_agent("find-csi-u", "on", "csi-u") else {
-        return;
-    };
-
-    server.send_keys(&["M-s"]);
+    server.send_keys(&["C-/", "s"]);
 
     let screen = server.wait_for_screen("acme fzf ready");
     assert!(screen.contains("acme fzf ready"), "{screen}");

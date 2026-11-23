@@ -35,7 +35,7 @@ fn a_title_written_just_before_quitting_is_remembered() {
     assert_eq!(first.len(), 1);
     scratch.transcript(ID, &titled("The last word"));
 
-    screen.press('q');
+    screen.prefixed('q');
     screen.press('y');
 
     let kept = scratch.memory().recall();

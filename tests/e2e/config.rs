@@ -137,7 +137,7 @@ fn a_conversation_resumes_with_the_session_command_from_the_file() {
     server.wait_for_screen("press n to start one");
     server.send_keys(&["n"]);
     server.wait_for_screen_all(&["acme agent started", "Fix the flaky login test"]);
-    server.send_keys(&["q"]);
+    server.send_keys(&["C-/", "q"]);
     server.wait_for_screen("Quit? y/n");
     server.send_keys(&["y"]);
     server.wait_for_screen("harbour exited 0");
@@ -335,6 +335,22 @@ fn the_clawd_icon_from_the_file_leads_the_claude_name_in_the_pane_border() {
         top.contains(" \u{100000}  claude | \u{E6AE} nvim "),
         "{top}"
     );
+}
+
+#[test]
+#[ignore]
+fn the_bindings_from_the_file_start_a_session_and_name_the_prefix() {
+    let home = tempfile::tempdir().unwrap();
+    write_config(home.path(), "prefix = \"C-]\"\n[keys]\nnew = \"a\"\n");
+    let server = Server::start("config-keys", 200, 20);
+    server.run(home.path(), &[(SESSION_COMMAND, AGENT)], &[]);
+    server.wait_for_screen("No session yet");
+
+    server.send_keys(&["a"]);
+    server.wait_for_screen("acme agent in");
+    server.send_keys(&["C-]", "w"]);
+
+    server.wait_for_screen("C-] w does nothing; C-] ? lists the keys");
 }
 
 fn coloured(server: &Server) -> String {

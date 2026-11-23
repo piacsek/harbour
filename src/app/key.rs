@@ -3,6 +3,7 @@ use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use super::logging::Input;
 use super::{App, Entry, Question, draw, refusal};
 use crate::editor::{Changes, Editor};
+use crate::keymap::Action;
 use crate::keys::{self, Keyboard};
 use crate::mouse::Gesture;
 use crate::picker::Pick;
@@ -27,6 +28,9 @@ impl App {
             self.log_input(Input::Picker, bytes.len());
             return;
         }
+        if self.prefix_closes_view(key) {
+            return;
+        }
         if self.changelog_key(key) {
             return;
         }
@@ -36,14 +40,10 @@ impl App {
         if self.sidebar.is_empty() && !self.sessions.is_empty() {
             self.failed = None;
         }
-        if self.jump_by_key(key)
-            || self.zoom_by_key(key)
-            || self.side_by_key(key)
-            || self.swap_by_key(key)
-            || self.resize_by_key(key)
-            || self.find_by_key(key)
-            || self.navigate_by_key(acted)
-        {
+        if self.prefix_key(key) {
+            return;
+        }
+        if self.navigate_by_key(acted) {
             return;
         }
         if self.pane_focused
@@ -85,35 +85,18 @@ impl App {
             self.touch();
             return;
         }
-        let on_editor = self
-            .sessions
-            .get(self.selected)
-            .is_some_and(|entry| entry.showing_editor().is_some());
-        if let Some(session) = self.focused() {
-            let bytes = if on_editor {
-                beside(session, key)
-            } else {
-                keys::encode(key, session.application_cursor())
-            };
-            session.send(&bytes);
-            self.log_input(Input::Shown, bytes.len());
-            self.touch();
+        if self.forward(key) {
             return;
         }
         match acted.code {
             _ if is_ctrl(acted, 'l') => self.focus_or_resume(),
             _ if is_ctrl(acted, 'm') => self.focus_or_resume(),
             KeyCode::Enter => self.focus_or_resume(),
-            KeyCode::Char('q') => self.quit(),
-            KeyCode::Char('n') => self.pick_or_start(),
-            KeyCode::Char('x') => self.end_or_remove(),
-            KeyCode::Char('e') => self.next_editor(),
-            KeyCode::Char('?') => self.helping = true,
-            KeyCode::Char('c' | 'C') if (acted.modifiers - KeyModifiers::SHIFT).is_empty() => {
-                self.show_changelog()
+            KeyCode::Char(c) if self.keymap.action_on(c) == Some(Action::New) => {
+                self.pick_or_start()
             }
-            KeyCode::Char('u' | 'U') if (acted.modifiers - KeyModifiers::SHIFT).is_empty() => {
-                self.open_usage()
+            KeyCode::Char(c) if self.keymap.action_on(c) == Some(Action::End) => {
+                self.end_or_remove()
             }
             KeyCode::Char('j') => {
                 self.select((self.selected + 1).min(self.sessions.len().saturating_sub(1)))
@@ -121,6 +104,25 @@ impl App {
             KeyCode::Char('k') => self.select(self.selected.saturating_sub(1)),
             _ => {}
         }
+    }
+
+    pub(super) fn forward(&mut self, key: KeyEvent) -> bool {
+        let on_editor = self
+            .sessions
+            .get(self.selected)
+            .is_some_and(|entry| entry.showing_editor().is_some());
+        let Some(session) = self.focused() else {
+            return false;
+        };
+        let bytes = if on_editor {
+            beside(session, key)
+        } else {
+            keys::encode(key, session.application_cursor())
+        };
+        session.send(&bytes);
+        self.log_input(Input::Shown, bytes.len());
+        self.touch();
+        true
     }
 
     pub(super) fn focus_or_resume(&mut self) {
@@ -131,7 +133,7 @@ impl App {
         }
     }
 
-    fn next_editor(&mut self) {
+    pub(super) fn next_editor(&mut self) {
         let Some(entry) = self.sessions.get_mut(self.selected) else {
             return;
         };
@@ -146,7 +148,7 @@ impl App {
         self.pane_focused = true;
     }
 
-    fn end_or_remove(&mut self) {
+    pub(super) fn end_or_remove(&mut self) {
         let Some(entry) = self.sessions.get_mut(self.selected) else {
             return;
         };
@@ -158,7 +160,7 @@ impl App {
         }
     }
 
-    fn quit(&mut self) {
+    pub(super) fn quit(&mut self) {
         if self.sessions.iter_mut().any(Entry::running) {
             let changes = changes(self.sessions.iter().flat_map(|entry| &entry.editors));
             self.asking = Some(Question::Quit(changes));
@@ -168,7 +170,7 @@ impl App {
         }
     }
 
-    fn pick_or_start(&mut self) {
+    pub(super) fn pick_or_start(&mut self) {
         let Some(picker) = &self.picker else {
             self.start();
             return;

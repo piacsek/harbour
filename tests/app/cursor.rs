@@ -28,7 +28,7 @@ fn a_zoomed_session_keeps_its_cursor_cell_below_the_top_row_from_the_first_colum
     let mut screen = Screen::new(shaped_agent("6"));
     focused_on_the_pane(&mut screen);
 
-    screen.key(KeyCode::Char('z'), KeyModifiers::ALT);
+    screen.prefixed('z');
     screen.draw();
 
     assert_eq!(screen.cursor(), Some(Position::new(21, 3)));
@@ -80,9 +80,9 @@ fn the_help_view_shows_no_cursor_and_the_default_shape() {
     screen.press('n');
     screen.wait_for("acme agent shaped");
 
-    screen.press('?');
+    screen.prefixed('?');
 
-    screen.wait_for(" help ");
+    screen.wait_for("┌ help ");
     assert_eq!(screen.cursor(), None);
     assert_eq!(screen.app.cursor_shape(), 0);
 }

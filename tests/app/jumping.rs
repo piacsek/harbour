@@ -10,7 +10,7 @@ use crate::remembering::{ID, OTHER_ID, Scratch, TITLE};
 use crate::{Screen, script};
 
 #[test]
-fn ctrl_two_from_the_sidebar_selects_the_second_card_and_focuses_its_pane() {
+fn the_prefix_then_two_from_the_sidebar_selects_the_second_card_and_focuses_its_pane() {
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = three_sessions(scratch.path());
 
@@ -22,7 +22,7 @@ fn ctrl_two_from_the_sidebar_selects_the_second_card_and_focuses_its_pane() {
 }
 
 #[test]
-fn ctrl_one_from_inside_a_pane_jumps_and_the_pane_gets_nothing() {
+fn the_prefix_then_one_from_inside_a_pane_jumps_and_the_pane_gets_nothing() {
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = three_sessions(scratch.path());
     screen.key(KeyCode::Enter, KeyModifiers::NONE);
@@ -38,7 +38,7 @@ fn ctrl_one_from_inside_a_pane_jumps_and_the_pane_gets_nothing() {
 }
 
 #[test]
-fn ctrl_nine_jumps_to_the_last_card() {
+fn the_prefix_then_nine_jumps_to_the_last_card() {
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = three_sessions(scratch.path());
     screen.press('k');
@@ -93,7 +93,7 @@ fn ctrl_five_with_three_cards_from_inside_a_pane_reaches_no_session() {
 }
 
 #[test]
-fn ctrl_nine_with_no_card_does_nothing() {
+fn the_prefix_then_nine_with_no_card_does_nothing() {
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = Screen::new(lined_agent(scratch.path()));
 
@@ -118,17 +118,16 @@ fn the_narrow_layout_shows_the_pane_of_the_card_jumped_to() {
 }
 
 #[test]
-fn the_help_view_takes_the_key_and_nothing_jumps() {
+fn the_prefix_then_a_digit_while_the_help_shows_closes_it_and_jumps() {
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = three_sessions(scratch.path());
-    screen.press('?');
+    screen.prefixed('?');
 
     ctrl(&mut screen, '1');
-    screen.key(KeyCode::Enter, KeyModifiers::NONE);
     screen.type_text("hi\r");
 
-    let shown = screen.wait_for("acme agent 3 got:");
-    assert!(shown.contains("acme agent 3 got: hi"), "{shown}");
+    let shown = screen.wait_for("acme agent 1 got:");
+    assert!(shown.contains("acme agent 1 got: hi"), "{shown}");
 }
 
 #[test]
@@ -146,10 +145,10 @@ fn a_question_takes_the_key_and_nothing_jumps() {
 }
 
 #[test]
-fn the_picker_gets_the_key_and_nothing_jumps() {
+fn the_picker_gets_the_prefix_and_nothing_jumps() {
     let picker = script(
         "stty raw -echo; echo 'acme picker ready' >&2; \
-         r=$(dd bs=1 count=1 2>/dev/null); echo \"acme picker read:$r\" >&2; exec sleep 600",
+         r=$(dd bs=1 count=2 2>/dev/null); echo \"acme picker read:$r\" >&2; exec sleep 600",
     );
     let mut screen =
         Screen::wide(App::new(script("exec sleep 600")).with_picker(Picker::Command(picker)));
@@ -186,7 +185,7 @@ fn an_editor_that_asked_for_extended_keys_gets_nothing_from_a_jump() {
 }
 
 #[test]
-fn ctrl_two_resumes_the_second_stopped_card() {
+fn the_prefix_then_two_resumes_the_second_stopped_card() {
     let scratch = Scratch::new();
     scratch.remember(ID, "The first one", 0);
     scratch.remember(OTHER_ID, TITLE, 1);
@@ -221,7 +220,7 @@ fn a_stopped_card_whose_directory_is_gone_says_why_as_enter_would() {
 
 #[test]
 fn the_keys_a_terminal_without_extended_keys_sends_for_ctrl_one_to_ctrl_nine_reach_the_session() {
-    let mut screen = Screen::new(raw_reader(9));
+    let mut screen = Screen::new(raw_reader(8));
     screen.press('n');
     screen.wait_for("acme agent ready");
     screen.key(KeyCode::Enter, KeyModifiers::NONE);
@@ -232,30 +231,14 @@ fn the_keys_a_terminal_without_extended_keys_sends_for_ctrl_one_to_ctrl_nine_rea
     screen.key(KeyCode::Char('\\'), KeyModifiers::CONTROL);
     screen.key(KeyCode::Char(']'), KeyModifiers::CONTROL);
     screen.key(KeyCode::Char('^'), KeyModifiers::CONTROL);
-    screen.key(KeyCode::Char('_'), KeyModifiers::CONTROL);
     screen.key(KeyCode::Backspace, KeyModifiers::NONE);
     screen.press('9');
 
     let shown = screen.wait_for("acme agent read:");
     assert!(
-        shown.contains("acme agent read: 31 00 1b 1c 1d 1e 1f 7f 39"),
+        shown.contains("acme agent read: 31 00 1b 1c 1d 1e 7f 39"),
         "{shown}"
     );
-}
-
-#[test]
-fn ctrl_shift_two_jumps_as_ctrl_two_does() {
-    let scratch = tempfile::tempdir().unwrap();
-    let mut screen = three_sessions(scratch.path());
-
-    screen.key(
-        KeyCode::Char('2'),
-        KeyModifiers::CONTROL | KeyModifiers::SHIFT,
-    );
-    screen.type_text("hi\r");
-
-    let shown = screen.wait_for("acme agent 2 got:");
-    assert!(shown.contains("acme agent 2 got: hi"), "{shown}");
 }
 
 #[test]
@@ -345,7 +328,7 @@ fn a_jump_in_the_narrow_layout_clears_the_message_drawn_over_the_pane() {
 }
 
 fn ctrl(screen: &mut Screen, digit: char) {
-    screen.key(KeyCode::Char(digit), KeyModifiers::CONTROL);
+    screen.prefixed(digit);
 }
 
 fn three_sessions(scratch: &Path) -> Screen {

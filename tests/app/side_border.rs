@@ -144,7 +144,7 @@ fn swapped_with_the_clawd_icon_the_right_half_names_claude_after_its_glyph() {
             .with_nerd_font()
             .with_claude_icon(ClaudeIcon::Clawd),
     );
-    screen.key(KeyCode::Char('}'), KeyModifiers::ALT);
+    screen.prefixed('}');
 
     let top = top(&screen.draw());
 
@@ -189,13 +189,13 @@ fn shown_side_by_side(app: App) -> Screen {
     let mut screen = Screen::of(app.with_editor(editor));
     screen.resize(120, 20);
     started(&mut screen);
-    screen.key(KeyCode::Char('\\'), KeyModifiers::ALT);
+    screen.prefixed('\\');
     screen.draw();
     screen
 }
 
 fn swapped(title: &str) -> Screen {
     let mut screen = side_by_side(title);
-    screen.key(KeyCode::Char('}'), KeyModifiers::ALT);
+    screen.prefixed('}');
     screen
 }
