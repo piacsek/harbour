@@ -9,7 +9,7 @@ use harbour::editor::Program;
 
 use crate::keeping::{remembered_soon, titled};
 use crate::remembering::{ID, OTHER_ID, Scratch, TITLE};
-use crate::{Screen, below, script};
+use crate::{Screen, below, script, settled};
 
 const SECOND: &str = "The second one";
 
@@ -478,17 +478,6 @@ fn pids_soon(screen: &mut Screen, scratch: &Scratch, count: usize) -> Vec<String
             return pids;
         }
         assert!(Instant::now() < deadline, "{pids:?}");
-        sleep(Duration::from_millis(20));
-    }
-}
-
-fn settled(screen: &mut Screen, mut happened: impl FnMut(&str) -> bool) -> String {
-    let deadline = Instant::now() + Duration::from_millis(1500);
-    loop {
-        let shown = screen.draw();
-        if happened(&shown) || Instant::now() > deadline {
-            return shown;
-        }
         sleep(Duration::from_millis(20));
     }
 }

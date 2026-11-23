@@ -11,7 +11,7 @@ use harbour::follow::Mover;
 use harbour::picker::Picker;
 
 use crate::directory::{cwd, end_agent, folder, recording_agent, repository, write_transcript};
-use crate::{Screen, failure, home, reading_agent, script};
+use crate::{Screen, failure, home, reading_agent, script, settled};
 
 #[test]
 fn a_wait_for_a_move_that_never_comes_fails_naming_it_and_the_last_move() {
@@ -124,7 +124,7 @@ fn an_exited_session_keeps_harbour_where_it_was_last_seen_working() {
     let shown = screen.wait_for("exited");
     assert!(shown.contains("exited"), "{shown}");
 
-    assert_eq!(settled(&mut screen, &moves), Some(worktree));
+    assert_eq!(last_move(&mut screen, &moves), Some(worktree));
 }
 
 #[test]
@@ -190,7 +190,7 @@ fn an_open_picker_leaves_harbour_where_the_selected_session_works() {
     let shown = screen.wait_for("acme picker waiting");
     assert!(shown.contains("acme picker waiting"), "{shown}");
 
-    assert_eq!(settled(&mut screen, &moves), Some(api));
+    assert_eq!(last_move(&mut screen, &moves), Some(api));
 }
 
 #[test]
@@ -221,7 +221,7 @@ fn an_app_given_no_mover_never_moves_the_process() {
     let mut screen = Screen::of(App::new(reading_agent()).with_picker(next_picked(scratch.path())));
 
     start(&mut screen, scratch.path(), &api, "acme-api 1");
-    settled(&mut screen, &Moves::default());
+    last_move(&mut screen, &Moves::default());
 
     assert_eq!(std::env::current_dir().unwrap(), before);
 }
@@ -327,11 +327,7 @@ fn wait_until_moved(screen: &mut Screen, moves: &Moves, entered: usize) -> usize
     }
 }
 
-fn settled(screen: &mut Screen, moves: &Moves) -> Option<PathBuf> {
-    let deadline = Instant::now() + Duration::from_millis(600);
-    while Instant::now() < deadline {
-        screen.draw();
-        sleep(Duration::from_millis(20));
-    }
+fn last_move(screen: &mut Screen, moves: &Moves) -> Option<PathBuf> {
+    settled(screen, |_| false);
     moves.lock().unwrap().last().cloned()
 }

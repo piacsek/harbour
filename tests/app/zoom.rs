@@ -9,7 +9,7 @@ use harbour::handoff::Verb;
 use crate::handing::answering;
 use crate::handoff::{file, harbour, soon, start_in};
 use crate::remembering::{ID, Scratch, TITLE};
-use crate::{Screen, numbered_agent, pane_corner, raw_agent, script};
+use crate::{Screen, numbered_agent, pane_corner, raw_agent, script, settled};
 
 #[test]
 fn the_prefix_then_z_from_the_sidebar_shows_the_selected_pane_alone_and_focuses_it() {
@@ -95,11 +95,13 @@ fn the_prefix_then_z_on_a_stopped_card_does_nothing() {
     scratch.remember(ID, TITLE, 0);
     scratch.transcript(ID, r#"{"type":"user","message":{}}"#);
     let mut screen = scratch.watching(script("exec sleep 600"));
-    let before = screen.wait_for(TITLE);
+    screen.wait_for(TITLE);
+    let before = screen.wait_for_stable();
 
     zoom(&mut screen);
 
-    assert_eq!(screen.draw(), before);
+    let after = settled(&mut screen, |shown| shown != before);
+    assert_eq!(after, before);
 }
 
 #[test]

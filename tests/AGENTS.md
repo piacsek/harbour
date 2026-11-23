@@ -281,8 +281,8 @@ after the Clawd glyph: `tests/tabs.rs`, `tests/app/side_border.rs`, `tests/e2e/c
   raced) passed as a mere pause. A new wait helper fails the same way and gets a test of its own
   that sees it fail (`waits.rs` in `tests/app/` and `tests/e2e/`). A test that means "nothing
   happens" uses a wait that says so: it keeps drawing for a fixed time and stops early only on
-  the unwanted thing (`settled` in `tests/app/moving.rs` and `tests/app/switching.rs`,
-  `remembered_after_a_while` in `tests/app/keeping.rs`).
+  the unwanted thing (`settled` in `tests/app/main.rs`, `remembered_after_a_while` in
+  `tests/app/keeping.rs`).
 - **`#{pane_current_path}` is the directory of the pane's foreground process group leader.**
   `Server::run` starts harbour under a non-interactive `sh -c`, which has no job control, so
   harbour stays in the shell's process group and tmux reports the shell's directory, never
