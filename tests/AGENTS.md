@@ -4,6 +4,41 @@ What has gone wrong in the tests before, and how the suites are set up to avoid 
 the root `AGENTS.md`, working agreements in `docs/process.md`. Most traps below were hit in
 conveyor, where these suites come from; the ones about sessions were hit in harbour.
 
+## Where a test belongs
+
+These rules override a TDD skill or personal instruction that prefers outside-in or
+integration-first tests. One cosmetic change once cost edits in three files (one added space
+after the Clawd glyph: `tests/tabs.rs`, `tests/app/side_border.rs`, `tests/e2e/config.rs`).
+
+- **Each behaviour has an owner test at the lowest level that does it**, and a change's red test
+  goes there. A string drawn by a pure function (`tabs::claude`, `card::lines`, `state::title`,
+  `help::rows`) is owned by that function's table (`tests/tabs.rs`, `tests/card/`, ...); a string
+  only the app draws (the ` | ` between the pane's names, a focused border) by one test under
+  `tests/app/`; a script's behaviour by its test in `tests/scripts/`.
+- **The owner pins the exact literal, once.** Every other test that shows the same text builds
+  its expected text from the production function (`tabs::claude(Some(ClaudeIcon::Clawd))`), or
+  checks presence and order (`in_order(top, &["claude", "acme-edit"])`: the glyph before the
+  name, the name before the editor), never the literal again.
+- **Each level has one job.** Pure tests pin exact strings and every edge of a table (every
+  width, every spacing). In-process `tests/app/` tests check what shows, in what order and in
+  which pane. `tests/e2e/` proves each user-facing feature (a key, a subcommand, a view, a
+  config option) is wired up through the real binary: every feature keeps at least one
+  end-to-end test, asserting loosely (presence, order, text built from the production
+  function), never the exact literal. What moves down is exact pinning and repeated cases, not
+  the feature's one end-to-end test; an end-to-end test that only repeats a case of a feature
+  already proven end to end, and covered in process, is deleted.
+- **Before adding a test, look for the one that already pins it** at a lower level; add a row
+  there, or nothing.
+- **A test waits for exactly what it asserts** (see the trap below). A whole-screen comparison
+  (`assert_eq!(screen.draw(), before)`) follows a wait for that whole screen or for the screen
+  to stop changing (`wait_for_stable` in `tests/app/`), never a wait for one word of it. A
+  line checked on the screen is waited for as that line (`wait_until` with the same predicate).
+- **Shared helpers live in the binary's `main.rs`** (`tests/app/main.rs`, `tests/e2e/main.rs`),
+  each wait with a test in that binary's `waits.rs` that sees it fail.
+- **Script tests guard what ships and releases**: the gates, `ship.sh`, the scrub check, the
+  version check and the release scripts. A test of a usage line or a help text that no gate,
+  workflow or user reads is not written.
+
 ## Testing traps hit so far
 
 - **tmux is a test harness, not a dependency.** Only the `#[ignore]` tests of `tests/e2e/` use
@@ -226,7 +261,7 @@ What each test file and fixture covers, moved here from the root `AGENTS.md`. Up
 never the root's Layout, when a test or fixture changes what it covers.
 
 ```
-tests/           outside-in: `tests/cli.rs` runs the real binary;
+tests/           by level (see "Where a test belongs"): `tests/cli.rs` runs the real binary;
                  `tests/scripts/` runs the scripts in a scratch directory and repository, with `tests/fixtures/` standing in for `cargo`, `gh`, `curl` and the scripts they call;
                  `tests/e2e/` runs the real binary in a scratch tmux server (`#[ignore]`, see the traps above), with `HARBOUR_SESSION_COMMAND` pointing sessions at `tests/fixtures/agent.sh` (prints its `TMUX` and `TMUX_PANE`, then what it reads, a line at a time) or `tests/fixtures/raw-agent.sh` (asks for bracketed paste and the mouse, and for the extended keys `ACME_KEYS_ASKED` holds when a test sets it, prints every byte it reads, ESC as `^`, CR as `|`, C-a as `@` and C-] as `&`) instead of `claude`, or at `tests/fixtures/args-agent.sh` (prints its arguments, also linked as `claude` on the scratch `PATH` to see what the default gets), or at `tests/fixtures/registered-agent.sh` (writes a busy registry file under `CLAUDE_CONFIG_DIR`, else `HOME`, so it only runs with a scratch `HOME`) or `tests/fixtures/titled-agent.sh` (the same with a `sessionId` and a transcript) or `tests/fixtures/resumable-agent.sh` (the same, saying `acme agent resumed <id>`, then `acme agent args:[<its arguments>]`, when `--resume <id>` is among its arguments) or `tests/fixtures/fifo-agent.sh` (makes its registry file a FIFO, which holds harbour's draw thread in its read until a test opens it for writing, how `tests/e2e/signals.rs` holds the loop); `tests/e2e/cards.rs` holds the tests of the cards, `tests/e2e/cursor.rs` reads `#{cursor_shape}` of harbour's pane with `tests/fixtures/shaped-agent.sh` (sends `ESC [ <line> SP q` for each line it reads), `tests/e2e/keys.rs` the keys under tmux's `extended-keys` on, off and always, in the xterm and the csi-u form, what an editor that asked for extended keys gets and that Claude Code asking still gets the legacy keys, `HARBOUR_DIR_PICKER` at `tests/fixtures/picker.sh` (prints its `TMUX` and `TMUX_PANE` on stderr, then the line it reads), `HARBOUR_EDITOR` at `tests/fixtures/editor.sh` (prints its first and last argument and its `TMUX` and `TMUX_PANE`, also linked as `nvim` to see what Neovim gets) or at `tests/fixtures/nvim/nvim` (a real Neovim with `--clean`, see the traps above), all three cleared from the environment unless the test sets them, `CLAUDE_CONFIG_DIR` cleared, `TMPDIR` a directory under the scratch `HOME` (so a picker left open leaves nothing behind), `HARBOUR_LOG=1` (a failing test prints the newest log under that `HOME`; `tests/e2e/log.rs` checks it never holds what was typed, pasted or a title), and `PATH` a scratch directory of links to the few tools the fixtures run, so no fzf or zoxide is on it;
                  `tests/log.rs` covers the log's folder, file, stamp, sweep and `newest`; `tests/app/logging.rs`, `logging_lives.rs` and `logging_edits.rs` what the app logs, read from a `Log::sending` channel;

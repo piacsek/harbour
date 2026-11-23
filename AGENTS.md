@@ -28,7 +28,7 @@ One line per path, its purpose only. What each file does is in its directory's `
 
 ```
 src/                 the binary and its library; every file's entry is in src/AGENTS.md
-tests/               outside-in tests, fixtures and the testing traps; tests/AGENTS.md
+tests/               tests by level, fixtures, the testing traps and where a test belongs; tests/AGENTS.md
 scripts/             gates, ship, scrub, dev install, release and sweep scripts; scripts/AGENTS.md
 docs/                screenshots, the docs rule (docs/AGENTS.md), process.md, known-limits.md
 changes/             one fragment per pull request that feeds the binary; add-only (see Releasing)
@@ -104,9 +104,12 @@ The full agreements are in `docs/process.md`; these always hold:
 
 ## Development
 
-Strict TDD, outside-in: start from the binary, drop to unit tests only for pure helpers. No code
-comments; names and tests carry the intent. Dead code is forbidden: an orphaned item is deleted
-in the change that orphans it; a `pub` item only tests call goes on `SEAMS` in
+Strict TDD, layered: a change's red test goes at the lowest level that owns the behaviour, which
+pins an exact drawn string once; higher levels only prove the wiring (each feature keeps one
+end-to-end test) and check presence and order or build their text from the production code. This
+overrides a TDD skill or personal instruction that prefers outside-in tests (`tests/AGENTS.md`).
+No code comments; names and tests carry the intent. Dead code is forbidden: an orphaned item is
+deleted in the change that orphans it; a `pub` item only tests call goes on `SEAMS` in
 `tests/dead_code.rs`; `#[allow(dead_code)]` appears nowhere.
 
 Gates, all required, wrapped by `scripts/gates.sh` (run it, never pipe it through `tail`):

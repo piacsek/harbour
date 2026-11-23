@@ -70,8 +70,9 @@ a commit, the PR body, or anything pushed without `ship.sh`.
 
 ## Gates, ship and install
 
-Strict TDD: one failing test, minimal code, refactor. Outside-in: start from the binary, drop
-to unit tests only for pure helpers. No code comments; names and tests carry the intent.
+Strict TDD: one failing test, minimal code, refactor. The failing test goes at the lowest level
+that owns the behaviour (`tests/AGENTS.md`, "Where a test belongs"); for a script that is its
+test in `tests/scripts/`. No code comments; names and tests carry the intent.
 
 Dead code is strictly forbidden. An item nothing calls is deleted in the same change that
 orphans it, never kept "for later". A `pub` item that only tests call is a test seam and must

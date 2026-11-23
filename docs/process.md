@@ -120,7 +120,8 @@ the root only when it must hold on every turn.
   checkout's, though the worktree sits inside it, so a builder holds its branch's rules and not
   `main`'s; the `CLAUDE.md` of a different repository further up the tree does load. Seen in
   headless `claude -p` runs on 2026-11-21 UTC, not in an interactive session.
-- **TDD is never skipped.** Every change to `src/` starts with a failing test, run and seen
+- **TDD is never skipped.** Every change to `src/` starts with a failing test, at the level
+  that owns the behaviour (`tests/AGENTS.md`, "Where a test belongs"), run and seen
   red, before the production code is touched; then the smallest change that goes green, then
   refactor. This holds for one-line fixes, security patches, patch releases and "obvious"
   changes alike. Writing the test and the fix in the same edit is not TDD, even when the test
