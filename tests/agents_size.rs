@@ -47,14 +47,24 @@ fn every_layout_line_is_short() {
 fn each_directory_guide_loads_as_claude_md() {
     let missing: Vec<&str> = ["tests", "scripts", "docs", ".github"]
         .into_iter()
-        .filter(|directory| {
-            let link = root().join(directory).join("CLAUDE.md");
-            std::fs::read_link(&link).ok().as_deref() != Some(Path::new("AGENTS.md"))
-        })
+        .filter(|directory| !names_its_agents_file(&root().join(directory).join("CLAUDE.md")))
         .collect();
-    assert_eq!(
-        missing,
-        Vec::<&str>::new(),
-        "no CLAUDE.md symlink to AGENTS.md"
-    );
+    assert_eq!(missing, Vec::<&str>::new(), "no CLAUDE.md naming AGENTS.md");
+}
+
+fn names_its_agents_file(path: &Path) -> bool {
+    match std::fs::read_link(path) {
+        Ok(target) => target == Path::new("AGENTS.md"),
+        Err(_) => std::fs::read_to_string(path).is_ok_and(|text| text == "AGENTS.md"),
+    }
+}
+
+#[test]
+fn a_checkout_without_symlinks_names_the_agents_file_in_a_plain_file() {
+    let scratch = tempfile::tempdir().unwrap();
+    let plain = scratch.path().join("CLAUDE.md");
+    std::fs::write(&plain, "AGENTS.md").unwrap();
+    assert!(names_its_agents_file(&plain));
+    std::fs::write(&plain, "something else").unwrap();
+    assert!(!names_its_agents_file(&plain));
 }

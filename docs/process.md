@@ -311,8 +311,8 @@ kind: fix
   (`scripts/feeds-binary.sh`, the same list `ship.sh` uses for the dev install). `flake.nix` and
   `flake.lock` feed the binary on purpose: they decide what a Nix user runs, and only a release
   moves `stable` to them. Such a pull request is always released, a refactor as an `internal`
-  patch. One that touches only tests, docs, plans, scripts, CI, guidelines (an `AGENTS.md`, the
-  root `CLAUDE.md`) or agent skills (`.claude/`) needs none and releases nothing.
+  patch. One that touches only tests, docs, plans, scripts, CI, guidelines (an `AGENTS.md` or a
+  `CLAUDE.md` at any depth) or agent skills (`.claude/`) needs none and releases nothing.
 - **`changes/` is add-only.** A fragment is never edited, renamed or deleted once it is on
   `main`: "pending" means "not in the tree of the last tag", so a changed released fragment
   stops every release and a reused name can skip one silently. Put a correction in a new file.

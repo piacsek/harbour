@@ -2,7 +2,8 @@
 
 Rules for agents and humans working on `harbour`. This file loads on every turn, so it holds rules
 and pointers only; `tests/agents_size.rs` caps it at 12 KiB and each Layout line at 120 characters.
-Facts about a directory go in that directory's `AGENTS.md`, never here.
+Facts about a directory go in that directory's `AGENTS.md`, never here; `changes/` and `plans/`
+have none: their rules are Releasing below and `docs/process.md`.
 
 ## What this is
 

@@ -53,7 +53,7 @@ A proposal is one of:
 - **Backlog**: one line for the `PLAN.md` backlog.
 - **Issue**: title and body for a GitHub issue (public repository: no employer data, see
   "This repository is public").
-- **Decline**: why it is accepted as is; a lasting decline may belong in "Known limits".
+- **Decline**: why it is accepted as is; a lasting decline may belong in `docs/known-limits.md`.
 
 Then ask the user which proposals to take (AskUserQuestion, multi-select, at most four per
 question). Never apply a proposal the user did not take.

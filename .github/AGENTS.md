@@ -2,7 +2,7 @@
 
 The CI workflows and the branch protection around them, the issue forms, and the release
 internals (Releasing internals, below). What a pull request author needs to release is in Releasing
-in the root `AGENTS.md`. The workflows, scripts and most of the learnings below come from conveyor,
+in the root `AGENTS.md`, in full under "Releasing, in full" in `docs/process.md`. The workflows, scripts and most of the learnings below come from conveyor,
 a sibling project by the recipe's author; a number measured there says so.
 
 ## What is here

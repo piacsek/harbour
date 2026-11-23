@@ -40,7 +40,7 @@ scripts/sweep-issue.sh        the `issue` job of `sweep.yml`: opens "Sweep due b
 ```
 CHANGELOG.md                  only its `# Changelog` heading on `main`; each release commit writes its sections
 CLAUDE.md                     a symlink to `AGENTS.md`, for tools that read only that name; on a checkout without symlink support it holds only the text `AGENTS.md`, the file to read
-rust-toolchain.toml           the one Rust version (rustfmt and clippy with it) that local gates and CI run; see Development
+rust-toolchain.toml           the one Rust version (rustfmt and clippy with it) that local gates and CI run; see Gates, ship and install
 flake.nix, flake.lock         the Nix flake: the binary built from `Cargo.toml`, `Cargo.lock`, `CHANGELOG.md` and `src/` with the Rust `rust-toolchain.toml` names, through the locked `rust-overlay`, without the components it lists (rustfmt, clippy); feeds the binary
 ```
 
@@ -148,7 +148,7 @@ that every path between the merge base with `origin/main` and the working tree, 
 included, is a `.md` file that does not feed the binary (`scripts/feeds-binary.sh`) and is
 outside `changes/` (the fragments) and `.github/` (the script tests read its pull request
 template), `gates.sh` runs the scrub check, `cargo fmt --check` and
-`cargo test --test readme --test plans`, the only targets that read this repository's Markdown
+`cargo test --test readme --test plans --test agents_size`, the only targets that read this repository's Markdown
 otherwise, prints `==> skipping the tests: <reason>; CI runs them`, and skips clippy and every
 other test. A path ending in `.md` counts whatever it is, so the root `CLAUDE.md` symlink does.
 No change, no repository, no `origin/main` or no merge base runs everything. A test that starts
