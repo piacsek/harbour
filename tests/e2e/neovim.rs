@@ -6,7 +6,7 @@ use harbour::tui::{EDITOR, SESSION_COMMAND};
 use tempfile::TempDir;
 
 use super::edit::{handed, source_file};
-use super::{AGENT, Server, tools};
+use super::{AGENT, Server, focused_on, in_order, tools, vertical};
 
 const CLEAN_NVIM: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/nvim/nvim");
 const WAITING: &str = "harbour: Neovim is waiting for a key; answer it and try again\n";
@@ -99,7 +99,19 @@ fn shift_enter_in_insert_mode_with_extended_keys_on_starts_a_line_and_stays_in_i
         .server
         .send_keys(&["i", "acme-one", "S-Enter", "acme-two"]);
 
-    neovim.shows("┃acme-two");
+    let screen = neovim
+        .server
+        .wait_until("acme-two starting its line", |screen| {
+            screen
+                .split(vertical)
+                .any(|part| part.starts_with("acme-two"))
+        });
+    assert!(
+        screen
+            .split(vertical)
+            .any(|part| part.starts_with("acme-two")),
+        "{screen}"
+    );
     neovim.shows("-- INSERT --");
 }
 
@@ -221,8 +233,10 @@ impl Neovim {
     fn start_with(name: &str, options: &[&[&str]]) -> Option<Neovim> {
         let neovim = Neovim::beside_claude(name, options)?;
         neovim.server.send_keys(&["C-l"]);
-        let editing = neovim.server.wait_for_screen("claude | nvim: ");
-        assert!(editing.contains("claude | nvim: "), "{editing}");
+        let editing = neovim.server.wait_until("neovim beside claude", |screen| {
+            in_order(screen, &["claude ", " nvim: "])
+        });
+        assert!(in_order(&editing, &["claude ", " nvim: "]), "{editing}");
         neovim.assert_in_neovim();
         Some(neovim)
     }
@@ -264,8 +278,8 @@ impl Neovim {
         server.send_keys(&["n"]);
         server.wait_for_screen("acme agent in acme-api");
         server.send_keys(&["Enter"]);
-        let focused = server.wait_for_screen("┏ claude");
-        assert!(focused.contains("┏ claude"), "{focused}");
+        let focused = server.wait_until("focus on claude", |screen| focused_on(screen, "claude"));
+        assert!(focused_on(&focused, "claude"), "{focused}");
         Some(Neovim { server, home })
     }
 
@@ -281,7 +295,7 @@ impl Neovim {
         assert!(screen.contains("acme-settled"), "{screen}");
         self.server.send_keys(&[":echo ''", "Enter"]);
         let cleared = self.server.wait_until("the echo cleared", |screen| {
-            screen.contains("claude | nvim: ")
+            in_order(screen, &["claude ", " nvim: "])
                 && !screen.contains("acme-settled")
                 && !screen.contains(":echo")
         });

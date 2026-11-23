@@ -5,7 +5,9 @@ use harbour::keymap::{Action, Keymap};
 use ratatui::style::{Color, Modifier};
 
 use crate::side::{agent, editor, side};
-use crate::{Screen, reading_agent, region, script};
+use crate::{
+    Screen, drawn, focused_char, reading_agent, region, script, starts_focused, unfocused_char,
+};
 
 #[test]
 fn the_waiting_prefix_shows_on_the_panes_bottom_border() {
@@ -14,7 +16,8 @@ fn the_waiting_prefix_shows_on_the_panes_bottom_border() {
     screen.key(KeyCode::Char('/'), KeyModifiers::CONTROL);
 
     let shown = screen.draw();
-    assert!(bottom(&shown).ends_with(" C-/ ┘"), "{shown}");
+    assert!(before_corner(&bottom(&shown)).ends_with(" C-/ "), "{shown}");
+    assert!(bottom(&shown).ends_with(unfocused_char), "{shown}");
 }
 
 #[test]
@@ -63,7 +66,8 @@ fn the_waiting_prefix_shows_side_by_side_on_the_focused_halfs_bottom_border() {
     screen.key(KeyCode::Char('/'), KeyModifiers::CONTROL);
 
     let shown = screen.draw();
-    assert!(bottom(&shown).ends_with(" C-/ ┛"), "{shown}");
+    assert!(before_corner(&bottom(&shown)).ends_with(" C-/ "), "{shown}");
+    assert!(bottom(&shown).ends_with(focused_char), "{shown}");
     assert!(!region(&shown, 0, 60).contains("C-/"), "{shown}");
 }
 
@@ -76,7 +80,8 @@ fn the_waiting_prefix_shows_on_the_pane_in_the_narrow_layout() {
     screen.key(KeyCode::Char('/'), KeyModifiers::CONTROL);
 
     let shown = screen.draw();
-    assert!(bottom(&shown).ends_with(" C-/ ┛"), "{shown}");
+    assert!(before_corner(&bottom(&shown)).ends_with(" C-/ "), "{shown}");
+    assert!(bottom(&shown).ends_with(focused_char), "{shown}");
 }
 
 #[test]
@@ -85,8 +90,11 @@ fn the_sidebar_shows_the_way_to_the_help_on_its_bottom_border() {
 
     let shown = screen.draw();
 
-    assert!(bottom(&shown).starts_with("┗━"), "{shown}");
-    assert!(region(&shown, 0, 40).ends_with(" C-/ ? help ┛"), "{shown}");
+    assert!(starts_focused(&bottom(&shown)), "{shown}");
+    assert!(
+        before_corner(&region(&shown, 0, 40)).ends_with(" C-/ ? help "),
+        "{shown}"
+    );
 }
 
 #[test]
@@ -105,10 +113,9 @@ fn the_way_to_the_help_fits_the_narrowest_sidebar_with_its_corners() {
 
     let shown = screen.draw();
 
-    assert!(
-        region(&shown, 0, 15).ends_with("┗━ C-/ ? help ┛"),
-        "{shown}"
-    );
+    let border = bottom(&region(&shown, 0, 15));
+    assert_eq!(border.chars().count(), 15, "{shown}");
+    assert_eq!(border.trim_matches(drawn), " C-/ ? help ", "{shown}");
 }
 
 #[test]
@@ -122,10 +129,9 @@ fn the_way_to_the_help_is_left_out_when_the_sidebar_cannot_hold_it_whole() {
 
     let shown = screen.draw();
 
-    assert!(
-        region(&shown, 0, 15).ends_with("┗━━━━━━━━━━━━━┛"),
-        "{shown}"
-    );
+    let border = bottom(&region(&shown, 0, 15));
+    assert_eq!(border.chars().count(), 15, "{shown}");
+    assert!(border.chars().all(drawn), "{shown}");
 }
 
 #[test]
@@ -138,7 +144,10 @@ fn the_way_to_the_help_names_the_configured_prefix_and_help_key() {
 
     let shown = screen.draw();
 
-    assert!(region(&shown, 0, 40).ends_with(" C-] h help ┛"), "{shown}");
+    assert!(
+        before_corner(&region(&shown, 0, 40)).ends_with(" C-] h help "),
+        "{shown}"
+    );
 }
 
 #[test]
@@ -165,6 +174,10 @@ fn started(app: App) -> Screen {
     screen.press('n');
     screen.wait_for("acme");
     screen
+}
+
+fn before_corner(text: &str) -> &str {
+    text.trim_end_matches(drawn)
 }
 
 fn bottom(shown: &str) -> String {

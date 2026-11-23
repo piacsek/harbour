@@ -1,7 +1,7 @@
 use crossterm::event::{KeyCode, KeyModifiers};
 use ratatui::style::{Color, Modifier};
 
-use crate::{Screen, below, directory, pane_corner, region, script};
+use crate::{Screen, below, directory, focused, pane_corner, region, script};
 
 #[test]
 fn a_session_that_exited_with_zero_shows_a_hollow_dot_and_exited() {
@@ -55,7 +55,7 @@ fn an_exited_session_keeps_the_cyan_border_undimmed_while_its_pane_has_focus() {
     let shown = screen.wait_for("exited");
 
     let pane = pane_corner(&shown);
-    assert_eq!(screen.cell(pane, 0).symbol(), "┏");
+    assert!(focused(screen.cell(pane, 0).symbol()));
     assert_eq!(screen.cell(pane, 0).fg, Color::Cyan);
     assert!(!screen.cell(pane, 0).modifier.contains(Modifier::DIM));
 }

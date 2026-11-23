@@ -5,6 +5,7 @@ use std::thread::sleep;
 use std::time::{Duration, Instant};
 
 use harbour::tui::{DIR_PICKER, EDITOR, SESSION_COMMAND};
+use ratatui::symbols::border;
 
 mod cards;
 mod config;
@@ -641,4 +642,57 @@ fn tools(home: &Path) -> String {
         }
     }
     bin.display().to_string()
+}
+
+const BORDERS: [border::Set<'static>; 10] = [
+    border::PLAIN,
+    border::ROUNDED,
+    border::DOUBLE,
+    border::THICK,
+    border::LIGHT_DOUBLE_DASHED,
+    border::HEAVY_DOUBLE_DASHED,
+    border::LIGHT_TRIPLE_DASHED,
+    border::HEAVY_TRIPLE_DASHED,
+    border::LIGHT_QUADRUPLE_DASHED,
+    border::HEAVY_QUADRUPLE_DASHED,
+];
+
+fn corner(c: char) -> bool {
+    BORDERS.iter().any(|set| set.top_left.starts_with(c))
+}
+
+fn focused_corner(c: char) -> bool {
+    corner(c) && !border::PLAIN.top_left.starts_with(c)
+}
+
+fn vertical(c: char) -> bool {
+    BORDERS.iter().any(|set| set.vertical_left.starts_with(c))
+}
+
+fn focused_on(screen: &str, title: &str) -> bool {
+    let top = screen.lines().next().unwrap_or_default();
+    top.split(focused_corner)
+        .skip(1)
+        .any(|after| after.starts_with(&format!(" {title}")))
+}
+
+fn pane_corner(screen: &str) -> Option<usize> {
+    screen
+        .lines()
+        .next()?
+        .chars()
+        .skip(1)
+        .position(corner)
+        .map(|column| column + 1)
+}
+
+fn in_order(text: &str, parts: &[&str]) -> bool {
+    let mut rest = text;
+    parts.iter().all(|part| match rest.find(part) {
+        Some(at) => {
+            rest = &rest[at + part.len()..];
+            true
+        }
+        None => false,
+    })
 }

@@ -98,7 +98,7 @@ fn focused(agent: Vec<String>) -> Screen {
     screen.press('n');
     screen.wait_for("acme agent shaped");
     screen.key(KeyCode::Enter, KeyModifiers::NONE);
-    screen.wait_for("┌ sessions");
+    screen.wait_for_unfocused("sessions");
     screen
 }
 

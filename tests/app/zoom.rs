@@ -316,7 +316,7 @@ pub(crate) fn corners(shown: &str) -> usize {
         .next()
         .unwrap_or_default()
         .chars()
-        .filter(|c| matches!(c, '┌' | '┏'))
+        .filter(|c| crate::top_left(*c))
         .count()
 }
 

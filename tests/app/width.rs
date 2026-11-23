@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use crossterm::event::{KeyCode, KeyModifiers};
 use harbour::app::App;
 
-use crate::{Screen, home, numbered_agent, pane_corner};
+use crate::{Screen, focused, home, numbered_agent, pane_corner, unfocused};
 
 #[test]
 fn the_sidebar_takes_the_width_it_is_given() {
@@ -60,8 +60,8 @@ fn below_sixty_columns_one_side_shows_at_a_time_whatever_the_width() {
 
     screen.resize(59, 16);
 
-    assert_eq!(screen.cell(0, 0).symbol(), "┏");
-    assert_eq!(screen.cell(58, 0).symbol(), "┓");
+    assert!(focused(screen.cell(0, 0).symbol()));
+    assert!(focused(screen.cell(58, 0).symbol()));
 }
 
 #[test]
@@ -74,8 +74,8 @@ fn a_cjk_name_stays_inside_a_narrow_sidebar() {
     screen.press('n');
 
     screen.wait_for("acme agent 1");
-    assert_eq!(screen.cell(11, 1).symbol(), "┃");
-    assert_eq!(screen.cell(12, 0).symbol(), "┌");
+    assert!(focused(screen.cell(11, 1).symbol()));
+    assert!(unfocused(screen.cell(12, 0).symbol()));
 }
 
 #[test]
@@ -86,7 +86,7 @@ fn a_sidebar_too_narrow_for_its_cards_keeps_its_border_over_the_bar() {
     screen.press('n');
 
     screen.wait_for("acme agent 1");
-    assert_eq!(screen.cell(1, 1).symbol(), "┃");
+    assert!(focused(screen.cell(1, 1).symbol()));
 }
 
 fn sized(command: Vec<String>, width: u16, home: PathBuf, columns: u16) -> Screen {

@@ -10,7 +10,7 @@ use harbour::editor::Program;
 use ratatui::style::Modifier;
 
 use crate::status::showing;
-use crate::{Screen, below, script};
+use crate::{Screen, below, column_of, script};
 
 const ID: &str = "0f1e2d3c-4b5a-6978-8a9b-0c1d2e3f4a5b";
 const OTHER_ID: &str = "9a8b7c6d-5e4f-4a3b-2c1d-0e9f8a7b6c5d";
@@ -32,13 +32,14 @@ fn an_unselected_working_session_shows_its_last_prompt_dimmed_not_its_last_tool_
     screen.press('n');
 
     let shown = screen.wait_for("fix the login test");
+    let prompt = column_of(&shown, 2, "fix the login test");
 
     assert_eq!(
         below(&shown, "Fix the flaky login test"),
         "fix the login test"
     );
     assert!(!shown.contains("Run the login tests"), "{shown}");
-    assert!(screen.cell(5, 2).modifier.contains(Modifier::DIM));
+    assert!(screen.cell(prompt, 2).modifier.contains(Modifier::DIM));
 }
 
 #[test]
@@ -77,12 +78,13 @@ fn an_unselected_idle_session_shows_its_last_prompt_dimmed() {
     screen.press('n');
 
     let shown = screen.wait_for("split the invoice helper");
+    let prompt = column_of(&shown, 2, "split the invoice helper");
 
     assert_eq!(
         below(&shown, "Tidy the billing module"),
         "split the invoice helper"
     );
-    assert!(screen.cell(5, 2).modifier.contains(Modifier::DIM));
+    assert!(screen.cell(prompt, 2).modifier.contains(Modifier::DIM));
 }
 
 #[test]

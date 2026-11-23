@@ -9,7 +9,7 @@ use crossterm::event::{KeyCode, KeyModifiers, MouseButton, MouseEventKind};
 
 use harbour::picker::Picker;
 
-use crate::{Screen, directory, failure, home, reading_agent, script};
+use crate::{Screen, directory, failure, home, reading_agent, script, starts_focused};
 
 #[test]
 fn a_wait_for_a_popup_that_stays_open_fails_showing_it() {
@@ -210,8 +210,7 @@ fn a_cancelled_picker_leaves_the_focus_on_the_sidebar() {
     screen.type_text("\r");
 
     let shown = popup_closed(&mut screen);
-    let top = shown.lines().next().unwrap();
-    assert!(top.starts_with('┏'), "{shown}");
+    assert!(starts_focused(&shown), "{shown}");
 }
 
 #[test]
@@ -275,9 +274,8 @@ fn a_confirmed_directory_that_cannot_start_leaves_the_focus_on_the_sidebar() {
 
     let shown = screen.wait_for("Could not start");
     std::fs::set_permissions(&locked, std::fs::Permissions::from_mode(0o755)).unwrap();
-    let top = shown.lines().next().unwrap();
     assert!(shown.contains("Could not start"), "{shown}");
-    assert!(top.starts_with('┏'), "{shown}");
+    assert!(starts_focused(&shown), "{shown}");
 }
 
 #[test]

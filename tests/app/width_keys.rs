@@ -3,7 +3,10 @@ use harbour::app::App;
 
 use crate::usage_states::place;
 use crate::zoom::raw_reader;
-use crate::{Screen, home, numbered_agent, pane_corner, reading_agent, script, sized_agent};
+use crate::{
+    Screen, focused, home, numbered_agent, pane_corner, reading_agent, script, sized_agent,
+    unfocused,
+};
 
 #[test]
 fn the_prefix_then_minus_from_the_sidebar_makes_it_two_columns_narrower() {
@@ -291,8 +294,8 @@ fn a_cjk_name_stays_whole_in_the_narrowest_sidebar() {
     screen.draw();
     assert_eq!(screen.cell(11, 1).symbol(), "倉");
     assert_eq!(screen.cell(13, 1).symbol(), "…");
-    assert_eq!(screen.cell(14, 1).symbol(), "┃");
-    assert_eq!(screen.cell(15, 0).symbol(), "┌");
+    assert!(focused(screen.cell(14, 1).symbol()));
+    assert!(unfocused(screen.cell(15, 0).symbol()));
 }
 
 #[test]

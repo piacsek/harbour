@@ -2,7 +2,7 @@ use crossterm::event::{KeyCode, KeyModifiers, MouseButton, MouseEventKind};
 use harbour::editor::Program;
 
 use crate::editor_input::raw_editor;
-use crate::{Screen, raw_agent, reading_agent};
+use crate::{Screen, focused, raw_agent, reading_agent, unfocused};
 
 const CLICKS: &str = "\\033[?1000h\\033[?1006h";
 const DRAGS: &str = "\\033[?1002h\\033[?1006h";
@@ -14,8 +14,8 @@ fn a_click_in_the_editor_half_focuses_it_and_reaches_the_editor() {
     screen.mouse(MouseEventKind::Down(MouseButton::Left), 65, 3);
 
     screen.wait_for("acme editor read:[<0;5;3M");
-    assert_eq!(screen.cell(60, 0).symbol(), "┏");
-    assert_eq!(screen.cell(0, 0).symbol(), "┌");
+    assert!(focused(screen.cell(60, 0).symbol()));
+    assert!(unfocused(screen.cell(0, 0).symbol()));
 }
 
 #[test]
@@ -26,8 +26,8 @@ fn a_click_in_the_claude_code_half_focuses_it_and_reaches_claude_code() {
     screen.mouse(MouseEventKind::Down(MouseButton::Left), 5, 3);
 
     screen.wait_for("acme agent read:[<0;5;3M");
-    assert_eq!(screen.cell(0, 0).symbol(), "┏");
-    assert_eq!(screen.cell(60, 0).symbol(), "┌");
+    assert!(focused(screen.cell(0, 0).symbol()));
+    assert!(unfocused(screen.cell(60, 0).symbol()));
 }
 
 #[test]
@@ -36,7 +36,7 @@ fn a_click_on_the_border_between_the_halves_reaches_nothing_and_keeps_the_focus(
     screen.mouse(MouseEventKind::Down(MouseButton::Left), 60, 3);
     screen.mouse(MouseEventKind::Up(MouseButton::Left), 60, 3);
     screen.draw();
-    assert_eq!(screen.cell(0, 0).symbol(), "┏");
+    assert!(focused(screen.cell(0, 0).symbol()));
 
     screen.mouse(MouseEventKind::Down(MouseButton::Left), 66, 4);
 
@@ -65,7 +65,7 @@ fn a_wheel_over_the_unfocused_editor_half_reaches_it_and_keeps_the_focus() {
     screen.mouse(MouseEventKind::ScrollUp, 65, 3);
 
     screen.wait_for("acme editor read:[<64;5;3M");
-    assert_eq!(screen.cell(0, 0).symbol(), "┏");
+    assert!(focused(screen.cell(0, 0).symbol()));
 }
 
 #[test]
@@ -76,8 +76,8 @@ fn swapped_a_click_in_the_left_half_focuses_the_editor_and_reaches_it() {
     screen.mouse(MouseEventKind::Down(MouseButton::Left), 5, 3);
 
     screen.wait_for("acme editor read:[<0;5;3M");
-    assert_eq!(screen.cell(0, 0).symbol(), "┏");
-    assert_eq!(screen.cell(60, 0).symbol(), "┌");
+    assert!(focused(screen.cell(0, 0).symbol()));
+    assert!(unfocused(screen.cell(60, 0).symbol()));
 }
 
 #[test]

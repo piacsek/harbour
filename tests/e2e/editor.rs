@@ -2,7 +2,7 @@ use std::path::Path;
 
 use harbour::tui::{EDITOR, SESSION_COMMAND};
 
-use super::{AGENT, ARGS_AGENT, Server, tools};
+use super::{AGENT, ARGS_AGENT, Server, corner, in_order, tools};
 
 const FIXTURE_EDITOR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/editor.sh");
 
@@ -41,7 +41,7 @@ fn c_l_opens_the_editor_harbour_editor_names_without_arguments() {
         screen.contains("acme editor in acme-api first arg:[]"),
         "{screen}"
     );
-    assert!(screen.contains("claude | editor.sh: "), "{screen}");
+    assert!(in_order(&screen, &["claude ", " editor.sh: "]), "{screen}");
 }
 
 #[test]
@@ -56,7 +56,7 @@ fn without_harbour_editor_c_l_opens_nvim_listening_on_a_socket() {
 
     let screen = editing(&server);
     assert!(screen.contains("first arg:[--listen]"), "{screen}");
-    assert!(screen.contains("claude | nvim: "), "{screen}");
+    assert!(in_order(&screen, &["claude ", " nvim: "]), "{screen}");
 }
 
 #[test]
@@ -190,7 +190,7 @@ fn c_l_in_the_demo_opens_a_made_up_editor() {
 
     let screen = server.wait_for_screen("src/retry.rs");
     assert!(screen.contains("pub fn retry"), "{screen}");
-    assert!(screen.contains("claude | nvim: "), "{screen}");
+    assert!(in_order(&screen, &["claude ", " nvim: "]), "{screen}");
 }
 
 #[test]
@@ -266,5 +266,5 @@ fn editor_line((tmux, pane): &(String, String)) -> String {
 
 fn second_half_corner(screen: &str) -> bool {
     let top: Vec<char> = screen.lines().next().unwrap_or_default().chars().collect();
-    matches!(top.get(80), Some('┌' | '┏'))
+    top.get(80).is_some_and(|c| corner(*c))
 }

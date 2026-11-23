@@ -9,7 +9,7 @@ use harbour::card::Colors;
 use harbour::picker::Picker;
 use ratatui::style::{Color, Modifier};
 
-use crate::{Screen, below, directory, numbered_agent, script};
+use crate::{Screen, below, column_of, directory, numbered_agent, script};
 
 #[test]
 fn the_selected_card_has_the_cyan_bar_on_all_three_lines() {
@@ -260,10 +260,11 @@ fn the_third_line_draws_in_the_colours_the_app_was_given() {
 
     screen.wait_for("acme-api · main");
 
-    assert_eq!(screen.cell(5, 3).symbol(), "a");
-    assert_eq!(screen.cell(5, 3).fg, Color::Green);
-    assert_eq!(screen.cell(16, 3).symbol(), "m");
-    assert_eq!(screen.cell(16, 3).fg, Color::Yellow);
+    let shown = screen.draw();
+    let repository = column_of(&shown, 3, "acme-api");
+    let branch = column_of(&shown, 3, "main");
+    assert_eq!(screen.cell(repository, 3).fg, Color::Green);
+    assert_eq!(screen.cell(branch, 3).fg, Color::Yellow);
 }
 
 fn picked_in(directory: &Path, agent: &str) -> Screen {
@@ -293,7 +294,7 @@ fn third_line(shown: &str, title: &str) -> String {
         .unwrap_or_default()
         .chars()
         .skip(1)
-        .take_while(|c| !matches!(c, '│' | '┃'))
+        .take_while(|c| !crate::vertical(*c))
         .collect::<String>()
         .trim_start_matches(['▌', ' '])
         .trim_end()
@@ -307,6 +308,6 @@ fn top_card(shown: &str) -> String {
         .unwrap()
         .chars()
         .skip(3)
-        .take_while(|c| !matches!(c, '│' | '┃'))
+        .take_while(|c| !crate::vertical(*c))
         .collect()
 }

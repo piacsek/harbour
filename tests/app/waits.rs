@@ -66,3 +66,33 @@ fn a_wait_for_an_expression_never_true_fails_naming_it_and_the_last_value() {
     assert!(failure.contains("for acme == 1"), "{failure}");
     assert!(failure.contains("last value: None"), "{failure}");
 }
+
+#[test]
+fn a_wait_for_focus_never_reached_fails_naming_the_pane_and_showing_the_screen() {
+    let mut screen = Screen::new(reading_agent());
+
+    let failure = failure(|| {
+        screen.wait_for_focused("acme never focused");
+    });
+
+    assert!(
+        failure.contains("for focus on acme never focused"),
+        "{failure}"
+    );
+    assert!(failure.contains("No session yet"), "{failure}");
+}
+
+#[test]
+fn a_wait_for_a_pane_without_focus_never_reached_fails_naming_it_and_showing_the_screen() {
+    let mut screen = Screen::new(reading_agent());
+
+    let failure = failure(|| {
+        screen.wait_for_unfocused("acme never shown");
+    });
+
+    assert!(
+        failure.contains("for acme never shown without focus"),
+        "{failure}"
+    );
+    assert!(failure.contains("No session yet"), "{failure}");
+}

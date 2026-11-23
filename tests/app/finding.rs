@@ -4,7 +4,7 @@ use crossterm::event::{KeyCode, KeyModifiers};
 use harbour::app::App;
 use harbour::picker::Picker;
 
-use crate::{Screen, script};
+use crate::{Screen, focused_title, script};
 
 pub(crate) const FINDER: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/finder/fzf");
 
@@ -31,7 +31,7 @@ fn the_popup_says_sessions_and_hands_fzf_one_line_per_card_in_sidebar_order() {
     find_by_prefix(&mut screen);
 
     let shown = screen.wait_for("acme fzf ready");
-    assert!(shown.contains("┏ sessions ━"), "{shown}");
+    assert!(focused_title(&shown).starts_with("sessions"), "{shown}");
     assert!(shown.contains("0|·|acme-home 1 |acme-home |"), "{shown}");
     assert!(shown.contains("1|·|acme-home 2 |acme-home |"), "{shown}");
     assert!(shown.contains("2|·|acme-home 3 |acme-home |"), "{shown}");

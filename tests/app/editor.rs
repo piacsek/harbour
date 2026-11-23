@@ -3,7 +3,7 @@ use harbour::app::App;
 use harbour::editor::Program;
 use ratatui::style::Modifier;
 
-use crate::{Screen, reading_agent, script, sidebar_title};
+use crate::{Screen, in_order, reading_agent, script, sidebar_title, vertical};
 
 #[test]
 fn ctrl_l_in_claude_code_starts_the_editor_in_the_session_directory_and_shows_it() {
@@ -98,7 +98,7 @@ fn the_pane_border_names_claude_code_and_the_editor_before_one_starts() {
     let shown = screen.wait_for("acme agent ready");
 
     let top = shown.lines().next().unwrap();
-    assert!(top.contains(" claude | acme-edit "), "{top}");
+    assert!(in_order(top, &[" claude ", " acme-edit "]), "{top}");
 }
 
 #[test]
@@ -109,8 +109,8 @@ fn the_pane_border_names_the_directory_of_the_editor_once_it_started() {
     let shown = screen.draw();
 
     let top = shown.lines().next().unwrap();
-    let expected = format!(" claude | acme-edit: {} ", shown_directory());
-    assert!(top.contains(&expected), "{top}");
+    let editor = format!(" acme-edit: {} ", shown_directory());
+    assert!(in_order(top, &[" claude ", &editor]), "{top}");
 }
 
 #[test]
@@ -192,7 +192,7 @@ fn a_session_with_an_editor_keeps_its_card_and_counts_once() {
 
     assert_eq!(sidebar_title(&shown), " sessions · 1 ", "{shown}");
     assert_eq!(shown.matches("acme-home 1").count(), 1, "{shown}");
-    assert!(shown.contains("▌   acme-home"), "{shown}");
+    assert_eq!(card_text(&shown), "acme-home", "{shown}");
 }
 
 #[test]
@@ -221,8 +221,9 @@ fn with_icons_the_pane_border_puts_a_glyph_before_claude_and_neovim() {
     let shown = screen.wait_for("acme agent ready");
 
     let top = shown.lines().next().unwrap();
-    let expected = format!(" {SPARKLE} claude | {NEOVIM} nvim ");
-    assert!(top.contains(&expected), "{top}");
+    let claude = format!(" {SPARKLE} claude ");
+    let editor = format!(" {NEOVIM} nvim ");
+    assert!(in_order(top, &[&claude, &editor]), "{top}");
 }
 
 #[test]
@@ -237,8 +238,9 @@ fn with_icons_an_editor_that_is_not_neovim_gets_no_glyph() {
     let shown = screen.wait_for("acme agent ready");
 
     let top = shown.lines().next().unwrap();
-    let expected = format!(" {SPARKLE} claude | acme-edit ");
-    assert!(top.contains(&expected), "{top}");
+    let claude = format!(" {SPARKLE} claude ");
+    assert!(in_order(top, &[&claude, " acme-edit "]), "{top}");
+    assert!(!top.contains(NEOVIM), "{top}");
 }
 
 #[test]
@@ -252,8 +254,8 @@ fn with_icons_a_card_ends_with_the_neovim_glyph_while_its_editor_is_open() {
 
     let shown = screen.draw();
 
-    let card = format!("▌   {REPOSITORY} acme-home {NEOVIM}");
-    assert!(shown.contains(&card), "{shown}");
+    let card = format!("{REPOSITORY} acme-home {NEOVIM}");
+    assert_eq!(card_text(&shown), card, "{shown}");
 }
 
 #[test]
@@ -266,8 +268,8 @@ fn with_icons_a_card_shows_no_glyph_for_an_editor_that_is_not_neovim() {
 
     let shown = screen.draw();
 
-    let card = format!("▌   {REPOSITORY} acme-home ");
-    assert!(shown.contains(&card), "{shown}");
+    let card = format!("{REPOSITORY} acme-home");
+    assert_eq!(card_text(&shown), card, "{shown}");
     assert!(!shown.contains(NEOVIM), "{shown}");
 }
 
@@ -315,15 +317,7 @@ fn without_icons_a_card_with_neovim_open_is_drawn_as_before() {
 
     let shown = screen.draw();
 
-    let third: String = shown
-        .lines()
-        .nth(3)
-        .unwrap()
-        .chars()
-        .take(SIDEBAR_COLUMNS)
-        .collect();
-    let expected = format!("│▌   acme-home{}│", " ".repeat(25));
-    assert_eq!(third, expected);
+    assert_eq!(card_text(&shown), "acme-home", "{shown}");
 }
 
 pub(crate) fn editor_open() -> Screen {
@@ -350,6 +344,12 @@ fn card_line(shown: &str) -> String {
         .collect()
 }
 
+fn card_text(shown: &str) -> String {
+    card_line(shown)
+        .trim_matches(|c: char| vertical(c) || c == '▌' || c == ' ')
+        .to_string()
+}
+
 fn reading_editor_script() -> Vec<String> {
     script(
         "echo \"acme editor in ${PWD##*/}\"; \
@@ -371,11 +371,11 @@ fn wide_enough() -> u16 {
 }
 
 fn tab_columns(shown: &str) -> (u16, u16) {
-    let top: Vec<char> = shown.lines().next().unwrap().chars().collect();
-    let text: String = top.iter().collect();
-    let claude = text.find(" claude | ").unwrap();
+    let text = shown.lines().next().unwrap();
+    let claude = text.find(" claude ").unwrap();
+    let editor = claude + text[claude..].find(" acme-edit").unwrap();
     let claude = text[..claude].chars().count() + 1;
-    let editor = claude + "claude | ".chars().count();
+    let editor = text[..editor].chars().count() + 1;
     (
         u16::try_from(claude).unwrap(),
         u16::try_from(editor).unwrap(),

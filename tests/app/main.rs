@@ -74,6 +74,7 @@ use harbour::tui::Frames;
 use ratatui::backend::TestBackend;
 use ratatui::buffer::Cell;
 use ratatui::layout::{Position, Rect};
+use ratatui::symbols::border;
 use ratatui::{Terminal, TerminalOptions, Viewport};
 use tempfile::TempDir;
 
@@ -187,6 +188,18 @@ impl Screen {
         })
     }
 
+    fn wait_for_focused(&mut self, title: &str) -> String {
+        self.wait_until(&format!("focus on {title}"), |shown| {
+            focused_title(shown).starts_with(title)
+        })
+    }
+
+    fn wait_for_unfocused(&mut self, title: &str) -> String {
+        self.wait_until(&format!("{title} without focus"), |shown| {
+            unfocused_title(shown).starts_with(title)
+        })
+    }
+
     fn wait_for_stable(&mut self) -> String {
         let deadline = Instant::now() + Duration::from_secs(5);
         let mut last = self.draw();
@@ -294,11 +307,7 @@ fn region(shown: &str, from: usize, width: usize) -> String {
 
 fn pane_corner(shown: &str) -> u16 {
     let top = shown.lines().next().unwrap();
-    let column = top
-        .chars()
-        .skip(1)
-        .position(|c| c == '┌' || c == '┏')
-        .unwrap();
+    let column = top.chars().skip(1).position(top_left).unwrap();
     u16::try_from(column + 1).unwrap()
 }
 
@@ -308,7 +317,7 @@ fn below(shown: &str, text: &str) -> String {
     let next = lines.next().unwrap_or_default();
     next.chars()
         .skip(1)
-        .take_while(|c| !matches!(c, '│' | '┃'))
+        .take_while(|c| !vertical(*c))
         .collect::<String>()
         .trim_start_matches(['▌', ' '])
         .trim_end()
@@ -326,9 +335,114 @@ fn failure(wait: impl FnOnce()) -> String {
 
 fn sidebar_title(shown: &str) -> String {
     let top = shown.lines().next().unwrap_or_default();
-    let inside = top.trim_start_matches(['┌', '┏']);
-    let end = inside.find(['─', '━']).unwrap_or(inside.len());
+    let inside = top.trim_start_matches(top_left);
+    let end = inside.find(horizontal).unwrap_or(inside.len());
     inside[..end].to_string()
+}
+
+const BORDERS: [border::Set<'static>; 10] = [
+    border::PLAIN,
+    border::ROUNDED,
+    border::DOUBLE,
+    border::THICK,
+    border::LIGHT_DOUBLE_DASHED,
+    border::HEAVY_DOUBLE_DASHED,
+    border::LIGHT_TRIPLE_DASHED,
+    border::HEAVY_TRIPLE_DASHED,
+    border::LIGHT_QUADRUPLE_DASHED,
+    border::HEAVY_QUADRUPLE_DASHED,
+];
+
+fn parts(set: &border::Set<'static>) -> [&'static str; 8] {
+    [
+        set.top_left,
+        set.top_right,
+        set.bottom_left,
+        set.bottom_right,
+        set.vertical_left,
+        set.vertical_right,
+        set.horizontal_top,
+        set.horizontal_bottom,
+    ]
+}
+
+fn drawn_by(c: char, part: impl Fn(&border::Set<'static>) -> &'static str) -> bool {
+    let mut buffer = [0; 4];
+    let symbol: &str = c.encode_utf8(&mut buffer);
+    BORDERS.iter().any(|set| part(set) == symbol)
+}
+
+fn drawn(c: char) -> bool {
+    BORDERS
+        .iter()
+        .any(|set| parts(set).iter().any(|part| part.starts_with(c)))
+}
+
+fn top_left(c: char) -> bool {
+    drawn_by(c, |set| set.top_left)
+}
+
+fn vertical(c: char) -> bool {
+    drawn_by(c, |set| set.vertical_left)
+}
+
+fn horizontal(c: char) -> bool {
+    drawn_by(c, |set| set.horizontal_top)
+}
+
+fn focused(symbol: &str) -> bool {
+    symbol.chars().next().is_some_and(drawn) && !unfocused(symbol)
+}
+
+fn starts_focused(line: &str) -> bool {
+    line.chars().next().is_some_and(focused_char)
+}
+
+fn focused_char(c: char) -> bool {
+    focused(c.encode_utf8(&mut [0; 4]))
+}
+
+fn unfocused(symbol: &str) -> bool {
+    parts(&border::PLAIN).contains(&symbol)
+}
+
+fn unfocused_char(c: char) -> bool {
+    unfocused(c.encode_utf8(&mut [0; 4]))
+}
+
+fn column_of(shown: &str, row: usize, text: &str) -> u16 {
+    let line = shown.lines().nth(row).unwrap();
+    let at = line.find(text).unwrap();
+    u16::try_from(line[..at].chars().count()).unwrap()
+}
+
+fn in_order(text: &str, parts: &[&str]) -> bool {
+    let mut rest = text;
+    parts.iter().all(|part| match rest.find(part) {
+        Some(at) => {
+            rest = &rest[at + part.len()..];
+            true
+        }
+        None => false,
+    })
+}
+
+fn focused_title(shown: &str) -> String {
+    title(shown, focused_char)
+}
+
+fn unfocused_title(shown: &str) -> String {
+    title(shown, unfocused_char)
+}
+
+fn title(shown: &str, style: impl Fn(char) -> bool) -> String {
+    let top = shown.lines().next().unwrap_or_default();
+    let Some(at) = top.find(|c: char| top_left(c) && style(c)) else {
+        return String::new();
+    };
+    let inside = top[at..].trim_start_matches(top_left);
+    let end = inside.find(horizontal).unwrap_or(inside.len());
+    inside[..end].trim().to_string()
 }
 
 fn frames() -> Frames {

@@ -213,7 +213,7 @@ pub(crate) fn gone(pid: &str) -> bool {
 
 fn words_in(shown: &str, width: usize) -> String {
     region(shown, 0, width)
-        .split(|c: char| c.is_whitespace() || "│┃┌┐└┘┏┓┗┛─━".contains(c))
+        .split(|c: char| c.is_whitespace() || crate::drawn(c))
         .filter(|word| !word.is_empty())
         .collect::<Vec<_>>()
         .join(" ")
