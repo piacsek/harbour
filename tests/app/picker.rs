@@ -11,6 +11,8 @@ use harbour::picker::Picker;
 
 use crate::{Screen, directory, failure, home, reading_agent, script, starts_focused};
 
+use crate::deadline;
+
 #[test]
 fn a_wait_for_a_popup_that_stays_open_fails_showing_it() {
     let mut screen = Screen::picking(placed_agent(), Picker::Command(typed_picker()));
@@ -242,13 +244,15 @@ fn a_click_in_the_popup_reaches_a_picker_that_asked_for_the_mouse() {
 
 #[test]
 fn a_slow_list_holds_up_neither_harbour_nor_the_picker() {
-    let slow = script("sleep 10; printf '/acme/web\\n'");
+    let stall = (5 * deadline()).as_secs();
+    let slow = script(&format!("sleep {stall}; printf '/acme/web\\n'"));
     let mut screen = Screen::picking(placed_agent(), fuzzy(first_line_fzf(), slow));
     let pressed = Instant::now();
 
     screen.press('n');
 
-    assert!(pressed.elapsed() < Duration::from_secs(2));
+    let elapsed = pressed.elapsed();
+    assert!(elapsed < deadline(), "{elapsed:?}");
     screen.wait_for("acme picker");
     screen.type_text("\r");
     let row = format!("{} 1", directory());

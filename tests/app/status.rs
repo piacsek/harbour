@@ -13,6 +13,8 @@ use ratatui::style::{Color, Modifier};
 
 use crate::{Screen, below, directory, failure, script, sidebar_title};
 
+use crate::deadline;
+
 #[test]
 fn a_wait_for_a_dot_that_never_shows_fails_showing_the_last_dot() {
     let registry = tempfile::tempdir().unwrap();
@@ -286,16 +288,13 @@ fn the_file_of_an_exited_session_is_never_read() {
     let fifo = registry.path().join(format!("{}.json", pid.trim()));
     let made = Command::new("mkfifo").arg(&fifo).status().unwrap();
     assert!(made.success());
-    unblock_after(Duration::from_secs(3), fifo);
+    unblock_after(5 * deadline(), fifo);
 
     let start = Instant::now();
     after_a_read(&mut screen);
 
-    assert!(
-        start.elapsed() < Duration::from_secs(2),
-        "{:?}",
-        start.elapsed()
-    );
+    let elapsed = start.elapsed();
+    assert!(elapsed < deadline(), "{elapsed:?}");
 }
 
 #[test]
@@ -570,7 +569,8 @@ fn unblock_after(delay: Duration, fifo: PathBuf) {
 }
 
 fn wait_for_sidebar_row(screen: &mut Screen, text: &str) -> String {
-    let deadline = Instant::now() + Duration::from_secs(5);
+    let patience = 5 * deadline();
+    let until = Instant::now() + patience;
     loop {
         let shown = screen.draw();
         let row: String = shown.lines().nth(2).unwrap().chars().take(19).collect();
@@ -578,8 +578,8 @@ fn wait_for_sidebar_row(screen: &mut Screen, text: &str) -> String {
             return row;
         }
         assert!(
-            Instant::now() < deadline,
-            "waited 5 s for {text:?} in the sidebar row, last row: {row:?}"
+            Instant::now() < until,
+            "waited {patience:?} for {text:?} in the sidebar row, last row: {row:?}"
         );
         sleep(Duration::from_millis(20));
     }

@@ -1,11 +1,14 @@
 use std::ffi::OsString;
 use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 use harbour::tmux::{Direction, Tmux, located};
 
-const LONG: Duration = Duration::from_secs(5);
+#[path = "support/timing.rs"]
+mod timing;
+
+use timing::deadline;
 const BOUND: &str = "list-keys) echo 'bind-key    -T root C-j select-pane -D'; echo 'bind-key -r -T root C-k select-pane -U' ;;";
 
 #[test]
@@ -152,7 +155,7 @@ fn a_select_that_fails_is_no_move() {
         ),
         "%7".into(),
         "/dev/acme-tty".into(),
-        LONG,
+        5 * deadline(),
     );
 
     let moved = tmux.select(Direction::Below);
@@ -166,7 +169,7 @@ fn a_tmux_that_cannot_start_is_no_move() {
         vec!["/nonexistent/acme-tmux".into()],
         "%7".into(),
         "/dev/acme-tty".into(),
-        LONG,
+        5 * deadline(),
     );
 
     let moved = tmux.select(Direction::Below);
@@ -175,45 +178,45 @@ fn a_tmux_that_cannot_start_is_no_move() {
 }
 
 #[test]
-fn a_tmux_that_never_answers_is_given_up_on_well_within_a_second() {
+fn a_tmux_that_never_answers_is_given_up_on_at_the_deadline() {
+    let stall = (5 * deadline()).as_secs();
     let scratch = tempfile::tempdir().unwrap();
     let tmux = Tmux::with_program(
         program(
             scratch.path(),
             &format!(
-                "case $1 in {BOUND} display-message) sleep 5; echo '110 /dev/acme-tty' ;; esac"
+                "case $1 in {BOUND} display-message) sleep {stall}; echo '110 /dev/acme-tty' ;; esac"
             ),
         ),
         "%7".into(),
         "/dev/acme-tty".into(),
-        Duration::from_millis(100),
+        deadline(),
     );
     let began = Instant::now();
 
     let moved = tmux.select(Direction::Below);
 
+    let elapsed = began.elapsed();
     assert!(!moved);
-    assert!(
-        began.elapsed() < Duration::from_millis(500),
-        "{:?}",
-        began.elapsed()
-    );
+    assert!(elapsed >= deadline(), "{elapsed:?}");
+    assert!(elapsed < 2 * deadline(), "{elapsed:?}");
 }
 
 #[test]
 fn an_answer_whose_output_stays_open_after_it_exits_is_read_at_once() {
+    let stall = (5 * deadline()).as_secs();
     let scratch = tempfile::tempdir().unwrap();
-    let tmux = answering(scratch.path(), "echo '110 /dev/acme-tty'; sleep 5 &");
+    let tmux = answering(
+        scratch.path(),
+        &format!("echo '110 /dev/acme-tty'; sleep {stall} &"),
+    );
     let began = Instant::now();
 
     let moved = tmux.select(Direction::Below);
 
+    let elapsed = began.elapsed();
     assert!(moved);
-    assert!(
-        began.elapsed() < Duration::from_millis(500),
-        "{:?}",
-        began.elapsed()
-    );
+    assert!(elapsed < deadline(), "{elapsed:?}");
 }
 
 #[test]
@@ -226,7 +229,7 @@ fn a_key_tmux_does_not_bind_moves_nothing_and_asks_nothing_more() {
         ),
         "%7".into(),
         "/dev/acme-tty".into(),
-        LONG,
+        5 * deadline(),
     );
 
     let moved = tmux.select(Direction::Below);
@@ -245,7 +248,7 @@ fn a_key_missing_from_the_root_table_tmux_lists_moves_nothing_and_asks_nothing_m
         ),
         "%7".into(),
         "/dev/acme-tty".into(),
-        LONG,
+        5 * deadline(),
     );
 
     let moved = tmux.select(Direction::Below);
@@ -264,7 +267,7 @@ fn a_key_listed_after_a_long_root_table_is_bound() {
         ),
         "%7".into(),
         "/dev/acme-tty".into(),
-        LONG,
+        5 * deadline(),
     );
 
     let moved = tmux.select(Direction::Below);
@@ -282,7 +285,7 @@ fn a_key_listed_after_a_root_table_larger_than_a_pipe_holds_is_bound() {
         ),
         "%7".into(),
         "/dev/acme-tty".into(),
-        Duration::from_secs(2),
+        5 * deadline(),
     );
 
     let moved = tmux.select(Direction::Below);
@@ -326,18 +329,18 @@ fn a_pane_on_another_terminal_than_harbour_moves_nothing() {
 
 #[test]
 fn a_select_that_outlives_the_deadline_counts_as_a_move() {
+    let stall = (5 * deadline()).as_secs();
     let scratch = tempfile::tempdir().unwrap();
-    let deadline = Duration::from_secs(2);
     let tmux = Tmux::with_program(
         program(
             scratch.path(),
             &format!(
-                "case $1 in {BOUND} display-message) echo '110 /dev/acme-tty' ;; select-pane) exec sleep 30 ;; esac"
+                "case $1 in {BOUND} display-message) echo '110 /dev/acme-tty' ;; select-pane) exec sleep {stall} ;; esac"
             ),
         ),
         "%7".into(),
         "/dev/acme-tty".into(),
-        deadline,
+        deadline(),
     );
     let began = Instant::now();
 
@@ -345,8 +348,8 @@ fn a_select_that_outlives_the_deadline_counts_as_a_move() {
 
     let elapsed = began.elapsed();
     assert!(moved);
-    assert!(elapsed >= deadline, "{elapsed:?}");
-    assert!(elapsed < deadline + Duration::from_secs(3), "{elapsed:?}");
+    assert!(elapsed >= deadline(), "{elapsed:?}");
+    assert!(elapsed < 2 * deadline(), "{elapsed:?}");
 }
 
 fn answering(scratch: &Path, answer: &str) -> Tmux {
@@ -357,7 +360,7 @@ fn answering(scratch: &Path, answer: &str) -> Tmux {
         ),
         "%7".into(),
         "/dev/acme-tty".into(),
-        LONG,
+        5 * deadline(),
     )
 }
 

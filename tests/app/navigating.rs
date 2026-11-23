@@ -1,5 +1,4 @@
 use std::path::Path;
-use std::time::Duration;
 
 use crossterm::event::{KeyCode, KeyModifiers};
 use harbour::app::App;
@@ -8,6 +7,8 @@ use harbour::tmux::Tmux;
 
 use crate::logging::{logged, only, read};
 use crate::{Screen, numbered_agent, script, shows_titled};
+
+use crate::deadline;
 
 const BELOW: &str = "list-keys -T root\ndisplay-message -p -t %7 #{pane_active}#{window_active}#{pane_at_bottom} #{pane_tty}\nselect-pane -D -t %7\n";
 
@@ -109,7 +110,7 @@ fn ctrl_j_in_claude_code_reaches_it_when_tmux_binds_no_ctrl_j() {
         ],
         "%7".into(),
         "/dev/acme-tty".into(),
-        Duration::from_secs(5),
+        5 * deadline(),
     );
     let mut screen = focused(App::new(reader("agent")).with_tmux(unbound));
 
@@ -146,7 +147,7 @@ fn ctrl_j_in_claude_code_reaches_it_when_tmux_fails() {
         vec!["/nonexistent/acme-tmux".into()],
         "%7".into(),
         "/dev/acme-tty".into(),
-        Duration::from_secs(5),
+        5 * deadline(),
     );
     let mut screen = focused(App::new(reader("agent")).with_tmux(failing));
 
@@ -253,7 +254,7 @@ fn tmux(scratch: &Path, edge: &str) -> Tmux {
         ],
         "%7".into(),
         "/dev/acme-tty".into(),
-        Duration::from_secs(5),
+        5 * deadline(),
     )
 }
 

@@ -3,11 +3,14 @@ use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
 use std::process::Command;
 use std::sync::mpsc;
-use std::time::Duration;
 
 use harbour::config::{Config, Source};
 
 use crate::{config_path, read_at, write_config};
+
+#[path = "../support/timing.rs"]
+mod timing;
+use timing::deadline;
 
 #[test]
 fn a_syntax_error_names_the_file_the_line_and_the_key() {
@@ -350,7 +353,7 @@ fn a_fifo_in_place_of_the_file_is_refused_without_waiting() {
     std::thread::spawn(move || sender.send(refusal(&folder)).unwrap());
 
     assert_eq!(
-        receiver.recv_timeout(Duration::from_secs(5)).unwrap(),
+        receiver.recv_timeout(5 * deadline()).unwrap(),
         format!("{}: not a regular file", path.display())
     );
 }

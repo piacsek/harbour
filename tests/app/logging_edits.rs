@@ -6,11 +6,11 @@ use std::time::{Duration, Instant};
 use crossterm::event::{KeyCode, KeyModifiers};
 use harbour::handoff::{Listener, Reply, Verb};
 
-use crate::Screen;
 use crate::handing::{Edit, answering, neovim_at};
 use crate::handoff::{app_with, file, recorded, recording_neovim, socket_in, soon, start_in};
 use crate::handoff_socket::{asked_about, requested};
 use crate::logging::{count, logged, only, read};
+use crate::{Screen, deadline};
 
 #[test]
 fn an_ask_served_logs_its_file_reply_and_time() {
@@ -113,7 +113,7 @@ fn a_neovim_that_never_answers_logs_one_unanswered_call_with_its_tries() {
     screen.app.hand(
         Verb::Open,
         &file(scratch.path(), "acme-api"),
-        Instant::now() + Duration::from_millis(600),
+        Instant::now() + deadline(),
     );
 
     let mode = only(&read(&lines), " neovim call=mode ");

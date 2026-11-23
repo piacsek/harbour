@@ -66,6 +66,25 @@ after the Clawd glyph: `tests/tabs.rs`, `tests/app/side_border.rs`, `tests/e2e/c
   command exits at once loses its output before `capture-pane` reads it, even with
   `remain-on-exit`, so the pane command ends in `echo "harbour exited $?"; exec sleep 600`.
 
+- **No elapsed-time bound is an idle-machine constant.** A busy machine stretches every wait, so
+  an upper bound on elapsed time comes from `deadline()` in `tests/support/timing.rs` (2 s, times
+  the whole number in `HARBOUR_TEST_SLOWDOWN`, 1 when unset), pulled in with `#[path]` (in
+  `tests/app/` once, by `main.rs`). A test of giving up injects `deadline()` and asserts
+  `elapsed >= deadline()` and `elapsed < 2 * deadline()`, or only the upper bound where a platform
+  refuses at once (a socket that never accepts is refused at once on macOS, so `tests/nvim.rs`
+  asserts only it); a test of returning early injects or stalls `5 * deadline()` and asserts
+  `elapsed < deadline()`; any other deadline a seam or a waiting helper takes is `5 * deadline()`.
+  Where the time is the product's own latency and no deadline can be injected, the bound is a
+  test constant mirroring `src` (`HANGUP_GRACE`, `OPEN_PATIENCE`, `ASKING`) with the loosest
+  margin a regression still breaks. `tests/wall_clock.rs` fails on a `<` or `<=` bound by a
+  `Duration::from_` or after `as_millis()` or `as_secs()`, a `Duration::from_` on the left of `>`,
+  a `recv_timeout(Duration::from_` not followed by `.is_err()` on its line, and a literal
+  `Duration::from_` anywhere inside a call of `with_program`, `with_patience`, `hand`, `finish`,
+  `retrying_every`, `nvim::mode` or `nvim::eval`. It cannot see a literal reached through a `let`,
+  a `const` or a helper of its own (a poll loop's `Instant`), a bound split across lines or
+  written `>` with the count on the right, or a seam call holding a raw string or a character
+  escape longer than one character with a parenthesis.
+
 - **No test starts the real `claude`.** A session runs the program `HARBOUR_SESSION_COMMAND`
   names (`SESSION_COMMAND` in `src/tui.rs`, on the `SEAMS` list), `claude` when it is unset.
   The end-to-end tests set it to `tests/fixtures/agent.sh`, `tests/fixtures/raw-agent.sh` or
@@ -302,6 +321,7 @@ tests/           by level (see "Where a test belongs"): `tests/cli.rs` runs the 
                  `tests/checkout_name.rs` fails while a test under `tests/` reads the process's directory (`current_dir()`, the checkout under cargo) or builds a `tests/app/` `Screen` outside `tests/app/main.rs`, naming the file and line (what it cannot see: `tests/AGENTS.md`);
                  `tests/toolchain.rs` fails while the `toolchain:` of `ci.yml` or `release.yml` differs from the channel of `rust-toolchain.toml`, or the `components:` of `ci.yml` or of the `build` job of `release.yml` from its `components`, or `rust-version` in `Cargo.toml` from its `major.minor`, or the `tag` job of `release.yml` loses `RUSTUP_TOOLCHAIN: stable`, or `flake.nix` stops leaving out those components;
                  `tests/plans.rs` fails while a plan file is missing from the `PLAN.md` index, a phase plan has no `## Outcome` or a malformed `## Hurdles`, a sweep phase's `## Outcome` has no `### Sweep`, or a phase has no `plans/metrics.md` row;
+                 `tests/wall_clock.rs` fails while a test bounds elapsed time by a constant or hands a seam a literal deadline (see the traps above);
                  `tests/dead_code.rs` fails while a `pub` item under `src/` has its name nowhere else in `src/` (a name scan, not a resolver) and is not on its `SEAMS` list, while a seam on that list is no longer declared or used by a test, or while a `dead_code` attribute sits anywhere under `src/` or `tests/`, naming each;
                  a test file that outgrows the limit becomes a folder (`tests/<name>/main.rs` plus one file per topic), so it stays one binary
 ```

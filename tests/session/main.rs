@@ -11,6 +11,11 @@ use vt100::{MouseProtocolEncoding, MouseProtocolMode};
 
 mod keyboard;
 
+#[path = "../support/timing.rs"]
+mod timing;
+
+use timing::deadline;
+
 const ROWS: u16 = 10;
 const COLS: u16 = 200;
 
@@ -355,7 +360,7 @@ fn a_large_paste_into_a_command_that_does_not_read_returns_at_once() {
         let _ = done.send(session.application_cursor());
     });
 
-    assert!(finished.recv_timeout(Duration::from_secs(2)).is_ok());
+    assert!(finished.recv_timeout(deadline()).is_ok());
 }
 
 #[test]
