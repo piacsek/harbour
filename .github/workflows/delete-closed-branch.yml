@@ -45,3 +45,4 @@ jobs:
           git init -q .
           git push -q "$remote" --force-with-lease="$ref:$HEAD_SHA" ":$ref"
           echo "deleted $BRANCH"
+    timeout-minutes: 5
