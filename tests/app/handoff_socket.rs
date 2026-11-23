@@ -16,6 +16,8 @@ use crate::handing::answering;
 use crate::handoff::{app_with, file, listening, socket_in, soon, start_in};
 use crate::{Screen, script};
 
+use crate::handoff::timing::deadline;
+
 #[test]
 fn a_flood_of_silent_connections_leaves_keys_prompt() {
     let scratch = tempfile::tempdir().unwrap();
@@ -31,12 +33,9 @@ fn a_flood_of_silent_connections_leaves_keys_prompt() {
     screen.type_text("acme typed");
 
     let shown = screen.wait_for("acme typed");
+    let elapsed = started.elapsed();
     assert!(shown.contains("acme typed"), "{shown}");
-    assert!(
-        started.elapsed() < Duration::from_secs(1),
-        "{:?}",
-        started.elapsed()
-    );
+    assert!(elapsed < deadline(), "{elapsed:?}");
 }
 
 #[test]

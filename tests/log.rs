@@ -6,6 +6,11 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use harbour::log::{self, Log};
 
+#[path = "support/timing.rs"]
+mod timing;
+
+use timing::deadline;
+
 #[test]
 fn a_log_writes_its_lines_to_the_file_named_by_its_pid() {
     let scratch = tempfile::tempdir().unwrap();
@@ -194,9 +199,11 @@ fn finishing_a_log_whose_disk_stalls_waits_no_longer_than_it_was_given() {
     log.write(|| "quit sessions=0".to_string());
 
     let started = Instant::now();
-    log.finish(Duration::from_millis(200));
+    log.finish(deadline());
 
-    assert!(started.elapsed() < Duration::from_secs(2));
+    let elapsed = started.elapsed();
+    assert!(elapsed >= deadline(), "{elapsed:?}");
+    assert!(elapsed < 2 * deadline(), "{elapsed:?}");
 }
 
 #[test]
@@ -263,7 +270,8 @@ fn a_log_whose_folder_cannot_be_made_drops_its_lines() {
         log.write(|| "input to=1 bytes=1".to_string());
     }
 
-    assert!(started.elapsed() < Duration::from_secs(1));
+    let elapsed = started.elapsed();
+    assert!(elapsed < deadline(), "{elapsed:?}");
 }
 
 #[test]
@@ -282,7 +290,8 @@ fn a_log_on_a_path_that_stalls_never_delays_a_write() {
         log.write(|| "input to=1 bytes=1".to_string());
     }
 
-    assert!(started.elapsed() < Duration::from_secs(1));
+    let elapsed = started.elapsed();
+    assert!(elapsed < deadline(), "{elapsed:?}");
 }
 
 #[test]

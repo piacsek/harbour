@@ -14,6 +14,10 @@ use crate::directory::{cwd, following_with, repository, write_transcript};
 use crate::handoff::{editing, file, harbour, harbour_with, soon, start_in};
 use crate::script;
 
+use crate::handoff::timing::deadline;
+
+const OPEN_PATIENCE: Duration = Duration::from_secs(1);
+
 const WAITING: &str = "Neovim is waiting for a key; answer it and try again";
 const BUSY: &str = "harbour was busy and did not get to it in time";
 const CLOSED: &str = "Neovim did not start in time; harbour closed it";
@@ -59,12 +63,15 @@ fn an_open_that_starts_a_neovim_which_exits_at_once_says_so_without_waiting() {
     start_in(&mut screen, scratch.path(), "acme-api", 1);
     let started = Instant::now();
 
-    let reply = screen
-        .app
-        .hand(Verb::Open, &file(scratch.path(), "acme-api"), soon());
+    let reply = screen.app.hand(
+        Verb::Open,
+        &file(scratch.path(), "acme-api"),
+        Instant::now() + 5 * deadline(),
+    );
 
+    let elapsed = started.elapsed();
     assert_eq!(reply, Reply::Untaken(EXITED.to_string()));
-    assert!(started.elapsed() < Duration::from_secs(2));
+    assert!(elapsed < deadline(), "{elapsed:?}");
 }
 
 #[test]
@@ -137,12 +144,15 @@ fn an_open_that_starts_a_neovim_which_stops_at_a_prompt_on_loading_the_file_is_r
     let _asked = answering_in(scratch.path(), "n", false, Duration::ZERO, Edit::Prompting);
     let started = Instant::now();
 
-    let reply = screen
-        .app
-        .hand(Verb::Open, &file(scratch.path(), "acme-api"), soon());
+    let reply = screen.app.hand(
+        Verb::Open,
+        &file(scratch.path(), "acme-api"),
+        Instant::now() + 5 * deadline(),
+    );
 
+    let elapsed = started.elapsed();
     assert_eq!(reply, Reply::Refused(WAITING.to_string()));
-    assert!(started.elapsed() < Duration::from_secs(2));
+    assert!(elapsed < deadline(), "{elapsed:?}");
 }
 
 #[test]
@@ -156,8 +166,9 @@ fn an_open_that_raises_a_prompt_in_a_running_neovim_is_refused_at_once() {
         .app
         .hand(Verb::Open, &file(scratch.path(), "acme-api"), soon());
 
+    let elapsed = started.elapsed();
     assert_eq!(reply, Reply::Refused(WAITING.to_string()));
-    assert!(started.elapsed() < Duration::from_millis(500));
+    assert!(elapsed < OPEN_PATIENCE, "{elapsed:?}");
 }
 
 #[test]

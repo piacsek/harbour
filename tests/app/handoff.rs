@@ -16,6 +16,9 @@ use crate::handing::{Edit, answering, called, neovim_at};
 use crate::remembering::{ID, TITLE};
 use crate::{Screen, numbered_agent, script};
 
+#[path = "../support/timing.rs"]
+pub(crate) mod timing;
+
 #[test]
 fn with_no_session_nothing_holds_a_file() {
     let scratch = tempfile::tempdir().unwrap();

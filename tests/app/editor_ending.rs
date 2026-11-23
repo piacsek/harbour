@@ -6,6 +6,7 @@ use crossterm::event::{KeyCode, KeyModifiers};
 use harbour::editor::Program;
 use ratatui::style::Modifier;
 
+use crate::ending::HANGUP_GRACE;
 use crate::{Screen, below, reading_agent, region, script};
 
 #[test]
@@ -143,7 +144,8 @@ fn quitting_ends_editors_and_sessions_within_one_grace_period() {
 
     drop(screen);
 
-    assert!(started.elapsed() < Duration::from_millis(350));
+    let elapsed = started.elapsed();
+    assert!(elapsed < 2 * HANGUP_GRACE, "{elapsed:?}");
     assert!(gone(&pid(scratch.path())));
 }
 

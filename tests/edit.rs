@@ -8,6 +8,13 @@ use std::time::{Duration, Instant, SystemTime};
 
 use harbour::handoff::{Claim, Listener, Reply, Verb};
 
+#[path = "support/timing.rs"]
+mod timing;
+
+use timing::deadline;
+
+const ASKING: Duration = Duration::from_secs(2);
+
 #[test]
 fn a_bad_config_file_is_never_read() {
     let scratch = tempfile::tempdir().unwrap();
@@ -355,12 +362,10 @@ fn a_socket_that_never_answers_says_no_harbour_answered_within_seconds() {
 
     let output = edit(scratch.path(), "main.rs");
 
+    let elapsed = started.elapsed();
     assert_eq!(stderr(&output), "harbour: no harbour answered\n");
-    assert!(
-        started.elapsed() < Duration::from_secs(4),
-        "{:?}",
-        started.elapsed()
-    );
+    assert!(elapsed >= ASKING, "{elapsed:?}");
+    assert!(elapsed < ASKING + deadline(), "{elapsed:?}");
 }
 
 #[test]

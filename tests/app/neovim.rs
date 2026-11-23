@@ -12,6 +12,8 @@ use rmpv::Value;
 
 use crate::{Screen, pane_corner, reading_agent, script};
 
+use crate::handoff::timing::deadline;
+
 const LEFTMOST: &str = "winnr('h') == winnr()";
 const RIGHTMOST: &str = "winnr('l') == winnr()";
 const UNSAVED: &str = "len(filter(getbufinfo({'bufmodified': 1}), \
@@ -103,7 +105,7 @@ fn ctrl_h_shows_claude_code_soon_when_neovim_never_answers() {
 
     let shown = screen.wait_for("acme agent ready");
     assert!(shown.contains("acme agent ready"), "{shown}");
-    assert!(waited < Duration::from_millis(500), "{waited:?}");
+    assert!(waited < deadline(), "{waited:?}");
 }
 
 #[test]
@@ -356,7 +358,7 @@ fn swapped_ctrl_h_kept_by_neovim_reaches_neovim_and_the_sidebar_stays_hidden() {
 }
 
 fn in_the_sidebar(scratch: &Path) -> Screen {
-    in_the_sidebar_of(fake_neovim(scratch, "exec sleep 600").with_patience(Duration::from_secs(5)))
+    in_the_sidebar_of(fake_neovim(scratch, "exec sleep 600").with_patience(5 * deadline()))
 }
 
 fn in_the_sidebar_of(neovim: Program) -> Screen {
@@ -367,7 +369,7 @@ fn in_the_sidebar_of(neovim: Program) -> Screen {
 }
 
 fn open(scratch: &Path, then: &str) -> Screen {
-    open_with(fake_neovim(scratch, then).with_patience(Duration::from_secs(5)))
+    open_with(fake_neovim(scratch, then).with_patience(5 * deadline()))
 }
 
 fn open_with(neovim: Program) -> Screen {
@@ -404,7 +406,7 @@ fn kitty_neovim(scratch: &Path) -> Program {
              printf 'acme nvim read:%s' \"$r\"; exec sleep 600"
         )),
     )
-    .with_patience(Duration::from_secs(5))
+    .with_patience(5 * deadline())
 }
 
 fn socket(scratch: &Path) -> PathBuf {
@@ -475,7 +477,7 @@ fn serving(
 }
 
 fn swapped(scratch: &Path) -> Screen {
-    let neovim = fake_neovim(scratch, "exec sleep 600").with_patience(Duration::from_secs(5));
+    let neovim = fake_neovim(scratch, "exec sleep 600").with_patience(5 * deadline());
     let mut screen = Screen::editing(reading_agent(), neovim);
     screen.press('n');
     screen.wait_for("acme agent ready");

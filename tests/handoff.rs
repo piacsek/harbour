@@ -12,6 +12,11 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use harbour::handoff::{Listener, Reply, Verb};
 
+#[path = "support/timing.rs"]
+mod timing;
+
+use timing::deadline;
+
 #[test]
 fn a_wait_for_a_socket_never_bound_fails_naming_its_folder() {
     let scratch = tempfile::tempdir().unwrap();
@@ -322,36 +327,30 @@ fn a_connection_over_the_limit_in_flight_is_closed_at_once() {
     let started = Instant::now();
 
     assert_eq!(unanswered(&mut extra), "");
-    assert!(
-        started.elapsed() < Duration::from_secs(1),
-        "{:?}",
-        started.elapsed()
-    );
+    let elapsed = started.elapsed();
+    assert!(elapsed < deadline(), "{elapsed:?}");
     assert_eq!(arrived(&mut listener).verb, Verb::Ask);
 }
 
 #[test]
 fn dropping_an_idle_listener_returns_at_once() {
     let scratch = tempfile::tempdir().unwrap();
-    let mut listener = Listener::new(&scratch.path().join("edit"));
+    let mut listener = Listener::retrying_every(&scratch.path().join("edit"), 5 * deadline());
     listener.incoming();
     sleep(Duration::from_millis(50));
     let started = Instant::now();
 
     drop(listener);
 
-    assert!(
-        started.elapsed() < Duration::from_millis(500),
-        "{:?}",
-        started.elapsed()
-    );
+    let elapsed = started.elapsed();
+    assert!(elapsed < deadline(), "{elapsed:?}");
 }
 
 #[test]
 fn dropping_a_listener_during_a_flood_of_connections_returns_at_once() {
     let scratch = tempfile::tempdir().unwrap();
     let dir = scratch.path().join("edit");
-    let listener = Listener::new(&dir);
+    let listener = Listener::retrying_every(&dir, 5 * deadline());
     let socket = socket_files(&dir)[0].clone();
     let flooding = Arc::new(AtomicBool::new(true));
     let flood = {
@@ -374,7 +373,7 @@ fn dropping_a_listener_during_a_flood_of_connections_returns_at_once() {
     let elapsed = started.elapsed();
     flooding.store(false, Ordering::Relaxed);
     assert!(flood.join().unwrap() > 0);
-    assert!(elapsed < Duration::from_millis(500), "{elapsed:?}");
+    assert!(elapsed < deadline(), "{elapsed:?}");
 }
 
 fn arrived(listener: &mut Listener) -> harbour::handoff::Request {
@@ -417,7 +416,7 @@ fn unanswered(stream: &mut UnixStream) -> String {
 }
 
 fn later() -> u128 {
-    millis(SystemTime::now() + Duration::from_secs(5))
+    millis(SystemTime::now() + 5 * deadline())
 }
 
 fn earlier() -> u128 {

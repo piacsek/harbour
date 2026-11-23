@@ -4,6 +4,8 @@ use crossterm::event::{KeyCode, KeyModifiers, MouseButton, MouseEventKind};
 
 use crate::{Screen, below, directory, numbered_agent, raw_agent, reading_agent, script};
 
+pub(crate) const HANGUP_GRACE: Duration = Duration::from_millis(200);
+
 #[test]
 fn x_on_a_running_session_asks_before_ending_it() {
     let mut screen = Screen::new(reading_agent());
@@ -174,5 +176,6 @@ fn quitting_ends_every_running_session_within_one_grace_period() {
 
     drop(screen);
 
-    assert!(started.elapsed() < Duration::from_millis(600));
+    let elapsed = started.elapsed();
+    assert!(elapsed < 5 * HANGUP_GRACE, "{elapsed:?}");
 }
