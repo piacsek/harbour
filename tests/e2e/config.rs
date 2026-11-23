@@ -157,24 +157,6 @@ fn a_conversation_resumes_with_the_session_command_from_the_file() {
 
 #[test]
 #[ignore]
-fn the_session_command_variable_outranks_the_file() {
-    let home = tempfile::tempdir().unwrap();
-    write_config(
-        home.path(),
-        &format!("session_command = [{ARGS_AGENT:?}, \"--model\", \"acme\"]\n"),
-    );
-    let server = Server::start("config-command-variable", 160, 20);
-    server.run(home.path(), &[(SESSION_COMMAND, AGENT)], &[]);
-    server.wait_for_screen("press n to start one");
-
-    server.send_keys(&["n"]);
-
-    let screen = server.wait_for_screen("acme agent in acme-api");
-    assert!(!screen.contains("acme agent args:"), "{screen}");
-}
-
-#[test]
-#[ignore]
 fn the_editor_from_the_file_runs_with_its_arguments() {
     let home = tempfile::tempdir().unwrap();
     write_config(

@@ -68,7 +68,8 @@ fn the_prefix_then_backslash_on_an_exited_session_does_nothing() {
     let editor = Program::new("acme-edit", editor());
     let mut screen = Screen::editing(script("echo 'acme agent done'"), editor);
     screen.press('n');
-    let before = screen.wait_for("exited");
+    screen.wait_for_all(&["exited", "acme agent done"]);
+    let before = screen.wait_for_stable();
 
     side(&mut screen);
     sleep(Duration::from_millis(300));

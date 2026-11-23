@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use crate::real_neovim::{held, reached};
-use crate::{Screen, failure, reading_agent};
+use crate::{Screen, failure, reading_agent, script};
 
 #[test]
 fn a_wait_for_text_that_never_shows_fails_naming_it_and_showing_the_screen() {
@@ -13,6 +13,25 @@ fn a_wait_for_text_that_never_shows_fails_naming_it_and_showing_the_screen() {
 
     assert!(failure.contains(r#"for ["acme never shown"]"#), "{failure}");
     assert!(failure.contains("No session yet"), "{failure}");
+}
+
+#[test]
+fn a_wait_for_a_screen_that_never_stops_changing_fails_showing_the_last_screen() {
+    let mut screen = Screen::new(script(
+        "i=0; while :; do i=$((i+1)); echo \"acme tick $i\"; sleep 0.05; done",
+    ));
+    screen.press('n');
+    screen.wait_for("acme tick");
+
+    let failure = failure(|| {
+        screen.wait_for_stable();
+    });
+
+    assert!(
+        failure.contains("for the screen to stop changing"),
+        "{failure}"
+    );
+    assert!(failure.contains("acme tick"), "{failure}");
 }
 
 #[test]

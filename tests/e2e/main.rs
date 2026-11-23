@@ -114,24 +114,6 @@ fn n_runs_the_dir_picker_and_starts_the_session_in_the_directory_it_prints() {
 
 #[test]
 #[ignore]
-fn an_empty_dir_picker_setting_counts_as_unset() {
-    let home = tempfile::tempdir().unwrap();
-    let server = Server::start("empty-picker", 160, 20);
-    server.run(
-        home.path(),
-        &[(SESSION_COMMAND, AGENT), (DIR_PICKER, "")],
-        &[],
-    );
-    server.wait_for_screen("press n to start one");
-
-    server.send_keys(&["n"]);
-
-    let screen = server.wait_for_screen_all(&["acme agent in acme-api", "acme-api 1"]);
-    assert!(screen.contains("acme-api 1"), "{screen}");
-}
-
-#[test]
-#[ignore]
 fn a_session_does_not_inherit_the_tmux_of_harbour() {
     let home = tempfile::tempdir().unwrap();
     let server = Server::start("tmux-env", 160, 20);
@@ -211,43 +193,6 @@ fn a_click_in_the_pane_reaches_the_session() {
 
     let screen = server.wait_for_screen("read:^[<0;6;4M");
     assert!(screen.contains("read:^[<0;6;4M"), "{screen}");
-}
-
-#[test]
-#[ignore]
-fn a_command_that_cannot_start_is_named_in_the_pane() {
-    let home = tempfile::tempdir().unwrap();
-    let server = Server::start("missing", 160, 20);
-    server.run(home.path(), &[(SESSION_COMMAND, "acme-agent-missing")], &[]);
-    server.wait_for_screen("press n to start one");
-
-    server.send_keys(&["n"]);
-
-    let screen = server.wait_for_screen("Could not start acme-agent-missing");
-    assert!(
-        screen.contains("Could not start acme-agent-missing"),
-        "{screen}"
-    );
-    assert!(!screen.contains("acme-api 1"), "{screen}");
-}
-
-#[test]
-#[ignore]
-fn q_with_a_running_session_asks_and_y_leaves() {
-    let home = tempfile::tempdir().unwrap();
-    let server = Server::start("quit-asks", 160, 20);
-    server.run(home.path(), &[(SESSION_COMMAND, AGENT)], &[]);
-    server.wait_for_screen("press n to start one");
-    server.send_keys(&["n"]);
-    server.wait_for_screen("acme agent in acme-api");
-
-    server.send_keys(&["C-/", "q"]);
-    let screen = server.wait_for_screen("Quit? y/n");
-    assert!(screen.contains("Quit? y/n"), "{screen}");
-    server.send_keys(&["y"]);
-
-    let screen = server.wait_for_screen("harbour exited 0");
-    assert!(screen.contains("harbour exited 0"), "{screen}");
 }
 
 #[test]

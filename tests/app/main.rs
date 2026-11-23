@@ -187,6 +187,26 @@ impl Screen {
         })
     }
 
+    fn wait_for_stable(&mut self) -> String {
+        let deadline = Instant::now() + Duration::from_secs(5);
+        let mut last = self.draw();
+        let mut since = Instant::now();
+        loop {
+            sleep(Duration::from_millis(20));
+            let shown = self.draw();
+            if shown != last {
+                last = shown;
+                since = Instant::now();
+            } else if since.elapsed() >= Duration::from_millis(300) {
+                return shown;
+            }
+            assert!(
+                Instant::now() < deadline,
+                "waited 5 s for the screen to stop changing, last screen:\n{last}"
+            );
+        }
+    }
+
     fn wait_until(&mut self, what: &str, mut done: impl FnMut(&str) -> bool) -> String {
         let deadline = Instant::now() + Duration::from_secs(5);
         loop {

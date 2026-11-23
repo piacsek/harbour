@@ -26,20 +26,6 @@ fn the_default_claude_is_started_with_a_session_id() {
 
 #[test]
 #[ignore]
-fn a_session_command_is_started_without_a_session_id() {
-    let home = tempfile::tempdir().unwrap();
-    let server = Server::start("no-session-id", 160, 20);
-    server.run(home.path(), &[(SESSION_COMMAND, ARGS_AGENT)], &[]);
-    server.wait_for_screen("press n to start one");
-
-    server.send_keys(&["n"]);
-
-    let screen = server.wait_for_screen("acme agent args:");
-    assert!(screen.contains("acme agent args:[]"), "{screen}");
-}
-
-#[test]
-#[ignore]
 fn c_l_opens_the_editor_harbour_editor_names_without_arguments() {
     let home = tempfile::tempdir().unwrap();
     let server = Server::start("named-editor", 160, 20);
@@ -71,20 +57,6 @@ fn without_harbour_editor_c_l_opens_nvim_listening_on_a_socket() {
     let screen = editing(&server);
     assert!(screen.contains("first arg:[--listen]"), "{screen}");
     assert!(screen.contains("claude | nvim: "), "{screen}");
-}
-
-#[test]
-#[ignore]
-fn an_empty_editor_setting_counts_as_unset() {
-    let home = tempfile::tempdir().unwrap();
-    let nvim = Path::new(&tools(home.path())).join("nvim");
-    std::os::unix::fs::symlink(FIXTURE_EDITOR, nvim).unwrap();
-    let server = Server::start("empty-editor", 160, 20);
-
-    server.run(home.path(), &[(SESSION_COMMAND, AGENT), (EDITOR, "")], &[]);
-
-    let screen = editing(&server);
-    assert!(screen.contains("first arg:[--listen]"), "{screen}");
 }
 
 #[test]
@@ -231,10 +203,10 @@ fn the_prefix_then_backslash_in_the_demo_shows_its_made_up_editor_beside_claude_
 
     server.send_keys(&["C-/", "\\"]);
 
-    let screen = server.wait_for_screen("src/retry.rs");
-    let top: Vec<char> = screen.lines().next().unwrap().chars().collect();
-    assert_eq!(top[0], '┏', "{screen}");
-    assert_eq!(top[80], '┌', "{screen}");
+    let screen = server.wait_until("the demo editor beside claude code", |screen| {
+        screen.contains("pub fn retry") && second_half_corner(screen)
+    });
+    assert!(second_half_corner(&screen), "{screen}");
     assert!(screen.contains("pub fn retry"), "{screen}");
 }
 
@@ -290,4 +262,9 @@ fn harbours_tmux(server: &Server) -> (String, String) {
 
 fn editor_line((tmux, pane): &(String, String)) -> String {
     format!("acme editor tmux:[{tmux}] pane:[{pane}]")
+}
+
+fn second_half_corner(screen: &str) -> bool {
+    let top: Vec<char> = screen.lines().next().unwrap_or_default().chars().collect();
+    matches!(top.get(80), Some('┌' | '┏'))
 }

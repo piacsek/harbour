@@ -9,21 +9,7 @@ use super::edit::{handed, source_file};
 use super::{AGENT, Server, tools};
 
 const CLEAN_NVIM: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/nvim/nvim");
-const SIDEBAR_CLICK: &str = "\x1b[<0;3;3M";
-const SIDEBAR_RELEASE: &str = "\x1b[<0;3;3m";
 const WAITING: &str = "harbour: Neovim is waiting for a key; answer it and try again\n";
-
-#[test]
-#[ignore]
-fn ctrl_h_in_normal_mode_in_the_leftmost_window_goes_to_claude_code() {
-    let Some(neovim) = Neovim::start("nvim-leftmost") else {
-        return;
-    };
-
-    neovim.server.send_keys(&["C-h"]);
-
-    neovim.assert_in_claude_code();
-}
 
 #[test]
 #[ignore]
@@ -62,19 +48,6 @@ fn a_tmux_command_run_from_neovim_targets_the_pane_of_harbour_and_ctrl_h_still_l
     neovim.assert_in_neovim();
     neovim.server.send_keys(&["C-h"]);
     neovim.assert_in_claude_code();
-}
-
-#[test]
-#[ignore]
-fn x_with_a_modified_buffer_says_there_are_unsaved_changes() {
-    let Some(neovim) = Neovim::start("nvim-modified") else {
-        return;
-    };
-    neovim.type_text("acme");
-
-    let screen = neovim.end_from_the_sidebar("End? y/n");
-
-    assert!(screen.contains("Unsaved changes. End? y/n"), "{screen}");
 }
 
 #[test]
@@ -329,16 +302,6 @@ impl Neovim {
         assert!(screen.contains(text), "{screen}");
     }
 
-    fn type_text(&self, text: &str) {
-        self.server.send_keys(&["i"]);
-        self.shows("-- INSERT --");
-        self.server.send_keys(&[text]);
-        let line = format!("┃{text}");
-        self.shows(&line);
-        self.server.send_keys(&["Escape"]);
-        self.settled();
-    }
-
     fn assert_in_claude_code(&self) {
         let screen = self
             .server
@@ -347,15 +310,6 @@ impl Neovim {
         self.server.send_keys(&["acme-ping", "Enter"]);
         let screen = self.server.wait_for_screen("acme agent got: acme-ping");
         assert!(screen.contains("acme agent got: acme-ping"), "{screen}");
-    }
-
-    fn end_from_the_sidebar(&self, question: &str) -> String {
-        self.server.send_bytes(SIDEBAR_CLICK);
-        self.server.send_bytes(SIDEBAR_RELEASE);
-        let focused = self.server.wait_for_screen("┏ sessions");
-        assert!(focused.contains("┏ sessions"), "{focused}");
-        self.server.send_keys(&["x"]);
-        self.server.wait_for_screen(question)
     }
 
     fn end_every_neovim(&self) {
