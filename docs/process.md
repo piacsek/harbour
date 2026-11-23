@@ -4,10 +4,12 @@ How work runs from plan to release: the autonomous flow, review, metrics, mergin
 `AGENTS.md` keeps the hard rules; read this file in full before working autonomously, reviewing,
 merging or releasing, or when the sweep skill or the orchestrator says to.
 
-All guidelines live in `AGENTS.md` files, versioned with the code (the root one for the rules that
-always hold, this file for the agreements, one per directory for that directory's facts); nothing binding lives only in an
-agent's private memory. When the user says "update the guidelines", edit the `AGENTS.md`
-nearest the code the guideline is about.
+All guidelines live in `AGENTS.md` files and in `docs/process.md` and `docs/known-limits.md`,
+versioned with the code: the root `AGENTS.md` for the rules that always hold, this file for the
+working agreements, one `AGENTS.md` per directory for that directory's facts. Nothing binding
+lives only in an agent's private memory. When the user says "update the guidelines", edit the
+`AGENTS.md` nearest the code the guideline is about; a new working agreement goes here, and into
+the root only when it must hold on every turn.
 
 - **"Work autonomously" means the whole road to a release, without pausing**, not even for
   the retro: its outcome is written into the phase's plan file in step 4 and the user reads it
@@ -173,7 +175,7 @@ nearest the code the guideline is about.
   becomes an issue or a backlog line, whatever its reachability. The skill's conventions pass
   reads `CLAUDE.md` files; the root `CLAUDE.md` links to the root `AGENTS.md`, so it reads the
   root rules of the checkout it runs in, but not this file, `docs/known-limits.md` or
-  `src/AGENTS.md`, so each round the orchestrator also checks the diff against the rules of every `AGENTS.md` (the
+  `src/AGENTS.md`, so each round the orchestrator also checks the diff against the rules of every `AGENTS.md` and of this file (the
   fragment, the screenshot of a visible change, TDD shown red, read from the builder's reports
   since the red run is not in the diff, the public-repo rule, the README shape) and reports a
   break as a finding like any other. No reviewer runs the gates: `scripts/ship.sh` runs them,

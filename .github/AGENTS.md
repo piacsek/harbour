@@ -315,8 +315,8 @@ be created through the API; they are set by hand under Settings. Starter issues 
 ## Releasing internals
 
 How the `version` check judges a pull request and how a release run tags, builds, publishes and
-recovers. What a pull request author needs (the fragment, its `kind`, the tag rules) stays in
-Releasing in the root `AGENTS.md`.
+recovers. What a pull request author needs (the fragment, its `kind`, the tag rules) is in
+Releasing in the root `AGENTS.md`, in full under "Releasing, in full" in `docs/process.md`.
 
 **The first release, from zero tags.** No `vX.Y.Z` tag means "never released": every script
 counts from the empty tree at version 0.0.0, and the released changelog is empty. So the first
@@ -340,7 +340,7 @@ Each case is a test in `tests/scripts/`:
 A clone without its tags reads as "never released" too. The release and version workflows fetch
 every `v*` tag before running the scripts, so only a local run can see that state.
 
-**The `version` check enforces the fragment rules of Releasing in the root `AGENTS.md` on every
+**The `version` check enforces the fragment rules of "Releasing, in full" in `docs/process.md` on every
 pull request into `main`** (`.github/workflows/version.yml`, details in the `version.yml` bullet
 under CI). `scripts/version-check.sh <base> <head>` refuses the pull request, naming the file and
 what to do instead, when:
