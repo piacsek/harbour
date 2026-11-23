@@ -9,7 +9,7 @@ use harbour::tmux::Tmux;
 use crate::logging::{logged, only, read};
 use crate::{Screen, numbered_agent, script};
 
-const BELOW: &str = "list-keys -T root C-j\ndisplay-message -p -t %7 #{pane_active}#{window_active}#{pane_at_bottom} #{pane_tty}\nselect-pane -D -t %7\n";
+const BELOW: &str = "list-keys -T root\ndisplay-message -p -t %7 #{pane_active}#{window_active}#{pane_at_bottom} #{pane_tty}\nselect-pane -D -t %7\n";
 
 #[test]
 fn ctrl_j_in_the_sidebar_moves_to_the_tmux_pane_below_and_keeps_the_selection() {
@@ -35,7 +35,7 @@ fn ctrl_k_in_the_sidebar_moves_to_the_tmux_pane_above() {
 
     assert_eq!(
         calls(scratch.path()),
-        "list-keys -T root C-k\ndisplay-message -p -t %7 #{pane_active}#{window_active}#{pane_at_top} #{pane_tty}\nselect-pane -U -t %7\n"
+        "list-keys -T root\ndisplay-message -p -t %7 #{pane_active}#{window_active}#{pane_at_top} #{pane_tty}\nselect-pane -U -t %7\n"
     );
     let shown = screen.wait_for("acme agent 2");
     assert!(!shown.contains("acme agent 1"), "{shown}");
@@ -50,7 +50,7 @@ fn ctrl_j_in_the_sidebar_at_the_bottom_of_the_window_selects_the_next_card() {
 
     assert_eq!(
         calls(scratch.path()),
-        "list-keys -T root C-j\ndisplay-message -p -t %7 #{pane_active}#{window_active}#{pane_at_bottom} #{pane_tty}\n"
+        "list-keys -T root\ndisplay-message -p -t %7 #{pane_active}#{window_active}#{pane_at_bottom} #{pane_tty}\n"
     );
     screen.wait_for("acme agent 2");
 }
@@ -245,7 +245,7 @@ fn tmux(scratch: &Path, edge: &str) -> Tmux {
             "/bin/sh".into(),
             "-c".into(),
             format!(
-                "echo \"$*\" >> '{}'; case $1 in display-message) echo '{edge} /dev/acme-tty' ;; esac",
+                "echo \"$*\" >> '{}'; case $1 in list-keys) echo 'bind-key -T root C-j select-pane -D'; echo 'bind-key -T root C-k select-pane -U' ;; display-message) echo '{edge} /dev/acme-tty' ;; esac",
                 calls.display()
             )
             .into(),
