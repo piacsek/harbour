@@ -482,7 +482,7 @@ fn pids_soon(screen: &mut Screen, scratch: &Scratch, count: usize) -> Vec<String
     }
 }
 
-fn settled(screen: &mut Screen, mut happened: impl FnMut(&str) -> bool) -> String {
+pub(crate) fn settled(screen: &mut Screen, mut happened: impl FnMut(&str) -> bool) -> String {
     let deadline = Instant::now() + Duration::from_millis(1500);
     loop {
         let shown = screen.draw();

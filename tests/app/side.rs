@@ -9,6 +9,7 @@ use harbour::picker::Picker;
 
 use crate::finding::FINDER;
 use crate::remembering::{ID, Scratch, TITLE};
+use crate::switching::settled;
 use crate::zoom::{corners, raw_reader};
 use crate::{Screen, focused_char, pane_corner, region, script, starts_focused};
 
@@ -61,7 +62,8 @@ fn the_prefix_then_backslash_on_a_stopped_card_does_nothing() {
 
     side(&mut screen);
 
-    assert_eq!(screen.draw(), before);
+    let after = settled(&mut screen, |shown| shown != before);
+    assert_eq!(after, before);
 }
 
 #[test]
@@ -87,9 +89,9 @@ fn the_prefix_then_backslash_under_120_columns_does_nothing() {
     let before = screen.wait_for_stable();
 
     side(&mut screen);
-    sleep(Duration::from_millis(300));
 
-    assert_eq!(screen.draw(), before);
+    let after = settled(&mut screen, |shown| shown != before);
+    assert_eq!(after, before);
 }
 
 #[test]

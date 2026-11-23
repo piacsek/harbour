@@ -9,6 +9,7 @@ use harbour::handoff::Verb;
 use crate::handing::answering;
 use crate::handoff::{file, harbour, soon, start_in};
 use crate::remembering::{ID, Scratch, TITLE};
+use crate::switching::settled;
 use crate::{Screen, numbered_agent, pane_corner, raw_agent, script};
 
 #[test]
@@ -100,7 +101,8 @@ fn the_prefix_then_z_on_a_stopped_card_does_nothing() {
 
     zoom(&mut screen);
 
-    assert_eq!(screen.draw(), before);
+    let after = settled(&mut screen, |shown| shown != before);
+    assert_eq!(after, before);
 }
 
 #[test]
