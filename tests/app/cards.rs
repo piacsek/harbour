@@ -4,6 +4,8 @@ use std::thread::sleep;
 use std::time::Duration;
 
 use crossterm::event::{KeyCode, KeyModifiers};
+use harbour::app::App;
+use harbour::card::Colors;
 use harbour::picker::Picker;
 use ratatui::style::{Color, Modifier};
 
@@ -238,6 +240,30 @@ fn an_exited_session_keeps_the_place_it_last_ran_in() {
 
     let shown = screen.draw();
     assert_eq!(third_line(&shown, "acme-api 1"), "acme-api · main");
+}
+
+#[test]
+fn the_third_line_draws_in_the_colours_the_app_was_given() {
+    let scratch = tempfile::tempdir().unwrap();
+    let repository = repository(scratch.path(), "acme-api", "main");
+    let picker = script(&format!("printf '%s\\n' '{}'", repository.display()));
+    let colors = Colors {
+        repository: Color::Green,
+        branch: Color::Yellow,
+        pull_request: Color::Red,
+    };
+    let app = App::new(script("sleep 600"))
+        .with_picker(Picker::Command(picker))
+        .with_colors(colors);
+    let mut screen = Screen::of(app);
+    screen.press('n');
+
+    screen.wait_for("acme-api · main");
+
+    assert_eq!(screen.cell(5, 3).symbol(), "a");
+    assert_eq!(screen.cell(5, 3).fg, Color::Green);
+    assert_eq!(screen.cell(16, 3).symbol(), "m");
+    assert_eq!(screen.cell(16, 3).fg, Color::Yellow);
 }
 
 fn picked_in(directory: &Path, agent: &str) -> Screen {

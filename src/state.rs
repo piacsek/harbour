@@ -39,7 +39,7 @@ impl State {
             State::Working => Style::default().fg(Color::Yellow),
             State::Blocked => Style::default().fg(Color::Red),
             State::Idle | State::Exited => Style::default().add_modifier(Modifier::DIM),
-            State::Unknown => Style::default().fg(Color::DarkGray),
+            State::Unknown => Style::default(),
         }
     }
 }

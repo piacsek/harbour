@@ -25,7 +25,9 @@ HARBOUR_EDITOR, HARBOUR_DIR_PICKER, HARBOUR_SESSION_COMMAND and HARBOUR_PREFIX
 outrank the file's editor, picker, session_command and prefix; the other
 settings are read from the file only. prefix names another prefix (C-] or
 C-Space, for one), and a [keys] table moves an action to another key, or to
-none, as zoom = \"f\" or usage = \"none\". config prints each setting and
+none, as zoom = \"f\" or usage = \"none\". A [colors] table sets the colour
+of a card's repository, branch and pull_request (each a colour name or
+#rrggbb; blue, magenta and cyan by default). config prints each setting and
 where it comes from.
 n runs fzf over the directory harbour was opened in and zoxide's list;
 HARBOUR_DIR_PICKER names another picker.

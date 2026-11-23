@@ -353,6 +353,22 @@ fn the_bindings_from_the_file_start_a_session_and_name_the_prefix() {
     server.wait_for_screen("C-] w does nothing; C-] ? lists the keys");
 }
 
+#[test]
+#[ignore]
+fn the_fact_colours_from_the_file_colour_the_cards_third_line() {
+    let home = tempfile::tempdir().unwrap();
+    write_config(home.path(), "[colors]\nrepository = \"red\"\n");
+    let server = Server::start("config-colors", 160, 20);
+    server.run(home.path(), &[(SESSION_COMMAND, AGENT)], &[]);
+    server.wait_for_screen("press n to start one");
+
+    server.send_keys(&["n"]);
+    server.wait_for_screen("acme agent in acme-api");
+
+    let third = coloured_row(&server, 3);
+    assert!(third.contains("\u{1b}[38;5;1macme-api"), "{third:?}");
+}
+
 fn coloured(server: &Server) -> String {
     let output = server
         .tmux(&["capture-pane", "-p", "-e", "-t", "e2e"])
@@ -370,4 +386,16 @@ fn write_config(home: &Path, text: &str) -> PathBuf {
     std::fs::create_dir_all(path.parent().unwrap()).unwrap();
     std::fs::write(&path, text).unwrap();
     path
+}
+
+fn coloured_row(server: &Server, row: usize) -> String {
+    let output = server
+        .tmux(&["capture-pane", "-p", "-e", "-t", "e2e"])
+        .output()
+        .unwrap();
+    String::from_utf8_lossy(&output.stdout)
+        .lines()
+        .nth(row)
+        .unwrap_or_default()
+        .to_string()
 }

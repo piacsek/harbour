@@ -117,7 +117,7 @@ fn an_idle_session_shows_a_dim_hollow_dot() {
 }
 
 #[test]
-fn a_session_without_a_registry_file_shows_a_dark_grey_middle_dot() {
+fn a_session_without_a_registry_file_shows_a_middle_dot_in_the_default_foreground() {
     let registry = tempfile::tempdir().unwrap();
     let mut screen = watching(
         registry.path(),
@@ -129,11 +129,11 @@ fn a_session_without_a_registry_file_shows_a_dark_grey_middle_dot() {
     let dot = after_a_read(&mut screen);
 
     assert_eq!(dot.symbol(), "·");
-    assert_eq!(dot.fg, Color::DarkGray);
+    assert_eq!(dot.fg, Color::Reset);
 }
 
 #[test]
-fn an_unknown_status_shows_a_dark_grey_middle_dot() {
+fn an_unknown_status_shows_a_middle_dot_in_the_default_foreground() {
     let registry = tempfile::tempdir().unwrap();
     let mut screen = watching(registry.path(), registered(registry.path(), "meditating"));
     screen.press('n');
@@ -142,11 +142,11 @@ fn an_unknown_status_shows_a_dark_grey_middle_dot() {
     let dot = after_a_read(&mut screen);
 
     assert_eq!(dot.symbol(), "·");
-    assert_eq!(dot.fg, Color::DarkGray);
+    assert_eq!(dot.fg, Color::Reset);
 }
 
 #[test]
-fn a_malformed_registry_file_shows_a_dark_grey_middle_dot() {
+fn a_malformed_registry_file_shows_a_middle_dot_in_the_default_foreground() {
     let registry = tempfile::tempdir().unwrap();
     let dir = registry.path().display();
     let mut screen = watching(
@@ -161,7 +161,7 @@ fn a_malformed_registry_file_shows_a_dark_grey_middle_dot() {
     let dot = after_a_read(&mut screen);
 
     assert_eq!(dot.symbol(), "·");
-    assert_eq!(dot.fg, Color::DarkGray);
+    assert_eq!(dot.fg, Color::Reset);
 }
 
 #[test]
@@ -205,7 +205,7 @@ fn a_file_that_is_removed_turns_the_dot_unknown() {
 
     let dot = wait_for_dot(&mut screen, "an unknown dot", |cell| cell.symbol() == "·");
     assert_eq!(dot.symbol(), "·");
-    assert_eq!(dot.fg, Color::DarkGray);
+    assert_eq!(dot.fg, Color::Reset);
 }
 
 #[test]

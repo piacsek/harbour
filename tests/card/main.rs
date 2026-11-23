@@ -6,9 +6,11 @@ use harbour::registry::{Record, Status};
 use harbour::repo::Place;
 use harbour::text::columns;
 use harbour::transcript::Facts;
-use ratatui::buffer::Buffer;
+use ratatui::buffer::{Buffer, Cell};
 use ratatui::layout::Rect;
 use ratatui::style::{Color, Modifier};
+
+mod colours;
 
 #[test]
 fn under_a_minute_reads_less_than_a_minute() {
@@ -457,4 +459,27 @@ fn every_fact(place: &Place) -> Card {
         Some(&facts),
     )
     .with_icons(true)
+}
+
+fn all_facts() -> Facts {
+    Facts {
+        branch: Some("fix-retry".to_string()),
+        pull_request: Some(40),
+        subagents: 2,
+        ..Facts::default()
+    }
+}
+
+fn alone(card: Card, width: u16) -> Buffer {
+    let area = Rect::new(0, 0, width, 3);
+    let mut buffer = Buffer::empty(area);
+    Sidebar::default().draw(&[card], 1, Color::Cyan, area, &mut buffer);
+    buffer
+}
+
+fn at<'a>(buffer: &'a Buffer, y: u16, text: &str) -> &'a Cell {
+    let shown = row(buffer, y, buffer.area.width);
+    let index = shown.find(text).unwrap();
+    let x = u16::try_from(columns(&shown[..index])).unwrap();
+    &buffer[(x, y)]
 }
