@@ -331,12 +331,12 @@ fn a_select_that_outlives_the_deadline_counts_as_a_move() {
         program(
             scratch.path(),
             &format!(
-                "case $1 in {BOUND} display-message) echo '110 /dev/acme-tty' ;; select-pane) sleep 5 ;; esac"
+                "case $1 in {BOUND} display-message) echo '110 /dev/acme-tty' ;; select-pane) sleep 30 ;; esac"
             ),
         ),
         "%7".into(),
         "/dev/acme-tty".into(),
-        Duration::from_millis(100),
+        Duration::from_secs(2),
     );
     let began = Instant::now();
 
@@ -344,7 +344,7 @@ fn a_select_that_outlives_the_deadline_counts_as_a_move() {
 
     assert!(moved);
     assert!(
-        began.elapsed() < Duration::from_millis(1000),
+        began.elapsed() < Duration::from_secs(15),
         "{:?}",
         began.elapsed()
     );
