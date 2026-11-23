@@ -3,11 +3,14 @@ use std::process::Command;
 use std::time::{Duration, Instant};
 
 use crossterm::event::{KeyCode, KeyModifiers};
+use harbour::app::App;
 use harbour::editor::Program;
 use ratatui::style::Modifier;
 
-use crate::ending::{hangups, recording_hangups, staying_after_hangups};
-use crate::{Screen, below, reading_agent, region, script};
+use crate::{
+    Screen, below, deadline, hangups, reading_agent, recording_hangups, region, script,
+    staying_after_hangups,
+};
 
 #[test]
 fn yes_to_ending_a_session_ends_its_editor_too() {
@@ -134,12 +137,15 @@ fn q_with_only_an_editor_running_asks_before_quitting() {
 #[test]
 fn quitting_hangs_up_on_editors_and_sessions_before_it_kills_any() {
     let scratch = tempfile::tempdir().unwrap();
+    let editor = Program::new(
+        "acme-edit",
+        hanging_up(scratch.path(), "editor", "acme editor ready"),
+    );
+    let agent = hanging_up(scratch.path(), "agent", "acme agent ready");
     let mut screen = editing_with(
-        hanging_up(scratch.path(), "agent", "acme agent ready"),
-        Program::new(
-            "acme-edit",
-            hanging_up(scratch.path(), "editor", "acme editor ready"),
-        ),
+        App::new(agent)
+            .with_editor(editor)
+            .with_hangup_grace(deadline()),
     );
     screen.key(KeyCode::Char('h'), KeyModifiers::CONTROL);
     screen.key(KeyCode::Char('h'), KeyModifiers::CONTROL);
@@ -157,11 +163,11 @@ fn quitting_hangs_up_on_editors_and_sessions_before_it_kills_any() {
 }
 
 fn editing(scratch: &Path, agent: Vec<String>) -> Screen {
-    editing_with(agent, recording_editor(scratch))
+    editing_with(App::new(agent).with_editor(recording_editor(scratch)))
 }
 
-fn editing_with(agent: Vec<String>, editor: Program) -> Screen {
-    let mut screen = Screen::editing(agent, editor);
+fn editing_with(app: App) -> Screen {
+    let mut screen = Screen::of(app);
     screen.press('n');
     screen.wait_for("acme agent ready");
     screen.key(KeyCode::Enter, KeyModifiers::NONE);

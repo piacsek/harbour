@@ -12,7 +12,7 @@ use rmpv::Value;
 
 use crate::{Screen, pane_corner, reading_agent, script};
 
-use crate::deadline;
+use crate::{deadline, scaled};
 
 const PATIENCE: Duration = Duration::from_millis(100);
 const LEFTMOST: &str = "winnr('h') == winnr()";
@@ -124,8 +124,8 @@ fn ctrl_h_on_a_silent_neovim_waits_out_one_mode_query_by_default() {
     let shown = screen.wait_for("acme agent ready");
     assert!(shown.contains("acme agent ready"), "{shown}");
     assert_eq!(asked.recv_timeout(5 * deadline()).unwrap(), "nvim_get_mode");
-    assert!(asked.try_recv().is_err());
-    assert!(waited < 10 * PATIENCE, "{waited:?}");
+    assert!(asked.recv_timeout(scaled(PATIENCE)).is_err());
+    assert!(waited < scaled(10 * PATIENCE), "{waited:?}");
 }
 
 #[test]

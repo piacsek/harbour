@@ -84,7 +84,7 @@ mod borders;
 #[path = "../support/timing.rs"]
 mod timing;
 use borders::BORDERS;
-use timing::deadline;
+use timing::{deadline, scaled};
 
 const HOME: &str = "acme-home";
 
@@ -473,4 +473,28 @@ fn settled(screen: &mut Screen, mut happened: impl FnMut(&str) -> bool) -> Strin
         }
         sleep(Duration::from_millis(20));
     }
+}
+
+fn recording_hangups(scratch: &Path, name: &str) -> String {
+    let scratch = scratch.display();
+    format!(
+        "echo $$ > \"{scratch}/alive-{name}\"; \
+         hung() {{ seen=0; for f in '{scratch}'/alive-*; do read -r p < \"$f\"; \
+         kill -0 \"$p\" 2>/dev/null && seen=$((seen + 1)); done; \
+         echo \"{name} saw $seen alive\" >> '{scratch}/hangups'; }}; trap hung HUP; "
+    )
+}
+
+fn staying_after_hangups() -> &'static str {
+    "while :; do sleep 600 & wait $!; done"
+}
+
+fn hangups(scratch: &Path) -> Vec<String> {
+    let mut hangups: Vec<String> = std::fs::read_to_string(scratch.join("hangups"))
+        .unwrap_or_default()
+        .lines()
+        .map(String::from)
+        .collect();
+    hangups.sort();
+    hangups
 }

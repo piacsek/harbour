@@ -1,9 +1,13 @@
-use std::fs;
 use std::path::Path;
+use std::time::Instant;
 
 use crossterm::event::{KeyCode, KeyModifiers, MouseButton, MouseEventKind};
+use harbour::app::App;
 
-use crate::{Screen, below, directory, raw_agent, reading_agent, script};
+use crate::{
+    Screen, below, deadline, directory, hangups, raw_agent, reading_agent, recording_hangups,
+    script, staying_after_hangups,
+};
 
 #[test]
 fn x_on_a_running_session_asks_before_ending_it() {
@@ -164,7 +168,8 @@ fn a_click_in_the_pane_cancels_the_question_and_does_not_focus_the_pane() {
 #[test]
 fn quitting_hangs_up_on_every_running_session_before_it_kills_any() {
     let scratch = tempfile::tempdir().unwrap();
-    let mut screen = Screen::new(hanging_up_agent(scratch.path()));
+    let mut screen =
+        Screen::of(App::new(hanging_up_agent(scratch.path())).with_hangup_grace(deadline()));
     for started in 1..=5 {
         screen.press('n');
         screen.wait_for(&format!("acme agent {started}"));
@@ -183,6 +188,26 @@ fn quitting_hangs_up_on_every_running_session_before_it_kills_any() {
     assert_eq!(hangups[4], "5 saw 5 alive", "{hangups:?}");
 }
 
+#[test]
+fn quitting_waits_one_grace_in_all_for_sessions_that_ignore_the_hangup() {
+    let scratch = tempfile::tempdir().unwrap();
+    let mut screen =
+        Screen::of(App::new(ignoring_agent(scratch.path())).with_hangup_grace(deadline()));
+    for started in 1..=3 {
+        screen.press('n');
+        screen.wait_for(&format!("acme agent {started}"));
+    }
+    screen.prefixed('q');
+    screen.press('y');
+
+    let before = Instant::now();
+    drop(screen);
+    let elapsed = before.elapsed();
+
+    assert!(elapsed >= deadline(), "{elapsed:?}");
+    assert!(elapsed < 2 * deadline(), "{elapsed:?}");
+}
+
 fn hanging_up_agent(scratch: &Path) -> Vec<String> {
     let count = scratch.join("count");
     script(&format!(
@@ -194,26 +219,12 @@ fn hanging_up_agent(scratch: &Path) -> Vec<String> {
     ))
 }
 
-pub(crate) fn recording_hangups(scratch: &Path, name: &str) -> String {
-    let scratch = scratch.display();
-    format!(
-        "echo $$ > \"{scratch}/alive-{name}\"; \
-         hung() {{ seen=0; for f in '{scratch}'/alive-*; do read -r p < \"$f\"; \
-         kill -0 \"$p\" 2>/dev/null && seen=$((seen + 1)); done; \
-         echo \"{name} saw $seen alive\" >> '{scratch}/hangups'; }}; trap hung HUP; "
-    )
-}
-
-pub(crate) fn staying_after_hangups() -> &'static str {
-    "while :; do sleep 600 & wait $!; done"
-}
-
-pub(crate) fn hangups(scratch: &Path) -> Vec<String> {
-    let mut hangups: Vec<String> = fs::read_to_string(scratch.join("hangups"))
-        .unwrap_or_default()
-        .lines()
-        .map(String::from)
-        .collect();
-    hangups.sort();
-    hangups
+fn ignoring_agent(scratch: &Path) -> Vec<String> {
+    let count = scratch.join("count");
+    script(&format!(
+        "n=$(($(cat '{count}' 2>/dev/null || echo 0) + 1)); echo $n > '{count}'; \
+         trap '' HUP; echo \"acme agent $n\"; {staying}",
+        count = count.display(),
+        staying = staying_after_hangups(),
+    ))
 }
