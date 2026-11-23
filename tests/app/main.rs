@@ -75,6 +75,7 @@ use ratatui::backend::TestBackend;
 use ratatui::buffer::Cell;
 use ratatui::layout::{Position, Rect};
 use ratatui::symbols::border;
+use ratatui::widgets::BorderType;
 use ratatui::{Terminal, TerminalOptions, Viewport};
 use tempfile::TempDir;
 
@@ -317,9 +318,9 @@ fn below(shown: &str, text: &str) -> String {
     let next = lines.next().unwrap_or_default();
     next.chars()
         .skip(1)
+        .skip_while(|c| ['▌', ' '].contains(c))
         .take_while(|c| !vertical(*c))
         .collect::<String>()
-        .trim_start_matches(['▌', ' '])
         .trim_end()
         .to_string()
 }
@@ -340,17 +341,19 @@ fn sidebar_title(shown: &str) -> String {
     inside[..end].to_string()
 }
 
-const BORDERS: [border::Set<'static>; 10] = [
-    border::PLAIN,
-    border::ROUNDED,
-    border::DOUBLE,
-    border::THICK,
-    border::LIGHT_DOUBLE_DASHED,
-    border::HEAVY_DOUBLE_DASHED,
-    border::LIGHT_TRIPLE_DASHED,
-    border::HEAVY_TRIPLE_DASHED,
-    border::LIGHT_QUADRUPLE_DASHED,
-    border::HEAVY_QUADRUPLE_DASHED,
+const BORDERS: [border::Set<'static>; 12] = [
+    BorderType::Plain.to_border_set(),
+    BorderType::Rounded.to_border_set(),
+    BorderType::Double.to_border_set(),
+    BorderType::Thick.to_border_set(),
+    BorderType::LightDoubleDashed.to_border_set(),
+    BorderType::HeavyDoubleDashed.to_border_set(),
+    BorderType::LightTripleDashed.to_border_set(),
+    BorderType::HeavyTripleDashed.to_border_set(),
+    BorderType::LightQuadrupleDashed.to_border_set(),
+    BorderType::HeavyQuadrupleDashed.to_border_set(),
+    BorderType::QuadrantInside.to_border_set(),
+    BorderType::QuadrantOutside.to_border_set(),
 ];
 
 fn parts(set: &border::Set<'static>) -> [&'static str; 8] {
@@ -391,7 +394,7 @@ fn horizontal(c: char) -> bool {
 }
 
 fn focused(symbol: &str) -> bool {
-    parts(&FOCUSED_BORDER.to_border_set()).contains(&symbol)
+    drawn_only_by(symbol, FOCUSED_BORDER, UNFOCUSED_BORDER)
 }
 
 fn starts_focused(line: &str) -> bool {
@@ -403,7 +406,12 @@ fn focused_char(c: char) -> bool {
 }
 
 fn unfocused(symbol: &str) -> bool {
-    parts(&UNFOCUSED_BORDER.to_border_set()).contains(&symbol)
+    drawn_only_by(symbol, UNFOCUSED_BORDER, FOCUSED_BORDER)
+}
+
+fn drawn_only_by(symbol: &str, style: BorderType, other: BorderType) -> bool {
+    parts(&style.to_border_set()).contains(&symbol)
+        && !parts(&other.to_border_set()).contains(&symbol)
 }
 
 fn unfocused_char(c: char) -> bool {

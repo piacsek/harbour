@@ -2,17 +2,19 @@ use harbour::app::{FOCUSED_BORDER, UNFOCUSED_BORDER};
 use ratatui::symbols::border;
 use ratatui::widgets::BorderType;
 
-const BORDERS: [border::Set<'static>; 10] = [
-    border::PLAIN,
-    border::ROUNDED,
-    border::DOUBLE,
-    border::THICK,
-    border::LIGHT_DOUBLE_DASHED,
-    border::HEAVY_DOUBLE_DASHED,
-    border::LIGHT_TRIPLE_DASHED,
-    border::HEAVY_TRIPLE_DASHED,
-    border::LIGHT_QUADRUPLE_DASHED,
-    border::HEAVY_QUADRUPLE_DASHED,
+const BORDERS: [border::Set<'static>; 12] = [
+    BorderType::Plain.to_border_set(),
+    BorderType::Rounded.to_border_set(),
+    BorderType::Double.to_border_set(),
+    BorderType::Thick.to_border_set(),
+    BorderType::LightDoubleDashed.to_border_set(),
+    BorderType::HeavyDoubleDashed.to_border_set(),
+    BorderType::LightTripleDashed.to_border_set(),
+    BorderType::HeavyTripleDashed.to_border_set(),
+    BorderType::LightQuadrupleDashed.to_border_set(),
+    BorderType::HeavyQuadrupleDashed.to_border_set(),
+    BorderType::QuadrantInside.to_border_set(),
+    BorderType::QuadrantOutside.to_border_set(),
 ];
 
 pub(crate) fn corner(c: char) -> bool {
@@ -46,9 +48,10 @@ pub(crate) fn vertical(c: char) -> bool {
 
 pub(crate) fn focused_on(screen: &str, title: &str) -> bool {
     let top = screen.lines().next().unwrap_or_default();
-    top.split(focused_corner)
-        .skip(1)
-        .any(|after| after.starts_with(&format!(" {title}")))
+    let label = format!(" {title}");
+    top.char_indices().enumerate().any(|(column, (at, c))| {
+        corner(c) && top[at + c.len_utf8()..].starts_with(&label) && focused_at(screen, column)
+    })
 }
 
 pub(crate) fn pane_corner(screen: &str) -> Option<usize> {

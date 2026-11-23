@@ -103,9 +103,9 @@ fn first_line(shown: &str) -> String {
         .unwrap()
         .chars()
         .skip(1)
+        .skip_while(|c| ['▌', ' '].contains(c))
         .take_while(|c| !crate::vertical(*c))
         .collect::<String>()
-        .trim_start_matches(['▌', ' '])
         .trim_end()
         .to_string()
 }
@@ -117,6 +117,7 @@ fn right_edge(shown: &str, row: usize) -> String {
         .unwrap()
         .chars()
         .skip(1)
+        .skip_while(|c| ['▌', ' '].contains(c))
         .take_while(|c| !crate::vertical(*c))
         .collect();
     inside.rsplit(' ').next().unwrap().to_string()

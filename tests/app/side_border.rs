@@ -8,7 +8,7 @@ use ratatui::style::Modifier;
 use crate::zoom_border::{Claude, started, top};
 use crate::{
     Screen, drawn, focused, focused_char, focused_title, in_order, script, starts_focused,
-    unfocused, unfocused_char, unfocused_title,
+    top_left, unfocused, unfocused_char, unfocused_title,
 };
 
 #[test]
@@ -70,7 +70,11 @@ fn a_cjk_title_on_the_claude_code_half_is_cut_by_display_width() {
 
     assert_eq!(screen.cell(2, 0).symbol(), "●");
     assert_eq!(screen.cell(4, 0).symbol(), "修");
-    assert!(top.contains("…  3m  claude "), "{top}");
+    let left = top
+        .split(|c| top_left(c) && unfocused_char(c))
+        .next()
+        .unwrap_or_default();
+    assert!(counts(left).ends_with("…  3m  claude"), "{top}");
     assert!(focused(screen.cell(59, 0).symbol()));
     assert!(unfocused(screen.cell(60, 0).symbol()));
 }

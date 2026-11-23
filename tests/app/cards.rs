@@ -294,9 +294,9 @@ fn third_line(shown: &str, title: &str) -> String {
         .unwrap_or_default()
         .chars()
         .skip(1)
+        .skip_while(|c| ['▌', ' '].contains(c))
         .take_while(|c| !crate::vertical(*c))
         .collect::<String>()
-        .trim_start_matches(['▌', ' '])
         .trim_end()
         .to_string()
 }
