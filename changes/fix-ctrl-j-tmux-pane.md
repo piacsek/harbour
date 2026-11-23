@@ -1,4 +1,4 @@
 kind: fix
 
-- Under tmux 3.7, Ctrl+J and Ctrl+K no longer jump to another tmux pane when tmux binds neither
-  key: they reach Claude Code, or move between cards in the sidebar.
+- Under tmux 3.7, Ctrl+J and Ctrl+K each stay in harbour when tmux does not bind that key, instead
+  of jumping to another tmux pane: the key reaches Claude Code, or moves between cards in the sidebar.
