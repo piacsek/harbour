@@ -97,27 +97,12 @@ fn since(registry: &Path, status: &str, seconds: u64) -> Vec<String> {
 }
 
 fn first_line(shown: &str) -> String {
-    shown
-        .lines()
-        .nth(1)
-        .unwrap()
-        .chars()
-        .skip(1)
-        .take_while(|c| !crate::vertical(*c))
-        .collect::<String>()
-        .trim_start_matches(['▌', ' '])
+    crate::inside(shown.lines().nth(1).unwrap())
         .trim_end()
         .to_string()
 }
 
 fn right_edge(shown: &str, row: usize) -> String {
-    let inside: String = shown
-        .lines()
-        .nth(row)
-        .unwrap()
-        .chars()
-        .skip(1)
-        .take_while(|c| !crate::vertical(*c))
-        .collect();
+    let inside = crate::inside(shown.lines().nth(row).unwrap());
     inside.rsplit(' ').next().unwrap().to_string()
 }
