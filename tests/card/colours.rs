@@ -153,7 +153,7 @@ fn the_title_is_not_dimmed() {
 
 #[test]
 fn a_clean_exit_is_dimmed() {
-    let buffer = alone(ended(Ended::Exited(String::new())), 40);
+    let (_, buffer) = sidebar(&[ended(Ended::Exited(String::new()))], 0, 40);
 
     assert!(at(&buffer, 1, "exited").modifier.contains(Modifier::DIM));
 }

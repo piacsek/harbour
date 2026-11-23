@@ -110,4 +110,25 @@ default foreground, and adds a `[colors]` table to `config.toml` for the three f
 
 ## Outcome
 
+- A card's third line is coloured by kind: the repository blue, the branch magenta and the pull
+  request cyan, the subagents and the separators dimmed; with `nerd_font` on each glyph takes its
+  fact's colour, and a cut keeps the colour up to its `…`, which takes the colour of the fact it
+  cuts.
+- The age on line 1 is dimmed, a clean exit on line 2 is dimmed and a failed one (an exit code or
+  a signal) is red, the unknown dot is drawn in the default foreground, and an ended card that is
+  not selected is dimmed on every row with its colours kept under the dim.
+- A `[colors]` table in `config.toml` sets `repository`, `branch` and `pull_request` (a colour name
+  or `#rrggbb`, from the file only), refused like `accent` on the key's line, reported by
+  `harbour config`; `harbour --help` names it, and the screenshots were retaken.
+- The decisions taken without the owner are listed in the pull request body, under "Decisions
+  taken without the owner".
+- One review round at high, clean: no must or should, 3 nits. Two were fixed in the closing
+  ship, which the orchestrator read: `a_clean_exit_is_dimmed` now draws its card selected, so
+  only line 2's own style can pass it, and the layout names `tests/card/`. One was declined as
+  unreachable: a line 3 span starting with a combining mark, since a repository or branch name
+  starting with one is not a state a user reaches.
+
 ## Hurdles
+
+- `process` the task 5 ship failed because the task 6 files were edited while its gates ran on the working tree; the task 6 files were stashed, task 5 shipped alone, then they were restored → none
+- `process` the icon tests of task 3 were green on their first run, since task 2's code already covered them, and had to be shown red by breaking the code → none
