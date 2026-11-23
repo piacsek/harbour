@@ -6,6 +6,7 @@ use std::time::{Duration, Instant};
 use harbour::tmux::{Direction, Tmux, located};
 
 const LONG: Duration = Duration::from_secs(5);
+const BOUND: &str = "list-keys) echo 'bind-key    -T root C-j select-pane -D'; echo 'bind-key -r -T root C-k select-pane -U' ;;";
 
 #[test]
 fn both_variables_give_the_pane() {
@@ -79,7 +80,7 @@ fn below_asks_whether_the_pane_is_at_the_bottom_then_selects_the_pane_below() {
     assert!(moved);
     assert_eq!(
         calls(scratch.path()),
-        "list-keys -T root C-j\ndisplay-message -p -t %7 #{pane_active}#{window_active}#{pane_at_bottom} #{pane_tty}\nselect-pane -D -t %7\n"
+        "list-keys -T root\ndisplay-message -p -t %7 #{pane_active}#{window_active}#{pane_at_bottom} #{pane_tty}\nselect-pane -D -t %7\n"
     );
 }
 
@@ -93,7 +94,7 @@ fn above_asks_whether_the_pane_is_at_the_top_then_selects_the_pane_above() {
     assert!(moved);
     assert_eq!(
         calls(scratch.path()),
-        "list-keys -T root C-k\ndisplay-message -p -t %7 #{pane_active}#{window_active}#{pane_at_top} #{pane_tty}\nselect-pane -U -t %7\n"
+        "list-keys -T root\ndisplay-message -p -t %7 #{pane_active}#{window_active}#{pane_at_top} #{pane_tty}\nselect-pane -U -t %7\n"
     );
 }
 
@@ -107,7 +108,7 @@ fn at_the_edge_nothing_is_selected() {
     assert!(!moved);
     assert_eq!(
         calls(scratch.path()),
-        "list-keys -T root C-j\ndisplay-message -p -t %7 #{pane_active}#{window_active}#{pane_at_bottom} #{pane_tty}\n"
+        "list-keys -T root\ndisplay-message -p -t %7 #{pane_active}#{window_active}#{pane_at_bottom} #{pane_tty}\n"
     );
 }
 
@@ -121,7 +122,7 @@ fn an_empty_answer_selects_nothing() {
     assert!(!moved);
     assert_eq!(
         calls(scratch.path()),
-        "list-keys -T root C-j\ndisplay-message -p -t %7 #{pane_active}#{window_active}#{pane_at_bottom} #{pane_tty}\n"
+        "list-keys -T root\ndisplay-message -p -t %7 #{pane_active}#{window_active}#{pane_at_bottom} #{pane_tty}\n"
     );
 }
 
@@ -135,7 +136,7 @@ fn a_check_that_fails_selects_nothing() {
     assert!(!moved);
     assert_eq!(
         calls(scratch.path()),
-        "list-keys -T root C-j\ndisplay-message -p -t %7 #{pane_active}#{window_active}#{pane_at_bottom} #{pane_tty}\n"
+        "list-keys -T root\ndisplay-message -p -t %7 #{pane_active}#{window_active}#{pane_at_bottom} #{pane_tty}\n"
     );
 }
 
@@ -145,7 +146,9 @@ fn a_select_that_fails_is_no_move() {
     let tmux = Tmux::with_program(
         program(
             scratch.path(),
-            "case $1 in display-message) echo '110 /dev/acme-tty' ;; select-pane) exit 1 ;; esac",
+            &format!(
+                "case $1 in {BOUND} display-message) echo '110 /dev/acme-tty' ;; select-pane) exit 1 ;; esac"
+            ),
         ),
         "%7".into(),
         "/dev/acme-tty".into(),
@@ -177,7 +180,9 @@ fn a_tmux_that_never_answers_is_given_up_on_well_within_a_second() {
     let tmux = Tmux::with_program(
         program(
             scratch.path(),
-            "case $1 in display-message) sleep 5; echo '110 /dev/acme-tty' ;; esac",
+            &format!(
+                "case $1 in {BOUND} display-message) sleep 5; echo '110 /dev/acme-tty' ;; esac"
+            ),
         ),
         "%7".into(),
         "/dev/acme-tty".into(),
@@ -227,7 +232,44 @@ fn a_key_tmux_does_not_bind_moves_nothing_and_asks_nothing_more() {
     let moved = tmux.select(Direction::Below);
 
     assert!(!moved);
-    assert_eq!(calls(scratch.path()), "list-keys -T root C-j\n");
+    assert_eq!(calls(scratch.path()), "list-keys -T root\n");
+}
+
+#[test]
+fn a_key_missing_from_the_root_table_tmux_lists_moves_nothing_and_asks_nothing_more() {
+    let scratch = tempfile::tempdir().unwrap();
+    let tmux = Tmux::with_program(
+        program(
+            scratch.path(),
+            "case $1 in list-keys) echo 'bind-key -T root C-k select-pane -U'; echo 'bind-key -T root M-j send-keys C-j' ;; display-message) echo '110 /dev/acme-tty' ;; esac",
+        ),
+        "%7".into(),
+        "/dev/acme-tty".into(),
+        LONG,
+    );
+
+    let moved = tmux.select(Direction::Below);
+
+    assert!(!moved);
+    assert_eq!(calls(scratch.path()), "list-keys -T root\n");
+}
+
+#[test]
+fn a_key_listed_after_a_long_root_table_is_bound() {
+    let scratch = tempfile::tempdir().unwrap();
+    let tmux = Tmux::with_program(
+        program(
+            scratch.path(),
+            "case $1 in list-keys) i=0; while [ $i -lt 200 ]; do echo \"bind-key -T root M-$i display-message acme-$i\"; i=$((i+1)); done; echo 'bind-key -T root C-j select-pane -D' ;; display-message) echo '110 /dev/acme-tty' ;; esac",
+        ),
+        "%7".into(),
+        "/dev/acme-tty".into(),
+        LONG,
+    );
+
+    let moved = tmux.select(Direction::Below);
+
+    assert!(moved);
 }
 
 #[test]
@@ -260,7 +302,7 @@ fn a_pane_on_another_terminal_than_harbour_moves_nothing() {
     assert!(!moved);
     assert_eq!(
         calls(scratch.path()),
-        "list-keys -T root C-j\ndisplay-message -p -t %7 #{pane_active}#{window_active}#{pane_at_bottom} #{pane_tty}\n"
+        "list-keys -T root\ndisplay-message -p -t %7 #{pane_active}#{window_active}#{pane_at_bottom} #{pane_tty}\n"
     );
 }
 
@@ -270,7 +312,9 @@ fn a_select_that_outlives_the_deadline_counts_as_a_move() {
     let tmux = Tmux::with_program(
         program(
             scratch.path(),
-            "case $1 in display-message) echo '110 /dev/acme-tty' ;; select-pane) sleep 5 ;; esac",
+            &format!(
+                "case $1 in {BOUND} display-message) echo '110 /dev/acme-tty' ;; select-pane) sleep 5 ;; esac"
+            ),
         ),
         "%7".into(),
         "/dev/acme-tty".into(),
@@ -292,7 +336,7 @@ fn answering(scratch: &Path, answer: &str) -> Tmux {
     Tmux::with_program(
         program(
             scratch,
-            &format!("case $1 in display-message) {answer} ;; esac"),
+            &format!("case $1 in {BOUND} display-message) {answer} ;; esac"),
         ),
         "%7".into(),
         "/dev/acme-tty".into(),

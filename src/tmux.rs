@@ -73,13 +73,11 @@ impl Tmux {
             ),
         };
         let pane = self.pane.as_os_str();
-        let bound: [&OsStr; 4] = [
-            "list-keys".as_ref(),
-            "-T".as_ref(),
-            "root".as_ref(),
-            key.as_ref(),
-        ];
-        if self.run(&bound, Stdio::null(), deadline).is_none() {
+        let listed: [&OsStr; 3] = ["list-keys".as_ref(), "-T".as_ref(), "root".as_ref()];
+        if !self
+            .output(&listed, deadline)
+            .is_some_and(|listed| binds(&listed, key))
+        {
             return false;
         }
         let check: [&OsStr; 5] = [
@@ -89,10 +87,7 @@ impl Tmux {
             pane,
             edge.as_ref(),
         ];
-        let answer = self
-            .run(&check, Stdio::piped(), deadline)
-            .and_then(|mut child| child.stdout.take())
-            .and_then(|stdout| answer(stdout, deadline));
+        let answer = self.output(&check, deadline);
         let expected = [b"110 ", self.tty.as_bytes()].concat();
         if answer.is_none_or(|answer| answer.trim_ascii_end() != expected) {
             return false;
@@ -104,9 +99,10 @@ impl Tmux {
         waited(&mut child, Instant::now() + self.deadline).is_none_or(|status| status.success())
     }
 
-    fn run(&self, args: &[&OsStr], stdout: Stdio, deadline: Instant) -> Option<Child> {
-        let mut child = self.spawn(args, stdout)?;
-        waited(&mut child, deadline)?.success().then_some(child)
+    fn output(&self, args: &[&OsStr], deadline: Instant) -> Option<Vec<u8>> {
+        let mut child = self.spawn(args, Stdio::piped())?;
+        waited(&mut child, deadline)?.success().then_some(())?;
+        answer(child.stdout.take()?, deadline)
     }
 
     fn spawn(&self, args: &[&OsStr], stdout: Stdio) -> Option<Child> {
@@ -128,16 +124,37 @@ pub fn located(program: &str, path: &OsStr, opened: &Path) -> Option<PathBuf> {
         .find(|candidate| crate::picker::executable(candidate))
 }
 
+fn binds(listed: &[u8], key: &str) -> bool {
+    listed.split(|&byte| byte == b'\n').any(|line| {
+        let mut words = line
+            .split(u8::is_ascii_whitespace)
+            .filter(|word| !word.is_empty())
+            .skip_while(|word| *word != b"-T");
+        words.nth(1) == Some(b"root".as_slice()) && words.next() == Some(key.as_bytes())
+    })
+}
+
 fn answer(mut stdout: ChildStdout, deadline: Instant) -> Option<Vec<u8>> {
-    let timeout = PollTimeout::try_from(deadline.saturating_duration_since(Instant::now()))
-        .unwrap_or(PollTimeout::ZERO);
-    let mut watched = [PollFd::new(stdout.as_fd(), PollFlags::POLLIN)];
-    if nix::poll::poll(&mut watched, timeout).ok()? == 0 {
-        return None;
+    let mut answer = Vec::new();
+    let mut buffer = [0; 4096];
+    loop {
+        let timeout = if answer.is_empty() {
+            PollTimeout::try_from(deadline.saturating_duration_since(Instant::now()))
+                .unwrap_or(PollTimeout::ZERO)
+        } else {
+            PollTimeout::ZERO
+        };
+        let mut watched = [PollFd::new(stdout.as_fd(), PollFlags::POLLIN)];
+        if nix::poll::poll(&mut watched, timeout).ok()? == 0 {
+            break;
+        }
+        let read = stdout.read(&mut buffer).ok()?;
+        if read == 0 {
+            break;
+        }
+        answer.extend_from_slice(&buffer[..read]);
     }
-    let mut buffer = [0; 64];
-    let read = stdout.read(&mut buffer).ok()?;
-    Some(buffer[..read].to_vec())
+    (!answer.is_empty()).then_some(answer)
 }
 
 fn waited(child: &mut Child, deadline: Instant) -> Option<ExitStatus> {
