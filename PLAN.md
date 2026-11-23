@@ -43,8 +43,9 @@ file under `plans/`; its time and tokens are a row of [`plans/metrics.md`](plans
 | 33 | [a loading animation in the usage popup](plans/phase-33-usage-loading.md) | [v0.28.0](https://github.com/piacsek/harbour/releases/tag/v0.28.0) |
 | 34 | [C-j and C-k move to the tmux pane below or above harbour](plans/phase-34-tmux-pane-navigation.md) | [v0.29.0](https://github.com/piacsek/harbour/releases/tag/v0.29.0) |
 | 35 | [choose the glyph of the Claude pane](plans/phase-35-claude-icon.md) | [v0.30.0](https://github.com/piacsek/harbour/releases/tag/v0.30.0) |
-| 36 | [zoom without borders](plans/phase-36-borderless-zoom.md) | |
-| 37 | [one prefix key, C-/, for harbour's actions from anywhere](plans/phase-37-prefix-key.md) | |
+| 36 | [zoom without borders](plans/phase-36-borderless-zoom.md) | [v0.31.0](https://github.com/piacsek/harbour/releases/tag/v0.31.0) |
+| 37 | [one prefix key, C-/, for harbour's actions from anywhere](plans/phase-37-prefix-key.md) | [v0.32.0](https://github.com/piacsek/harbour/releases/tag/v0.32.0) |
+| 38 | [colour the card's facts, dim the age and the cards that ended](plans/phase-38-card-colours.md) | |
 
 ## Backlog
 
