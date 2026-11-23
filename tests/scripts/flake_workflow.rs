@@ -78,6 +78,7 @@ const FLAKE_JOB: &str = "  flake:
       - uses: cachix/install-nix-action@75c75c31ebece974e48ebc36b4ad125bd97bd97b # v31.11.3
       - run: nix build
       - run: test \"$(./result/bin/harbour --version)\" = \"harbour $(grep -m1 '^version = ' Cargo.toml | cut -d'\"' -f2)\"
+    timeout-minutes: 20
 ";
 
 const FLAKE_OK_JOB: &str = "  flake-ok:

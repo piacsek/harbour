@@ -13,7 +13,17 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  check:
+  shard:
+    name: shard (${{ matrix.name }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: app
+            tests: --test app
+          - name: rest
+            tests: -E 'not binary(app)'
+            rest: true
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
@@ -24,10 +34,32 @@ jobs:
           toolchain: 1.98.1
           components: rustfmt, clippy
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
-      - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends tmux
-      - run: cargo fmt --check
-      - run: cargo clippy --locked --all-targets -- -D warnings
-      - run: cargo test --locked -- --include-ignored
+        with:
+          key: ${{ matrix.name }}
+      - if: matrix.rest
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends tmux
+      - uses: taiki-e/install-action@3f74d7c16a4242f1c95561e98edc25d36adb4375 # v2.87.12
+        with:
+          tool: cargo-nextest@0.9.144
+          fallback: none
+      - if: matrix.rest
+        run: cargo fmt --check
+      - if: matrix.rest
+        run: cargo clippy --locked --all-targets -- -D warnings
+      - run: cargo nextest run --locked --config-file .github/nextest.toml --run-ignored all ${{ matrix.tests }}
+      - if: matrix.rest
+        run: cargo test --doc --locked
+    timeout-minutes: 10
+
+  check:
+    needs: shard
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    steps:
+      - env:
+          SHARDS: ${{ needs.shard.result }}
+        run: test "$SHARDS" = success
+    timeout-minutes: 5
 
   audit:
     runs-on: ubuntu-latest
@@ -38,6 +70,7 @@ jobs:
           tool: cargo-audit
           fallback: none # never fall back to cargo-binstall / a source build
       - run: cargo-audit audit
+    timeout-minutes: 5
 
   paths:
     runs-on: ubuntu-latest
@@ -51,6 +84,7 @@ jobs:
         env:
           BASE: ${{ github.event_name == 'pull_request' && 'HEAD^1' || github.event.before }}
         run: scripts/flake-build-needed.sh "$BASE" | tee -a "$GITHUB_OUTPUT"
+    timeout-minutes: 5
 
   flake:
     needs: paths
@@ -65,6 +99,7 @@ jobs:
       - uses: cachix/install-nix-action@75c75c31ebece974e48ebc36b4ad125bd97bd97b # v31.11.3
       - run: nix build
       - run: test "$(./result/bin/harbour --version)" = "harbour $(grep -m1 '^version = ' Cargo.toml | cut -d'"' -f2)"
+    timeout-minutes: 20
 
   flake-ok:
     needs: [paths, flake]
@@ -77,3 +112,4 @@ jobs:
           BUILD: ${{ needs.paths.outputs.build }}
           FLAKE: ${{ needs.flake.result }}
         run: scripts/flake-ok.sh "$PATHS" "$BUILD" "$FLAKE"
+    timeout-minutes: 5
