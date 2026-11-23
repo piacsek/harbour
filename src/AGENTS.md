@@ -1,7 +1,7 @@
 # src/AGENTS.md
 
-What each file under `src/` does, moved here from the root `AGENTS.md` so it loads only for work
-in `src/`. When a change alters what a file does, update its entry here, never the root's Layout.
+What each file under `src/` does, moved here from the root `AGENTS.md`. No `src/CLAUDE.md` loads it yet,
+so read it by hand before changing a file in `src/`. When a change alters what a file does, update its entry here, never the root's Layout.
 
 ```
 src/main.rs      the binary: `--version`/`-V`/`version`, `--help`/`-h`/`help`, `changelog`, `status` (the counts for the tmux status line), `log` (the newest log's path; exits 1 when there is none), `config` (`src/config.rs`: the file's path and each setting with its source; exits 1 on a bad file), `edit <file>` (`src/handoff.rs`; exits 0 opened, 3 untaken, 2 refused, 1 usage; `edit --help`/`-h` the usage), the interface with no argument on a terminal (after reading the config file, refused in one line before it opens when the file is bad), the same with made-up sessions for `--demo` on a terminal, the usage on anything else

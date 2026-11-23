@@ -496,7 +496,7 @@ after changing the formula script.
 
 **When the newest tag can never build** (its commit does not compile, or its `Cargo.lock` is
 stale, so every run resumes it and fails again): the tag has no published release, so the rule
-about released tags (Releasing in the root `AGENTS.md`) does not cover it. Land the fix on `main`
+about released tags ("Releasing, in full" in `docs/process.md`) does not cover it. Land the fix on `main`
 through a pull request, delete the unfinished tag and its draft release if one exists, then start
 a new run, which tags the same version again from the fixed `main`. Deleting a tag is the owner's
 decision: an agent asks first.

@@ -124,6 +124,11 @@ good; a finding on one still counts as must when it shows new impact.
   remembered file older than 30 days whose transcript sits in an unreadable folder under the
   Claude Code configuration is removed, though the conversation still exists and Claude Code
   itself still resumes it (`plans/phase-10-resumable-sessions.md`).
+- **An edit of `src/AGENTS.md` alone runs the Nix flake builds**: the flake reads all of `./src`
+  and `scripts/flake-inputs.sh` matches `^src/`, so a branch that only rewords that file builds
+  the flake on Linux and macOS and, once `flake-ok` is required, waits out a Nix outage; leaving
+  Markdown out of the flake's fileset changes `flake.nix`, which needs a fragment and a release
+  (`flake.nix`, `scripts/flake-inputs.sh`).
 - **The release attestation records the `main` commit that started the run, not the release
   commit the tag points at**: its subjects are the right tarballs, but the source commit it
   names is the merge (`.github/AGENTS.md`, "What the attestation proves").

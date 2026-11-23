@@ -4,8 +4,8 @@ How work runs from plan to release: the autonomous flow, review, metrics, mergin
 `AGENTS.md` keeps the hard rules; read this file in full before working autonomously, reviewing,
 merging or releasing, or when the sweep skill or the orchestrator says to.
 
-All guidelines live in `AGENTS.md` files, versioned with the code (the root one for rules and
-agreements, one per directory for that directory's facts); nothing binding lives only in an
+All guidelines live in `AGENTS.md` files, versioned with the code (the root one for the rules that
+always hold, this file for the agreements, one per directory for that directory's facts); nothing binding lives only in an
 agent's private memory. When the user says "update the guidelines", edit the `AGENTS.md`
 nearest the code the guideline is about.
 
@@ -328,7 +328,7 @@ moving the locked `rust-overlay` of `flake.lock`, or feeds the binary without on
 file and what to do instead. It is required once `main` holds it: rerunning `tui_repo` after the
 phase 0 merge adds it to the ruleset (`.github/AGENTS.md`). The full list, how it reads a pull request without running
 it, the release run, and what to do when a run fails or a tag can never build are under
-"Releasing internals" in [`.github/AGENTS.md`](.github/AGENTS.md).
+"Releasing internals" in [`.github/AGENTS.md`](../.github/AGENTS.md).
 
 **A revert keeps the fragment.** A pull request that reverts a merged one keeps that pull
 request's fragment (GitHub's Revert button deletes it, which the check refuses, since

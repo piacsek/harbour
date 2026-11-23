@@ -1,8 +1,8 @@
 # tests
 
-What has gone wrong in the tests before, and how the suites are set up to avoid it. Rules and
-working agreements are in the root `AGENTS.md`. Most traps below were hit in conveyor, where
-these suites come from; the ones about sessions were hit in harbour.
+What has gone wrong in the tests before, and how the suites are set up to avoid it. Rules are in
+the root `AGENTS.md`, working agreements in `docs/process.md`. Most traps below were hit in
+conveyor, where these suites come from; the ones about sessions were hit in harbour.
 
 ## Testing traps hit so far
 
