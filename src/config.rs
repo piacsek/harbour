@@ -10,6 +10,7 @@ use ratatui::style::Color;
 use serde::Deserialize;
 use toml::{Spanned, Value};
 
+use crate::card::Colors;
 use crate::icons::ClaudeIcon;
 use crate::keymap::{self, ACTIONS, Action, Keymap};
 use crate::tui::{DIR_PICKER, EDITOR, SESSION_COMMAND};
@@ -21,6 +22,12 @@ const ACCENT: &str = "expected one of the 16 colour names or #rrggbb";
 const BOOLEAN: &str = "expected true or false";
 const CLAUDE_ICON: &str = "expected \"sparkle\" or \"clawd\"";
 const KEYS: &str = "expected a table of action = \"key\"";
+const COLORS: &str = "expected a table of fact = \"colour\"";
+const FACTS: [(&str, Color); 3] = [
+    ("repository", Color::Blue),
+    ("branch", Color::Magenta),
+    ("pull_request", Color::Cyan),
+];
 const PREFIX_VARIABLE: &str = "HARBOUR_PREFIX";
 
 type Binding = (Action, Setting<Option<char>>);
@@ -56,6 +63,7 @@ pub struct Config {
     nerd_font: Setting<bool>,
     claude_icon: Setting<ClaudeIcon>,
     prefix: Setting<char>,
+    colors: [(&'static str, Setting<Color>); 3],
     bindings: Vec<Binding>,
     ignored: Vec<&'static str>,
 }
@@ -71,6 +79,7 @@ struct Written {
     nerd_font: Option<Spanned<Value>>,
     claude_icon: Option<Spanned<Value>>,
     prefix: Option<Spanned<Value>>,
+    colors: Option<Spanned<Value>>,
     keys: Option<Spanned<Value>>,
 }
 
@@ -78,6 +87,12 @@ struct Written {
 struct Bindings {
     #[serde(default)]
     keys: BTreeMap<Spanned<String>, Spanned<Value>>,
+}
+
+#[derive(Deserialize, Default)]
+struct Palette {
+    #[serde(default)]
+    colors: BTreeMap<Spanned<String>, Spanned<Value>>,
 }
 
 struct Reader<'a> {
@@ -135,6 +150,7 @@ impl Config {
             },
             None => written_prefix.map_or_else(|| default('/'), from_file),
         };
+        let colors = reader.colors(written.colors)?;
         let bindings = reader.bindings(written.keys)?;
         Ok(Config {
             editor: match (set(EDITOR), editor) {
@@ -167,6 +183,7 @@ impl Config {
                 .claude_icon(written.claude_icon)?
                 .map_or_else(|| default(ClaudeIcon::Sparkle), from_file),
             prefix,
+            colors,
             bindings,
             path,
             ignored,
@@ -232,6 +249,13 @@ impl Config {
             &quoted(&keymap::prefix_name(self.prefix.value)),
             &self.prefix.source,
         )])
+        .chain(self.colors.iter().map(|(fact, setting)| {
+            line(
+                &format!("colors.{fact}"),
+                &quoted(&named(setting.value)),
+                &setting.source,
+            )
+        }))
         .chain(self.bindings.iter().map(|(action, setting)| {
             let key = setting.value.map_or("none".to_string(), String::from);
             line(
@@ -286,6 +310,14 @@ impl Config {
 
     pub fn accent(&self) -> &Setting<Color> {
         &self.accent
+    }
+
+    pub fn colors(&self) -> Colors {
+        Colors {
+            repository: self.colors[0].1.value,
+            branch: self.colors[1].1.value,
+            pull_request: self.colors[2].1.value,
+        }
     }
 
     pub fn nerd_font(&self) -> &Setting<bool> {
@@ -430,6 +462,35 @@ impl Reader<'_> {
         parsed
             .map(Some)
             .map_err(|what| self.refusal(&value.span(), "prefix", &what))
+    }
+
+    fn colors(
+        &self,
+        colors: Option<Spanned<Value>>,
+    ) -> Result<[(&'static str, Setting<Color>); 3], Refusal> {
+        let mut settings = FACTS.map(|(fact, color)| (fact, default(color)));
+        let Some(colors) = colors else {
+            return Ok(settings);
+        };
+        if !colors.get_ref().is_table() {
+            return Err(self.refusal(&colors.span(), "colors", COLORS));
+        }
+        let read: Palette = toml::from_str(self.text).map_err(|error| self.syntax(&error))?;
+        let mut entries: Vec<_> = read.colors.into_iter().collect();
+        entries.sort_by_key(|(name, _)| name.span().start);
+        for (name, value) in entries {
+            let key = format!("colors.{}", name.get_ref());
+            let Some((_, setting)) = settings.iter_mut().find(|(fact, _)| fact == name.get_ref())
+            else {
+                return Err(self.refusal(&name.span(), &key, "unknown key"));
+            };
+            let color = match value.get_ref() {
+                Value::String(text) => colour(text),
+                _ => None,
+            };
+            *setting = from_file(color.ok_or_else(|| self.refusal(&name.span(), &key, ACCENT))?);
+        }
+        Ok(settings)
     }
 
     fn bindings(&self, keys: Option<Spanned<Value>>) -> Result<Vec<Binding>, Refusal> {

@@ -5,6 +5,7 @@ use std::path::{Path, PathBuf};
 use harbour::config::{Config, Refusal, Source};
 use ratatui::style::Color;
 
+mod colors;
 mod command;
 mod keys;
 mod naming;

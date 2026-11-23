@@ -25,7 +25,7 @@ mod zoom;
 use draw::exit_note;
 use logging::Input;
 
-use crate::card::Sidebar;
+use crate::card::{Colors, Sidebar};
 use crate::demo;
 use crate::editor::{Changes, Editor, Program};
 use crate::follow::{self, Follow, Mover};
@@ -248,6 +248,11 @@ impl App {
 
     pub fn with_accent(mut self, accent: Color) -> App {
         self.accent = accent;
+        self
+    }
+
+    pub fn with_colors(mut self, colors: Colors) -> App {
+        self.cards = Sidebar::with_colors(colors);
         self
     }
 

@@ -227,6 +227,10 @@ pub struct Sidebar {
 }
 
 impl Sidebar {
+    pub fn with_colors(colors: Colors) -> Sidebar {
+        Sidebar { offset: 0, colors }
+    }
+
     pub fn draw(
         &mut self,
         cards: &[Card],
