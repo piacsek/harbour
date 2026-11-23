@@ -2,7 +2,7 @@ use std::path::Path;
 
 use harbour::tui::{EDITOR, SESSION_COMMAND};
 
-use super::{AGENT, ARGS_AGENT, Server, corner, in_order, tools};
+use super::{AGENT, ARGS_AGENT, Server, focused_at, in_order, tools, unfocused_at};
 
 const FIXTURE_EDITOR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/editor.sh");
 
@@ -204,9 +204,9 @@ fn the_prefix_then_backslash_in_the_demo_shows_its_made_up_editor_beside_claude_
     server.send_keys(&["C-/", "\\"]);
 
     let screen = server.wait_until("the demo editor beside claude code", |screen| {
-        screen.contains("pub fn retry") && second_half_corner(screen)
+        screen.contains("pub fn retry") && claude_focused_beside_the_editor(screen)
     });
-    assert!(second_half_corner(&screen), "{screen}");
+    assert!(claude_focused_beside_the_editor(&screen), "{screen}");
     assert!(screen.contains("pub fn retry"), "{screen}");
 }
 
@@ -264,7 +264,6 @@ fn editor_line((tmux, pane): &(String, String)) -> String {
     format!("acme editor tmux:[{tmux}] pane:[{pane}]")
 }
 
-fn second_half_corner(screen: &str) -> bool {
-    let top: Vec<char> = screen.lines().next().unwrap_or_default().chars().collect();
-    top.get(80).is_some_and(|c| corner(*c))
+fn claude_focused_beside_the_editor(screen: &str) -> bool {
+    focused_at(screen, 0) && unfocused_at(screen, 80)
 }

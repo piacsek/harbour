@@ -67,7 +67,7 @@ use std::thread::sleep;
 use std::time::{Duration, Instant};
 
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers, MouseEvent, MouseEventKind};
-use harbour::app::App;
+use harbour::app::{App, FOCUSED_BORDER, UNFOCUSED_BORDER};
 use harbour::editor::Program;
 use harbour::picker::Picker;
 use harbour::tui::Frames;
@@ -210,7 +210,7 @@ impl Screen {
             if shown != last {
                 last = shown;
                 since = Instant::now();
-            } else if since.elapsed() >= Duration::from_millis(300) {
+            } else if since.elapsed() >= Duration::from_millis(1000) {
                 return shown;
             }
             assert!(
@@ -391,7 +391,7 @@ fn horizontal(c: char) -> bool {
 }
 
 fn focused(symbol: &str) -> bool {
-    symbol.chars().next().is_some_and(drawn) && !unfocused(symbol)
+    parts(&FOCUSED_BORDER.to_border_set()).contains(&symbol)
 }
 
 fn starts_focused(line: &str) -> bool {
@@ -403,7 +403,7 @@ fn focused_char(c: char) -> bool {
 }
 
 fn unfocused(symbol: &str) -> bool {
-    parts(&border::PLAIN).contains(&symbol)
+    parts(&UNFOCUSED_BORDER.to_border_set()).contains(&symbol)
 }
 
 fn unfocused_char(c: char) -> bool {
@@ -446,7 +446,10 @@ fn title(shown: &str, style: impl Fn(char) -> bool) -> String {
 }
 
 fn shows_titled(shown: &str, text: &str) -> bool {
-    shown.lines().any(|line| title(line, |_| true) == text)
+    shown.lines().any(|line| {
+        line.match_indices(top_left)
+            .any(|(at, _)| title(&line[at..], |_| true) == text)
+    })
 }
 
 fn frames() -> Frames {

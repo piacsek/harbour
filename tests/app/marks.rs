@@ -174,7 +174,7 @@ fn started(app: App) -> Screen {
 }
 
 fn before_corner(text: &str) -> &str {
-    text.trim_end_matches(drawn)
+    text.strip_suffix(drawn).unwrap_or_default()
 }
 
 fn bottom(shown: &str) -> String {

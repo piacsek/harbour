@@ -1,5 +1,5 @@
 use crossterm::event::{KeyCode, KeyModifiers, MouseButton, MouseEventKind};
-use harbour::app::App;
+use harbour::app::{App, UNFOCUSED_BORDER};
 use harbour::editor::Program;
 use ratatui::style::Modifier;
 
@@ -204,7 +204,13 @@ fn without_icons_the_pane_border_is_drawn_as_before() {
 
     let top = shown.lines().next().unwrap();
     let border: String = top.chars().skip(SIDEBAR_COLUMNS).collect();
-    let expected = format!("┌ claude | acme-edit {}┐", "─".repeat(BORDER_FILL));
+    let set = UNFOCUSED_BORDER.to_border_set();
+    let expected = format!(
+        "{} claude | acme-edit {}{}",
+        set.top_left,
+        set.horizontal_top.repeat(BORDER_FILL),
+        set.top_right
+    );
     assert_eq!(border, expected);
 }
 

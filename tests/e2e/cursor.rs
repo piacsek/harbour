@@ -3,7 +3,7 @@ use std::time::{Duration, Instant};
 
 use harbour::tui::SESSION_COMMAND;
 
-use crate::Server;
+use crate::{Server, focused_on};
 
 const SHAPED_AGENT: &str = concat!(
     env!("CARGO_MANIFEST_DIR"),
@@ -42,6 +42,28 @@ fn quitting_gives_the_terminal_back_its_default_cursor_shape() {
 
     server.wait_for_screen("harbour exited 0");
     assert_eq!(wait_for_shape(&server, "default"), "default");
+}
+
+#[test]
+#[ignore]
+fn the_terminal_hides_the_cursor_while_the_sidebar_has_focus() {
+    let home = tempfile::tempdir().unwrap();
+    let server = Server::start("cursor-sidebar", 160, 20);
+    server.run(home.path(), &[(SESSION_COMMAND, SHAPED_AGENT)], &[]);
+    server.wait_for_screen("press n to start one");
+    server.send_keys(&["n"]);
+    server.wait_for_screen("acme agent ready");
+    server.send_keys(&["Enter"]);
+    server.wait_until("focus on claude", |screen| focused_on(screen, "claude"));
+    let shown = wait_for_format(&server, "#{cursor_flag}", "1");
+
+    server.send_keys(&["C-h"]);
+
+    server.wait_until("focus on the sidebar", |screen| {
+        focused_on(screen, "sessions")
+    });
+    assert_eq!(shown, "1");
+    assert_eq!(wait_for_format(&server, "#{cursor_flag}", "0"), "0");
 }
 
 fn wait_for_shape(server: &Server, expected: &str) -> String {

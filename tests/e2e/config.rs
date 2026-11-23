@@ -269,8 +269,9 @@ fn the_clawd_icon_from_the_file_leads_the_claude_name_in_the_pane_border() {
 
     let screen = server.wait_for_screen("acme agent in acme-api");
     let top = screen.lines().next().unwrap_or_default();
-    let claude = tabs::claude(Some(ClaudeIcon::Clawd));
-    let editor = tabs::editor_named("nvim", true, None, 80);
+    let pane = pane_corner(&screen).unwrap();
+    let room = top.chars().count() - pane - 2;
+    let [claude, editor] = tabs::iconed(ClaudeIcon::Clawd, "nvim", true, None, room);
     assert!(in_order(top, &[&claude, &editor]), "{top}");
 }
 

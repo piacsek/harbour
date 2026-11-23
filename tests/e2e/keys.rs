@@ -1,7 +1,8 @@
 use tempfile::TempDir;
 
 use crate::{
-    EDITOR, RAW_AGENT, SESSION_COMMAND, Server, corner, focused_corner, in_order, pane_corner,
+    EDITOR, RAW_AGENT, SESSION_COMMAND, Server, corner, focused_at, in_order, pane_corner,
+    unfocused_at,
 };
 
 const XTERM: &str = "\\033[>4;2m";
@@ -478,13 +479,9 @@ fn the_prefix_then_closing_brace_puts_claude_code_on_the_right_with_extended_key
     server.send_keys(&["C-/", "}", "a"]);
 
     let screen = server.wait_until("the swapped halves", |screen| {
-        top_left(screen).is_some_and(|c| corner(c) && !focused_corner(c))
-            && screen.contains("read:a")
+        unfocused_at(screen, 0) && screen.contains("read:a")
     });
-    assert!(
-        top_left(&screen).is_some_and(|c| corner(c) && !focused_corner(c)),
-        "{screen}"
-    );
+    assert!(unfocused_at(&screen, 0), "{screen}");
     assert_eq!(pane_corner(&screen), Some(80), "{screen}");
 }
 
@@ -495,16 +492,14 @@ fn the_prefix_then_opening_brace_puts_claude_code_back_on_the_left_in_the_csi_u_
         return;
     };
     server.send_keys(&["C-/", "}"]);
-    server.wait_until("the swapped halves", |screen| {
-        top_left(screen).is_some_and(|c| corner(c) && !focused_corner(c))
-    });
+    server.wait_until("the swapped halves", |screen| unfocused_at(screen, 0));
 
     server.send_keys(&["C-/", "{", "a"]);
 
     let screen = server.wait_until("the halves back", |screen| {
-        top_left(screen).is_some_and(focused_corner) && screen.contains("read:a")
+        focused_at(screen, 0) && screen.contains("read:a")
     });
-    assert!(top_left(&screen).is_some_and(focused_corner), "{screen}");
+    assert!(focused_at(&screen, 0), "{screen}");
     assert_eq!(pane_corner(&screen), Some(80), "{screen}");
 }
 
@@ -612,8 +607,4 @@ fn corners(screen: &str) -> usize {
         .chars()
         .filter(|c| corner(*c))
         .count()
-}
-
-fn top_left(screen: &str) -> Option<char> {
-    screen.lines().next()?.chars().next()
 }

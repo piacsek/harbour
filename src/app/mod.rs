@@ -5,6 +5,7 @@ use std::time::{Duration, Instant, SystemTime};
 use crossterm::event::{MouseEvent, MouseEventKind};
 use ratatui::layout::{Position, Rect};
 use ratatui::style::Color;
+use ratatui::widgets::BorderType;
 
 mod changelog;
 mod draw;
@@ -41,6 +42,9 @@ use crate::session::{self, Session};
 use crate::summary::Summary;
 use crate::tmux::Tmux;
 use crate::transcript::{self, Transcript};
+
+pub const FOCUSED_BORDER: BorderType = BorderType::Thick;
+pub const UNFOCUSED_BORDER: BorderType = BorderType::Plain;
 
 const HINT: &str = "No session yet: press n to start one.";
 const READ_EVERY: Duration = Duration::from_millis(500);
