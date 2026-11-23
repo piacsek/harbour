@@ -51,7 +51,7 @@ fn a_layout_without_its_own_block_is_not_read_from_a_later_section() {
 
 #[test]
 fn each_directory_guide_loads_as_claude_md() {
-    let missing: Vec<&str> = ["src", "tests", "scripts", "docs", ".github"]
+    let missing: Vec<&str> = [".", "src", "tests", "scripts", "docs", ".github"]
         .into_iter()
         .filter(|directory| {
             let directory = root().join(directory);

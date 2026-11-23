@@ -40,7 +40,7 @@ the root only when it must hold on every turn.
   5. Read the owner's messages again and scrub the PR title and commit messages (see "Review
      before ready"), then squash-merge, the only method `main` allows. Watch the `release`
      run the merge starts to green; with a fragment, check the release holds the six assets
-     and the tap formula names the new version (see "Releasing"). Never tag by hand.
+     and the tap formula names the new version (see "Releasing, in full" below). Never tag by hand.
   6. Remove the worktree and report what shipped, with the release link and the times the
      branch could not record (see "Time and tokens").
   Stop and ask instead of proceeding when: a gate fails for a reason the change did not
@@ -174,8 +174,8 @@ the root only when it must hold on every turn.
   finding is fixed in the PR only when the PR makes it reachable or worse, and otherwise
   becomes an issue or a backlog line, whatever its reachability. The skill's conventions pass
   reads `CLAUDE.md` files; the root `CLAUDE.md` links to the root `AGENTS.md`, so it reads the
-  root rules of the checkout it runs in, but not this file, `docs/known-limits.md` or
-  `src/AGENTS.md`, so each round the orchestrator also checks the diff against the rules of every `AGENTS.md` and of this file (the
+  root rules of the checkout it runs in, and the guide of each directory the diff touches
+  through that directory's `CLAUDE.md`, but not this file or `docs/known-limits.md`, so each round the orchestrator also checks the diff against the rules of every `AGENTS.md` and of this file (the
   fragment, the screenshot of a visible change, TDD shown red, read from the builder's reports
   since the red run is not in the diff, the public-repo rule, the README shape) and reports a
   break as a finding like any other. No reviewer runs the gates: `scripts/ship.sh` runs them,
@@ -238,7 +238,7 @@ the root only when it must hold on every turn.
     `ship.sh` per round of findings rather than one per finding: the review-round exception to
     "one commit per task". Each fix that touches `src/` still starts from a failing test.
 - **Merging and releasing.** Squash-merge the phase PR into `main` when CI is green, then
-  watch the `release` run the merge starts (see Releasing): no bump, no `CHANGELOG.md` edit, no tag
+  watch the `release` run the merge starts (see "Releasing, in full" below): no bump, no `CHANGELOG.md` edit, no tag
   by hand. Squash is the only merge method the repository and the `main` ruleset allow (see
   `.github/AGENTS.md`). The squash commit on `main` takes GitHub's default: the pull request
   title followed by `(#N)` (a pull request of a single commit gets that commit's subject
