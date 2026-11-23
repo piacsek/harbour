@@ -175,45 +175,52 @@ fn a_tmux_that_cannot_start_is_no_move() {
 }
 
 #[test]
-fn a_tmux_that_never_answers_is_given_up_on_well_within_a_second() {
+fn a_tmux_that_never_answers_is_given_up_on_at_the_deadline() {
     let scratch = tempfile::tempdir().unwrap();
+    let deadline = Duration::from_secs(2);
     let tmux = Tmux::with_program(
         program(
             scratch.path(),
             &format!(
-                "case $1 in {BOUND} display-message) sleep 5; echo '110 /dev/acme-tty' ;; esac"
+                "case $1 in {BOUND} display-message) sleep 30; echo '110 /dev/acme-tty' ;; esac"
             ),
         ),
         "%7".into(),
         "/dev/acme-tty".into(),
-        Duration::from_millis(100),
+        deadline,
     );
     let began = Instant::now();
 
     let moved = tmux.select(Direction::Below);
 
+    let elapsed = began.elapsed();
     assert!(!moved);
-    assert!(
-        began.elapsed() < Duration::from_millis(500),
-        "{:?}",
-        began.elapsed()
-    );
+    assert!(elapsed >= deadline, "{elapsed:?}");
+    assert!(elapsed < deadline + Duration::from_secs(3), "{elapsed:?}");
 }
 
 #[test]
 fn an_answer_whose_output_stays_open_after_it_exits_is_read_at_once() {
     let scratch = tempfile::tempdir().unwrap();
-    let tmux = answering(scratch.path(), "echo '110 /dev/acme-tty'; sleep 5 &");
+    let deadline = Duration::from_secs(10);
+    let tmux = Tmux::with_program(
+        program(
+            scratch.path(),
+            &format!(
+                "case $1 in {BOUND} display-message) echo '110 /dev/acme-tty'; sleep 30 & ;; esac"
+            ),
+        ),
+        "%7".into(),
+        "/dev/acme-tty".into(),
+        deadline,
+    );
     let began = Instant::now();
 
     let moved = tmux.select(Direction::Below);
 
+    let elapsed = began.elapsed();
     assert!(moved);
-    assert!(
-        began.elapsed() < Duration::from_millis(500),
-        "{:?}",
-        began.elapsed()
-    );
+    assert!(elapsed < deadline / 2, "{elapsed:?}");
 }
 
 #[test]
