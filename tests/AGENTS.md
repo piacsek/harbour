@@ -73,10 +73,19 @@ after the Clawd glyph: `tests/tabs.rs`, `tests/app/side_border.rs`, `tests/e2e/c
   `elapsed >= deadline()` and `elapsed < 2 * deadline()`, or only the upper bound where a platform
   refuses at once (a socket that never accepts is refused at once on macOS, so `tests/nvim.rs`
   asserts only it); a test of returning early injects or stalls `5 * deadline()` and asserts
-  `elapsed < deadline()`; any other deadline a seam or a waiting helper takes is `5 * deadline()`.
-  Where the time is the product's own latency and no deadline can be injected, the bound is a
-  test constant mirroring `src` (`HANGUP_GRACE`, `OPEN_PATIENCE`, `ASKING`) with the loosest
-  margin a regression still breaks. `tests/wall_clock.rs` fails on a `<` or `<=` bound by a
+  `elapsed < deadline()`; any other deadline a seam or a waiting helper takes is `5 * deadline()`,
+  and a stall that must outlast a test's waits is `10 * deadline()`. A test that harbour is fast
+  checks the order of events the fakes record, not the clock: each session and editor hangs up
+  before any is killed (`tests/app/ending.rs`, `tests/app/editor_ending.rs`: a fake's HUP trap
+  writes how many fakes it saw alive), C-h on a silent Neovim sends one mode query
+  (`tests/app/neovim.rs`), a running Neovim's prompt is seen by a mode query before the open's
+  patience ends (`tests/app/handing.rs`), the picker is drawn before a slow list ends
+  (`tests/app/picker.rs`). A time bound stays only where no event can be ordered against it: on
+  `deadline()` for an open whose Neovim exits or prompts (`tests/app/handing.rs`) and for writes
+  to a log that cannot be written (`tests/log.rs`); on a test constant mirroring `src` with the
+  loosest margin a regression still breaks (`PATIENCE` in `tests/app/neovim.rs`, `ASKING` in
+  `tests/edit.rs`) where the time is the product's own latency and no deadline can be injected.
+  `tests/wall_clock.rs` fails on a `<` or `<=` bound by a
   `Duration::from_` or after `as_millis()` or `as_secs()`, a `Duration::from_` on the left of `>`,
   a `recv_timeout(Duration::from_` not followed by `.is_err()` on its line, and a literal
   `Duration::from_` anywhere inside a call of `with_program`, `with_patience`, `hand`, `finish`,

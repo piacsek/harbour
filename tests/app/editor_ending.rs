@@ -6,13 +6,13 @@ use crossterm::event::{KeyCode, KeyModifiers};
 use harbour::editor::Program;
 use ratatui::style::Modifier;
 
-use crate::HANGUP_GRACE;
+use crate::ending::{hangups, recording_hangups, staying_after_hangups};
 use crate::{Screen, below, reading_agent, region, script};
 
 #[test]
 fn yes_to_ending_a_session_ends_its_editor_too() {
     let scratch = tempfile::tempdir().unwrap();
-    let mut screen = editing(scratch.path(), reading_agent(), "");
+    let mut screen = editing(scratch.path(), reading_agent());
     screen.key(KeyCode::Char('h'), KeyModifiers::CONTROL);
     screen.key(KeyCode::Char('h'), KeyModifiers::CONTROL);
     screen.press('x');
@@ -132,25 +132,36 @@ fn q_with_only_an_editor_running_asks_before_quitting() {
 }
 
 #[test]
-fn quitting_ends_editors_and_sessions_within_one_grace_period() {
+fn quitting_hangs_up_on_editors_and_sessions_before_it_kills_any() {
     let scratch = tempfile::tempdir().unwrap();
-    let mut screen = editing(scratch.path(), reading_agent(), "trap '' HUP; ");
+    let mut screen = editing_with(
+        hanging_up(scratch.path(), "agent", "acme agent ready"),
+        Program::new(
+            "acme-edit",
+            hanging_up(scratch.path(), "editor", "acme editor ready"),
+        ),
+    );
     screen.key(KeyCode::Char('h'), KeyModifiers::CONTROL);
     screen.key(KeyCode::Char('h'), KeyModifiers::CONTROL);
     screen.prefixed('q');
     screen.press('y');
     assert!(!screen.app.running());
-    let started = Instant::now();
 
     drop(screen);
 
-    let elapsed = started.elapsed();
-    assert!(elapsed < 2 * HANGUP_GRACE, "{elapsed:?}");
-    assert!(gone(&pid(scratch.path())));
+    let hangups = hangups(scratch.path());
+    assert_eq!(hangups.len(), 2, "{hangups:?}");
+    assert_eq!(hangups[0], "agent saw 2 alive", "{hangups:?}");
+    assert_eq!(hangups[1], "editor saw 2 alive", "{hangups:?}");
+    assert!(gone(&alive(scratch.path(), "editor")));
 }
 
-fn editing(scratch: &Path, agent: Vec<String>, before: &str) -> Screen {
-    let mut screen = Screen::editing(agent, recording_editor(scratch, before));
+fn editing(scratch: &Path, agent: Vec<String>) -> Screen {
+    editing_with(agent, recording_editor(scratch))
+}
+
+fn editing_with(agent: Vec<String>, editor: Program) -> Screen {
+    let mut screen = Screen::editing(agent, editor);
     screen.press('n');
     screen.wait_for("acme agent ready");
     screen.key(KeyCode::Enter, KeyModifiers::NONE);
@@ -160,7 +171,7 @@ fn editing(scratch: &Path, agent: Vec<String>, before: &str) -> Screen {
 }
 
 fn in_the_sidebar(scratch: &Path) -> Screen {
-    let mut screen = editing(scratch, reading_agent(), "");
+    let mut screen = editing(scratch, reading_agent());
     screen.key(KeyCode::Char('h'), KeyModifiers::CONTROL);
     screen.key(KeyCode::Char('h'), KeyModifiers::CONTROL);
     screen
@@ -168,7 +179,7 @@ fn in_the_sidebar(scratch: &Path) -> Screen {
 
 fn with_exited_agent(scratch: &Path) -> Screen {
     let agent = script("echo 'acme agent ready'; read -r line; exit 0");
-    let mut screen = editing(scratch, agent, "");
+    let mut screen = editing(scratch, agent);
     screen.key(KeyCode::Char('h'), KeyModifiers::CONTROL);
     screen.key(KeyCode::Enter, KeyModifiers::NONE);
     screen.wait_until("the session exited", |shown| {
@@ -178,11 +189,11 @@ fn with_exited_agent(scratch: &Path) -> Screen {
     screen
 }
 
-fn recording_editor(scratch: &Path, before: &str) -> Program {
+fn recording_editor(scratch: &Path) -> Program {
     Program::new(
         "acme-edit",
         script(&format!(
-            "{before}echo $$ > '{}/pid'; echo 'acme editor ready'; exec sleep 600",
+            "echo $$ > '{}/pid'; echo 'acme editor ready'; exec sleep 600",
             scratch.display()
         )),
     )
@@ -190,6 +201,21 @@ fn recording_editor(scratch: &Path, before: &str) -> Program {
 
 fn pid(scratch: &Path) -> String {
     std::fs::read_to_string(scratch.join("pid"))
+        .unwrap()
+        .trim()
+        .to_string()
+}
+
+fn hanging_up(scratch: &Path, name: &str, ready: &str) -> Vec<String> {
+    script(&format!(
+        "{}echo '{ready}'; {}",
+        recording_hangups(scratch, name),
+        staying_after_hangups()
+    ))
+}
+
+fn alive(scratch: &Path, name: &str) -> String {
+    std::fs::read_to_string(scratch.join(format!("alive-{name}")))
         .unwrap()
         .trim()
         .to_string()

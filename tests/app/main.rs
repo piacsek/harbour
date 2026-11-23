@@ -83,7 +83,6 @@ mod timing;
 use timing::deadline;
 
 const HOME: &str = "acme-home";
-const HANGUP_GRACE: Duration = Duration::from_millis(200);
 
 struct Screen {
     app: App,

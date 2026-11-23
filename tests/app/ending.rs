@@ -1,10 +1,9 @@
-use std::time::Instant;
+use std::fs;
+use std::path::Path;
 
 use crossterm::event::{KeyCode, KeyModifiers, MouseButton, MouseEventKind};
 
-use crate::{
-    HANGUP_GRACE, Screen, below, directory, numbered_agent, raw_agent, reading_agent, script,
-};
+use crate::{Screen, below, directory, raw_agent, reading_agent, script};
 
 #[test]
 fn x_on_a_running_session_asks_before_ending_it() {
@@ -163,19 +162,58 @@ fn a_click_in_the_pane_cancels_the_question_and_does_not_focus_the_pane() {
 }
 
 #[test]
-fn quitting_ends_every_running_session_within_one_grace_period() {
+fn quitting_hangs_up_on_every_running_session_before_it_kills_any() {
     let scratch = tempfile::tempdir().unwrap();
-    let mut screen = Screen::new(numbered_agent(scratch.path()));
+    let mut screen = Screen::new(hanging_up_agent(scratch.path()));
     for started in 1..=5 {
         screen.press('n');
         screen.wait_for(&format!("acme agent {started}"));
     }
     screen.prefixed('q');
     screen.press('y');
-    let started = Instant::now();
 
     drop(screen);
 
-    let elapsed = started.elapsed();
-    assert!(elapsed < 3 * HANGUP_GRACE, "{elapsed:?}");
+    let hangups = hangups(scratch.path());
+    assert_eq!(hangups.len(), 5, "{hangups:?}");
+    assert_eq!(hangups[0], "1 saw 5 alive", "{hangups:?}");
+    assert_eq!(hangups[1], "2 saw 5 alive", "{hangups:?}");
+    assert_eq!(hangups[2], "3 saw 5 alive", "{hangups:?}");
+    assert_eq!(hangups[3], "4 saw 5 alive", "{hangups:?}");
+    assert_eq!(hangups[4], "5 saw 5 alive", "{hangups:?}");
+}
+
+fn hanging_up_agent(scratch: &Path) -> Vec<String> {
+    let count = scratch.join("count");
+    script(&format!(
+        "n=$(($(cat '{count}' 2>/dev/null || echo 0) + 1)); echo $n > '{count}'; \
+         {recording}echo \"acme agent $n\"; {staying}",
+        count = count.display(),
+        recording = recording_hangups(scratch, "$n"),
+        staying = staying_after_hangups(),
+    ))
+}
+
+pub(crate) fn recording_hangups(scratch: &Path, name: &str) -> String {
+    let scratch = scratch.display();
+    format!(
+        "echo $$ > \"{scratch}/alive-{name}\"; \
+         hung() {{ seen=0; for f in '{scratch}'/alive-*; do read -r p < \"$f\"; \
+         kill -0 \"$p\" 2>/dev/null && seen=$((seen + 1)); done; \
+         echo \"{name} saw $seen alive\" >> '{scratch}/hangups'; }}; trap hung HUP; "
+    )
+}
+
+pub(crate) fn staying_after_hangups() -> &'static str {
+    "while :; do sleep 600 & wait $!; done"
+}
+
+pub(crate) fn hangups(scratch: &Path) -> Vec<String> {
+    let mut hangups: Vec<String> = fs::read_to_string(scratch.join("hangups"))
+        .unwrap_or_default()
+        .lines()
+        .map(String::from)
+        .collect();
+    hangups.sort();
+    hangups
 }

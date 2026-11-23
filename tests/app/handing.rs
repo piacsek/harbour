@@ -155,16 +155,16 @@ fn an_open_that_starts_a_neovim_which_stops_at_a_prompt_on_loading_the_file_is_r
 fn an_open_that_raises_a_prompt_in_a_running_neovim_is_refused_at_once() {
     let scratch = tempfile::tempdir().unwrap();
     let (mut screen, socket) = editing(scratch.path());
-    let _asked = neovim_in(&socket, "n", false, Edit::Asking);
-    let started = Instant::now();
+    let asked = neovim_in(&socket, "n", false, Edit::Asking);
 
     let reply = screen
         .app
         .hand(Verb::Open, &file(scratch.path(), "acme-api"), soon());
 
-    let elapsed = started.elapsed();
     assert_eq!(reply, Reply::Refused(WAITING.to_string()));
-    assert!(elapsed < OPEN_PATIENCE, "{elapsed:?}");
+    assert_eq!(called(&asked).0, "nvim_get_mode");
+    assert_eq!(called(&asked).0, "nvim_cmd");
+    assert_eq!(called(&asked).0, "nvim_get_mode");
 }
 
 #[test]

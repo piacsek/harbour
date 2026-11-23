@@ -244,16 +244,19 @@ fn a_click_in_the_popup_reaches_a_picker_that_asked_for_the_mouse() {
 
 #[test]
 fn a_slow_list_holds_up_neither_harbour_nor_the_picker() {
-    let stall = (5 * deadline()).as_secs();
-    let slow = script(&format!("sleep {stall}; printf '/acme/web\\n'"));
+    let scratch = tempfile::tempdir().unwrap();
+    let stall = (10 * deadline()).as_secs();
+    let listed = scratch.path().join("listed");
+    let slow = script(&format!(
+        "sleep {stall}; touch '{}'; printf '/acme/web\\n'",
+        listed.display()
+    ));
     let mut screen = Screen::picking(placed_agent(), fuzzy(first_line_fzf(), slow));
-    let pressed = Instant::now();
 
     screen.press('n');
 
-    let elapsed = pressed.elapsed();
-    assert!(elapsed < deadline(), "{elapsed:?}");
     screen.wait_for("acme picker");
+    assert!(!listed.exists());
     screen.type_text("\r");
     let row = format!("{} 1", directory());
     let shown = screen.wait_for(&row);
