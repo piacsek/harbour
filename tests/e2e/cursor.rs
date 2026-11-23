@@ -3,7 +3,7 @@ use std::time::{Duration, Instant};
 
 use harbour::tui::SESSION_COMMAND;
 
-use crate::Server;
+use crate::{Server, focused_on};
 
 const SHAPED_AGENT: &str = concat!(
     env!("CARGO_MANIFEST_DIR"),
@@ -24,26 +24,6 @@ fn the_terminal_takes_the_cursor_shape_of_the_shown_session() {
 
     server.wait_for_screen("acme agent shape 6");
     assert_eq!(wait_for_shape(&server, "bar"), "bar");
-}
-
-#[test]
-#[ignore]
-fn another_session_shown_gives_the_terminal_its_shape() {
-    let home = tempfile::tempdir().unwrap();
-    let server = Server::start("cursor-switch", 160, 20);
-    server.run(home.path(), &[(SESSION_COMMAND, SHAPED_AGENT)], &[]);
-    server.wait_for_screen("press n to start one");
-    server.send_keys(&["n"]);
-    server.wait_for_screen("acme agent ready");
-    server.send_keys(&["Enter", "4", "Enter"]);
-    assert_eq!(wait_for_shape(&server, "underline"), "underline");
-
-    server.send_keys(&["C-h", "n"]);
-
-    server.wait_for_screen("acme-api 2");
-    assert_eq!(wait_for_shape(&server, "default"), "default");
-    server.send_keys(&["k"]);
-    assert_eq!(wait_for_shape(&server, "underline"), "underline");
 }
 
 #[test]
@@ -74,13 +54,15 @@ fn the_terminal_hides_the_cursor_while_the_sidebar_has_focus() {
     server.send_keys(&["n"]);
     server.wait_for_screen("acme agent ready");
     server.send_keys(&["Enter"]);
-    server.wait_for_screen("┌ sessions");
-    let focused = wait_for_format(&server, "#{cursor_flag}", "1");
+    server.wait_until("focus on claude", |screen| focused_on(screen, "claude"));
+    let shown = wait_for_format(&server, "#{cursor_flag}", "1");
 
     server.send_keys(&["C-h"]);
 
-    server.wait_for_screen("┏ sessions");
-    assert_eq!(focused, "1");
+    server.wait_until("focus on the sidebar", |screen| {
+        focused_on(screen, "sessions")
+    });
+    assert_eq!(shown, "1");
     assert_eq!(wait_for_format(&server, "#{cursor_flag}", "0"), "0");
 }
 

@@ -5,7 +5,7 @@ use crossterm::event::{KeyCode, KeyModifiers};
 use harbour::app::App;
 use harbour::editor::Program;
 
-use crate::{Screen, script};
+use crate::{Screen, in_order, script};
 
 const ID: &str = "4c3b2a19-0f8e-4d7c-9b6a-5f4e3d2c1b0a";
 
@@ -49,9 +49,10 @@ fn the_zoomed_top_row_keeps_the_names_after_the_session() {
 
     let top = top(&screen.draw());
     assert!(
-        top.starts_with(" ● Fix the login  acme-api · main  3m  claude | acme-edit   "),
+        top.starts_with(" ● Fix the login  acme-api · main  3m  claude "),
         "{top}"
     );
+    assert!(in_order(&top, &[" claude ", " acme-edit   "]), "{top}");
     assert!(top.ends_with("   sessions ● 1 "), "{top}");
 }
 
@@ -68,9 +69,10 @@ fn a_long_editor_directory_leaves_the_session_its_dot_and_title() {
 
     let top = top(&screen.wait_for("acme-edit: "));
     assert!(
-        top.starts_with(" ● Fix the login  acme-api…  3m  claude | acme-edit: …"),
+        top.starts_with(" ● Fix the login  acme-api…  3m  claude "),
         "{top}"
     );
+    assert!(in_order(&top, &[" claude ", " acme-edit: …"]), "{top}");
     assert!(top.ends_with("  sessions ● 1 "), "{top}");
 }
 

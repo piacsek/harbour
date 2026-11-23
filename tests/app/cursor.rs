@@ -11,7 +11,9 @@ use harbour::picker::Picker;
 use ratatui::layout::Position;
 use ratatui::style::Modifier;
 
-use crate::{Screen, frames, home, pane_corner, reading_agent, script};
+use crate::{
+    Screen, frames, home, pane_corner, reading_agent, script, shows_titled, unfocused_title,
+};
 
 #[test]
 fn the_terminal_cursor_sits_on_the_pane_cursor_cell() {
@@ -82,7 +84,7 @@ fn the_help_view_shows_no_cursor_and_the_default_shape() {
 
     screen.prefixed('?');
 
-    screen.wait_for("┌ help ");
+    screen.wait_until("the help", |shown| shows_titled(shown, "help"));
     assert_eq!(screen.cursor(), None);
     assert_eq!(screen.app.cursor_shape(), 0);
 }
@@ -117,12 +119,12 @@ fn the_cursor_comes_back_at_the_same_cell_once_the_pane_has_focus_again() {
     let shown = focused_on_the_pane(&mut screen);
     let corner = pane_corner(&shown);
     screen.key(KeyCode::Char('h'), KeyModifiers::CONTROL);
-    screen.wait_for("┏ sessions");
+    screen.wait_for_focused("sessions");
     let beside = screen.cursor();
 
     screen.key(KeyCode::Enter, KeyModifiers::NONE);
 
-    screen.wait_for("┌ sessions");
+    screen.wait_for_unfocused("sessions");
     assert_eq!(beside, None);
     assert_eq!(screen.cursor(), Some(Position::new(corner + 22, 3)));
     assert_eq!(screen.app.cursor_shape(), 6);
@@ -137,13 +139,13 @@ fn the_editor_shows_no_cursor_while_the_sidebar_has_focus_and_its_cursor_again_a
     let before = screen.cursor();
     screen.mouse(MouseEventKind::Down(MouseButton::Left), 1, 1);
     screen.mouse(MouseEventKind::Up(MouseButton::Left), 1, 1);
-    screen.wait_for("┏ sessions");
+    screen.wait_for_focused("sessions");
     let beside = screen.cursor();
 
     screen.mouse(MouseEventKind::Down(MouseButton::Left), 70, 10);
     screen.mouse(MouseEventKind::Up(MouseButton::Left), 70, 10);
 
-    screen.wait_for("┌ sessions");
+    screen.wait_for_unfocused("sessions");
     assert!(before.is_some());
     assert_eq!(beside, None);
     assert_eq!(screen.cursor(), before);
@@ -187,7 +189,9 @@ fn a_session_started_through_the_picker_shows_its_cursor_at_once() {
 
     screen.type_text(&format!("{}\r", home().display()));
 
-    let shown = screen.wait_for_all(&["acme agent shaped", "┌ sessions"]);
+    let shown = screen.wait_until("the shaped agent with the sidebar unfocused", |shown| {
+        shown.contains("acme agent shaped") && unfocused_title(shown).starts_with("sessions")
+    });
     let corner = pane_corner(&shown);
     assert_eq!(screen.cursor(), Some(Position::new(corner + 22, 3)));
     assert_eq!(screen.app.cursor_shape(), 6);
@@ -227,7 +231,7 @@ fn switching_sessions_hides_the_cursor_before_changing_its_shape() {
     screen.press('k');
     screen.wait_for("acme agent 1");
     screen.key(KeyCode::Enter, KeyModifiers::NONE);
-    screen.wait_for("┌ sessions");
+    screen.wait_for_unfocused("sessions");
     written.clear();
 
     frames
@@ -250,7 +254,7 @@ fn a_frame_hides_the_cursor_before_its_first_cell_and_moves_then_shows_it_in_one
     screen.press('n');
     screen.wait_for("acme agent plain");
     screen.key(KeyCode::Enter, KeyModifiers::NONE);
-    let shown = screen.wait_for("┌ sessions");
+    let shown = screen.wait_for_unfocused("sessions");
     let corner = pane_corner(&shown);
     let written = Written::default();
     let mut frames = frames();
@@ -274,7 +278,11 @@ fn an_exited_session_shows_no_cursor() {
     ));
     focused_on_the_pane(&mut screen);
     screen.key(KeyCode::Enter, KeyModifiers::NONE);
-    screen.wait_for_all(&["exited", "acme agent done", "┌ sessions"]);
+    screen.wait_until("the ended agent with the sidebar unfocused", |shown| {
+        shown.contains("exited")
+            && shown.contains("acme agent done")
+            && unfocused_title(shown).starts_with("sessions")
+    });
 
     assert_eq!(screen.cursor(), None);
 }
@@ -345,7 +353,7 @@ fn a_wide_character_under_the_cursor_is_drawn_whole_and_unstyled() {
     screen.press('n');
     screen.wait_for("京");
     screen.key(KeyCode::Enter, KeyModifiers::NONE);
-    let shown = screen.wait_for("┌ sessions");
+    let shown = screen.wait_for_unfocused("sessions");
     let corner = pane_corner(&shown);
 
     let cell = screen.cell(corner + 8, 1);
@@ -359,7 +367,7 @@ fn focused_on_the_pane(screen: &mut Screen) -> String {
     screen.press('n');
     screen.wait_for("acme agent");
     screen.key(KeyCode::Enter, KeyModifiers::NONE);
-    screen.wait_for("┌ sessions")
+    screen.wait_for_unfocused("sessions")
 }
 
 fn placed_editor() -> Program {
@@ -432,5 +440,5 @@ fn started_through_the_picker(screen: &mut Screen, directory: &Path) {
     screen.type_text(&format!("{}\r", directory.display()));
     screen.wait_for("acme agent shaped");
     screen.key(KeyCode::Char('h'), KeyModifiers::CONTROL);
-    screen.wait_for("┏ sessions");
+    screen.wait_for_focused("sessions");
 }

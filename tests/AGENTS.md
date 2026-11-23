@@ -4,6 +4,57 @@ What has gone wrong in the tests before, and how the suites are set up to avoid 
 the root `AGENTS.md`, working agreements in `docs/process.md`. Most traps below were hit in
 conveyor, where these suites come from; the ones about sessions were hit in harbour.
 
+## Where a test belongs
+
+These rules override a TDD skill or personal instruction that prefers outside-in or
+integration-first tests. One cosmetic change once cost edits in three files (one added space
+after the Clawd glyph: `tests/tabs.rs`, `tests/app/side_border.rs`, `tests/e2e/config.rs`).
+
+- **Each behaviour has an owner test at the lowest level that does it**, and a change's red test
+  goes there. A string drawn by a pure function (`tabs::claude`, `card::lines`, `state::title`,
+  `help::rows`) is owned by that function's table (`tests/tabs.rs`, `tests/card/`, ...); a string
+  only the app draws (the ` | ` between the pane's names, a focused border) by one test under
+  `tests/app/`; a script's behaviour by its test in `tests/scripts/`.
+- **The owner pins the exact literal, once.** Every other test that shows the same text builds
+  its expected text from the production function (`tabs::claude(Some(ClaudeIcon::Clawd))`), or
+  checks presence and order (`in_order(top, &["claude", "acme-edit"])`: the glyph before the
+  name, the name before the editor), never the literal again.
+- **Borders are checked by role, not by glyph.** A pane's border types are `FOCUSED_BORDER` and
+  `UNFOCUSED_BORDER` in `src/app/mod.rs`; the helpers (`focused`,
+  `unfocused`, `focused_title`, `shows_titled`, `top_left`, `vertical`, `drawn` in `tests/app/`,
+  `corner`, `focused_corner`, `focused_on`, `focused_at`, `unfocused_at`, `vertical` in
+  `tests/e2e/borders.rs`) read them, and a test that spells a pane border builds it from their sets. Only
+  `focus::a_focused_pane_has_the_thick_border` names a pane border's glyphs (`┌`, `┏`) and
+  `marks::the_waiting_prefix_shows_on_the_panes_bottom_border` its `┘`, so a new style fails only
+  those owners. A corner alone may not tell two styles apart (the light dashed sets share `┌`
+  with the plain one), so the e2e checks of which pane has focus read the corner and the side
+  below it (`focused_at`, `unfocused_at`). A popup's own border is not a pane's: the help's and the
+  changelog's plain `│` and `┌ help` are named in `tests/app/help.rs` and
+  `tests/app/changelog.rs`. A card's indent is found (`column_of`) or trimmed,
+  never counted, outside `tests/card/`.
+- **Each level has one job.** Pure tests pin exact strings and every edge of a table (every
+  width, every spacing). In-process `tests/app/` tests check what shows, in what order and in
+  which pane. `tests/e2e/` proves each user-facing feature (a key, a subcommand, a view, a
+  config option) is wired up through the real binary: every feature keeps at least one
+  end-to-end test, asserting loosely (presence, order, text built from the production
+  function), never the exact literal. What moves down is exact pinning and repeated cases, not
+  the feature's one end-to-end test; an end-to-end test that only repeats a case of a feature
+  already proven end to end, and covered in process, is deleted.
+- **Before adding a test, look for the one that already pins it** at a lower level; add a row
+  there, or nothing.
+- **A test waits for exactly what it asserts** (see the trap below). A whole-screen comparison
+  (`assert_eq!(screen.draw(), before)`) follows a wait for that whole screen or for the screen
+  to stop changing (`wait_for_stable` in `tests/app/`: a second without a change, longer than
+  the app's slowest periodic redraw, the 500 ms read and check ticks), never a wait for one word
+  of it. A line checked on the screen is waited for as that line (`wait_until` with the same
+  predicate).
+- **Shared helpers live in the binary's `main.rs`** (`tests/app/main.rs`, `tests/e2e/main.rs`;
+  the e2e border helpers in `tests/e2e/borders.rs`, since `tests/source_size.rs` caps a file
+  at 700 lines), each wait with a test in that binary's `waits.rs` that sees it fail.
+- **Script tests guard what ships and releases**: the gates, `ship.sh`, the scrub check, the
+  version check and the release scripts. A test of a usage line or a help text that no gate,
+  workflow or user reads is not written.
+
 ## Testing traps hit so far
 
 - **tmux is a test harness, not a dependency.** Only the `#[ignore]` tests of `tests/e2e/` use
@@ -76,10 +127,11 @@ conveyor, where these suites come from; the ones about sessions were hit in harb
   `nvim::eval` that returns 1) before it asserts on `wants_ctrl_h`, `changes` or `open`. There
   the prompts show: press-enter is mode `r` blocking, the swap prompt `r?`, a pending `C-w`
   mode `n` blocking. `Session::end` ends the embed server too, even at a swap prompt.
-  `tests/e2e/neovim.rs` keeps five smoke tests that the wiring through tmux and harbour still
-  holds (C-h to Claude Code, a tmux command run from Neovim acting on harbour's pane and C-h
-  after it, `x` over unsaved changes, `harbour edit` twice, and `harbour edit` starting a Neovim
-  stopped at a stale swap prompt, refused with exit 2). Its `TMUX_TMPDIR` is an existing folder
+  `tests/e2e/neovim.rs` keeps four smoke tests that the wiring through tmux and harbour still
+  holds (a tmux command run from Neovim acting on harbour's pane and C-h after it, `x` on a
+  modified buffer saying it has unsaved changes, `harbour edit` twice, and `harbour edit` starting
+  a Neovim stopped at a stale swap prompt, refused with exit 2)
+  beside its extended-keys tests. Its `TMUX_TMPDIR` is an existing folder
   under the scratch `HOME` (tmux ignores one that does not exist), so a tmux command run there
   without `TMUX` finds no server instead of the user's default one.
 
@@ -122,10 +174,10 @@ conveyor, where these suites come from; the ones about sessions were hit in harb
 - **Keys sent to a program inside harbour are followed by a wait for their visible effect.**
   tmux delivers each `send_keys` at once, and harbour and the program take them in their own
   time, so the next group can land before the last one was handled. In the
-  end-to-end test of a modified acwrite buffer (since moved in process), under load, the sidebar
+  end-to-end test of a modified acwrite buffer, under load, the sidebar
   click was lost and its `x` reached Neovim, whose buffer read `acxme`. After each group, wait
   for what it shows and assert on what the wait returned: the typed text, the mode
-  (`-- INSERT --`), a pending key in Neovim's `showcmd`, a focused border (`┏ sessions`), or,
+  (`-- INSERT --`), a pending key in Neovim's `showcmd`, a focused border (`focused_on(screen, "sessions")`), or,
   where nothing shows, an `:echo` marker that Neovim can only print once it took every key
   before it (`settled` in `tests/e2e/neovim.rs`).
 
@@ -226,13 +278,13 @@ What each test file and fixture covers, moved here from the root `AGENTS.md`. Up
 never the root's Layout, when a test or fixture changes what it covers.
 
 ```
-tests/           outside-in: `tests/cli.rs` runs the real binary;
+tests/           by level (see "Where a test belongs"): `tests/cli.rs` runs the real binary;
                  `tests/scripts/` runs the scripts in a scratch directory and repository, with `tests/fixtures/` standing in for `cargo`, `gh`, `curl` and the scripts they call;
                  `tests/e2e/` runs the real binary in a scratch tmux server (`#[ignore]`, see the traps above), with `HARBOUR_SESSION_COMMAND` pointing sessions at `tests/fixtures/agent.sh` (prints its `TMUX` and `TMUX_PANE`, then what it reads, a line at a time) or `tests/fixtures/raw-agent.sh` (asks for bracketed paste and the mouse, and for the extended keys `ACME_KEYS_ASKED` holds when a test sets it, prints every byte it reads, ESC as `^`, CR as `|`, C-a as `@` and C-] as `&`) instead of `claude`, or at `tests/fixtures/args-agent.sh` (prints its arguments, also linked as `claude` on the scratch `PATH` to see what the default gets), or at `tests/fixtures/registered-agent.sh` (writes a busy registry file under `CLAUDE_CONFIG_DIR`, else `HOME`, so it only runs with a scratch `HOME`) or `tests/fixtures/titled-agent.sh` (the same with a `sessionId` and a transcript) or `tests/fixtures/resumable-agent.sh` (the same, saying `acme agent resumed <id>`, then `acme agent args:[<its arguments>]`, when `--resume <id>` is among its arguments) or `tests/fixtures/fifo-agent.sh` (makes its registry file a FIFO, which holds harbour's draw thread in its read until a test opens it for writing, how `tests/e2e/signals.rs` holds the loop); `tests/e2e/cards.rs` holds the tests of the cards, `tests/e2e/cursor.rs` reads `#{cursor_shape}` of harbour's pane with `tests/fixtures/shaped-agent.sh` (sends `ESC [ <line> SP q` for each line it reads), `tests/e2e/keys.rs` the keys under tmux's `extended-keys` on, off and always, in the xterm and the csi-u form, what an editor that asked for extended keys gets and that Claude Code asking still gets the legacy keys, `HARBOUR_DIR_PICKER` at `tests/fixtures/picker.sh` (prints its `TMUX` and `TMUX_PANE` on stderr, then the line it reads), `HARBOUR_EDITOR` at `tests/fixtures/editor.sh` (prints its first and last argument and its `TMUX` and `TMUX_PANE`, also linked as `nvim` to see what Neovim gets) or at `tests/fixtures/nvim/nvim` (a real Neovim with `--clean`, see the traps above), all three cleared from the environment unless the test sets them, `CLAUDE_CONFIG_DIR` cleared, `TMPDIR` a directory under the scratch `HOME` (so a picker left open leaves nothing behind), `HARBOUR_LOG=1` (a failing test prints the newest log under that `HOME`; `tests/e2e/log.rs` checks it never holds what was typed, pasted or a title), and `PATH` a scratch directory of links to the few tools the fixtures run, so no fzf or zoxide is on it;
                  `tests/log.rs` covers the log's folder, file, stamp, sweep and `newest`; `tests/app/logging.rs`, `logging_lives.rs` and `logging_edits.rs` what the app logs, read from a `Log::sending` channel;
                  `tests/status.rs` runs `harbour status` over summaries a test writes and locks itself, `tests/summary.rs` writes them with `Summary`;
                  `tests/session/` (`keyboard.rs` what a program asked for in keys) and `tests/app/` run sessions in process, as `/bin/sh -c` scripts;
-                 `tests/edit.rs` runs `harbour edit` against listeners of `tests/handoff.rs`'s kind, which a test answers itself; `tests/app/handoff.rs` hands the app requests and stands in a socket for Neovim; `tests/app/nearest.rs` covers which holder gets the file and what moves its last use; `tests/e2e/edit.rs` runs `harbour edit` against harbour, and `tests/e2e/neovim.rs` holds four smoke tests against a real clean Neovim; `tests/app/real_neovim.rs` runs that Neovim's TUI in a harbour session and checks `mode`, `eval`, `edit`, `changes`, `wants_ctrl_h`, `wants_ctrl_l` and `open` against it; `tests/app/neovim.rs` stands in a socket for Neovim and covers C-h, swapped C-l (`wants_ctrl_h`, `wants_ctrl_l`), `x` and `q` over it; `tests/idle.rs` (Linux only) counts the listener thread's wake-ups while idle;
+                 `tests/edit.rs` runs `harbour edit` against listeners of `tests/handoff.rs`'s kind, which a test answers itself; `tests/app/handoff.rs` hands the app requests and stands in a socket for Neovim; `tests/app/nearest.rs` covers which holder gets the file and what moves its last use; `tests/e2e/edit.rs` runs `harbour edit` against harbour, and `tests/e2e/neovim.rs` holds four smoke tests and the extended-keys tests against a real clean Neovim; `tests/app/real_neovim.rs` runs that Neovim's TUI in a harbour session and checks `mode`, `eval`, `edit`, `changes`, `wants_ctrl_h`, `wants_ctrl_l` and `open` against it; `tests/app/neovim.rs` stands in a socket for Neovim and covers C-h, swapped C-l (`wants_ctrl_h`, `wants_ctrl_l`), `x` and `q` over it; `tests/idle.rs` (Linux only) counts the listener thread's wake-ups while idle;
                  `tests/app/prefix.rs` covers the prefix and what follows it in process, `tests/app/marks.rs` the waiting mark and the way to the help, `tests/help.rs` the help's rows, `tests/app/jumping.rs` the prefix then a digit, `tests/e2e/keys.rs` the prefix sequences through tmux with extended keys on and off;
                  `tests/app/settling.rs` what each step's result ends harbour in (a caught signal stops it and ends by that signal, an end of input or EIO by HUP, any other error stops it and goes on as the error, a signal after a confirmed quit ends by it and logs nothing more), `tests/app/zoom.rs` covers zoom in process, `tests/app/width_keys.rs` the width keys, `tests/app/side.rs` side by side in process, `tests/app/side_jump.rs` the jumps and `harbour edit` while side by side, `tests/app/side_states.rs` the rest of its states, `tests/app/side_border.rs` its borders, `tests/app/side_mouse.rs` its clicks and gestures, `tests/app/side_swap.rs` the swaps, `tests/app/finding.rs` and `tests/app/finding_states.rs` the session finder in process (`HARBOUR_DIR_PICKER`'s place taken by `tests/fixtures/finder/fzf`, a script named `fzf` that prints its arguments and the list on stderr, then picks the first listed line holding what is typed, never a real fzf; `tests/fixtures/nth-finder/fzf` prints the line without its number unless given `--accept-nth=..`, `tests/fixtures/old-finder/fzf` refuses `--accept-nth` as an old fzf does), `tests/finder.rs` its lines, `tests/picker.rs` the message of a list that cannot be written, `tests/e2e/finding.rs` the prefix then `s` through tmux, `tests/app/zoom_border.rs` the zoomed top row, `tests/zoom.rs` the table of how its headline fits a room;
                  `tests/tmux.rs` runs `select` against a `/bin/sh -c` script in place of tmux (`Tmux::with_program`); `tests/app/navigating.rs` covers C-j and C-k in process the same way; `tests/e2e/navigating.rs` splits the scratch server's window and reads which pane is active, with `tmux` linked onto the scratch `PATH`;

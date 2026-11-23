@@ -7,7 +7,7 @@ use harbour::editor::Program;
 use harbour::picker::Picker;
 
 use crate::remembering::{ID, OTHER_ID, Scratch, TITLE};
-use crate::{Screen, script};
+use crate::{Screen, focused_title, script};
 
 #[test]
 fn the_prefix_then_two_from_the_sidebar_selects_the_second_card_and_focuses_its_pane() {
@@ -403,10 +403,7 @@ pub(crate) fn hold(scratch: &Scratch) {
 }
 
 pub(crate) fn assert_sidebar_focused(screen: &mut Screen, shown: &str) {
-    assert!(
-        shown.lines().next().unwrap().starts_with("┏ sessions"),
-        "{shown}"
-    );
+    assert!(focused_title(shown).starts_with("sessions"), "{shown}");
     let before = selected_line(shown);
     screen.press('j');
     let moved = screen.draw();

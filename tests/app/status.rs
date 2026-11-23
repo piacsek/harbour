@@ -364,7 +364,7 @@ fn the_narrowest_sidebar_cuts_the_waiting_reason_with_an_ellipsis() {
     let row = wait_for_sidebar_row(&mut screen, "perm");
 
     assert_eq!(
-        row.trim_start_matches(['│', '┃', '▌', ' ']),
+        row.trim_start_matches(|c: char| crate::vertical(c) || c == '▌' || c == ' '),
         "permission pr…"
     );
 }

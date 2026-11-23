@@ -8,7 +8,7 @@ use harbour::app::App;
 use harbour::summary::Summary;
 
 use crate::remembering::{ID, OTHER_ID, Scratch, TITLE};
-use crate::{Screen, below, reading_agent, script, sidebar_title};
+use crate::{Screen, below, focused, reading_agent, script, sidebar_title, starts_focused};
 
 const COME_BACK: &str = "Conversations come back stopped";
 const CJK_TITLE: &str = "修复登录测试的不稳定问题";
@@ -125,7 +125,7 @@ fn a_click_in_the_pane_of_a_stopped_card_does_not_focus_the_pane() {
     screen.mouse(MouseEventKind::Down(MouseButton::Left), 60, 5);
 
     let shown = screen.draw();
-    assert!(shown.lines().next().unwrap().starts_with('┏'), "{shown}");
+    assert!(starts_focused(&shown), "{shown}");
 }
 
 #[test]
@@ -141,7 +141,7 @@ fn enter_on_a_card_that_cannot_resume_leaves_the_sidebar_focused() {
     screen.key(KeyCode::Enter, KeyModifiers::NONE);
 
     let shown = screen.draw();
-    assert!(shown.lines().next().unwrap().starts_with('┏'), "{shown}");
+    assert!(starts_focused(&shown), "{shown}");
 }
 
 #[test]
@@ -157,7 +157,9 @@ fn the_narrowest_sidebar_keeps_a_cjk_title_inside_its_border() {
 
     let shown = screen.draw();
     let row = shown.lines().position(|line| line.contains('修')).unwrap();
-    assert_eq!(screen.cell(19, u16::try_from(row).unwrap()).symbol(), "┃");
+    assert!(focused(
+        screen.cell(19, u16::try_from(row).unwrap()).symbol()
+    ));
     assert!(shown.contains('…'), "{shown}");
 }
 

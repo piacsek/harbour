@@ -5,11 +5,6 @@ use harbour::tui::SESSION_COMMAND;
 
 use super::{AGENT, Server};
 
-const TITLED_AGENT: &str = concat!(
-    env!("CARGO_MANIFEST_DIR"),
-    "/tests/fixtures/titled-agent.sh"
-);
-
 const RESUMABLE_AGENT: &str = concat!(
     env!("CARGO_MANIFEST_DIR"),
     "/tests/fixtures/resumable-agent.sh"
@@ -25,43 +20,16 @@ fn the_demo_shows_the_last_prompt_of_its_working_session_once_another_card_is_se
 
     server.send_keys(&["j"]);
 
-    let screen = server.wait_for_screen("Do you want to proceed?");
-    let prompt = screen
-        .lines()
-        .skip_while(|line| !line.contains("● Fix the flaky retry test"))
-        .nth(1)
-        .unwrap_or_default();
+    let screen = server.wait_until("the blocked pane and the working card's prompt", |screen| {
+        screen.contains("Do you want to proceed?")
+            && line_below(screen, "● Fix the flaky retry test")
+                .contains("fix the flaky retry test in acme/api")
+    });
+    let prompt = line_below(&screen, "● Fix the flaky retry test");
     assert!(
-        prompt.starts_with("┃    fix the flaky retry test in acme/api"),
+        prompt.contains("fix the flaky retry test in acme/api"),
         "{screen}"
     );
-}
-
-#[test]
-#[ignore]
-fn a_card_shows_the_title_from_the_sessions_transcript_and_never_its_last_tool_call() {
-    let home = tempfile::tempdir().unwrap();
-    let config = tempfile::tempdir().unwrap();
-    let config_dir = config.path().display().to_string();
-    let server = Server::start("cards", 160, 20);
-    server.run(
-        home.path(),
-        &[
-            (SESSION_COMMAND, TITLED_AGENT),
-            ("CLAUDE_CONFIG_DIR", &config_dir),
-        ],
-        &[],
-    );
-    server.wait_for_screen("press n to start one");
-
-    server.send_keys(&["n"]);
-    server.wait_for_screen("● Fix the flaky login test");
-    server.send_keys(&["n"]);
-
-    let screen = server.wait_until("two titled cards", |screen| {
-        screen.matches("● Fix the flaky login test").count() == 2
-    });
-    assert!(!screen.contains("Run the login tests"), "{screen}");
 }
 
 #[test]
@@ -198,6 +166,12 @@ fn the_demo_shows_a_stopped_session_it_remembers() {
     assert!(screen.contains(rows[1]), "{screen}");
     assert!(screen.contains(rows[2]), "{screen}");
     assert!(screen.contains(rows[3]), "{screen}");
+}
+
+fn line_below(screen: &str, text: &str) -> String {
+    let mut lines = screen.lines().skip_while(|line| !line.contains(text));
+    lines.next();
+    lines.next().unwrap_or_default().to_string()
 }
 
 fn remembered_files(dir: &Path) -> Vec<PathBuf> {

@@ -4,7 +4,7 @@ use std::time::{Duration, Instant};
 
 use harbour::tui::SESSION_COMMAND;
 
-use super::{AGENT, Server};
+use super::{AGENT, Server, focused_on};
 
 #[test]
 #[ignore]
@@ -82,8 +82,8 @@ fn bind(server: &Server) {
 
 fn focus_claude(server: &Server) {
     server.send_keys(&["Enter"]);
-    let focused = server.wait_for_screen("┏ claude");
-    assert!(focused.contains("┏ claude"), "{focused}");
+    let focused = server.wait_until("focus on claude", |screen| focused_on(screen, "claude"));
+    assert!(focused_on(&focused, "claude"), "{focused}");
 }
 
 fn opened(name: &str, home: &Path) -> Server {

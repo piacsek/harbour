@@ -2,10 +2,14 @@ use crossterm::event::{KeyCode, KeyModifiers};
 use harbour::app::App;
 use harbour::editor::Program;
 use harbour::icons::ClaudeIcon;
+use harbour::tabs;
 use ratatui::style::Modifier;
 
 use crate::zoom_border::{Claude, started, top};
-use crate::{Screen, script};
+use crate::{
+    Screen, drawn, focused, focused_char, focused_title, in_order, script, starts_focused,
+    unfocused, unfocused_char, unfocused_title,
+};
 
 #[test]
 fn the_claude_code_half_names_the_session_and_claude() {
@@ -14,11 +18,12 @@ fn the_claude_code_half_names_the_session_and_claude() {
     let top = top(&screen.draw());
 
     let left: String = top.chars().take(60).collect();
-    assert!(
-        left.starts_with("┏ ● Fix the login  acme-api · main  3m  claude ━"),
-        "{left}"
+    assert!(starts_focused(&left), "{left}");
+    assert_eq!(
+        focused_title(&left),
+        "● Fix the login  acme-api · main  3m  claude"
     );
-    assert!(left.ends_with("━┓"), "{left}");
+    assert!(left.ends_with(focused_char), "{left}");
 }
 
 #[test]
@@ -28,9 +33,13 @@ fn the_editor_half_names_the_editor_its_directory_and_the_counts() {
     let top = top(&screen.draw());
 
     let right: String = top.chars().skip(60).collect();
-    assert!(right.starts_with("┌ acme-edit: "), "{right}");
-    assert!(right.contains("/acme-api ─"), "{right}");
-    assert!(right.ends_with("─ sessions ● 1 ┐"), "{right}");
+    assert!(
+        unfocused_title(&right).starts_with("acme-edit: "),
+        "{right}"
+    );
+    assert!(unfocused_title(&right).ends_with("/acme-api"), "{right}");
+    assert!(counts(&right).ends_with(" sessions ● 1"), "{right}");
+    assert!(right.ends_with(unfocused_char), "{right}");
 }
 
 #[test]
@@ -50,7 +59,7 @@ fn the_focused_half_names_its_program_bold_and_the_other_dim() {
         .unwrap();
     assert!(screen.cell(claude, 0).modifier.contains(Modifier::DIM));
     assert!(screen.cell(editor, 0).modifier.contains(Modifier::BOLD));
-    assert_eq!(screen.cell(60, 0).symbol(), "┏");
+    assert!(focused(screen.cell(60, 0).symbol()));
 }
 
 #[test]
@@ -61,10 +70,9 @@ fn a_cjk_title_on_the_claude_code_half_is_cut_by_display_width() {
 
     assert_eq!(screen.cell(2, 0).symbol(), "●");
     assert_eq!(screen.cell(4, 0).symbol(), "修");
-    assert!(top.contains("…  3m  claude ━"), "{top}");
-    assert!(top.contains("claude"), "{top}");
-    assert_eq!(screen.cell(59, 0).symbol(), "┓");
-    assert_eq!(screen.cell(60, 0).symbol(), "┌");
+    assert!(top.contains("…  3m  claude "), "{top}");
+    assert!(focused(screen.cell(59, 0).symbol()));
+    assert!(unfocused(screen.cell(60, 0).symbol()));
 }
 
 #[test]
@@ -75,10 +83,10 @@ fn swapped_the_left_half_names_the_session_and_the_editor() {
 
     let left: String = top.chars().take(60).collect();
     assert!(
-        left.starts_with("┌ ● Fix the login  acme-api · main  3m  acme-edit"),
+        unfocused_title(&left).starts_with("● Fix the login  acme-api · main  3m  acme-edit"),
         "{left}"
     );
-    assert_eq!(screen.cell(59, 0).symbol(), "┐");
+    assert!(unfocused(screen.cell(59, 0).symbol()));
 }
 
 #[test]
@@ -88,8 +96,9 @@ fn swapped_the_right_half_names_claude_and_the_counts() {
     let top = top(&screen.draw());
 
     let right: String = top.chars().skip(60).collect();
-    assert!(right.starts_with("┏ claude ━"), "{right}");
-    assert!(right.ends_with("━ sessions ● 1 ┓"), "{right}");
+    assert_eq!(focused_title(&right), "claude");
+    assert!(counts(&right).ends_with(" sessions ● 1"), "{right}");
+    assert!(right.ends_with(focused_char), "{right}");
 }
 
 #[test]
@@ -101,8 +110,8 @@ fn swapped_a_cjk_title_on_the_left_half_is_cut_by_display_width() {
     assert_eq!(screen.cell(2, 0).symbol(), "●");
     assert_eq!(screen.cell(4, 0).symbol(), "修");
     assert!(top.contains("…  3m  "), "{top}");
-    assert_eq!(screen.cell(59, 0).symbol(), "┐");
-    assert_eq!(screen.cell(60, 0).symbol(), "┏");
+    assert!(unfocused(screen.cell(59, 0).symbol()));
+    assert!(focused(screen.cell(60, 0).symbol()));
 }
 
 #[test]
@@ -133,7 +142,11 @@ fn with_the_clawd_icon_the_claude_code_half_names_claude_after_its_glyph() {
     let top = top(&screen.draw());
 
     let left: String = top.chars().take(60).collect();
-    assert!(left.contains("  \u{100000}  claude ━"), "{left}");
+    let clawd = tabs::claude(Some(ClaudeIcon::Clawd));
+    assert!(
+        focused_title(&left).ends_with(&format!("  {clawd}")),
+        "{left}"
+    );
 }
 
 #[test]
@@ -149,7 +162,7 @@ fn swapped_with_the_clawd_icon_the_right_half_names_claude_after_its_glyph() {
     let top = top(&screen.draw());
 
     let right: String = top.chars().skip(60).collect();
-    assert!(right.starts_with("┏ \u{100000}  claude ━"), "{right}");
+    assert_eq!(focused_title(&right), tabs::claude(Some(ClaudeIcon::Clawd)));
 }
 
 #[test]
@@ -163,7 +176,7 @@ fn without_the_nerd_font_the_clawd_icon_draws_no_glyph() {
     let top = top(&screen.draw());
 
     let left: String = top.chars().take(60).collect();
-    assert!(left.contains("  3m  claude ━"), "{left}");
+    assert!(focused_title(&left).ends_with("  3m  claude"), "{left}");
 }
 
 #[test]
@@ -173,11 +186,23 @@ fn side_by_side_under_120_columns_keeps_the_focused_half_boxed() {
     screen.resize(100, 20);
 
     let top = top(&screen.draw());
+    assert!(starts_focused(&top), "{top}");
     assert!(
-        top.starts_with("┏ ● Fix the login  acme-api · main  3m  claude | acme-edit"),
+        in_order(
+            &focused_title(&top),
+            &[
+                "● Fix the login  acme-api · main  3m  ",
+                "claude",
+                "acme-edit"
+            ]
+        ),
         "{top}"
     );
-    assert!(top.ends_with(" sessions ● 1 ┓"), "{top}");
+    assert!(counts(&top).ends_with(" sessions ● 1"), "{top}");
+}
+
+fn counts(top: &str) -> &str {
+    top.trim_end_matches(drawn).trim_end()
 }
 
 fn side_by_side(title: &str) -> Screen {

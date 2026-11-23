@@ -5,9 +5,9 @@ use ratatui::Frame;
 use ratatui::layout::{Constraint, Rect};
 use ratatui::style::{Color, Modifier, Stylize};
 use ratatui::text::{Line, Span};
-use ratatui::widgets::{Block, BorderType, Clear, Paragraph, Wrap};
+use ratatui::widgets::{Block, Clear, Paragraph, Wrap};
 
-use super::{App, HINT, Question, remember, user_home};
+use super::{App, FOCUSED_BORDER, HINT, Question, UNFOCUSED_BORDER, remember, user_home};
 use crate::card::{Card, Ended};
 use crate::editor::{Changes, Program};
 use crate::help;
@@ -360,10 +360,10 @@ pub(super) fn exit_note(status: &ExitStatus) -> String {
 pub(super) fn bordered(focused: bool, accent: Color) -> Block<'static> {
     if focused {
         Block::bordered()
-            .border_type(BorderType::Thick)
+            .border_type(FOCUSED_BORDER)
             .border_style(accent)
     } else {
-        Block::bordered().border_type(BorderType::Plain)
+        Block::bordered().border_type(UNFOCUSED_BORDER)
     }
 }
 

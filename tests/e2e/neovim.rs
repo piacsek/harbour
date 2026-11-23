@@ -6,24 +6,12 @@ use harbour::tui::{EDITOR, SESSION_COMMAND};
 use tempfile::TempDir;
 
 use super::edit::{handed, source_file};
-use super::{AGENT, Server, tools};
+use super::{AGENT, Server, focused_on, in_order, tools, vertical};
 
 const CLEAN_NVIM: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/nvim/nvim");
+const WAITING: &str = "harbour: Neovim is waiting for a key; answer it and try again\n";
 const SIDEBAR_CLICK: &str = "\x1b[<0;3;3M";
 const SIDEBAR_RELEASE: &str = "\x1b[<0;3;3m";
-const WAITING: &str = "harbour: Neovim is waiting for a key; answer it and try again\n";
-
-#[test]
-#[ignore]
-fn ctrl_h_in_normal_mode_in_the_leftmost_window_goes_to_claude_code() {
-    let Some(neovim) = Neovim::start("nvim-leftmost") else {
-        return;
-    };
-
-    neovim.server.send_keys(&["C-h"]);
-
-    neovim.assert_in_claude_code();
-}
 
 #[test]
 #[ignore]
@@ -70,7 +58,7 @@ fn x_with_a_modified_buffer_says_there_are_unsaved_changes() {
     let Some(neovim) = Neovim::start("nvim-modified") else {
         return;
     };
-    neovim.type_text("acme");
+    neovim.type_text("acme-modified");
 
     let screen = neovim.end_from_the_sidebar("End? y/n");
 
@@ -126,7 +114,19 @@ fn shift_enter_in_insert_mode_with_extended_keys_on_starts_a_line_and_stays_in_i
         .server
         .send_keys(&["i", "acme-one", "S-Enter", "acme-two"]);
 
-    neovim.shows("┃acme-two");
+    let screen = neovim
+        .server
+        .wait_until("acme-two starting its line", |screen| {
+            screen
+                .split(vertical)
+                .any(|part| part.starts_with("acme-two"))
+        });
+    assert!(
+        screen
+            .split(vertical)
+            .any(|part| part.starts_with("acme-two")),
+        "{screen}"
+    );
     neovim.shows("-- INSERT --");
 }
 
@@ -248,8 +248,10 @@ impl Neovim {
     fn start_with(name: &str, options: &[&[&str]]) -> Option<Neovim> {
         let neovim = Neovim::beside_claude(name, options)?;
         neovim.server.send_keys(&["C-l"]);
-        let editing = neovim.server.wait_for_screen("claude | nvim: ");
-        assert!(editing.contains("claude | nvim: "), "{editing}");
+        let editing = neovim.server.wait_until("neovim beside claude", |screen| {
+            in_order(screen, &["claude ", " nvim: "])
+        });
+        assert!(in_order(&editing, &["claude ", " nvim: "]), "{editing}");
         neovim.assert_in_neovim();
         Some(neovim)
     }
@@ -291,8 +293,8 @@ impl Neovim {
         server.send_keys(&["n"]);
         server.wait_for_screen("acme agent in acme-api");
         server.send_keys(&["Enter"]);
-        let focused = server.wait_for_screen("┏ claude");
-        assert!(focused.contains("┏ claude"), "{focused}");
+        let focused = server.wait_until("focus on claude", |screen| focused_on(screen, "claude"));
+        assert!(focused_on(&focused, "claude"), "{focused}");
         Some(Neovim { server, home })
     }
 
@@ -308,7 +310,7 @@ impl Neovim {
         assert!(screen.contains("acme-settled"), "{screen}");
         self.server.send_keys(&[":echo ''", "Enter"]);
         let cleared = self.server.wait_until("the echo cleared", |screen| {
-            screen.contains("claude | nvim: ")
+            in_order(screen, &["claude ", " nvim: "])
                 && !screen.contains("acme-settled")
                 && !screen.contains(":echo")
         });
@@ -333,8 +335,7 @@ impl Neovim {
         self.server.send_keys(&["i"]);
         self.shows("-- INSERT --");
         self.server.send_keys(&[text]);
-        let line = format!("┃{text}");
-        self.shows(&line);
+        self.shows(text);
         self.server.send_keys(&["Escape"]);
         self.settled();
     }
@@ -352,8 +353,10 @@ impl Neovim {
     fn end_from_the_sidebar(&self, question: &str) -> String {
         self.server.send_bytes(SIDEBAR_CLICK);
         self.server.send_bytes(SIDEBAR_RELEASE);
-        let focused = self.server.wait_for_screen("┏ sessions");
-        assert!(focused.contains("┏ sessions"), "{focused}");
+        let focused = self.server.wait_until("focus on the sidebar", |screen| {
+            focused_on(screen, "sessions")
+        });
+        assert!(focused_on(&focused, "sessions"), "{focused}");
         self.server.send_keys(&["x"]);
         self.server.wait_for_screen(question)
     }

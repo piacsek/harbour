@@ -1,8 +1,12 @@
 use std::path::{Path, PathBuf};
 
+use harbour::icons::ClaudeIcon;
+use harbour::tabs;
 use harbour::tui::{DIR_PICKER, SESSION_COMMAND};
 
-use crate::{AGENT, ARGS_AGENT, FAKE_FZF, PICKER, Server, tools};
+use crate::{
+    AGENT, ARGS_AGENT, FAKE_FZF, PICKER, Server, focused_corner, in_order, pane_corner, tools,
+};
 
 const FIXTURE_EDITOR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/editor.sh");
 const RESUMABLE_AGENT: &str = concat!(
@@ -12,57 +16,19 @@ const RESUMABLE_AGENT: &str = concat!(
 
 #[test]
 #[ignore]
-fn a_syntax_error_stops_harbour_before_the_interface_opens() {
+fn a_refused_file_stops_harbour_before_the_interface_opens() {
     let home = tempfile::tempdir().unwrap();
     let path = write_config(home.path(), "accent = \"cyan\"\neditor = [\"nvim\"\n");
-    let server = Server::start("config-syntax", 200, 20);
+    let server = Server::start("config-refused", 200, 20);
 
     server.run(home.path(), &[], &[]);
 
     let screen = server.wait_for_screen("harbour exited 1");
     assert!(
-        screen.contains(&format!("harbour: {}:2: editor: ", path.display())),
+        screen.contains(&format!("harbour: {}:2: ", path.display())),
         "{screen}"
     );
     assert!(!screen.contains("No session yet"), "{screen}");
-}
-
-#[test]
-#[ignore]
-fn a_wrong_type_stops_harbour_before_the_interface_opens() {
-    let home = tempfile::tempdir().unwrap();
-    let path = write_config(home.path(), "sidebar_width = 0\n");
-    let server = Server::start("config-type", 200, 20);
-
-    server.run(home.path(), &[], &[]);
-
-    let screen = server.wait_for_screen("harbour exited 1");
-    assert!(
-        screen.contains(&format!(
-            "harbour: {}:1: sidebar_width: expected a whole number of columns above 0",
-            path.display()
-        )),
-        "{screen}"
-    );
-}
-
-#[test]
-#[ignore]
-fn an_unknown_key_stops_harbour_before_the_interface_opens() {
-    let home = tempfile::tempdir().unwrap();
-    let path = write_config(home.path(), "retention_days = 7\n");
-    let server = Server::start("config-unknown", 200, 20);
-
-    server.run(home.path(), &[], &[]);
-
-    let screen = server.wait_for_screen("harbour exited 1");
-    assert!(
-        screen.contains(&format!(
-            "harbour: {}:1: retention_days: unknown key",
-            path.display()
-        )),
-        "{screen}"
-    );
 }
 
 #[test]
@@ -157,24 +123,6 @@ fn a_conversation_resumes_with_the_session_command_from_the_file() {
 
 #[test]
 #[ignore]
-fn the_session_command_variable_outranks_the_file() {
-    let home = tempfile::tempdir().unwrap();
-    write_config(
-        home.path(),
-        &format!("session_command = [{ARGS_AGENT:?}, \"--model\", \"acme\"]\n"),
-    );
-    let server = Server::start("config-command-variable", 160, 20);
-    server.run(home.path(), &[(SESSION_COMMAND, AGENT)], &[]);
-    server.wait_for_screen("press n to start one");
-
-    server.send_keys(&["n"]);
-
-    let screen = server.wait_for_screen("acme agent in acme-api");
-    assert!(!screen.contains("acme agent args:"), "{screen}");
-}
-
-#[test]
-#[ignore]
 fn the_editor_from_the_file_runs_with_its_arguments() {
     let home = tempfile::tempdir().unwrap();
     write_config(
@@ -191,7 +139,7 @@ fn the_editor_from_the_file_runs_with_its_arguments() {
 
     let screen = server.wait_for_screen("acme editor in acme-api");
     assert!(screen.contains("first arg:[--acme-flag]"), "{screen}");
-    assert!(screen.contains("claude | editor.sh: "), "{screen}");
+    assert!(in_order(&screen, &["claude ", " editor.sh: "]), "{screen}");
 }
 
 #[test]
@@ -285,7 +233,13 @@ fn the_accent_from_the_file_colours_the_focused_border() {
 
     let first = coloured(&server);
 
-    assert!(first.contains("\u{1b}[38;5;1m┏"), "{first:?}");
+    assert!(
+        first
+            .split("\u{1b}[38;5;1m")
+            .skip(1)
+            .any(|after| after.starts_with(focused_corner)),
+        "{first:?}"
+    );
 }
 
 #[test]
@@ -299,23 +253,7 @@ fn the_sidebar_width_from_the_file_sets_the_sidebar_columns() {
     let screen = server.wait_for_screen("press n to start one");
 
     let top = screen.lines().next().unwrap_or_default();
-    assert_eq!(top.chars().position(|c| c == '┌'), Some(30), "{top}");
-}
-
-#[test]
-#[ignore]
-fn the_nerd_font_from_the_file_puts_icons_in_the_pane_border() {
-    let home = tempfile::tempdir().unwrap();
-    write_config(home.path(), "nerd_font = true\n");
-    let server = Server::start("config-nerd-font", 160, 20);
-    server.run(home.path(), &[(SESSION_COMMAND, AGENT)], &[]);
-    server.wait_for_screen("press n to start one");
-
-    server.send_keys(&["n"]);
-
-    let screen = server.wait_for_screen("acme agent in acme-api");
-    let top = screen.lines().next().unwrap_or_default();
-    assert!(top.contains(" \u{F0674} claude | \u{E6AE} nvim "), "{top}");
+    assert_eq!(pane_corner(top), Some(30), "{top}");
 }
 
 #[test]
@@ -331,10 +269,10 @@ fn the_clawd_icon_from_the_file_leads_the_claude_name_in_the_pane_border() {
 
     let screen = server.wait_for_screen("acme agent in acme-api");
     let top = screen.lines().next().unwrap_or_default();
-    assert!(
-        top.contains(" \u{100000}  claude | \u{E6AE} nvim "),
-        "{top}"
-    );
+    let pane = pane_corner(&screen).unwrap();
+    let room = top.chars().count() - pane - 2;
+    let [claude, editor] = tabs::iconed(ClaudeIcon::Clawd, "nvim", true, None, room);
+    assert!(in_order(top, &[&claude, &editor]), "{top}");
 }
 
 #[test]

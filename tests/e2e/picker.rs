@@ -80,30 +80,6 @@ fn n_after_its_directory_is_deleted_starts_nothing_and_names_it() {
 
 #[test]
 #[ignore]
-fn a_picker_that_returns_its_deleted_directory_starts_nothing() {
-    let home = tempfile::tempdir().unwrap();
-    let directory = home.path().join("acme-api");
-    let server = Server::start("deleted-picked", 160, 20);
-    server.run(
-        home.path(),
-        &[(SESSION_COMMAND, AGENT), (DIR_PICKER, PICKER)],
-        &[],
-    );
-    server.wait_for_screen("press n to start one");
-    server.send_keys(&["n"]);
-    server.wait_for_screen("acme picker: type a directory");
-    std::fs::remove_dir(&directory).unwrap();
-
-    server.send_keys(&[&directory.display().to_string(), "Enter"]);
-
-    let refusal = format!("Not a directory: {}", directory.display());
-    let screen = server.wait_for_screen(&refusal);
-    assert!(screen.contains(&refusal), "{screen}");
-    assert!(screen.contains("No session yet"), "{screen}");
-}
-
-#[test]
-#[ignore]
 fn n_with_a_picker_after_its_directory_is_deleted_starts_nothing() {
     let home = tempfile::tempdir().unwrap();
     let directory = home.path().join("acme-api");

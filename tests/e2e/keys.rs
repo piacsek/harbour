@@ -1,6 +1,9 @@
 use tempfile::TempDir;
 
-use crate::{EDITOR, RAW_AGENT, SESSION_COMMAND, Server};
+use crate::{
+    EDITOR, RAW_AGENT, SESSION_COMMAND, Server, corner, focused_at, in_order, pane_corner,
+    unfocused_at,
+};
 
 const XTERM: &str = "\\033[>4;2m";
 const KITTY: &str = "\\033[>1u";
@@ -319,8 +322,13 @@ fn ctrl_m_ctrl_shift_h_and_ctrl_shift_l_act_as_enter_ctrl_h_and_ctrl_l_with_exte
     server.wait_for_screen("acme-api 2");
     server.send_keys(&["Enter", "C-S-l"]);
 
-    let screen = server.wait_for_screen("claude | raw-agent.sh: ");
-    assert!(screen.contains("claude | raw-agent.sh: "), "{screen}");
+    let screen = server.wait_until("the raw editor beside claude", |screen| {
+        in_order(screen, &["claude ", " raw-agent.sh: "])
+    });
+    assert!(
+        in_order(&screen, &["claude ", " raw-agent.sh: "]),
+        "{screen}"
+    );
 }
 
 #[test]
@@ -471,9 +479,9 @@ fn the_prefix_then_closing_brace_puts_claude_code_on_the_right_with_extended_key
     server.send_keys(&["C-/", "}", "a"]);
 
     let screen = server.wait_until("the swapped halves", |screen| {
-        top_left(screen) == Some('┌') && screen.contains("read:a")
+        unfocused_at(screen, 0) && screen.contains("read:a")
     });
-    assert_eq!(top_left(&screen), Some('┌'), "{screen}");
+    assert!(unfocused_at(&screen, 0), "{screen}");
     assert_eq!(pane_corner(&screen), Some(80), "{screen}");
 }
 
@@ -484,14 +492,14 @@ fn the_prefix_then_opening_brace_puts_claude_code_back_on_the_left_in_the_csi_u_
         return;
     };
     server.send_keys(&["C-/", "}"]);
-    server.wait_until("the swapped halves", |screen| top_left(screen) == Some('┌'));
+    server.wait_until("the swapped halves", |screen| unfocused_at(screen, 0));
 
     server.send_keys(&["C-/", "{", "a"]);
 
     let screen = server.wait_until("the halves back", |screen| {
-        top_left(screen) == Some('┏') && screen.contains("read:a")
+        focused_at(screen, 0) && screen.contains("read:a")
     });
-    assert_eq!(top_left(&screen), Some('┏'), "{screen}");
+    assert!(focused_at(&screen, 0), "{screen}");
     assert_eq!(pane_corner(&screen), Some(80), "{screen}");
 }
 
@@ -558,7 +566,9 @@ fn started_raw_editor(
 ) -> Option<(TempDir, Server)> {
     let (home, server) = started_raw_agent(name, extended, format, asked)?;
     server.send_keys(&["C-l"]);
-    server.wait_for_screen("claude | raw-agent.sh: ");
+    server.wait_until("the raw editor beside claude", |screen| {
+        in_order(screen, &["claude ", " raw-agent.sh: "])
+    });
     server.wait_for_screen("read:");
     Some((home, server))
 }
@@ -595,20 +605,6 @@ fn corners(screen: &str) -> usize {
         .next()
         .unwrap_or_default()
         .chars()
-        .filter(|c| matches!(c, '┌' | '┏'))
+        .filter(|c| corner(*c))
         .count()
-}
-
-fn pane_corner(screen: &str) -> Option<usize> {
-    screen
-        .lines()
-        .next()?
-        .chars()
-        .skip(1)
-        .position(|c| matches!(c, '┌' | '┏'))
-        .map(|column| column + 1)
-}
-
-fn top_left(screen: &str) -> Option<char> {
-    screen.lines().next()?.chars().next()
 }

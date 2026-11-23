@@ -4,7 +4,10 @@ use ratatui::style::Color;
 use harbour::app::App;
 use harbour::picker::Picker;
 
-use crate::{Screen, numbered_agent, pane_corner, reading_agent, script};
+use crate::{
+    Screen, focused, focused_title, numbered_agent, pane_corner, reading_agent, script, top_left,
+    unfocused_char,
+};
 
 const ACCENT: Color = Color::Rgb(0xd7, 0x87, 0x5f);
 
@@ -70,9 +73,12 @@ fn a_focused_sidebar_has_the_thick_border() {
 
     let shown = screen.wait_for("acme agent 1");
 
+    assert!(focused_title(&shown).starts_with("sessions"), "{shown}");
     let top = shown.lines().next().unwrap();
-    assert!(top.starts_with('┏'), "{shown}");
-    assert!(top.contains('┌'), "{shown}");
+    assert!(
+        top.contains(|c| top_left(c) && unfocused_char(c)),
+        "{shown}"
+    );
 }
 
 #[test]
@@ -156,7 +162,7 @@ fn a_narrow_terminal_draws_the_focused_pane_with_the_cyan_border() {
 
     screen.resize(50, 16);
 
-    assert_eq!(screen.cell(0, 0).symbol(), "┏");
+    assert!(focused(screen.cell(0, 0).symbol()));
     assert_eq!(screen.cell(0, 0).fg, Color::Cyan);
 }
 
@@ -213,7 +219,7 @@ fn the_picker_popup_takes_the_accent_border() {
 
     let shown = screen.wait_for("acme picker");
     let (x, y) = corner_of(&shown, " directory ");
-    assert_eq!(screen.cell(x, y).symbol(), "┏");
+    assert!(focused(screen.cell(x, y).symbol()));
     assert_eq!(screen.cell(x, y).fg, ACCENT);
 }
 
@@ -227,6 +233,6 @@ fn corner_of(shown: &str, title: &str) -> (u16, u16) {
         .enumerate()
         .find(|(_, line)| line.contains(title))
         .unwrap();
-    let x = line.chars().position(|c| c == '┏').unwrap();
+    let x = line.chars().position(top_left).unwrap();
     (u16::try_from(x).unwrap(), u16::try_from(y).unwrap())
 }

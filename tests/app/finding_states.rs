@@ -13,7 +13,7 @@ use crate::finding::FINDER;
 use crate::handoff::soon;
 use crate::keeping::titled;
 use crate::remembering::{ID, OTHER_ID, Scratch, TITLE};
-use crate::{Screen, home, pane_corner, script};
+use crate::{Screen, focused_title, home, pane_corner, script};
 
 const GONE: &str = "That session is gone";
 const NTH_FINDER: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/nth-finder/fzf");
@@ -536,10 +536,7 @@ fn hold(scratch: &Scratch) {
 }
 
 fn assert_sidebar_focused(screen: &mut Screen, shown: &str) {
-    assert!(
-        shown.lines().next().unwrap().starts_with("┏ sessions"),
-        "{shown}"
-    );
+    assert!(focused_title(shown).starts_with("sessions"), "{shown}");
     let before = selected_line(shown);
     screen.press('j');
     let moved = screen.draw();
@@ -560,14 +557,14 @@ fn corners(shown: &str) -> usize {
         .next()
         .unwrap_or_default()
         .chars()
-        .filter(|c| matches!(c, '┌' | '┏'))
+        .filter(|c| crate::top_left(*c))
         .count()
 }
 
 fn sidebar_text(shown: &str) -> String {
     shown
         .lines()
-        .filter_map(|line| line.split('┃').nth(1))
+        .filter_map(|line| line.split(crate::vertical).nth(1))
         .map(str::trim_end)
         .collect::<Vec<_>>()
         .join(" ")

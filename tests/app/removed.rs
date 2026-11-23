@@ -6,7 +6,7 @@ use harbour::app::App;
 
 use crate::finding;
 use crate::zoom::corners;
-use crate::{Screen, raw_agent, reading_agent, script};
+use crate::{Screen, raw_agent, reading_agent, script, shows_titled};
 
 #[test]
 fn alt_z_reaches_claude_code_and_zooms_nothing() {
@@ -55,7 +55,7 @@ fn question_mark_in_the_sidebar_shows_no_help() {
     screen.press('?');
 
     let shown = screen.draw();
-    assert!(!shown.contains("┌ help "), "{shown}");
+    assert!(!shows_titled(&shown, "help"), "{shown}");
 }
 
 #[test]

@@ -8,7 +8,7 @@ use crate::keeping::{remembered_after_a_while, titled};
 use crate::logging::{count, logged, only, read};
 use crate::remembering::{ID, Scratch, TITLE};
 use crate::usage_states::{app, place};
-use crate::{Screen, home, pane_corner, raw_agent, script};
+use crate::{Screen, home, pane_corner, raw_agent, script, shows_titled};
 
 const ARGS_AGENT: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/args-agent.sh");
 
@@ -128,7 +128,7 @@ fn keys_while_the_popup_is_open_reach_only_the_popup() {
     let after = typed_into_the_session_after(&mut screen);
     assert!(!after.contains("acme agent got: nxjk?u"), "{after}");
     assert!(!after.contains("acme-home 2"), "{after}");
-    assert!(!after.contains("┌ help "), "{after}");
+    assert!(!shows_titled(&after, "help"), "{after}");
 }
 
 #[test]

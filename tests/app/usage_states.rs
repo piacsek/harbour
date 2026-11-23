@@ -8,7 +8,9 @@ use harbour::app::App;
 use harbour::picker::Picker;
 use ratatui::style::Modifier;
 
-use crate::{Screen, reading_agent, script};
+use crate::{
+    Screen, drawn_by, focused_char, focused_title, reading_agent, script, starts_focused, top_left,
+};
 
 #[test]
 fn the_popup_shows_the_loading_animation_until_the_report_has_finished() {
@@ -272,10 +274,10 @@ fn the_popup_takes_a_terminal_smaller_than_it() {
 
     let shown = screen.wait_for("acme usage in");
     let first = shown.lines().next().unwrap();
-    assert!(first.starts_with("┏ usage "), "{shown}");
-    assert!(first.ends_with('┓'), "{shown}");
+    assert_eq!(focused_title(&shown), "usage", "{shown}");
+    assert!(first.ends_with(focused_char), "{shown}");
     let last = shown.lines().last().unwrap();
-    assert!(last.starts_with('┗'), "{shown}");
+    assert!(starts_focused(last), "{shown}");
 }
 
 #[test]
@@ -288,12 +290,20 @@ fn the_popup_is_80_by_30_on_a_larger_terminal() {
     let shown = screen.wait_for("acme usage in");
     let top = shown
         .lines()
-        .position(|line| line.contains("┏ usage "))
+        .position(|line| line.contains(" usage "))
         .unwrap();
-    let bottom = shown.lines().position(|line| line.contains('┗')).unwrap();
+    let bottom = top
+        + shown
+            .lines()
+            .skip(top)
+            .position(|line| line.chars().any(|c| drawn_by(c, |set| set.bottom_left)))
+            .unwrap();
     let line = shown.lines().nth(top).unwrap();
-    let left = line.chars().position(|c| c == '┏').unwrap();
-    let right = line.chars().position(|c| c == '┓').unwrap();
+    let left = line.chars().position(top_left).unwrap();
+    let right = line
+        .chars()
+        .position(|c| drawn_by(c, |set| set.top_right))
+        .unwrap();
     assert_eq!(bottom - top + 1, 30);
     assert_eq!(right - left + 1, 80);
 }
