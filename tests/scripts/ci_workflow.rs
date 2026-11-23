@@ -89,6 +89,7 @@ e2e = { max-threads = 2 }
 [[profile.default.overrides]]
 filter = \"binary(e2e)\"
 test-group = \"e2e\"
+priority = 100
 ";
 
 const CHECK_JOB: &str = "  check:

@@ -11,7 +11,7 @@ a sibling project by the recipe's author; a number measured there says so.
 .github/AGENTS.md CI: what the workflows run and why (`check`, `audit`, the flake build, the `version` check, the release queue, the tap, `stable`), the `main` ruleset, branch cleanup, the sweep issue, the issue forms and Discussions; the release internals, the first release from zero tags included
 .github/pull_request_template.md  `## Summary` and `## Changes`: the body `ship.sh` opens a draft PR with
 .github/ISSUE_TEMPLATE/       the bug report and feature request forms, and `config.yml` sending questions to Discussions
-.github/nextest.toml          the `check` job's cargo-nextest settings: the `e2e` target at two threads, no retries, a hung test ended after 3 min
+.github/nextest.toml          the `check` job's cargo-nextest settings: the `e2e` target first and at two threads, no retries, a hung test ended after 3 min
 .github/workflows/            ci.yml, version.yml, release.yml, sweep.yml and delete-closed-branch.yml, each a bullet below
 .github/CLAUDE.md             a symlink to this file, so it loads when work touches `.github/`
 .github/CONTRIBUTING.md       where a newcomer starts: points here, to `scripts/gates.sh`, `scripts/ship.sh` and the fragment rule, restates none of them
@@ -42,7 +42,8 @@ speed-up, when its pipeline went from about 3 min 20 s to 37 s:
   ran the 44 test binaries one after another, 186 s of the 226 s `check` took in November 2026;
   nextest runs the tests of every binary in one pool of the runner's cores, each in a process of
   its own, which also ends the fork race of `tests/AGENTS.md` in CI. `.github/nextest.toml`
-  holds the `e2e` target to two threads, as the local gates do, since three `check` runs had
+  holds the `e2e` target to two threads, as the local gates do, and starts it first, so its slow
+  two-thread tail runs beside the other targets instead of after them, since three `check` runs had
   lost an e2e screen wait at one thread per core; it retries nothing, so a flaky test fails the
   run and is fixed rather than hidden, and runs every test before failing, so one run names
   every flaky test. nextest runs no doctests; `src/` has none, since it holds no comments. The
