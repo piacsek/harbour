@@ -278,4 +278,32 @@ for the clean break.
 
 ## Outcome
 
+- One prefix key, `C-/` by default (`C-_` is the same byte), then a key runs harbour's actions
+  from the sidebar and from every pane, with or without tmux's extended keys: zoom, side by side
+  and the swap, the session finder, the sidebar widths (repeatable for 500 ms), usage, changelog,
+  help, quit, new, end, the editor and the focus of the sidebar and the pane, and `1` to `9` for
+  the jumps. The prefix twice sends it on to the
+  focused program. The Alt keys, `C-1` to `C-9` and the sidebar's single-letter actions are gone.
+- The settings: `prefix` (`HARBOUR_PREFIX`, then the file) and a `[keys]` table binding each
+  action, every refusal of the States table, all reported by `harbour config` with their source.
+- What it draws: the waiting prefix on the focused border, the `<prefix> ? help` hint on the
+  sidebar's bottom border, the help rows naming the keys in force, the README key table, and a
+  `prefix` screenshot; `harbour --help` names `C-_` and `HARBOUR_PREFIX`.
+- The two checks of task 1, written under Verified facts: Claude Code 2.1.330 reads `0x1f` as
+  undo and binds nothing to `ctrl+/`, so the prefix twice reaches its prompt as undo; under tmux
+  3.8 a real terminal's `C-/` arrives as `0x1f` or as an extended form of Ctrl with `/` or `_` in
+  every `extended-keys` mode, so the prefix matches all of them.
+- The decisions taken without the owner are listed in the pull request body, under "Decisions
+  taken without the owner".
+- Three review rounds, the limit the owner set: round 1 fixed 2 important findings and 4 nits,
+  round 2 3 important and 4 nits, round 3 1 important and 2 nits. One nit was declined as
+  unreachable (the zoomed mark's pad with no counts: zoom needs a running session, so the counts
+  are never empty), and two as plan decisions (the Shift forms of `n` and `x` acting in the
+  sidebar, the width repeat in any focus). The loop stopped at the round limit with no must
+  left, and the orchestrator read the last round's fix.
+
 ## Hurdles
+
+- `review-loop` each round found another state of the prefix the States table had not listed (a question over the pane, the help and changelog toggles, Alt with the prefix as Esc typed fast), fixed within the 3-round limit → code
+- `process` the two plan commits carry a Co-Authored-By trailer, against the no-attribution rule; dropped from the squash body at merge → none
+- `process` the build paused at a usage limit for a length nobody recorded, so the wall time includes it → none
