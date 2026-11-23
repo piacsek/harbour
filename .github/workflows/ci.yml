@@ -13,7 +13,16 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  check:
+  shard:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: app
+            tests: --test app
+          - name: rest
+            tests: -E 'not binary(app)'
+            rest: true
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
@@ -24,15 +33,30 @@ jobs:
           toolchain: 1.98.1
           components: rustfmt, clippy
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
-      - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends tmux
+        with:
+          key: ${{ matrix.name }}
+      - if: matrix.rest
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends tmux
       - uses: taiki-e/install-action@3f74d7c16a4242f1c95561e98edc25d36adb4375 # v2.87.12
         with:
           tool: cargo-nextest@0.9.144
           fallback: none
-      - run: cargo fmt --check
-      - run: cargo clippy --locked --all-targets -- -D warnings
-      - run: cargo nextest run --locked --config-file .github/nextest.toml --run-ignored all
-    timeout-minutes: 15
+      - if: matrix.rest
+        run: cargo fmt --check
+      - if: matrix.rest
+        run: cargo clippy --locked --all-targets -- -D warnings
+      - run: cargo nextest run --locked --config-file .github/nextest.toml --run-ignored all ${{ matrix.tests }}
+    timeout-minutes: 10
+
+  check:
+    needs: shard
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - env:
+          SHARDS: ${{ needs.shard.result }}
+        run: test "$SHARDS" = success
+    timeout-minutes: 5
 
   audit:
     runs-on: ubuntu-latest

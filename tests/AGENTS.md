@@ -11,7 +11,7 @@ conveyor, where these suites come from; the ones about sessions were hit in harb
   `-f /dev/null`, killed when the test's `Server` drops), never the user's server. They panic
   with an install hint when tmux is missing; `gates.sh` runs them with `--include-ignored` and
   `--test-threads=2`, after every other target, when tmux is installed and says it skipped them
-  otherwise; the `check` job installs it. A pane whose
+  otherwise; the `rest` leg of the `shard` job installs it. A pane whose
   command exits at once loses its output before `capture-pane` reads it, even with
   `remain-on-exit`, so the pane command ends in `echo "harbour exited $?"; exec sleep 600`.
 
@@ -105,10 +105,10 @@ conveyor, where these suites come from; the ones about sessions were hit in harb
   sockets or other system calls runs its tests in a Linux container before its first push, from
   a `rust:<channel>` image, the channel of `rust-toolchain.toml` (phase 6 used `rust:1.98.1`;
   phase 12 recorded no command). The end-to-end tests are `#[ignore]` and need tmux, which the
-  stock image lacks: covering them means installing tmux in the container (the `check` job of
+  stock image lacks: covering them means installing tmux in the container (the `rest` leg of `shard` in
   `ci.yml` installs it with `apt-get`) and running them as `gates.sh` does, after the rest, at
   2 threads (see the trap above): `cargo test --test e2e -- --include-ignored --test-threads=2`.
-  CI runs every target in one `cargo nextest run`, the `e2e` target at 2 threads
+  CI runs the targets with `cargo nextest run` in two shards, the `e2e` target at 2 threads
   (`.github/AGENTS.md`).
 
 - **A screen assertion waits for the text it asserts, never for a neighbouring signal.** A

@@ -11,7 +11,7 @@ a sibling project by the recipe's author; a number measured there says so.
 .github/AGENTS.md CI: what the workflows run and why (`check`, `audit`, the flake build, the `version` check, the release queue, the tap, `stable`), the `main` ruleset, branch cleanup, the sweep issue, the issue forms and Discussions; the release internals, the first release from zero tags included
 .github/pull_request_template.md  `## Summary` and `## Changes`: the body `ship.sh` opens a draft PR with
 .github/ISSUE_TEMPLATE/       the bug report and feature request forms, and `config.yml` sending questions to Discussions
-.github/nextest.toml          the `check` job's cargo-nextest settings: the `e2e` target first and at two threads, no retries, a hung test ended after 3 min
+.github/nextest.toml          the `check` shards' cargo-nextest settings: the `e2e` target first and at two threads, no retries, a hung test ended after 3 min
 .github/workflows/            ci.yml, version.yml, release.yml, sweep.yml and delete-closed-branch.yml, each a bullet below
 .github/CLAUDE.md             a symlink to this file, so it loads when work touches `.github/`
 .github/CONTRIBUTING.md       where a newcomer starts: points here, to `scripts/gates.sh`, `scripts/ship.sh` and the fragment rule, restates none of them
@@ -19,11 +19,10 @@ a sibling project by the recipe's author; a number measured there says so.
 
 ## CI
 
-`.github/workflows/ci.yml` runs on every push to `main` and every pull request: a `check` job
-(`cargo fmt --check`, clippy `-D warnings` and `cargo nextest run --run-ignored all`, both with `--locked`, with tmux
-installed for the e2e tests of `tests/e2e/`), an `audit` job
+`.github/workflows/ci.yml` runs on every push to `main` and every pull request: two shards and
+the gate job `check` over them (below), an `audit` job
 (`cargo audit`), and the flake build behind its `paths` and `flake-ok` jobs (below).
-`tests/scripts/ci_workflow.rs` pins the `check` job step by step. Learnings from conveyor's CI
+`tests/scripts/ci_workflow.rs` pins `check` and its shards step by step. Learnings from conveyor's CI
 speed-up, when its pipeline went from about 3 min 20 s to 37 s:
 
 - **Measure before touching anything.** Per-step timings are one call away:
@@ -37,11 +36,18 @@ speed-up, when its pipeline went from about 3 min 20 s to 37 s:
   tool (`cargo-insta`, `cargo-deny`).
 - **Do not build what another workflow already builds.** `check` runs no `cargo build --release`:
   `release.yml` is what proves the release profile.
-- **One test invocation, one pool.** `check` runs every test, the tmux e2e tests included, with
-  one `cargo nextest run`, installed by `taiki-e/install-action` at a pinned version. `cargo test`
-  ran the 44 test binaries one after another, 186 s of the 226 s `check` took in November 2026;
-  nextest runs the tests of every binary in one pool of the runner's cores, each in a process of
-  its own, which also ends the fork race of `tests/AGENTS.md` in CI. `.github/nextest.toml`
+- **Two shards in nextest pools, one required gate.** The `shard` job's matrix has two legs: `app`
+  runs the `app` target, the biggest by far, and `rest` runs `cargo fmt --check`, clippy
+  `-D warnings` and every other test, the tmux e2e tests included (tmux installed for
+  `tests/e2e/`), each with one `cargo nextest run --locked --run-ignored all`, nextest installed
+  by `taiki-e/install-action` at a pinned version. One matrix job keeps the one `toolchain:` line
+  `tests/toolchain.rs` reads, and each leg keeps a cache of its own (`key: ${{ matrix.name }}`).
+  `check` (`needs: shard`, `if: always()`) passes only when both legs succeeded, so the ruleset
+  keeps requiring one name. `cargo test` ran the 44 test binaries one after another,
+  186 s of the 226 s `check` took in November 2026; one nextest pool of every binary still took
+  162 s, so the `app` target, about 350 s of the 610 s of test time, got a runner of its own.
+  nextest runs each test in a process of its own, which also ends the fork race of
+  `tests/AGENTS.md` in CI. `.github/nextest.toml`
   holds the `e2e` target to two threads, as the local gates do, and starts it first, so its slow
   two-thread tail runs beside the other targets instead of after them, since three `check` runs had
   lost an e2e screen wait at one thread per core; it retries nothing, so a flaky test fails the

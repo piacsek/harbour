@@ -2,12 +2,17 @@ use std::fs;
 use std::path::Path;
 
 #[test]
-fn the_check_job_runs_the_formatter_the_linter_and_every_test() {
+fn one_shard_runs_the_app_tests_and_the_other_the_formatter_the_linter_and_every_other_test() {
+    assert!(ci().contains(SHARD_JOB), "{}", ci());
+}
+
+#[test]
+fn the_required_check_passes_only_when_both_shards_passed() {
     assert!(ci().contains(CHECK_JOB), "{}", ci());
 }
 
 #[test]
-fn the_check_job_installs_nothing_beyond_the_toolchain_tmux_and_nextest() {
+fn the_shards_install_nothing_beyond_the_toolchain_tmux_and_nextest() {
     assert_eq!(ci().matches("apt-get install").count(), 1, "{}", ci());
 }
 
@@ -92,7 +97,16 @@ test-group = \"e2e\"
 priority = 100
 ";
 
-const CHECK_JOB: &str = "  check:
+const SHARD_JOB: &str = "  shard:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: app
+            tests: --test app
+          - name: rest
+            tests: -E 'not binary(app)'
+            rest: true
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
@@ -103,15 +117,31 @@ const CHECK_JOB: &str = "  check:
           toolchain: 1.98.1
           components: rustfmt, clippy
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
-      - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends tmux
+        with:
+          key: ${{ matrix.name }}
+      - if: matrix.rest
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends tmux
       - uses: taiki-e/install-action@3f74d7c16a4242f1c95561e98edc25d36adb4375 # v2.87.12
         with:
           tool: cargo-nextest@0.9.144
           fallback: none
-      - run: cargo fmt --check
-      - run: cargo clippy --locked --all-targets -- -D warnings
-      - run: cargo nextest run --locked --config-file .github/nextest.toml --run-ignored all
-    timeout-minutes: 15
+      - if: matrix.rest
+        run: cargo fmt --check
+      - if: matrix.rest
+        run: cargo clippy --locked --all-targets -- -D warnings
+      - run: cargo nextest run --locked --config-file .github/nextest.toml --run-ignored all ${{ matrix.tests }}
+    timeout-minutes: 10
+";
+
+const CHECK_JOB: &str = "  check:
+    needs: shard
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - env:
+          SHARDS: ${{ needs.shard.result }}
+        run: test \"$SHARDS\" = success
+    timeout-minutes: 5
 ";
 
 const AUDIT_JOB: &str = "  audit:
