@@ -21,6 +21,14 @@ fn paths_that_feed_nothing_print_nothing_and_succeed() {
 }
 
 #[test]
+fn a_claude_md_at_any_depth_does_not_feed_the_binary() {
+    let output = feeds_binary("CLAUDE.md\nsrc/CLAUDE.md\nsrc/app/CLAUDE.md\nsrc/claude.md\n");
+
+    assert_eq!(output.status.code(), Some(0), "{}", stderr(&output));
+    assert_eq!(stdout(&output), "src/claude.md\n");
+}
+
+#[test]
 fn a_fragment_under_changes_does_not_feed_the_binary() {
     let output = feeds_binary("changes/topic.md\nsrc/changes/topic.md\n");
 
@@ -34,14 +42,6 @@ fn a_claude_skill_does_not_feed_the_binary() {
 
     assert_eq!(output.status.code(), Some(0), "{}", stderr(&output));
     assert_eq!(stdout(&output), "src/.claude/topic.md\n");
-}
-
-#[test]
-fn a_root_claude_md_does_not_feed_the_binary() {
-    let output = feeds_binary("CLAUDE.md\nsrc/CLAUDE.md\n");
-
-    assert_eq!(output.status.code(), Some(0), "{}", stderr(&output));
-    assert_eq!(stdout(&output), "src/CLAUDE.md\n");
 }
 
 #[test]

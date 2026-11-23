@@ -199,7 +199,7 @@ fn gates_on_a_docs_only_branch_run_the_scrub_the_format_and_the_markdown_tests_o
     assert_eq!(calls(dir.path())[1], "cargo fmt --check");
     assert_eq!(
         calls(dir.path())[2],
-        "cargo test --test readme --test plans"
+        "cargo test --test readme --test plans --test agents_size"
     );
 }
 

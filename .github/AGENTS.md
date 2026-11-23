@@ -2,8 +2,19 @@
 
 The CI workflows and the branch protection around them, the issue forms, and the release
 internals (Releasing internals, below). What a pull request author needs to release is in Releasing
-in the root `AGENTS.md`. The workflows, scripts and most of the learnings below come from conveyor,
+in the root `AGENTS.md`, in full under "Releasing, in full" in `docs/process.md`. The workflows, scripts and most of the learnings below come from conveyor,
 a sibling project by the recipe's author; a number measured there says so.
+
+## What is here
+
+```
+.github/AGENTS.md CI: what the workflows run and why (`check`, `audit`, the flake build, the `version` check, the release queue, the tap, `stable`), the `main` ruleset, branch cleanup, the sweep issue, the issue forms and Discussions; the release internals, the first release from zero tags included
+.github/pull_request_template.md  `## Summary` and `## Changes`: the body `ship.sh` opens a draft PR with
+.github/ISSUE_TEMPLATE/       the bug report and feature request forms, and `config.yml` sending questions to Discussions
+.github/workflows/            ci.yml, version.yml, release.yml, sweep.yml and delete-closed-branch.yml, each a bullet below
+.github/CLAUDE.md             a symlink to this file, so it loads when work touches `.github/`
+.github/CONTRIBUTING.md       where a newcomer starts: points here, to `scripts/gates.sh`, `scripts/ship.sh` and the fragment rule, restates none of them
+```
 
 ## CI
 
@@ -44,7 +55,8 @@ speed-up, when its pipeline went from about 3 min 20 s to 37 s:
   unless that output is `false`; `flake-ok` (`needs: [paths, flake]`, `if: always()`) runs
   `scripts/flake-ok.sh` and passes only when the build succeeded, or was skipped because `paths`
   succeeded and said `false`. A failed or cancelled leg fails it, and so does a run cancelled
-  before the build. The inputs are the one list in `scripts/flake-inputs.sh`: `src/`,
+  before the build. The inputs are the one list in `scripts/flake-inputs.sh`: `src/` (but its `AGENTS.md` and
+  `CLAUDE.md` guides, which the flake's fileset leaves out too),
   `Cargo.toml`, `Cargo.lock`, `CHANGELOG.md`, `rust-toolchain.toml`, `flake.nix`, `flake.lock`,
   `ci.yml` and the three flake scripts; `tests/scripts/flake_inputs.rs` fails while a path `flake.nix` names is
   missing from it, or while `flake.nix` names `./.` anywhere but the fileset's `root` or builds a
@@ -94,8 +106,8 @@ speed-up, when its pipeline went from about 3 min 20 s to 37 s:
   cost conveyor's macOS job one to two minutes (`dtolnay/rust-toolchain` installs `minimal`
   anyway). The overlay only knows the Rust
   releases up to its locked commit, so every toolchain bump updates the locked `rust-overlay` in
-  `flake.lock` in the same pull request (the command is under Development in the root
-  `AGENTS.md`). The `version` check refuses a channel change that keeps the locked revision (see
+  `flake.lock` in the same pull request (the command is under Gates, ship and install in
+  `scripts/AGENTS.md`). The `version` check refuses a channel change that keeps the locked revision (see
   Releasing internals). Without the update this job, and `stable-build` after the merge, fail to
   evaluate the new channel (`error: Stable <version> is not available`). `stable-build` builds the
   same flake, so it never builds with another Rust than the gates. Nixpkgs 26.11 dropped
@@ -306,8 +318,8 @@ be created through the API; they are set by hand under Settings. Starter issues 
 ## Releasing internals
 
 How the `version` check judges a pull request and how a release run tags, builds, publishes and
-recovers. What a pull request author needs (the fragment, its `kind`, the tag rules) stays in
-Releasing in the root `AGENTS.md`.
+recovers. What a pull request author needs (the fragment, its `kind`, the tag rules) is in
+Releasing in the root `AGENTS.md`, in full under "Releasing, in full" in `docs/process.md`.
 
 **The first release, from zero tags.** No `vX.Y.Z` tag means "never released": every script
 counts from the empty tree at version 0.0.0, and the released changelog is empty. So the first
@@ -331,7 +343,7 @@ Each case is a test in `tests/scripts/`:
 A clone without its tags reads as "never released" too. The release and version workflows fetch
 every `v*` tag before running the scripts, so only a local run can see that state.
 
-**The `version` check enforces the fragment rules of Releasing in the root `AGENTS.md` on every
+**The `version` check enforces the fragment rules of "Releasing, in full" in `docs/process.md` on every
 pull request into `main`** (`.github/workflows/version.yml`, details in the `version.yml` bullet
 under CI). `scripts/version-check.sh <base> <head>` refuses the pull request, naming the file and
 what to do instead, when:
@@ -487,7 +499,7 @@ after changing the formula script.
 
 **When the newest tag can never build** (its commit does not compile, or its `Cargo.lock` is
 stale, so every run resumes it and fails again): the tag has no published release, so the rule
-about released tags (Releasing in the root `AGENTS.md`) does not cover it. Land the fix on `main`
+about released tags ("Releasing, in full" in `docs/process.md`) does not cover it. Land the fix on `main`
 through a pull request, delete the unfinished tag and its draft release if one exists, then start
 a new run, which tags the same version again from the fixed `main`. Deleting a tag is the owner's
 decision: an agent asks first.

@@ -60,6 +60,9 @@ In this order unless a retro says otherwise.
 
 ### Fixes to weigh
 
+- Give every file an entry in its directory's guide: `src/app/read.rs` has none in `src/AGENTS.md`,
+  nor `tests/demo.rs`, `tests/editor.rs`, `tests/nvim.rs`, `tests/registry.rs` and `tests/state.rs`
+  in `tests/AGENTS.md`; a test that every `src/**/*.rs` file is named there would keep it so.
 - With the log off, skip the app's log bookkeeping on every key, paste, mouse event and frame
   (each session's and editor's panic count is taken under its parser lock). Needs a seam a test
   can see it through (phase 14 review).

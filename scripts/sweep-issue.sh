@@ -33,7 +33,7 @@ fi
 
 body="$(mktemp)"
 {
-  echo "Phase $next opens with a sweep (see \"The sweep\" in \`AGENTS.md\`). Run the \`sweep\` skill, or read the report below and write the findings into the \`### Sweep\` section of phase $next's \`## Outcome\`."
+  echo "Phase $next opens with a sweep (see \"The sweep\" in \`docs/process.md\`). Run the \`sweep\` skill, or read the report below and write the findings into the \`### Sweep\` section of phase $next's \`## Outcome\`."
   echo
   scripts/sweep-report.sh | sed '1s/^# /## /; 2,$s/^\(#\{1,5\}\) /#\1 /'
 } >"$body"

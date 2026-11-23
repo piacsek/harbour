@@ -64,6 +64,16 @@ fn paths_the_flake_does_not_read_are_left_out() {
 }
 
 #[test]
+fn the_agent_guides_under_src_are_left_out() {
+    let output = flake_inputs(
+        "src/AGENTS.md\0src/CLAUDE.md\0src/app/AGENTS.md\0src/main.rs\0src/agents.md\0",
+    );
+
+    assert_eq!(output.status.code(), Some(0), "{}", stderr(&output));
+    assert_eq!(stdout(&output), "src/main.rs\0src/agents.md\0");
+}
+
+#[test]
 fn a_grep_that_cannot_run_fails_the_filter() {
     let dir = tempfile::tempdir().unwrap();
     let grep = dir.path().join("grep");
