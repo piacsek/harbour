@@ -24,8 +24,15 @@ impl App {
                 return true;
             }
             self.prefixing.repeat = None;
-            if !self.keymap.is_prefix(key) {
+            let unescaped = KeyEvent {
+                modifiers: key.modifiers - KeyModifiers::ALT,
+                ..key
+            };
+            if !self.keymap.is_prefix(unescaped) {
                 return false;
+            }
+            if key.modifiers.contains(KeyModifiers::ALT) {
+                self.forward(KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE));
             }
             self.prefixing.waiting = true;
             self.log_prefix("");

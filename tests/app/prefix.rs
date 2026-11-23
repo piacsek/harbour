@@ -68,6 +68,41 @@ fn the_prefix_twice_sends_an_editor_the_form_it_asked_for() {
 }
 
 #[test]
+fn alt_with_the_prefix_sends_claude_code_esc_then_starts_the_prefix() {
+    let mut screen = focused(raw_reader(1));
+
+    screen.key(
+        KeyCode::Char('_'),
+        KeyModifiers::ALT | KeyModifiers::CONTROL,
+    );
+    screen.press('z');
+
+    let shown = screen.wait_for("acme agent read:");
+    assert!(shown.contains("acme agent read: 1b"), "{shown}");
+    assert_eq!(corners(&screen.draw()), 0, "{shown}");
+}
+
+#[test]
+fn alt_with_the_prefix_sends_an_editor_esc_in_its_form_then_starts_the_prefix() {
+    let mut screen = Screen::editing(raw_reader(1), raw_editor("\\033[>1u", 5));
+    screen.press('n');
+    screen.wait_for("acme agent ready");
+    screen.key(KeyCode::Enter, KeyModifiers::NONE);
+    screen.key(KeyCode::Char('l'), KeyModifiers::CONTROL);
+    screen.wait_for("acme editor ready");
+
+    screen.key(
+        KeyCode::Char('_'),
+        KeyModifiers::ALT | KeyModifiers::CONTROL,
+    );
+    screen.press('z');
+
+    let shown = screen.wait_for("acme editor read:");
+    assert!(shown.contains("acme editor read:[27u"), "{shown}");
+    assert_eq!(corners(&screen.draw()), 0, "{shown}");
+}
+
+#[test]
 fn ctrl_underscore_is_the_prefix_too() {
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = three_sessions(scratch.path());

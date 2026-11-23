@@ -359,11 +359,12 @@ session_command (each a list: the program, then its arguments), sidebar_width
 Font icons) and claude_icon (the glyph before claude with nerd_font on:
 \"sparkle\", the default, or \"clawd\", U+100000, which only a font of your own
 draws; in Ghostty, map it with font-codepoint-map = U+100000=<font family>).
-HARBOUR_EDITOR, HARBOUR_DIR_PICKER and HARBOUR_SESSION_COMMAND outrank the
-file's editor, picker and session_command; the other settings are read from
-the file only. prefix names another prefix (C-] or C-Space, for one), and a
-[keys] table moves an action to another key, or to none, as zoom = \"f\" or
-usage = \"none\". config prints each setting and where it comes from.
+HARBOUR_EDITOR, HARBOUR_DIR_PICKER, HARBOUR_SESSION_COMMAND and HARBOUR_PREFIX
+outrank the file's editor, picker, session_command and prefix; the other
+settings are read from the file only. prefix names another prefix (C-] or
+C-Space, for one), and a [keys] table moves an action to another key, or to
+none, as zoom = \"f\" or usage = \"none\". config prints each setting and
+where it comes from.
 n runs fzf over the directory harbour was opened in and zoxide's list;
 HARBOUR_DIR_PICKER names another picker.
 C-/ s lists every session in fzf and Enter jumps to the one picked; with a
