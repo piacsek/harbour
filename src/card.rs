@@ -95,7 +95,14 @@ impl Card {
                 .filter(|text| !text.is_empty())
         };
         let doing = match (ended, state) {
-            (Some(Ended::Exited(note)), _) => Some((format!("exited{note}"), Style::default())),
+            (Some(Ended::Exited(note)), _) => {
+                let style = if note.is_empty() {
+                    Style::default().add_modifier(Modifier::DIM)
+                } else {
+                    Style::default().fg(Color::Red)
+                };
+                Some((format!("exited{note}"), style))
+            }
             (Some(Ended::Stopped(why)), _) => Some((
                 why.to_string(),
                 Style::default().add_modifier(Modifier::DIM),
@@ -201,7 +208,8 @@ impl Card {
                 let gap = room.saturating_sub(columns(&title) + columns(age));
                 Line::from(vec![
                     glyph,
-                    Span::from(format!(" {title}{}{age}", " ".repeat(gap))),
+                    Span::from(format!(" {title}{}", " ".repeat(gap))),
+                    Span::styled(age.clone(), Modifier::DIM),
                 ])
             }
             _ => Line::from(vec![
