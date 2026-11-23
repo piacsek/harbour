@@ -45,7 +45,9 @@
                 ./Cargo.toml
                 ./Cargo.lock
                 ./CHANGELOG.md
-                ./src
+                (pkgs.lib.fileset.difference ./src (
+                  pkgs.lib.fileset.fileFilter (file: file.name == "AGENTS.md" || file.name == "CLAUDE.md") ./src
+                ))
               ];
             };
             cargoLock.lockFile = ./Cargo.lock;

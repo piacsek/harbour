@@ -11,6 +11,8 @@ a sibling project by the recipe's author; a number measured there says so.
 .github/AGENTS.md CI: what the workflows run and why (`check`, `audit`, the flake build, the `version` check, the release queue, the tap, `stable`), the `main` ruleset, branch cleanup, the sweep issue, the issue forms and Discussions; the release internals, the first release from zero tags included
 .github/pull_request_template.md  `## Summary` and `## Changes`: the body `ship.sh` opens a draft PR with
 .github/ISSUE_TEMPLATE/       the bug report and feature request forms, and `config.yml` sending questions to Discussions
+.github/workflows/            ci.yml, version.yml, release.yml, sweep.yml and delete-closed-branch.yml, each a bullet below
+.github/CLAUDE.md             a symlink to this file, so it loads when work touches `.github/`
 .github/CONTRIBUTING.md       where a newcomer starts: points here, to `scripts/gates.sh`, `scripts/ship.sh` and the fragment rule, restates none of them
 ```
 
@@ -53,7 +55,8 @@ speed-up, when its pipeline went from about 3 min 20 s to 37 s:
   unless that output is `false`; `flake-ok` (`needs: [paths, flake]`, `if: always()`) runs
   `scripts/flake-ok.sh` and passes only when the build succeeded, or was skipped because `paths`
   succeeded and said `false`. A failed or cancelled leg fails it, and so does a run cancelled
-  before the build. The inputs are the one list in `scripts/flake-inputs.sh`: `src/`,
+  before the build. The inputs are the one list in `scripts/flake-inputs.sh`: `src/` (but its `AGENTS.md` and
+  `CLAUDE.md` guides, which the flake's fileset leaves out too),
   `Cargo.toml`, `Cargo.lock`, `CHANGELOG.md`, `rust-toolchain.toml`, `flake.nix`, `flake.lock`,
   `ci.yml` and the three flake scripts; `tests/scripts/flake_inputs.rs` fails while a path `flake.nix` names is
   missing from it, or while `flake.nix` names `./.` anywhere but the fileset's `root` or builds a

@@ -60,11 +60,9 @@ In this order unless a retro says otherwise.
 
 ### Fixes to weigh
 
-- Load `src/AGENTS.md` by itself: add `src/CLAUDE.md` (a symlink to `AGENTS.md`) and leave
-  Markdown out of the flake's `./src` fileset and of `scripts/flake-inputs.sh`, in one pull
-  request with an `internal` fragment, since `flake.nix` feeds the binary; then add `src` to the
-  directories `tests/agents_size.rs` checks. Until then the root says to read it by hand, and an
-  edit of it alone runs the flake builds (`docs/known-limits.md`).
+- Give every file an entry in its directory's guide: `src/app/read.rs` has none in `src/AGENTS.md`,
+  nor `tests/demo.rs`, `tests/editor.rs`, `tests/nvim.rs`, `tests/registry.rs` and `tests/state.rs`
+  in `tests/AGENTS.md`; a test that every `src/**/*.rs` file is named there would keep it so.
 - With the log off, skip the app's log bookkeeping on every key, paste, mouse event and frame
   (each session's and editor's panic count is taken under its parser lock). Needs a seam a test
   can see it through (phase 14 review).

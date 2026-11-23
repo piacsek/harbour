@@ -35,7 +35,7 @@ scripts/screenshots.sh        renders docs/details.png from `harbour --demo` and
 scripts/sweep-issue.sh        the `issue` job of `sweep.yml`: opens "Sweep due before phase N" with the report once the next phase is a multiple of 5, never twice
 ```
 
-## The root files the gates and CI read
+## The root files outside `src/`
 
 ```
 CHANGELOG.md                  only its `# Changelog` heading on `main`; each release commit writes its sections

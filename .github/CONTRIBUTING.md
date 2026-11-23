@@ -7,7 +7,9 @@ start. Questions and ideas go to [Discussions](https://github.com/piacsek/harbou
 
 ## Before you change anything
 
-- Read [`AGENTS.md`](../AGENTS.md): the rules, the layout, and how work is tested and shipped.
+- Read [`AGENTS.md`](../AGENTS.md): the rules and a map of the rest. How work is tested and
+  shipped is in [`scripts/AGENTS.md`](../scripts/AGENTS.md) and
+  [`docs/process.md`](../docs/process.md).
   Start with [This repository is public](../AGENTS.md#this-repository-is-public), which holds for
   issues and screenshots too.
 - Before touching a part of the code, read the `AGENTS.md` that the

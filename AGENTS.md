@@ -9,7 +9,8 @@ have none: their rules are Releasing below and `docs/process.md`.
 
 Harbour: where shipping begins. A terminal workspace for agent work: with no argument on a
 terminal it opens a sidebar of agent sessions beside a live pane; it also answers `--help`,
-`--version`, `changelog`, `status`, `log`, `config` and `edit <file>`. Phase 0 scaffolded it from
+`--version`, `changelog`, `status`, `log`, `config` and `edit <file>`, and `--demo` shows
+made-up sessions, the only kind a screenshot may show. Phase 0 scaffolded it from
 the `rust_tui` recipe, which descends from conveyor, an earlier project; "conveyor" in these
 files means that project. `PLAN.md` indexes the phases and the
 backlog; each phase's plan, outcome and hurdles are in `plans/`.
@@ -35,16 +36,15 @@ plans/               one plan file per phase, ending with ## Outcome and ## Hurd
 .github/             workflows, ruleset, release internals, templates, CONTRIBUTING; .github/AGENTS.md
 .claude/skills/      the sweep, orchestrate-issue-execution-autonomously and adversarial-review skills
 CHANGELOG.md         only its # Changelog heading on main; each release commit writes its sections
-CLAUDE.md            a symlink to AGENTS.md (also in tests, scripts, docs, .github), for tools reading only it
+CLAUDE.md            a symlink to AGENTS.md (in each guided directory too), for tools reading only it
 rust-toolchain.toml  the one Rust version local gates and CI run (see scripts/AGENTS.md)
 flake.nix, flake.lock  the Nix flake building the binary with that toolchain; feeds the binary
 ```
 
 ## Where the rest lives
 
-Read the file for a directory before changing anything in it. The `CLAUDE.md` symlinks load
-`tests/`, `scripts/`, `docs/` and `.github/` automatically when you work there; `src/AGENTS.md`
-does not load by itself yet, so read it before touching `src/`.
+Read the file for a directory before changing anything in it. A `CLAUDE.md` symlink in `src/`,
+`tests/`, `scripts/`, `docs/` and `.github/` loads its guide when Claude Code works there.
 
 | File | Read it |
 | --- | --- |
