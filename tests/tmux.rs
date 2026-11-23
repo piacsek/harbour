@@ -327,27 +327,26 @@ fn a_pane_on_another_terminal_than_harbour_moves_nothing() {
 #[test]
 fn a_select_that_outlives_the_deadline_counts_as_a_move() {
     let scratch = tempfile::tempdir().unwrap();
+    let deadline = Duration::from_secs(2);
     let tmux = Tmux::with_program(
         program(
             scratch.path(),
             &format!(
-                "case $1 in {BOUND} display-message) echo '110 /dev/acme-tty' ;; select-pane) sleep 5 ;; esac"
+                "case $1 in {BOUND} display-message) echo '110 /dev/acme-tty' ;; select-pane) exec sleep 30 ;; esac"
             ),
         ),
         "%7".into(),
         "/dev/acme-tty".into(),
-        Duration::from_millis(100),
+        deadline,
     );
     let began = Instant::now();
 
     let moved = tmux.select(Direction::Below);
 
+    let elapsed = began.elapsed();
     assert!(moved);
-    assert!(
-        began.elapsed() < Duration::from_millis(1000),
-        "{:?}",
-        began.elapsed()
-    );
+    assert!(elapsed >= deadline, "{elapsed:?}");
+    assert!(elapsed < deadline + Duration::from_secs(3), "{elapsed:?}");
 }
 
 fn answering(scratch: &Path, answer: &str) -> Tmux {
