@@ -10,7 +10,7 @@ use harbour::picker::Picker;
 use crate::finding::FINDER;
 use crate::remembering::{ID, Scratch, TITLE};
 use crate::zoom::{corners, raw_reader};
-use crate::{Screen, focused_char, pane_corner, region, script, starts_focused};
+use crate::{Screen, focused_char, pane_corner, region, script, settled, starts_focused};
 
 #[test]
 fn the_prefix_then_backslash_from_the_sidebar_shows_claude_code_left_and_its_editor_right() {
@@ -56,11 +56,13 @@ fn the_prefix_then_backslash_on_a_stopped_card_does_nothing() {
     scratch.remember(ID, TITLE, 0);
     scratch.transcript(ID, r#"{"type":"user","message":{}}"#);
     let mut screen = scratch.watching(script("exec sleep 600"));
-    let before = screen.wait_for(TITLE);
+    screen.wait_for(TITLE);
+    let before = screen.wait_for_stable();
 
     side(&mut screen);
 
-    assert_eq!(screen.draw(), before);
+    let after = settled(&mut screen, |shown| shown != before);
+    assert_eq!(after, before);
 }
 
 #[test]
@@ -72,9 +74,9 @@ fn the_prefix_then_backslash_on_an_exited_session_does_nothing() {
     let before = screen.wait_for_stable();
 
     side(&mut screen);
-    sleep(Duration::from_millis(300));
 
-    assert_eq!(screen.draw(), before);
+    let after = settled(&mut screen, |shown| shown != before);
+    assert_eq!(after, before);
 }
 
 #[test]
@@ -82,12 +84,13 @@ fn the_prefix_then_backslash_under_120_columns_does_nothing() {
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = editing(scratch.path());
     screen.resize(119, 20);
-    let before = screen.wait_for("acme agent 1 size: 18 77");
+    screen.wait_for("acme agent 1 size: 18 77");
+    let before = screen.wait_for_stable();
 
     side(&mut screen);
-    sleep(Duration::from_millis(300));
 
-    assert_eq!(screen.draw(), before);
+    let after = settled(&mut screen, |shown| shown != before);
+    assert_eq!(after, before);
 }
 
 #[test]

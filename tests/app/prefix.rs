@@ -14,7 +14,7 @@ use crate::logging::{count, logged, only, read};
 use crate::side::{agent, editor};
 use crate::usage_states::app;
 use crate::zoom::{corners, editing_session, raw_reader};
-use crate::{Screen, focused_title, home, numbered_agent, pane_corner, region, script};
+use crate::{Screen, focused_title, home, numbered_agent, pane_corner, region, script, settled};
 
 #[test]
 fn the_prefix_then_z_from_the_sidebar_zooms_the_selected_session() {
@@ -377,11 +377,12 @@ fn a_closing_brace_after_the_prefix_from_the_editor_half_swaps_the_halves() {
 fn a_closing_brace_after_the_prefix_does_nothing_when_not_side_by_side() {
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = on_the_editor(scratch.path());
-    let before = screen.draw();
+    let before = screen.wait_for_stable();
 
     screen.prefixed('}');
 
-    assert_eq!(screen.draw(), before);
+    let after = settled(&mut screen, |shown| shown != before);
+    assert_eq!(after, before);
 }
 
 #[test]
