@@ -49,6 +49,15 @@ jobs:
       - run: cargo nextest run --locked --config-file .github/nextest.toml --run-ignored all ${{ matrix.tests }}
       - if: matrix.rest
         run: cargo test --doc --locked
+      - if: ${{ !cancelled() }}
+        continue-on-error: true
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
+        with:
+          report_type: test_results
+          files: target/nextest/default/junit.xml
+          disable_search: true
+          flags: ${{ matrix.name }}
+          token: ${{ secrets.CODECOV_TOKEN }}
     timeout-minutes: 10
 
   check:
