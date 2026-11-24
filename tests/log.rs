@@ -360,9 +360,10 @@ fn write_aged(path: &Path, seconds: u64) {
 }
 
 fn wait_for_line(path: &Path, text: &str) -> String {
-    let deadline = Instant::now() + Duration::from_secs(10);
+    let patience = 5 * deadline();
+    let until = Instant::now() + patience;
     let mut last = String::new();
-    while Instant::now() < deadline {
+    while Instant::now() < until {
         last = fs::read_to_string(path).unwrap_or_default();
         if last.contains(text) {
             return last;
@@ -370,7 +371,7 @@ fn wait_for_line(path: &Path, text: &str) -> String {
         std::thread::sleep(Duration::from_millis(10));
     }
     panic!(
-        "waited 10 s for {text:?} in {}, which held:\n{last}",
+        "waited {patience:?} for {text:?} in {}, which held:\n{last}",
         path.display()
     );
 }

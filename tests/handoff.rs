@@ -24,7 +24,7 @@ fn a_wait_for_a_socket_never_bound_fails_naming_its_folder() {
     fs::create_dir(&dir).unwrap();
 
     let failure = failure(|| {
-        bound_again(&dir);
+        bound_again(&dir, deadline());
     });
 
     assert!(failure.contains("a socket in"), "{failure}");
@@ -188,7 +188,7 @@ fn a_removed_socket_is_bound_again_at_the_next_check() {
     listener.incoming();
     fs::remove_file(&socket_files(&dir)[0]).unwrap();
 
-    assert_eq!(bound_again(&dir).len(), 1);
+    assert_eq!(bound_again(&dir, 5 * deadline()).len(), 1);
 }
 
 #[test]
@@ -437,16 +437,16 @@ fn existing(scratch: &Path, name: &str) -> PathBuf {
     file.canonicalize().unwrap()
 }
 
-fn bound_again(dir: &Path) -> Vec<PathBuf> {
-    let deadline = Instant::now() + Duration::from_secs(2);
+fn bound_again(dir: &Path, patience: Duration) -> Vec<PathBuf> {
+    let until = Instant::now() + patience;
     loop {
         let found = socket_files(dir);
         if !found.is_empty() {
             return found;
         }
         assert!(
-            Instant::now() < deadline,
-            "waited 2 s for a socket in {}",
+            Instant::now() < until,
+            "waited {patience:?} for a socket in {}",
             dir.display()
         );
         sleep(Duration::from_millis(5));

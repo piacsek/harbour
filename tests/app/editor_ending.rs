@@ -220,7 +220,7 @@ fn hanging_up(scratch: &Path, name: &str, ready: &str) -> Vec<String> {
 }
 
 pub(crate) fn gone(pid: &str) -> bool {
-    let deadline = Instant::now() + Duration::from_secs(5);
+    let until = Instant::now() + 5 * deadline();
     loop {
         let alive = Command::new("kill")
             .args(["-0", pid])
@@ -230,7 +230,7 @@ pub(crate) fn gone(pid: &str) -> bool {
         if !alive {
             return true;
         }
-        if Instant::now() > deadline {
+        if Instant::now() > until {
             return false;
         }
         std::thread::sleep(Duration::from_millis(20));

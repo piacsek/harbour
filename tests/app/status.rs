@@ -23,7 +23,9 @@ fn a_wait_for_a_dot_that_never_shows_fails_showing_the_last_dot() {
     screen.wait_for(&format!("● {} 1", directory()));
 
     let failure = failure(|| {
-        wait_for_dot(&mut screen, "an acme dot", |cell| cell.symbol() == "acme");
+        wait_for_dot(&mut screen, "an acme dot", deadline(), |cell| {
+            cell.symbol() == "acme"
+        });
     });
 
     assert!(failure.contains("for an acme dot"), "{failure}");
@@ -57,7 +59,7 @@ fn a_wait_for_more_registry_files_than_come_fails_naming_the_count() {
     let registry = tempfile::tempdir().unwrap();
 
     let failure = failure(|| {
-        wait_for_files(registry.path(), 3);
+        wait_for_files(registry.path(), 3, deadline());
     });
 
     assert!(failure.contains("3 registry files"), "{failure}");
@@ -109,7 +111,7 @@ fn an_idle_session_shows_a_dim_hollow_dot() {
     let mut screen = watching(registry.path(), registered(registry.path(), "idle"));
     screen.press('n');
 
-    let dot = wait_for_dot(&mut screen, "a dim dot", |cell| {
+    let dot = wait_for_dot(&mut screen, "a dim dot", 5 * deadline(), |cell| {
         cell.modifier.contains(Modifier::DIM)
     });
 
@@ -175,7 +177,7 @@ fn the_dot_follows_a_change_of_status() {
 
     std::fs::write(only_file(registry.path()), r#"{"status":"idle"}"#).unwrap();
 
-    let dot = wait_for_dot(&mut screen, "a dim dot", |cell| {
+    let dot = wait_for_dot(&mut screen, "a dim dot", 5 * deadline(), |cell| {
         cell.modifier.contains(Modifier::DIM)
     });
     assert_eq!(dot.symbol(), "○");
@@ -205,7 +207,9 @@ fn a_file_that_is_removed_turns_the_dot_unknown() {
 
     std::fs::remove_file(only_file(registry.path())).unwrap();
 
-    let dot = wait_for_dot(&mut screen, "an unknown dot", |cell| cell.symbol() == "·");
+    let dot = wait_for_dot(&mut screen, "an unknown dot", 5 * deadline(), |cell| {
+        cell.symbol() == "·"
+    });
     assert_eq!(dot.symbol(), "·");
     assert_eq!(dot.fg, Color::Reset);
 }
@@ -329,7 +333,7 @@ fn the_narrowest_sidebar_keeps_every_count_in_the_title_even_past_nine() {
     {
         std::fs::write(scratch.path().join("status"), status).unwrap();
         screen.press('n');
-        wait_for_files(registry.path(), started + 1);
+        wait_for_files(registry.path(), started + 1, 5 * deadline());
     }
 
     let shown = screen.wait_for("●10 ◉1 ○1 ");
@@ -514,8 +518,13 @@ fn last_column(shown: &str, text: &str, row: usize) -> u16 {
     u16::try_from(start + text.chars().count() - 1).unwrap()
 }
 
-fn wait_for_dot(screen: &mut Screen, what: &str, done: impl Fn(&Cell) -> bool) -> Cell {
-    let deadline = Instant::now() + Duration::from_secs(5);
+fn wait_for_dot(
+    screen: &mut Screen,
+    what: &str,
+    patience: Duration,
+    done: impl Fn(&Cell) -> bool,
+) -> Cell {
+    let until = Instant::now() + patience;
     loop {
         screen.draw();
         let dot = screen.cell(3, 1);
@@ -523,8 +532,8 @@ fn wait_for_dot(screen: &mut Screen, what: &str, done: impl Fn(&Cell) -> bool) -
             return dot;
         }
         assert!(
-            Instant::now() < deadline,
-            "waited 5 s for {what} on the first card, last dot: {dot:?}"
+            Instant::now() < until,
+            "waited {patience:?} for {what} on the first card, last dot: {dot:?}"
         );
         sleep(Duration::from_millis(20));
     }
@@ -547,7 +556,7 @@ fn only_file(registry: &Path) -> PathBuf {
 }
 
 fn counts_file(state: &Path) -> PathBuf {
-    let deadline = std::time::Instant::now() + Duration::from_secs(5);
+    let until = Instant::now() + 5 * deadline();
     loop {
         let found = std::fs::read_dir(state)
             .unwrap()
@@ -556,7 +565,7 @@ fn counts_file(state: &Path) -> PathBuf {
         if let Some(path) = found {
             return path;
         }
-        assert!(std::time::Instant::now() < deadline, "no counts published");
+        assert!(Instant::now() < until, "no counts published");
         std::thread::sleep(Duration::from_millis(20));
     }
 }
@@ -585,16 +594,16 @@ fn wait_for_sidebar_row(screen: &mut Screen, text: &str) -> String {
     }
 }
 
-fn wait_for_files(registry: &Path, count: usize) {
-    let deadline = Instant::now() + Duration::from_secs(5);
+fn wait_for_files(registry: &Path, count: usize, patience: Duration) {
+    let until = Instant::now() + patience;
     loop {
         let found = std::fs::read_dir(registry).unwrap().count();
         if found >= count {
             return;
         }
         assert!(
-            Instant::now() < deadline,
-            "waited 5 s for {count} registry files, found {found}"
+            Instant::now() < until,
+            "waited {patience:?} for {count} registry files, found {found}"
         );
         sleep(Duration::from_millis(20));
     }

@@ -156,6 +156,118 @@ fn a_literal_deadline_after_a_parenthesis_in_a_character_is_found() {
     assert_eq!(literal_seam_deadlines(source), vec![3]);
 }
 
+#[test]
+fn a_literal_deadline_inside_the_leftmost_of_two_seams_on_a_line_is_found() {
+    let source = "    screen.app.hand(Verb::Open, with_program(acme()),\n        Duration::from_secs(5),\n    );\n";
+
+    assert_eq!(literal_seam_deadlines(source), vec![2]);
+}
+
+#[test]
+fn a_call_whose_name_only_ends_like_a_seam_is_not_a_seam() {
+    let source = "    let shown = beforehand(\n        Duration::from_secs(5),\n    );\n";
+
+    assert!(literal_seam_deadlines(source).is_empty());
+}
+
+#[test]
+fn a_bound_on_a_count_tied_to_the_shared_deadline_is_not_found() {
+    let source = "    assert!(elapsed.as_millis() < deadline().as_millis());\n";
+
+    assert!(constant_upper_bounds(source).is_empty());
+}
+
+#[test]
+fn a_constant_wait_followed_by_an_error_check_of_something_else_is_found() {
+    let source = "    let first = asked.recv_timeout(Duration::from_secs(5)).unwrap(); assert!(other.is_err());\n";
+
+    assert_eq!(constant_upper_bounds(source), vec![1]);
+}
+
+#[test]
+fn a_count_bound_scaled_from_the_shared_deadline_is_not_found() {
+    let source = "    assert!(elapsed.as_millis() < 2 * deadline().as_millis());\n";
+
+    assert!(constant_upper_bounds(source).is_empty());
+}
+
+#[test]
+fn a_constant_bound_on_a_fractional_count_of_seconds_is_found() {
+    let source = "    assert!(elapsed.as_secs_f64() < 1.5);\n";
+
+    assert_eq!(constant_upper_bounds(source), vec![1]);
+}
+
+#[test]
+fn a_constant_bound_on_a_single_precision_count_of_seconds_is_found() {
+    let source = "    assert!(elapsed.as_secs_f32() < 1.5);\n";
+
+    assert_eq!(constant_upper_bounds(source), vec![1]);
+}
+
+#[test]
+fn a_constant_bound_on_a_count_of_microseconds_is_found() {
+    let source = "    assert!(elapsed.as_micros() < 500);\n";
+
+    assert_eq!(constant_upper_bounds(source), vec![1]);
+}
+
+#[test]
+fn a_constant_bound_on_a_count_of_nanoseconds_that_allows_equality_is_found() {
+    let source = "    assert!(elapsed.as_nanos() <= 500);\n";
+
+    assert_eq!(constant_upper_bounds(source), vec![1]);
+}
+
+#[test]
+fn a_count_bound_with_the_deadline_only_in_its_message_is_found() {
+    let source = "    assert!(elapsed.as_millis() < 1500, \"slower than {:?}\", deadline());\n";
+
+    assert_eq!(constant_upper_bounds(source), vec![1]);
+}
+
+#[test]
+fn a_count_bound_with_the_deadline_only_in_another_condition_is_found() {
+    let source = "    assert!(a.as_millis() < 1500 && b < deadline());\n";
+
+    assert_eq!(constant_upper_bounds(source), vec![1]);
+}
+
+#[test]
+fn a_count_bound_with_the_deadline_added_to_a_constant_is_found() {
+    let source = "    assert!(e.as_millis() < 1500 + deadline().as_millis());\n";
+
+    assert_eq!(constant_upper_bounds(source), vec![1]);
+}
+
+#[test]
+fn a_count_bound_in_parentheses_is_found() {
+    let source = "    assert!(elapsed.as_millis() < (1500));\n";
+
+    assert_eq!(constant_upper_bounds(source), vec![1]);
+}
+
+#[test]
+fn a_count_bound_by_a_converted_constant_is_found() {
+    let source = "    assert!(elapsed.as_millis() < u128::from(LIMIT_MS));\n";
+
+    assert_eq!(constant_upper_bounds(source), vec![1]);
+}
+
+#[test]
+fn a_count_bound_by_a_named_constant_is_found() {
+    let source = "    assert!(elapsed.as_secs() < LIMIT);\n";
+
+    assert_eq!(constant_upper_bounds(source), vec![1]);
+}
+
+#[test]
+fn a_count_bound_scaled_by_the_slowdown_is_not_found() {
+    let source = "    assert!(waited.as_millis() < 10 * scaled(PATIENCE).as_millis());\n";
+
+    assert!(constant_upper_bounds(source).is_empty());
+}
+
 fn constant_upper_bounds(source: &str) -> Vec<usize> {
     numbered(source)
         .filter(|(_, line)| bounds_by_a_constant(line))
@@ -166,11 +278,78 @@ fn constant_upper_bounds(source: &str) -> Vec<usize> {
 fn bounds_by_a_constant(line: &str) -> bool {
     line.contains("< Duration::from_")
         || line.contains("<= Duration::from_")
-        || (line.contains("recv_timeout(Duration::from_") && !line.contains(".is_err()"))
+        || constant_wait_that_must_arrive(line)
         || constant_on_the_left(line)
-        || ["as_millis() <", "as_secs() <"]
-            .iter()
-            .any(|count| line.contains(count))
+        || constant_count_bound(line)
+}
+
+fn constant_wait_that_must_arrive(line: &str) -> bool {
+    line.match_indices("recv_timeout(").any(|(start, call)| {
+        let rest = &line[start + call.len()..];
+        rest.starts_with("Duration::from_")
+            && closing(rest).is_none_or(|end| !rest[end + 1..].starts_with(".is_err()"))
+    })
+}
+
+fn closing(text: &str) -> Option<usize> {
+    let mut depth = 1;
+    text.char_indices().find_map(|(index, character)| {
+        match character {
+            '(' => depth += 1,
+            ')' => depth -= 1,
+            _ => {}
+        }
+        (depth == 0).then_some(index)
+    })
+}
+
+const COUNTS: &[&str] = &[
+    "as_millis() <",
+    "as_secs() <",
+    "as_secs_f64() <",
+    "as_secs_f32() <",
+    "as_micros() <",
+    "as_nanos() <",
+];
+
+fn constant_count_bound(line: &str) -> bool {
+    COUNTS.iter().any(|count| {
+        line.match_indices(count).any(|(start, _)| {
+            let rest = line[start + count.len()..].trim_start_matches('=');
+            !scaled_from_the_deadline(operand(rest))
+        })
+    })
+}
+
+fn operand(text: &str) -> &str {
+    let mut depth = 0;
+    let end = text
+        .char_indices()
+        .find(|(index, character)| {
+            match character {
+                '(' | '[' => depth += 1,
+                ')' | ']' if depth == 0 => return true,
+                ')' | ']' => depth -= 1,
+                ',' if depth == 0 => return true,
+                _ => {}
+            }
+            depth == 0 && (text[*index..].starts_with("&&") || text[*index..].starts_with("||"))
+        })
+        .map_or(text.len(), |(index, _)| index);
+    &text[..end]
+}
+
+fn scaled_from_the_deadline(operand: &str) -> bool {
+    let mut depth = 0;
+    let summed = operand.chars().any(|character| {
+        match character {
+            '(' | '[' => depth += 1,
+            ')' | ']' => depth -= 1,
+            _ => {}
+        }
+        depth == 0 && (character == '+' || character == '-')
+    });
+    !summed && (operand.contains("deadline()") || operand.contains("scaled("))
 }
 
 fn constant_on_the_left(line: &str) -> bool {
@@ -185,7 +364,7 @@ fn literal_seam_deadlines(source: &str) -> Vec<usize> {
     let mut found = Vec::new();
     let mut call = Call::default();
     for (number, line) in numbered(source) {
-        let opened = SEAMS.iter().find_map(|seam| line.find(seam));
+        let opened = leftmost_seam(line);
         let inside = call.depth > 0;
         if (inside || opened.is_some()) && line.contains("Duration::from_") {
             found.push(number);
@@ -197,6 +376,17 @@ fn literal_seam_deadlines(source: &str) -> Vec<usize> {
         }
     }
     found
+}
+
+fn leftmost_seam(line: &str) -> Option<usize> {
+    SEAMS
+        .iter()
+        .flat_map(|seam| line.match_indices(seam).map(|(start, _)| start))
+        .filter(|start| {
+            !line[..*start]
+                .ends_with(|character: char| character.is_alphanumeric() || character == '_')
+        })
+        .min()
 }
 
 fn skip_character_literal(characters: &mut std::iter::Peekable<std::str::Chars>) {

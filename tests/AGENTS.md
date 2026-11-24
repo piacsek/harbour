@@ -26,15 +26,21 @@ after the Clawd glyph: `tests/tabs.rs`, `tests/app/side_border.rs`, `tests/e2e/c
   `tests/e2e/borders.rs`) read them, and a test that spells a pane border builds it from their sets. Only
   `focus::a_focused_pane_has_the_thick_border` names a pane border's glyphs (`┌`, `┏`) and
   `marks::the_waiting_prefix_shows_on_the_panes_bottom_border` its `┘`, so a new style fails only
-  those owners; both helper files take every `BorderType` from `tests/support/borders.rs`, whose
-  exhaustive `match` stops compiling when ratatui adds one or the list misses one. A glyph alone
+  those owners; both helper files take every `BorderType` from `tests/support/borders.rs`, where
+  one list feeds both `BORDERS` and an exhaustive `match`, so it stops compiling when ratatui adds
+  a style or the list misses one, and `cargo clippy -D warnings` refuses a repeated one. A glyph alone
   may not tell two styles apart (the light dashed sets share `┌` with the plain one, the rounded
   set `│` and `─`), so
   `focused` and `unfocused` pass only a glyph of one style that the other does not draw, and fail
   on a shared one rather than pass with the wrong pane focused; the e2e checks of which pane has
   focus read the corner and the side below it at one display column (`focused_at`,
-  `unfocused_at`, `focused_on`). The quadrant sets draw `▌`, the selected card's bar, so `vertical`
-  and `drawn` match it: a card row's text is read with `inside`, which skips the bar.
+  `unfocused_at`, `focused_on`), and the e2e `pane_corner` counts display columns too, since tmux
+  does not pad a wide glyph; the app's counts cells, since `Screen::draw` gives each cell one
+  symbol and a blank after a wide glyph. A zoomed pane's top row is checked with
+  `ends_with_a_pane_corner` (`tests/app/main.rs`), which reads only the two pane styles'
+  corners, never a block glyph the session drew. The quadrant sets draw `▌`, the selected card's
+  bar, so `vertical` and `drawn` match it: a card row's text is read with `inside`, which skips
+  the bar.
   A popup's own border is not a pane's: the help's and the changelog's plain `│` and `┌ help`
   are named in `tests/app/help.rs` and `tests/app/changelog.rs`. A card's indent is found
   (`column_of`) or trimmed, never counted, outside `tests/card/`.
@@ -56,7 +62,8 @@ after the Clawd glyph: `tests/tabs.rs`, `tests/app/side_border.rs`, `tests/e2e/c
   predicate).
 - **Shared helpers live in the binary's `main.rs`** (`tests/app/main.rs`, `tests/e2e/main.rs`;
   the e2e border helpers in `tests/e2e/borders.rs`, since `tests/source_size.rs` caps a file
-  at 700 lines), each wait with a test in that binary's `waits.rs` that sees it fail.
+  at 700 lines), each wait with a test in that binary's `waits.rs` that sees it fail; a border
+  helper's own tests sit there too.
 - **Script tests guard what ships and releases**: the gates, `ship.sh`, the scrub check, the
   version check and the release scripts. A test of a usage line or a help text that no gate,
   workflow or user reads is not written.
@@ -100,11 +107,18 @@ after the Clawd glyph: `tests/tabs.rs`, `tests/app/side_border.rs`, `tests/e2e/c
   in `tests/edit.rs`, plus `deadline()`) where the time is the product's own latency and no deadline
   can be injected. C-h on a silent Neovim costs one `PATIENCE` wait, so the time it waits is bound
   by `10 * PATIENCE`: the loosest margin that still breaks if the default grows to `OPEN_PATIENCE`.
+  Two tests of `tests/app/handing.rs` time a fake against `OPEN_PATIENCE`, which does not scale,
+  and stay: an open given `OPEN_PATIENCE / 2` must run out before the product's patience does,
+  and a fake answering after 1500 ms must outlast that patience yet answer within `soon()`.
   `tests/wall_clock.rs` fails on a `<` or `<=` bound by a
-  `Duration::from_` or after `as_millis()` or `as_secs()`, a `Duration::from_` on the left of `>`,
-  a `recv_timeout(Duration::from_` not followed by `.is_err()` on its line, and a literal
-  `Duration::from_` anywhere inside a call of `with_program`, `with_patience`,
-  `with_hangup_grace`, `hand`, `finish`, `retrying_every`, `nvim::mode` or `nvim::eval`. It
+  `Duration::from_`, or after `as_millis()`, `as_secs()`, `as_secs_f64()`, `as_secs_f32()`,
+  `as_micros()` or `as_nanos()` by an operand (read up to a `,`, `)`, `&&` or `||` outside
+  brackets) that is not a product of `deadline()` or `scaled(` with no `+` or `-` outside
+  brackets, a `Duration::from_` on the left of `>`, a `recv_timeout(Duration::from_` whose call
+  is not followed by `.is_err()`, and a literal `Duration::from_` anywhere inside a call of
+  `with_program`, `with_patience`,
+  `with_hangup_grace`, `hand`, `finish`, `retrying_every`, `nvim::mode` or `nvim::eval`, read
+  from the leftmost of them on a line and never inside a longer name (`beforehand(`). It
   cannot see a literal reached through a `let`,
   a `const` or a helper of its own (a poll loop's `Instant`), a bound split across lines or
   written `>` with the count on the right, or a seam call holding a raw string or a character
