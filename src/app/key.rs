@@ -101,6 +101,8 @@ impl App {
             KeyCode::Char(c) if self.keymap.action_on(c) == Some(Action::Close) => {
                 self.close_or_remove()
             }
+            KeyCode::Char(c) if typed(acted, c) == 'J' => self.move_card(true),
+            KeyCode::Char(c) if typed(acted, c) == 'K' => self.move_card(false),
             KeyCode::Char('j') => {
                 self.select((self.selected + 1).min(self.sessions.len().saturating_sub(1)))
             }
@@ -247,6 +249,14 @@ fn plain_enter(key: KeyEvent) -> KeyEvent {
         )
     } else {
         key
+    }
+}
+
+fn typed(key: KeyEvent, c: char) -> char {
+    if key.modifiers.contains(KeyModifiers::SHIFT) {
+        c.to_ascii_uppercase()
+    } else {
+        c
     }
 }
 

@@ -39,6 +39,7 @@ mod reconciling;
 mod refusing;
 mod remembering;
 mod removed;
+mod reordering;
 mod reserving;
 mod selection;
 mod settling;
