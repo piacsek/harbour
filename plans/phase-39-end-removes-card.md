@@ -70,6 +70,11 @@ the one-press close on a new key, `X`.
   binding of its own; a clash is the same character only. Both rules are the owner's.
 - The help's session row names all three keys in its 14 rows; `harbour --help` and the README key
   table follow. `docs/details.png` does not show the help, so it was not retaken.
+- Three review rounds; round 3 asked for no code change.
+- Left for later, logged as issues by the orchestrator: focus stays on the pane when `C-/ x` or
+  `C-/ X` removes an already-ended card (already true for `x` on `main`); the
+  `End and remove? y/n` literal is repeated in five tests and the help row in
+  `tests/app/help.rs`; the new question is not shown in `docs/details.png`.
 
 ## Hurdles
 
