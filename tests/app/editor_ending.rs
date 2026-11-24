@@ -145,7 +145,7 @@ fn quitting_hangs_up_on_editors_and_sessions_before_it_kills_any() {
     let mut screen = editing_with(
         App::new(agent)
             .with_editor(editor)
-            .with_hangup_grace(deadline()),
+            .with_hangup_grace(5 * deadline()),
     );
     screen.key(KeyCode::Char('h'), KeyModifiers::CONTROL);
     screen.key(KeyCode::Char('h'), KeyModifiers::CONTROL);

@@ -3,7 +3,7 @@ use std::sync::mpsc;
 use std::thread::{self, sleep};
 use std::time::{Duration, Instant};
 
-use harbour::session::Session;
+use harbour::session::{self, Session};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Position, Rect};
 use ratatui::widgets::Widget;
@@ -350,6 +350,19 @@ fn dropping_a_session_ends_what_its_command_started_even_when_it_ignores_hangup(
 }
 
 #[test]
+fn ending_sessions_that_exit_on_hangup_returns_before_the_grace_runs_out() {
+    let mut sessions = [start(HANGING_UP), start(HANGING_UP)];
+    wait_for(&sessions[0], "acme agent ready");
+    wait_for(&sessions[1], "acme agent ready");
+
+    let before = Instant::now();
+    session::end_all(sessions.iter_mut(), 5 * deadline());
+    let elapsed = before.elapsed();
+
+    assert!(elapsed < deadline(), "{elapsed:?}");
+}
+
+#[test]
 fn a_large_paste_into_a_command_that_does_not_read_returns_at_once() {
     let session = start("stty raw -echo; echo raw; exec sleep 600");
     wait_for(&session, "raw");
@@ -648,6 +661,8 @@ fn shaped_wide_at_the_edge() -> [String; 3] {
     let [shell, flag, script] = wide_at_the_edge();
     [shell, flag, format!("printf '\\033[5 q'; {script}")]
 }
+
+const HANGING_UP: &str = "echo 'acme agent ready'; exec sleep 600";
 
 const HIDING: &str = "stty -echo; printf '\\033[3;5Hacme shown'; read -r line; \
                       printf '\\033[?25l\\033[6;9Hacme hiding'; exec sleep 600";
