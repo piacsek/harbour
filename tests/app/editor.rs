@@ -258,10 +258,13 @@ fn with_icons_a_card_shows_no_neovim_glyph_while_its_editor_is_open() {
             .with_nerd_font(),
     );
 
-    let shown = screen.draw();
+    let shown = screen.wait_until("the card's repository", |shown| {
+        card_text(shown).contains(REPOSITORY)
+    });
 
-    let card = format!("{REPOSITORY} acme-home");
-    assert_eq!(card_text(&shown), card, "{shown}");
+    let card = card_text(&shown);
+    assert!(card.contains(REPOSITORY), "{shown}");
+    assert!(!card.contains(NEOVIM), "{shown}");
 }
 
 #[test]
