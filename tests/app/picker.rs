@@ -20,7 +20,7 @@ fn a_wait_for_a_popup_that_stays_open_fails_showing_it() {
     screen.wait_for("acme picker");
 
     let failure = failure(|| {
-        popup_closed(&mut screen);
+        popup_closed(&mut screen, deadline());
     });
 
     assert!(failure.contains("the picker to close"), "{failure}");
@@ -211,7 +211,7 @@ fn a_cancelled_picker_leaves_the_focus_on_the_sidebar() {
 
     screen.type_text("\r");
 
-    let shown = popup_closed(&mut screen);
+    let shown = popup_closed(&mut screen, 5 * deadline());
     assert!(starts_focused(&shown), "{shown}");
 }
 
@@ -475,12 +475,11 @@ fn here() -> String {
 }
 
 fn closed(screen: &mut Screen) -> String {
-    popup_closed(screen);
+    popup_closed(screen, 5 * deadline());
     screen.wait_for("No session yet")
 }
 
-fn popup_closed(screen: &mut Screen) -> String {
-    let patience = 5 * deadline();
+fn popup_closed(screen: &mut Screen, patience: Duration) -> String {
     let until = Instant::now() + patience;
     loop {
         let shown = screen.draw();

@@ -184,6 +184,20 @@ fn a_constant_wait_followed_by_an_error_check_of_something_else_is_found() {
     assert_eq!(constant_upper_bounds(source), vec![1]);
 }
 
+#[test]
+fn a_count_bound_scaled_from_the_shared_deadline_is_not_found() {
+    let source = "    assert!(elapsed.as_millis() < 2 * deadline().as_millis());\n";
+
+    assert!(constant_upper_bounds(source).is_empty());
+}
+
+#[test]
+fn a_constant_bound_on_any_count_of_a_duration_is_found() {
+    let source = "    assert!(elapsed.as_secs_f64() < 1.5);\n    assert!(elapsed.as_secs_f32() < 1.5);\n    assert!(elapsed.as_micros() < 500);\n    assert!(elapsed.as_nanos() <= 500);\n";
+
+    assert_eq!(constant_upper_bounds(source), vec![1, 2, 3, 4]);
+}
+
 fn constant_upper_bounds(source: &str) -> Vec<usize> {
     numbered(source)
         .filter(|(_, line)| bounds_by_a_constant(line))
@@ -219,13 +233,23 @@ fn closing(text: &str) -> Option<usize> {
     })
 }
 
+const COUNTS: &[&str] = &[
+    "as_millis() <",
+    "as_secs() <",
+    "as_secs_f64() <",
+    "as_secs_f32() <",
+    "as_micros() <",
+    "as_nanos() <",
+];
+
 fn constant_count_bound(line: &str) -> bool {
-    ["as_millis() <", "as_secs() <"].iter().any(|count| {
+    COUNTS.iter().any(|count| {
         line.match_indices(count).any(|(start, _)| {
-            line[start + count.len()..]
+            let bound = line[start + count.len()..]
                 .trim_start_matches('=')
-                .trim_start()
-                .starts_with(|character: char| character.is_ascii_digit())
+                .trim_start();
+            bound.starts_with(|character: char| character.is_ascii_digit())
+                && !bound.contains("deadline()")
         })
     })
 }

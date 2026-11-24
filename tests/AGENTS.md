@@ -111,7 +111,8 @@ after the Clawd glyph: `tests/tabs.rs`, `tests/app/side_border.rs`, `tests/e2e/c
   and stay: an open given `OPEN_PATIENCE / 2` must run out before the product's patience does,
   and a fake answering after 1500 ms must outlast that patience yet answer within `soon()`.
   `tests/wall_clock.rs` fails on a `<` or `<=` bound by a
-  `Duration::from_` or by a number after `as_millis()` or `as_secs()`, a `Duration::from_` on the
+  `Duration::from_`, or by a number not scaled from `deadline()` after `as_millis()`, `as_secs()`,
+  `as_secs_f64()`, `as_secs_f32()`, `as_micros()` or `as_nanos()`, a `Duration::from_` on the
   left of `>`, a `recv_timeout(Duration::from_` whose call is not followed by `.is_err()`, and a
   literal `Duration::from_` anywhere inside a call of `with_program`, `with_patience`,
   `with_hangup_grace`, `hand`, `finish`, `retrying_every`, `nvim::mode` or `nvim::eval`, read
