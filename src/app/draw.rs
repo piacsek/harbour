@@ -224,7 +224,7 @@ impl App {
         };
         let mut free = bottom;
         if let Some(question) = self.asking {
-            let mut lines = question_lines(question, bottom.width);
+            let mut lines = question_lines(question, self.closing, bottom.width);
             if matches!(question, Question::Quit(_)) {
                 lines.splice(0..0, self.quit_note(bottom.width));
             }
@@ -329,8 +329,8 @@ fn failure_lines(failed: &str, width: u16) -> Vec<Line<'static>> {
         .collect()
 }
 
-fn question_lines(question: Question, width: u16) -> Vec<Line<'static>> {
-    text::wrap(&asked(question), usize::from(width))
+fn question_lines(question: Question, closing: bool, width: u16) -> Vec<Line<'static>> {
+    text::wrap(&asked(question, closing), usize::from(width))
         .into_iter()
         .map(|line| Line::from(line).bold())
         .collect()
@@ -371,8 +371,9 @@ pub(super) fn popup(area: Rect) -> Rect {
     area.centered(Constraint::Percentage(80), Constraint::Percentage(80))
 }
 
-fn asked(question: Question) -> String {
+fn asked(question: Question, closing: bool) -> String {
     let (changes, what) = match question {
+        Question::End(changes) if closing => (changes, "End and remove"),
         Question::End(changes) => (changes, "End"),
         Question::Quit(changes) => (changes, "Quit"),
     };

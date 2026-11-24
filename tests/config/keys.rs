@@ -164,6 +164,17 @@ fn end_written_on_x_alone_still_loads() {
 }
 
 #[test]
+fn end_written_on_capital_x_loads_and_takes_it_from_close() {
+    let home = tempfile::tempdir().unwrap();
+    write_config(home.path(), "[keys]\nend = \"X\"\n");
+
+    let config = read_at(home.path(), None).unwrap();
+
+    assert_eq!(config.keymap().action_on('X'), Some(Action::End));
+    assert_eq!(config.keymap().key_of(Action::Close), None);
+}
+
+#[test]
 fn none_unbinds_an_action() {
     let home = tempfile::tempdir().unwrap();
     write_config(home.path(), "[keys]\nusage = \"none\"\n");
@@ -247,6 +258,34 @@ fn a_sidebar_key_on_k_is_refused() {
         refusal(home.path()),
         format!(
             "{}:2: keys.end: \"K\" moves the selection in the sidebar",
+            path.display()
+        )
+    );
+}
+
+#[test]
+fn close_on_j_is_refused() {
+    let home = tempfile::tempdir().unwrap();
+    let path = write_config(home.path(), "[keys]\nclose = \"j\"\n");
+
+    assert_eq!(
+        refusal(home.path()),
+        format!(
+            "{}:2: keys.close: \"j\" moves the selection in the sidebar",
+            path.display()
+        )
+    );
+}
+
+#[test]
+fn close_on_capital_j_is_refused() {
+    let home = tempfile::tempdir().unwrap();
+    let path = write_config(home.path(), "[keys]\nclose = \"J\"\n");
+
+    assert_eq!(
+        refusal(home.path()),
+        format!(
+            "{}:2: keys.close: \"J\" moves the selection in the sidebar",
             path.display()
         )
     );

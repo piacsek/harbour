@@ -81,7 +81,7 @@ fn capital_x_on_a_running_session_asks_before_ending_it() {
     screen.key(KeyCode::Char('X'), KeyModifiers::SHIFT);
 
     let shown = screen.draw();
-    assert!(shown.contains("End? y/n"), "{shown}");
+    assert!(shown.contains("End and remove? y/n"), "{shown}");
     assert!(shown.contains(&format!("· {} 1", directory())), "{shown}");
 }
 
@@ -120,6 +120,21 @@ fn another_answer_to_capital_x_keeps_the_session_and_its_card() {
     assert!(!shown.contains("y/n"), "{shown}");
     assert!(shown.contains(&format!("· {} 1", directory())), "{shown}");
     assert!(!shown.contains("exited"), "{shown}");
+}
+
+#[test]
+fn x_answered_yes_after_capital_x_was_declined_keeps_the_card() {
+    let mut screen = Screen::new(reading_agent());
+    screen.press('n');
+    screen.wait_for("acme agent ready");
+    screen.key(KeyCode::Char('X'), KeyModifiers::SHIFT);
+    screen.press('n');
+    screen.press('x');
+
+    screen.press('y');
+
+    let shown = screen.wait_for("exited");
+    assert!(shown.contains(&format!("○ {} 1", directory())), "{shown}");
 }
 
 #[test]

@@ -387,7 +387,10 @@ fn named(key: KeyEvent, keymap: &Keymap) -> String {
         KeyCode::Char(c)
             if KeyModifiers::SHIFT.contains(key.modifiers)
                 && (BOUND.contains(&c)
-                    || matches!(keymap.action_on(c), Some(Action::New | Action::End))) =>
+                    || matches!(
+                        keymap.action_on(c),
+                        Some(Action::New | Action::End | Action::Close)
+                    )) =>
         {
             c.to_string()
         }

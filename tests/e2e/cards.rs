@@ -63,7 +63,7 @@ fn capital_x_answered_yes_ends_a_running_session_and_removes_its_card() {
     server.send_keys(&["n"]);
     server.wait_for_screen("acme-api 1");
     server.send_keys(&["X"]);
-    server.wait_for_screen("End? y/n");
+    server.wait_for_screen("End and remove? y/n");
 
     server.send_keys(&["y"]);
 

@@ -519,18 +519,31 @@ impl Reader<'_> {
             }
             .map_err(|what| self.refusal(&span, &key, &what))?;
             if let Some(c) = bound.filter(|c| {
-                matches!(action, Action::New | Action::End) && matches!(c, 'j' | 'J' | 'k' | 'K')
+                matches!(action, Action::New | Action::End | Action::Close)
+                    && matches!(c, 'j' | 'J' | 'k' | 'K')
             }) {
                 let what = format!("{:?} moves the selection in the sidebar", c.to_string());
                 return Err(self.refusal(&span, &key, &what));
             }
             written.push((span, key, action, bound));
         }
-        let keymap = written
+        let mut keymap = written
             .iter()
             .fold(Keymap::default(), |keymap, (_, _, action, bound)| {
                 keymap.bind(*action, *bound)
             });
+        if !written
+            .iter()
+            .any(|(_, _, action, _)| *action == Action::Close)
+            && keymap.clash(Action::Close).is_some()
+        {
+            keymap = keymap.bind(Action::Close, None);
+            for (each, setting) in &mut bindings {
+                if *each == Action::Close {
+                    *setting = default(None);
+                }
+            }
+        }
         for (span, key, action, bound) in written.iter().rev() {
             if let (Some(other), Some(c)) = (keymap.clash(*action), bound) {
                 let other = keymap::name(other);

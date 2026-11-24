@@ -258,7 +258,7 @@ fn capital_x_after_the_prefix_from_claude_code_asks_to_end_it() {
 
     screen.prefixed('X');
 
-    screen.wait_for("End? y/n");
+    screen.wait_for("End and remove? y/n");
 }
 
 #[test]

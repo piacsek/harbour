@@ -475,8 +475,9 @@ impl App {
         let Some(question) = self.asking.take() else {
             return false;
         };
+        let closing = std::mem::take(&mut self.closing);
         if yes {
-            self.answer_yes(question);
+            self.answer_yes(question, closing);
         }
         true
     }
@@ -513,7 +514,7 @@ impl App {
         }
     }
 
-    fn answer_yes(&mut self, question: Question) {
+    fn answer_yes(&mut self, question: Question, closing: bool) {
         match question {
             Question::End(_) => {
                 let Some(entry) = self.sessions.get_mut(self.selected) else {
@@ -527,7 +528,7 @@ impl App {
                 entry.editors.clear();
                 entry.editor = None;
                 entry.on_editor = false;
-                if exited || self.closing {
+                if exited || closing {
                     self.remove_selected();
                 }
             }

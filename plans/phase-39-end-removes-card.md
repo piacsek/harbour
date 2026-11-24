@@ -34,20 +34,26 @@ the one-press close on a new key, `X`.
   C-/ too`, 56 columns with `C-␣`. With `close` unbound the row reads as before; ` a session` is
   dropped only when `close` shares the row, so every combination fits 57 columns.
 - `harbour --help` gains two lines after the picker's, saying what `x` and `X` each do.
-- The question stays `Question::End`; which key asked is an `App` field, so the question's text in
-  `src/app/draw.rs` is untouched.
+- The question stays `Question::End`; which key asked is an `App` field, taken when the question is
+  answered or dismissed. After round 1 of the review, `X` asks `End and remove? y/n`, so a Caps
+  Lock `x` cannot pass for `x`.
+- After round 1: a file that binds another action to `X` (say `end = "X"`) still loads; the unwritten
+  default of `close` yields to it and `close` is left unbound. Two written keys on one character
+  still refuse. `close` on `j`, `J`, `k` or `K` is refused as `new` and `end` are, since the case
+  fallback would hand either case of `j` to it.
 
 ## States
 
 | Card | Key | What the user sees |
 | --- | --- | --- |
 | Running | `x`, then `y` | the session ends, its card stays, `exited` |
-| Running | `X`, then `y` | the session and its editors end, the card goes, the next card selected (the one above when it was the last) |
+| Running | `X` (asks `End and remove? y/n`), then `y` | the session and its editors end, the card goes, the next card selected (the one above when it was the last) |
 | Running | `x` or `X`, then any other key | the question goes, nothing ends |
 | Exited or stopped | `x` or `X` | the card goes at once, no question |
 | Exited, an editor running | `x` or `X` | the question, a yes ends the editor and removes the card |
 | Any | `C-/ X` | as `X` |
 | `close = "none"` | `X` | `x`'s action, by the case fallback |
+| `end = "X"` written | `X` | `end`'s action; `close` unbound |
 
 ## Outcome
 
@@ -61,4 +67,5 @@ the one-press close on a new key, `X`.
 ## Hurdles
 
 - `design` the issue first changed `x`; the owner moved the new behaviour to `X`, which the keymap's case-blind matching could not hold apart from `x`, so the case rule was the owner's to decide before any code → none
+- `review-loop` round 1 found that the new default `X` made a file binding another action to `X` refuse to load, and that `close` escaped the `j`/`k` rule; a written key now takes `X` from `close`'s default → code
 - `design` an own help row for `X` overflowed the 14 rows a 20-row terminal fits; the row was merged with `n/x` within 57 columns → none
