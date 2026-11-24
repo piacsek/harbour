@@ -265,6 +265,19 @@ fn with_icons_a_card_shows_no_neovim_glyph_while_its_editor_is_open() {
 }
 
 #[test]
+fn with_icons_an_open_editor_that_is_not_neovim_draws_no_neovim_glyph() {
+    let mut screen = editor_open_in(
+        App::new(reading_agent())
+            .with_editor(reading_editor())
+            .with_nerd_font(),
+    );
+
+    let shown = screen.draw();
+
+    assert!(!shown.contains(NEOVIM), "{shown}");
+}
+
+#[test]
 fn without_icons_a_card_with_neovim_open_is_drawn_as_before() {
     let editor = Program::neovim("nvim", reading_editor_script());
     let mut screen = editor_open_in(App::new(reading_agent()).with_editor(editor));
