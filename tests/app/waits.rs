@@ -1,12 +1,15 @@
 use std::time::{Duration, Instant};
 
 use harbour::app::{FOCUSED_BORDER, UNFOCUSED_BORDER};
+use ratatui::buffer::Buffer;
+use ratatui::layout::Rect;
+use ratatui::style::Style;
 use ratatui::widgets::BorderType;
 
 use crate::real_neovim::{held, reached};
-use crate::zoom::ends_with_a_pane_corner;
 use crate::{
-    Screen, deadline, drawn_only_by, failure, pane_corner, reading_agent, script, settled,
+    Screen, deadline, drawn_only_by, ends_with_a_pane_corner, failure, pane_corner, reading_agent,
+    script, settled,
 };
 
 #[test]
@@ -160,9 +163,11 @@ fn a_glyph_both_styles_draw_tells_neither_apart() {
 }
 
 #[test]
-fn a_wide_title_before_the_pane_corner_counts_two_columns() {
+fn a_wide_title_before_the_pane_corner_finds_the_corners_cell() {
     let corner = FOCUSED_BORDER.to_border_set().top_left;
-    let shown = format!("{corner}修{corner}");
+    let mut buffer = Buffer::empty(Rect::new(0, 0, 6, 1));
+    buffer.set_string(0, 0, format!("{corner}修{corner}"), Style::default());
+    let shown: String = (0..6).map(|x| buffer[(x, 0)].symbol()).collect();
     assert_eq!(pane_corner(&shown), 3);
 }
 

@@ -28,17 +28,19 @@ after the Clawd glyph: `tests/tabs.rs`, `tests/app/side_border.rs`, `tests/e2e/c
   `marks::the_waiting_prefix_shows_on_the_panes_bottom_border` its `┘`, so a new style fails only
   those owners; both helper files take every `BorderType` from `tests/support/borders.rs`, where
   one list feeds both `BORDERS` and an exhaustive `match`, so it stops compiling when ratatui adds
-  a style or the list misses or repeats one. A glyph alone
+  a style or the list misses one, and `cargo clippy -D warnings` refuses a repeated one. A glyph alone
   may not tell two styles apart (the light dashed sets share `┌` with the plain one, the rounded
   set `│` and `─`), so
   `focused` and `unfocused` pass only a glyph of one style that the other does not draw, and fail
   on a shared one rather than pass with the wrong pane focused; the e2e checks of which pane has
   focus read the corner and the side below it at one display column (`focused_at`,
-  `unfocused_at`, `focused_on`), and `pane_corner` counts display columns too. A zoomed pane's
-  top row is checked with `ends_with_a_pane_corner` (`tests/app/zoom.rs`), which reads only the
-  two pane styles' corners, never a block glyph the session drew. The quadrant sets draw `▌`,
-  the selected card's bar, so `vertical` and `drawn` match it: a card row's text is read with
-  `inside`, which skips the bar.
+  `unfocused_at`, `focused_on`), and the e2e `pane_corner` counts display columns too, since tmux
+  does not pad a wide glyph; the app's counts cells, since `Screen::draw` gives each cell one
+  symbol and a blank after a wide glyph. A zoomed pane's top row is checked with
+  `ends_with_a_pane_corner` (`tests/app/main.rs`), which reads only the two pane styles'
+  corners, never a block glyph the session drew. The quadrant sets draw `▌`, the selected card's
+  bar, so `vertical` and `drawn` match it: a card row's text is read with `inside`, which skips
+  the bar.
   A popup's own border is not a pane's: the help's and the changelog's plain `│` and `┌ help`
   are named in `tests/app/help.rs` and `tests/app/changelog.rs`. A card's indent is found
   (`column_of`) or trimmed, never counted, outside `tests/card/`.

@@ -317,7 +317,8 @@ fn region(shown: &str, from: usize, width: usize) -> String {
 
 fn pane_corner(shown: &str) -> u16 {
     let top = shown.lines().next().unwrap();
-    u16::try_from(borders::corner_column(top).unwrap()).unwrap()
+    let column = top.chars().skip(1).position(top_left).unwrap();
+    u16::try_from(column + 1).unwrap()
 }
 
 fn below(shown: &str, text: &str) -> String {
@@ -499,4 +500,11 @@ fn hangups(scratch: &Path) -> Vec<String> {
         .collect();
     hangups.sort();
     hangups
+}
+
+fn ends_with_a_pane_corner(shown: &str) -> bool {
+    let top = shown.lines().next().unwrap_or_default();
+    [FOCUSED_BORDER, UNFOCUSED_BORDER]
+        .iter()
+        .any(|style| top.ends_with(style.to_border_set().top_right))
 }

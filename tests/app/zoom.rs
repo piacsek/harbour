@@ -2,7 +2,7 @@ use std::fs;
 use std::path::Path;
 
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers, MouseButton, MouseEventKind};
-use harbour::app::{App, FOCUSED_BORDER, UNFOCUSED_BORDER};
+use harbour::app::App;
 use harbour::editor::Program;
 use harbour::handoff::Verb;
 
@@ -384,11 +384,4 @@ pub(crate) fn editing_session(scratch: &Path) -> Screen {
 
 fn card_at_top(shown: &str) -> String {
     shown.lines().nth(1).unwrap_or_default().to_string()
-}
-
-pub(crate) fn ends_with_a_pane_corner(shown: &str) -> bool {
-    let top = shown.lines().next().unwrap_or_default();
-    [FOCUSED_BORDER, UNFOCUSED_BORDER]
-        .iter()
-        .any(|style| top.ends_with(style.to_border_set().top_right))
 }

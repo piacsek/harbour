@@ -1,9 +1,10 @@
 use harbour::app::{FOCUSED_BORDER, UNFOCUSED_BORDER};
 use ratatui::widgets::BorderType;
+use unicode_width::UnicodeWidthChar;
 
 #[path = "../support/borders.rs"]
 mod styles;
-use styles::{BORDERS, columns, corner_column};
+use styles::BORDERS;
 
 pub(crate) fn corner(c: char) -> bool {
     BORDERS.iter().any(|set| set.top_left.starts_with(c))
@@ -50,5 +51,16 @@ fn at_column(line: &str, column: usize) -> Option<char> {
 }
 
 pub(crate) fn pane_corner(screen: &str) -> Option<usize> {
-    corner_column(screen.lines().next()?)
+    columns(screen.lines().next()?)
+        .skip(1)
+        .find(|(_, _, c)| corner(*c))
+        .map(|(column, _, _)| column)
+}
+
+fn columns(line: &str) -> impl Iterator<Item = (usize, usize, char)> + '_ {
+    line.char_indices().scan(0, |start, (at, c)| {
+        let column = *start;
+        *start += c.width().unwrap_or(0);
+        Some((column, at, c))
+    })
 }
