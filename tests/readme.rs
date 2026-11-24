@@ -14,9 +14,21 @@ fn the_readme_shows_the_details_screenshot_right_below_the_description() {
     ));
 }
 
+const TEST_SPEED_CHART: &str =
+    "![test suite health report](https://piacsek.github.io/harbour/test-speed.svg)";
+
 #[test]
-fn the_readme_embeds_one_screenshot() {
-    assert_eq!(README.matches("![").count(), 1);
+fn the_readme_embeds_the_screenshot_and_the_test_speed_chart_only() {
+    assert_eq!(README.matches("![").count(), 2);
+}
+
+#[test]
+fn the_readme_ends_with_the_test_speed_chart_under_development() {
+    let development = README.find("\n## Development\n").unwrap();
+    let chart = README.find(TEST_SPEED_CHART).unwrap();
+
+    assert!(development < chart);
+    assert!(README.ends_with(&format!("\n\n{TEST_SPEED_CHART}\n")));
 }
 
 #[test]
