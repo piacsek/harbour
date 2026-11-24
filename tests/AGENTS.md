@@ -107,11 +107,18 @@ after the Clawd glyph: `tests/tabs.rs`, `tests/app/side_border.rs`, `tests/e2e/c
   in `tests/edit.rs`, plus `deadline()`) where the time is the product's own latency and no deadline
   can be injected. C-h on a silent Neovim costs one `PATIENCE` wait, so the time it waits is bound
   by `10 * PATIENCE`: the loosest margin that still breaks if the default grows to `OPEN_PATIENCE`.
+  Two tests of `tests/app/handing.rs` time a fake against `OPEN_PATIENCE`, which does not scale,
+  and stay: an open given `OPEN_PATIENCE / 2` must run out before the product's patience does,
+  and a fake answering after 1500 ms must outlast that patience yet answer within `soon()`.
   `tests/wall_clock.rs` fails on a `<` or `<=` bound by a
-  `Duration::from_` or after `as_millis()` or `as_secs()`, a `Duration::from_` on the left of `>`,
-  a `recv_timeout(Duration::from_` not followed by `.is_err()` on its line, and a literal
-  `Duration::from_` anywhere inside a call of `with_program`, `with_patience`,
-  `with_hangup_grace`, `hand`, `finish`, `retrying_every`, `nvim::mode` or `nvim::eval`. It
+  `Duration::from_`, or after `as_millis()`, `as_secs()`, `as_secs_f64()`, `as_secs_f32()`,
+  `as_micros()` or `as_nanos()` by an operand (read up to a `,`, `)`, `&&` or `||` outside
+  brackets) that is not a product of `deadline()` or `scaled(` with no `+` or `-` outside
+  brackets, a `Duration::from_` on the left of `>`, a `recv_timeout(Duration::from_` whose call
+  is not followed by `.is_err()`, and a literal `Duration::from_` anywhere inside a call of
+  `with_program`, `with_patience`,
+  `with_hangup_grace`, `hand`, `finish`, `retrying_every`, `nvim::mode` or `nvim::eval`, read
+  from the leftmost of them on a line and never inside a longer name (`beforehand(`). It
   cannot see a literal reached through a `let`,
   a `const` or a helper of its own (a poll loop's `Instant`), a bound split across lines or
   written `>` with the count on the right, or a seam call holding a raw string or a character

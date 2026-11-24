@@ -12,7 +12,6 @@ use crate::deadline;
 const CLEAN_NVIM: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/nvim/nvim");
 const WAITING: &str = "refused: Neovim is waiting for a key; answer it and try again";
 const PRESS_ENTER: &str = ":echo \"acme\\nprompt\"\r";
-const PATIENCE: Duration = Duration::from_secs(10);
 const INHERITED: [&str; 5] = ["NVIM", "NVIM_APPNAME", "VIMINIT", "TMUX", "TMUX_PANE"];
 const ESCAPE: &str = "\x1b";
 const CTRL_W: &str = "\x17";
@@ -267,7 +266,7 @@ fn an_open_while_a_swap_prompt_is_up_is_refused_and_leaves_it_up() {
     neovim.in_mode("r?");
 
     let opened = neovim.open(&second);
-    let after = nvim::mode(&neovim.socket(), Instant::now() + PATIENCE);
+    let after = nvim::mode(&neovim.socket(), Instant::now() + 5 * deadline());
 
     assert_eq!(opened, WAITING);
     assert_eq!(after.map(|mode| mode.mode).as_deref(), Some("r?"));
@@ -282,7 +281,7 @@ fn an_open_that_raises_a_swap_prompt_in_a_running_neovim_is_refused_and_leaves_i
     neovim.scratch.left_unsaved(&file);
 
     let opened = neovim.open(&file);
-    let after = nvim::mode(&neovim.socket(), Instant::now() + PATIENCE);
+    let after = nvim::mode(&neovim.socket(), Instant::now() + 5 * deadline());
 
     assert_eq!(opened, WAITING);
     assert_eq!(after.map(|mode| mode.mode).as_deref(), Some("r?"));
@@ -438,15 +437,15 @@ impl Neovim {
     }
 
     fn reaches(&self, what: &str, done: impl Fn(&Mode) -> bool) {
-        reached(&self.socket(), what, PATIENCE, done);
+        reached(&self.socket(), what, 5 * deadline(), done);
     }
 
     fn holds(&self, expression: &str) {
-        held(&self.socket(), expression, PATIENCE);
+        held(&self.socket(), expression, 5 * deadline());
     }
 
     fn open(&mut self, file: &Path) -> String {
-        match self.editor.open(file, Instant::now() + PATIENCE) {
+        match self.editor.open(file, Instant::now() + 5 * deadline()) {
             Ok(()) => "opened".to_string(),
             Err(Unopened::Refused(refusal)) => format!("refused: {refusal}"),
             Err(Unopened::Silent) => "silent".to_string(),
@@ -458,7 +457,7 @@ impl Neovim {
 impl Drop for Neovim {
     fn drop(&mut self) {
         self.editor.session.end();
-        let left = lingering(self.scratch.path(), Duration::from_secs(3));
+        let left = lingering(self.scratch.path(), 5 * deadline());
         for pid in &left {
             let _ = Command::new("kill").args(["-KILL", pid]).status();
         }
@@ -523,8 +522,8 @@ fn is_executable(candidate: &Path) -> bool {
 }
 
 fn appeared(file: &Path) -> bool {
-    let deadline = Instant::now() + PATIENCE;
-    while Instant::now() < deadline {
+    let until = Instant::now() + 5 * deadline();
+    while Instant::now() < until {
         if file.exists() {
             return true;
         }
