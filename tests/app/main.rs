@@ -317,8 +317,7 @@ fn region(shown: &str, from: usize, width: usize) -> String {
 
 fn pane_corner(shown: &str) -> u16 {
     let top = shown.lines().next().unwrap();
-    let column = top.chars().skip(1).position(top_left).unwrap();
-    u16::try_from(column + 1).unwrap()
+    u16::try_from(borders::corner_column(top).unwrap()).unwrap()
 }
 
 fn below(shown: &str, text: &str) -> String {

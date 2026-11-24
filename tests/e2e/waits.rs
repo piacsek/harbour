@@ -1,8 +1,10 @@
 use std::path::Path;
 
+use harbour::app::FOCUSED_BORDER;
+
 use crate::log::wait_for_log;
 use crate::signals::wait_for_empty;
-use crate::{Server, WORKING, wait_for_status};
+use crate::{Server, WORKING, focused_at, pane_corner, wait_for_status};
 
 #[test]
 #[ignore]
@@ -79,6 +81,23 @@ fn a_wait_for_an_empty_folder_that_keeps_a_file_fails_naming_it_and_the_file() {
 
     assert!(failure.contains("empty acme folder"), "{failure}");
     assert!(failure.contains("acme.kept"), "{failure}");
+}
+
+#[test]
+fn a_wide_character_before_a_corner_counts_two_columns() {
+    let set = FOCUSED_BORDER.to_border_set();
+    let screen = format!(
+        "修{}{}\n  {}",
+        set.top_left, set.horizontal_top, set.vertical_left
+    );
+    assert!(focused_at(&screen, 2));
+}
+
+#[test]
+fn a_wide_title_before_the_pane_corner_counts_two_columns() {
+    let corner = FOCUSED_BORDER.to_border_set().top_left;
+    let screen = format!("{corner}修{corner}");
+    assert_eq!(pane_corner(&screen), Some(3));
 }
 
 fn failure(wait: impl FnOnce()) -> String {

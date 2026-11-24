@@ -1,49 +1,44 @@
 use ratatui::symbols::border;
 use ratatui::widgets::BorderType;
+use unicode_width::UnicodeWidthChar;
 
-const STYLES: [BorderType; 12] = [
-    BorderType::Plain,
-    BorderType::Rounded,
-    BorderType::Double,
-    BorderType::Thick,
-    BorderType::LightDoubleDashed,
-    BorderType::HeavyDoubleDashed,
-    BorderType::LightTripleDashed,
-    BorderType::HeavyTripleDashed,
-    BorderType::LightQuadrupleDashed,
-    BorderType::HeavyQuadrupleDashed,
-    BorderType::QuadrantInside,
-    BorderType::QuadrantOutside,
-];
+macro_rules! every_style {
+    ($($style:ident),+ $(,)?) => {
+        pub const BORDERS: [border::Set<'static>; [$(BorderType::$style),+].len()] =
+            [$(BorderType::$style.to_border_set()),+];
 
-pub const BORDERS: [border::Set<'static>; STYLES.len()] = {
-    let mut sets = [border::PLAIN; STYLES.len()];
-    let mut at = 0;
-    while at < STYLES.len() {
-        assert!(
-            index(STYLES[at]) == at,
-            "STYLES lists every BorderType in index order"
-        );
-        sets[at] = STYLES[at].to_border_set();
-        at += 1;
-    }
-    assert!(index(BorderType::QuadrantOutside) + 1 == STYLES.len());
-    sets
-};
+        const _: () = match BorderType::Plain {
+            $(BorderType::$style)|+ => (),
+        };
+    };
+}
 
-const fn index(style: BorderType) -> usize {
-    match style {
-        BorderType::Plain => 0,
-        BorderType::Rounded => 1,
-        BorderType::Double => 2,
-        BorderType::Thick => 3,
-        BorderType::LightDoubleDashed => 4,
-        BorderType::HeavyDoubleDashed => 5,
-        BorderType::LightTripleDashed => 6,
-        BorderType::HeavyTripleDashed => 7,
-        BorderType::LightQuadrupleDashed => 8,
-        BorderType::HeavyQuadrupleDashed => 9,
-        BorderType::QuadrantInside => 10,
-        BorderType::QuadrantOutside => 11,
-    }
+every_style!(
+    Plain,
+    Rounded,
+    Double,
+    Thick,
+    LightDoubleDashed,
+    HeavyDoubleDashed,
+    LightTripleDashed,
+    HeavyTripleDashed,
+    LightQuadrupleDashed,
+    HeavyQuadrupleDashed,
+    QuadrantInside,
+    QuadrantOutside,
+);
+
+pub fn corner_column(top: &str) -> Option<usize> {
+    columns(top)
+        .skip(1)
+        .find(|(_, _, c)| BORDERS.iter().any(|set| set.top_left.starts_with(*c)))
+        .map(|(column, _, _)| column)
+}
+
+pub fn columns(line: &str) -> impl Iterator<Item = (usize, usize, char)> + '_ {
+    line.char_indices().scan(0, |start, (at, c)| {
+        let column = *start;
+        *start += c.width().unwrap_or(0);
+        Some((column, at, c))
+    })
 }

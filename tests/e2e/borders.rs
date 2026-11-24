@@ -1,20 +1,9 @@
 use harbour::app::{FOCUSED_BORDER, UNFOCUSED_BORDER};
 use ratatui::widgets::BorderType;
-use unicode_width::UnicodeWidthChar;
 
 #[path = "../support/borders.rs"]
 mod styles;
-use styles::BORDERS;
-
-#[test]
-fn a_wide_character_before_a_corner_counts_two_columns() {
-    let set = FOCUSED_BORDER.to_border_set();
-    let screen = format!(
-        "修{}{}\n  {}",
-        set.top_left, set.horizontal_top, set.vertical_left
-    );
-    assert!(focused_at(&screen, 2));
-}
+use styles::{BORDERS, columns, corner_column};
 
 pub(crate) fn corner(c: char) -> bool {
     BORDERS.iter().any(|set| set.top_left.starts_with(c))
@@ -60,20 +49,6 @@ fn at_column(line: &str, column: usize) -> Option<char> {
         .map(|(_, _, c)| c)
 }
 
-fn columns(line: &str) -> impl Iterator<Item = (usize, usize, char)> + '_ {
-    line.char_indices().scan(0, |start, (at, c)| {
-        let column = *start;
-        *start += c.width().unwrap_or(0);
-        Some((column, at, c))
-    })
-}
-
 pub(crate) fn pane_corner(screen: &str) -> Option<usize> {
-    screen
-        .lines()
-        .next()?
-        .chars()
-        .skip(1)
-        .position(corner)
-        .map(|column| column + 1)
+    corner_column(screen.lines().next()?)
 }

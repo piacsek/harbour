@@ -1,7 +1,13 @@
 use std::time::{Duration, Instant};
 
+use harbour::app::{FOCUSED_BORDER, UNFOCUSED_BORDER};
+use ratatui::widgets::BorderType;
+
 use crate::real_neovim::{held, reached};
-use crate::{Screen, deadline, failure, reading_agent, script, settled};
+use crate::zoom::ends_with_a_pane_corner;
+use crate::{
+    Screen, deadline, drawn_only_by, failure, pane_corner, reading_agent, script, settled,
+};
 
 #[test]
 fn a_wait_for_text_that_never_shows_fails_naming_it_and_showing_the_screen() {
@@ -136,4 +142,40 @@ fn a_wait_for_a_pane_without_focus_never_reached_fails_naming_it_and_showing_the
         "{failure}"
     );
     assert!(failure.contains("No session yet"), "{failure}");
+}
+
+#[test]
+fn a_glyph_both_styles_draw_tells_neither_apart() {
+    let rounded = BorderType::Rounded.to_border_set();
+    assert!(!drawn_only_by(
+        rounded.vertical_left,
+        BorderType::Rounded,
+        BorderType::Plain
+    ));
+    assert!(drawn_only_by(
+        rounded.top_left,
+        BorderType::Rounded,
+        BorderType::Plain
+    ));
+}
+
+#[test]
+fn a_wide_title_before_the_pane_corner_counts_two_columns() {
+    let corner = FOCUSED_BORDER.to_border_set().top_left;
+    let shown = format!("{corner}修{corner}");
+    assert_eq!(pane_corner(&shown), 3);
+}
+
+#[test]
+fn a_top_row_ending_in_a_block_glyph_ends_with_no_pane_corner() {
+    let block = BorderType::QuadrantOutside.to_border_set().top_right;
+    assert!(!ends_with_a_pane_corner(&format!("acme agent 1 {block}")));
+}
+
+#[test]
+fn a_top_row_ending_in_either_panes_corner_ends_with_a_pane_corner() {
+    let focused = format!("acme {}", FOCUSED_BORDER.to_border_set().top_right);
+    let unfocused = format!("acme {}", UNFOCUSED_BORDER.to_border_set().top_right);
+    assert!(ends_with_a_pane_corner(&focused));
+    assert!(ends_with_a_pane_corner(&unfocused));
 }

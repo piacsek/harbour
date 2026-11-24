@@ -13,8 +13,8 @@ use crate::handoff::{app_running, file, harbour, recorded, soon, start_in};
 use crate::jumping::{assert_sidebar_focused, hold};
 use crate::remembering::{ID, Scratch, TITLE};
 use crate::side::{agent, editing, editor, side};
-use crate::zoom::corners;
-use crate::{Screen, drawn, pane_corner, region};
+use crate::zoom::{corners, ends_with_a_pane_corner};
+use crate::{Screen, pane_corner, region};
 
 #[test]
 fn a_jump_from_the_claude_code_half_to_a_session_last_in_claude_code_focuses_its_claude_code() {
@@ -90,7 +90,7 @@ fn a_jump_to_a_session_whose_editor_cannot_start_zooms_its_claude_code_with_the_
 
     let shown = screen.wait_for("Not a directory");
     assert_eq!(corners(&shown), 0, "{shown}");
-    assert!(!shown.lines().next().unwrap().ends_with(drawn), "{shown}");
+    assert!(!ends_with_a_pane_corner(&shown), "{shown}");
     assert!(shown.contains("acme agent 2"), "{shown}");
     assert!(!shown.contains("acme editor ready"), "{shown}");
     assert!(screen.cursor().is_some(), "{shown}");
