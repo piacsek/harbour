@@ -125,7 +125,7 @@ fn ctrl_h_on_a_silent_neovim_waits_out_one_mode_query_by_default() {
     assert!(shown.contains("acme agent ready"), "{shown}");
     assert_eq!(asked.recv_timeout(5 * deadline()).unwrap(), "nvim_get_mode");
     assert!(asked.recv_timeout(scaled(PATIENCE)).is_err());
-    assert!(waited < deadline(), "{waited:?}");
+    assert!(waited < scaled(10 * PATIENCE), "{waited:?}");
 }
 
 #[test]

@@ -94,12 +94,12 @@ after the Clawd glyph: `tests/tabs.rs`, `tests/app/side_border.rs`, `tests/e2e/c
   mode query sees it (`tests/app/handing.rs`), the picker is drawn and reads a second key before a
   slow list ends (`tests/app/picker.rs`). A time bound stays only where no event can be ordered
   against it: on `deadline()` for an open whose Neovim exits or prompts (`tests/app/handing.rs`) and
-  for writes to a log that cannot be written (`tests/log.rs`) and C-h on a silent Neovim
-  (`tests/app/neovim.rs`, whose `PATIENCE`, a mirror of `src` stretched by `scaled` from
-  `tests/support/timing.rs`, only bounds the wait that sees no second mode query); on a test
-  constant mirroring `src` with the loosest margin a regression still breaks (`OPEN_PATIENCE` in
-  `tests/app/handing.rs` and `ASKING` in `tests/edit.rs`, plus `deadline()`) where the time is the
-  product's own latency and no deadline can be injected.
+  for writes to a log that cannot be written (`tests/log.rs`); on a test constant mirroring `src`
+  with the loosest margin a regression still breaks (`PATIENCE` in `tests/app/neovim.rs`, stretched
+  by `scaled` from `tests/support/timing.rs`, `OPEN_PATIENCE` in `tests/app/handing.rs` and `ASKING`
+  in `tests/edit.rs`, plus `deadline()`) where the time is the product's own latency and no deadline
+  can be injected. C-h on a silent Neovim costs one `PATIENCE` wait, so the time it waits is bound
+  by `10 * PATIENCE`: the loosest margin that still breaks if the default grows to `OPEN_PATIENCE`.
   `tests/wall_clock.rs` fails on a `<` or `<=` bound by a
   `Duration::from_` or after `as_millis()` or `as_secs()`, a `Duration::from_` on the left of `>`,
   a `recv_timeout(Duration::from_` not followed by `.is_err()` on its line, and a literal
