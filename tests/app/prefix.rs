@@ -282,6 +282,32 @@ fn capital_x_answered_yes_from_a_pane_gives_the_keys_back_to_the_sidebar() {
 }
 
 #[test]
+fn x_on_an_ended_session_from_its_pane_gives_the_keys_back_to_the_sidebar() {
+    let scratch = tempfile::tempdir().unwrap();
+    let mut screen = ended_in_its_pane(scratch.path());
+
+    screen.prefixed('x');
+    screen.press('w');
+    screen.key(KeyCode::Enter, KeyModifiers::NONE);
+
+    let shown = settled(&mut screen, |shown| shown.contains("got: w"));
+    assert!(!shown.contains("got: w"), "{shown}");
+}
+
+#[test]
+fn capital_x_on_an_ended_session_from_its_pane_gives_the_keys_back_to_the_sidebar() {
+    let scratch = tempfile::tempdir().unwrap();
+    let mut screen = ended_in_its_pane(scratch.path());
+
+    screen.prefixed('X');
+    screen.press('w');
+    screen.key(KeyCode::Enter, KeyModifiers::NONE);
+
+    let shown = settled(&mut screen, |shown| shown.contains("got: w"));
+    assert!(!shown.contains("got: w"), "{shown}");
+}
+
+#[test]
 fn q_after_the_prefix_while_zoomed_shows_the_question_over_the_pane() {
     let mut screen = focused(raw_reader(1));
     screen.prefixed('z');
@@ -621,5 +647,24 @@ fn on_the_editor(scratch: &Path) -> Screen {
     screen.key(KeyCode::Enter, KeyModifiers::NONE);
     screen.key(KeyCode::Char('l'), KeyModifiers::CONTROL);
     screen.wait_for("acme editor ready");
+    screen
+}
+
+fn ended_in_its_pane(scratch: &Path) -> Screen {
+    let count = scratch.join("count");
+    let mut screen = Screen::new(script(&format!(
+        "n=$(($(cat '{count}' 2>/dev/null || echo 0) + 1)); echo $n > '{count}'; \
+         echo \"acme agent $n\"; \
+         if [ $n = 2 ]; then read -r line; exit 0; fi; \
+         while read -r line; do echo \"acme agent $n got: $line\"; done; exec sleep 600",
+        count = count.display()
+    )));
+    for n in 1..=2 {
+        screen.press('n');
+        screen.wait_for(&format!("acme agent {n}"));
+    }
+    screen.key(KeyCode::Enter, KeyModifiers::NONE);
+    screen.key(KeyCode::Enter, KeyModifiers::NONE);
+    screen.wait_for("exited");
     screen
 }
