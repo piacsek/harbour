@@ -287,6 +287,7 @@ fn x_on_an_ended_session_from_its_pane_gives_the_keys_back_to_the_sidebar() {
     let mut screen = ended_in_its_pane(scratch.path());
 
     screen.prefixed('x');
+    screen.wait_for("sessions · 1 ");
     screen.press('w');
     screen.key(KeyCode::Enter, KeyModifiers::NONE);
 
@@ -300,6 +301,7 @@ fn capital_x_on_an_ended_session_from_its_pane_gives_the_keys_back_to_the_sideba
     let mut screen = ended_in_its_pane(scratch.path());
 
     screen.prefixed('X');
+    screen.wait_for("sessions · 1 ");
     screen.press('w');
     screen.key(KeyCode::Enter, KeyModifiers::NONE);
 
