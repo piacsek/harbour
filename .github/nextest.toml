@@ -10,3 +10,6 @@ e2e = { max-threads = 2 }
 filter = "binary(e2e)"
 test-group = "e2e"
 priority = 100
+
+[profile.default.junit]
+path = "junit.xml"

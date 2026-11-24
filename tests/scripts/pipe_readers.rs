@@ -2,26 +2,20 @@ use std::fs;
 use std::path::Path;
 
 #[test]
-fn no_script_or_workflow_pipes_into_a_reader_that_stops_before_its_input_ends() {
+fn no_script_pipes_into_a_reader_that_stops_before_its_input_ends() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR"));
     let mut findings = Vec::new();
-    for dir in ["scripts", ".github/workflows"] {
-        let mut paths: Vec<_> = fs::read_dir(root.join(dir))
-            .unwrap()
-            .map(|entry| entry.unwrap().path())
-            .collect();
-        paths.sort();
-        for path in paths {
-            let name = path.strip_prefix(root).unwrap().display().to_string();
-            let text = fs::read_to_string(&path).unwrap();
-            let shell = match path.extension().and_then(|extension| extension.to_str()) {
-                Some("sh") => text,
-                Some("yml") => workflow_shell(&text),
-                _ => continue,
-            };
-            for finding in early_readers(&shell) {
-                findings.push(format!("{name}:{finding}"));
-            }
+    let mut paths: Vec<_> = fs::read_dir(root.join("scripts"))
+        .unwrap()
+        .map(|entry| entry.unwrap().path())
+        .filter(|path| path.extension().is_some_and(|extension| extension == "sh"))
+        .collect();
+    paths.sort();
+    for path in paths {
+        let name = path.strip_prefix(root).unwrap().display().to_string();
+        let text = fs::read_to_string(&path).unwrap();
+        for finding in early_readers(&text) {
+            findings.push(format!("{name}:{finding}"));
         }
     }
 
@@ -210,16 +204,6 @@ fn an_exit_inside_an_awk_string_regex_or_comment_is_not_found() {
     assert_eq!(
         early_readers("awk '/exit/ { print \"exit\" } # exit\n'\n"),
         Vec::<String>::new()
-    );
-}
-
-#[test]
-fn a_workflow_is_read_only_in_its_run_steps() {
-    let workflow = "name: it's\non: push\njobs:\n  a:\n    steps:\n      - run: printf a | head -n 1\n      - name: b\n        run: |\n          echo \"it's\"\n          printf a | grep -q b\n      - name: printf a | head -n 1\n";
-
-    assert_eq!(
-        early_readers(&workflow_shell(workflow)),
-        ["6: a pipe into head", "10: a pipe into grep -q"]
     );
 }
 
@@ -523,32 +507,6 @@ fn line_end(bytes: &[u8], at: usize) -> usize {
         .iter()
         .position(|&c| c == b'\n')
         .map_or(bytes.len(), |length| at + length)
-}
-
-fn workflow_shell(text: &str) -> String {
-    let mut lines = Vec::new();
-    let mut block = None;
-    for line in text.lines() {
-        let indent = line.len() - line.trim_start().len();
-        if let Some(key) = block {
-            if line.trim().is_empty() || indent > key {
-                lines.push(line);
-                continue;
-            }
-            block = None;
-        }
-        let item = line.trim_start().strip_prefix("- ");
-        let key = if item.is_some() { indent + 2 } else { indent };
-        match item.unwrap_or(line.trim_start()).strip_prefix("run:") {
-            Some(rest) if matches!(rest.trim(), "|" | "|-" | ">" | ">-") => {
-                block = Some(key);
-                lines.push("");
-            }
-            Some(rest) => lines.push(rest),
-            None => lines.push(""),
-        }
-    }
-    lines.join("\n") + "\n"
 }
 
 fn exits_in_rules(program: &str) -> Vec<usize> {

@@ -38,7 +38,6 @@ enum Kind {
     Branch,
     PullRequest,
     Subagents,
-    Editor,
 }
 
 impl Kind {
@@ -48,7 +47,6 @@ impl Kind {
             Kind::Branch => icons::BRANCH,
             Kind::PullRequest => icons::PULL_REQUEST,
             Kind::Subagents => icons::SUBAGENTS,
-            Kind::Editor => icons::NEOVIM,
         }
     }
 
@@ -58,7 +56,6 @@ impl Kind {
             Kind::Branch => Style::default().fg(colors.branch),
             Kind::PullRequest => Style::default().fg(colors.pull_request),
             Kind::Subagents => Style::default().add_modifier(Modifier::DIM),
-            Kind::Editor => Style::default(),
         }
     }
 }
@@ -147,10 +144,7 @@ impl Card {
         }
     }
 
-    pub fn with_icons(mut self, editor: bool) -> Card {
-        if editor && self.state != State::Exited {
-            self.parts.push((Kind::Editor, String::new()));
-        }
+    pub fn with_icons(mut self) -> Card {
         self.iconed = true;
         self
     }

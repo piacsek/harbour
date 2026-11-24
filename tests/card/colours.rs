@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use harbour::card::{Card, Ended};
-use harbour::icons::{BRANCH, NEOVIM, PULL_REQUEST, REPOSITORY, SUBAGENTS};
+use harbour::icons::{BRANCH, PULL_REQUEST, REPOSITORY, SUBAGENTS};
 use harbour::registry::Status;
 use harbour::repo::Place;
 use harbour::transcript::Facts;
@@ -107,13 +107,6 @@ fn with_icons_each_fact_keeps_its_colour_behind_its_glyph() {
     assert_eq!(at(&buffer, 2, "acme-api").fg, Color::Blue);
     assert_eq!(at(&buffer, 2, "fix-retry").fg, Color::Magenta);
     assert_eq!(at(&buffer, 2, "#40").fg, Color::Cyan);
-}
-
-#[test]
-fn with_icons_the_editor_glyph_is_in_the_default_foreground() {
-    let buffer = alone(every_fact(&place()), 60);
-
-    assert_eq!(at(&buffer, 2, NEOVIM).fg, Color::Reset);
 }
 
 #[test]
