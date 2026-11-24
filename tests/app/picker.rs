@@ -256,8 +256,9 @@ fn a_slow_list_holds_up_neither_harbour_nor_the_picker() {
     screen.press('n');
 
     screen.wait_for("acme picker");
+    screen.type_text("x\r");
+    screen.wait_for("acme picker read x");
     assert!(!listed.exists());
-    screen.type_text("\r");
     let row = format!("{} 1", directory());
     let shown = screen.wait_for(&row);
     assert!(shown.contains(&row), "{shown}");
@@ -459,7 +460,9 @@ fn listing(lines: &str) -> Vec<String> {
 }
 
 fn first_line_fzf() -> Vec<String> {
-    script("echo 'acme picker' >&2; read -r key </dev/tty; head -n 1")
+    script(
+        "echo 'acme picker' >&2; read -r key </dev/tty; echo \"acme picker read $key\" >&2; head -n 1",
+    )
 }
 
 fn recording_fzf(scratch: &Path) -> Vec<String> {
