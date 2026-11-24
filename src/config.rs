@@ -37,6 +37,7 @@ pub enum Source {
     Variable(&'static str),
     File,
     Default,
+    Yielded(&'static str),
 }
 
 pub struct Setting<T> {
@@ -532,15 +533,18 @@ impl Reader<'_> {
             .fold(Keymap::default(), |keymap, (_, _, action, bound)| {
                 keymap.bind(*action, *bound)
             });
-        if !written
-            .iter()
-            .any(|(_, _, action, _)| *action == Action::Close)
-            && keymap.clash(Action::Close).is_some()
-        {
+        if let Some(taker) = keymap.clash(Action::Close).filter(|_| {
+            !written
+                .iter()
+                .any(|(_, _, action, _)| *action == Action::Close)
+        }) {
             keymap = keymap.bind(Action::Close, None);
             for (each, setting) in &mut bindings {
                 if *each == Action::Close {
-                    *setting = default(None);
+                    *setting = Setting {
+                        value: None,
+                        source: Source::Yielded(keymap::name(taker)),
+                    };
                 }
             }
         }
@@ -591,6 +595,7 @@ fn line(key: &str, value: &str, source: &Source) -> String {
         Source::Variable(name) => format!("variable {name}"),
         Source::File => "file".to_string(),
         Source::Default => "default".to_string(),
+        Source::Yielded(taker) => format!("yields to {taker}"),
     };
     format!("{key} = {value}  ({source})")
 }

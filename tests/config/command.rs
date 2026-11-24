@@ -55,6 +55,20 @@ fn harbour_config_names_a_light_accent_as_the_file_may_write_it() {
 }
 
 #[test]
+fn harbour_config_says_close_yields_its_key_to_the_action_written_on_it() {
+    let home = tempfile::tempdir().unwrap();
+    write_config(home.path(), "[keys]\nend = \"X\"\n");
+
+    let output = config_command(home.path());
+
+    assert!(
+        stdout(&output).contains("\nkeys.close = \"none\"  (yields to end)\n"),
+        "{}",
+        stdout(&output)
+    );
+}
+
+#[test]
 fn harbour_config_names_the_variable_a_setting_comes_from() {
     let home = tempfile::tempdir().unwrap();
     write_config(home.path(), "editor = [\"nvim\", \"--clean\"]\n");

@@ -159,6 +159,20 @@ fn a_jump_while_zoomed_shows_the_jumped_to_session_still_zoomed() {
 }
 
 #[test]
+fn capital_x_answered_yes_while_zoomed_brings_the_sidebar_back() {
+    let scratch = tempfile::tempdir().unwrap();
+    let mut screen = three_sessions(scratch.path());
+    zoom(&mut screen);
+    screen.prefixed('X');
+    screen.wait_for("End and remove? y/n");
+
+    screen.press('y');
+
+    let shown = screen.wait_until("the sidebar", |shown| corners(shown) == 2);
+    assert_eq!(corners(&shown), 2, "{shown}");
+}
+
+#[test]
 fn leaving_zoom_brings_back_the_configured_sidebar_width() {
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = Screen::of(App::new(lined_agent(scratch.path())).with_sidebar_width(30));

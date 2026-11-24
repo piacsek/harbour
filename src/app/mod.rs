@@ -528,6 +528,9 @@ impl App {
                 entry.editors.clear();
                 entry.editor = None;
                 entry.on_editor = false;
+                if closing {
+                    self.pane_focused = false;
+                }
                 if exited || closing {
                     self.remove_selected();
                 }

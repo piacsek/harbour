@@ -175,6 +175,16 @@ fn end_written_on_capital_x_loads_and_takes_it_from_close() {
 }
 
 #[test]
+fn x_never_falls_back_to_close_when_end_is_unbound() {
+    let home = tempfile::tempdir().unwrap();
+    write_config(home.path(), "[keys]\nend = \"none\"\n");
+
+    let config = read_at(home.path(), None).unwrap();
+
+    assert_eq!(config.keymap().action_on('x'), None);
+}
+
+#[test]
 fn none_unbinds_an_action() {
     let home = tempfile::tempdir().unwrap();
     write_config(home.path(), "[keys]\nusage = \"none\"\n");

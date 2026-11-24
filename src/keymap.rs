@@ -138,9 +138,9 @@ impl Keymap {
             .iter()
             .find(|(_, key)| *key == Some(c))
             .or_else(|| {
-                self.bound
-                    .iter()
-                    .find(|(_, key)| key.is_some_and(|key| key.eq_ignore_ascii_case(&c)))
+                self.bound.iter().find(|(action, key)| {
+                    *action != Action::Close && key.is_some_and(|key| key.eq_ignore_ascii_case(&c))
+                })
             })
             .map(|(action, _)| *action)
     }

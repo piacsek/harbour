@@ -37,10 +37,15 @@ the one-press close on a new key, `X`.
 - The question stays `Question::End`; which key asked is an `App` field, taken when the question is
   answered or dismissed. After round 1 of the review, `X` asks `End and remove? y/n`, so a Caps
   Lock `x` cannot pass for `x`.
-- After round 1: a file that binds another action to `X` (say `end = "X"`) still loads; the unwritten
-  default of `close` yields to it and `close` is left unbound. Two written keys on one character
-  still refuse. `close` on `j`, `J`, `k` or `K` is refused as `new` and `end` are, since the case
+- After round 1: a written key on the same character as another action's key, written or default,
+  is refused, except that a written key on `X` (say `end = "X"`) takes it from `close`'s unwritten
+  default: the file loads, `close` is left unbound and `harbour config` lists it as
+  `keys.close = "none"  (yields to end)`. `close` on `j`, `J`, `k` or `K` is refused as `new` and `end` are, since the case
   fallback would hand either case of `j` to it.
+- After round 2: the case fallback never reaches `close`, the one action that removes a card, so
+  with `end` unbound or moved `x` does nothing; Caps Lock still reaches `close` by its exact `X`.
+  A yes to `X` gives the keys back to the sidebar, leaving zoom and side by side, so keys typed
+  next never reach the session that is selected after the card goes.
 
 ## States
 
@@ -53,7 +58,9 @@ the one-press close on a new key, `X`.
 | Exited, an editor running | `x` or `X` | the question, a yes ends the editor and removes the card |
 | Any | `C-/ X` | as `X` |
 | `close = "none"` | `X` | `x`'s action, by the case fallback |
-| `end = "X"` written | `X` | `end`'s action; `close` unbound |
+| `end = "X"` written | `X` | `end`'s action; `close` unbound, `(yields to end)` in `harbour config` |
+| `end = "none"` or moved | `x` | nothing; the fallback never reaches `close` |
+| Pane focused or zoomed | `C-/ X`, then `y` | the card goes and the sidebar has the keys |
 
 ## Outcome
 
@@ -68,4 +75,5 @@ the one-press close on a new key, `X`.
 
 - `design` the issue first changed `x`; the owner moved the new behaviour to `X`, which the keymap's case-blind matching could not hold apart from `x`, so the case rule was the owner's to decide before any code → none
 - `review-loop` round 1 found that the new default `X` made a file binding another action to `X` refuse to load, and that `close` escaped the `j`/`k` rule; a written key now takes `X` from `close`'s default → code
+- `review-loop` round 2 found that a yes to `C-/ X` from a pane left the keys on the next session's pane, and that `x` with `end` unbound fell back to `close` → code
 - `design` an own help row for `X` overflowed the 14 rows a 20-row terminal fits; the row was merged with `n/x` within 57 columns → none
