@@ -83,9 +83,10 @@ after the Clawd glyph: `tests/tabs.rs`, `tests/app/side_border.rs`, `tests/e2e/c
   and a stall that must outlast a test's waits is `10 * deadline()`. A test that harbour is fast
   checks the order of events the fakes record, not the clock: each session and editor hangs up
   before any is killed (`tests/app/ending.rs`, `tests/app/editor_ending.rs`: a fake's HUP trap
-  writes how many fakes it saw alive and exits once every fake has written, under a hangup grace of
-  `5 * deadline()` injected with `with_hangup_grace` that quitting never waits out; fakes that
-  ignore the hangup make quitting wait a grace of `deadline()` once in all), C-h on a silent Neovim
+  writes how many fakes it saw alive and exits once every fake has written, or after
+  `5 * deadline()`, under a hangup grace of `5 * deadline()` injected with `with_hangup_grace`;
+  `ending_sessions_that_exit_on_hangup_returns_before_the_grace_runs_out` in `tests/session/`
+  owns not waiting out the grace once every group has gone; fakes that ignore the hangup make quitting wait a grace of `deadline()` once in all), C-h on a silent Neovim
   sends one mode query (`tests/app/neovim.rs`), an open that raises a prompt in a running Neovim is
   refused once a mode query sees it (`tests/app/handing.rs`), the picker is drawn before a slow list
   ends (`tests/app/picker.rs`). A time bound stays only where no event can be ordered against it: on

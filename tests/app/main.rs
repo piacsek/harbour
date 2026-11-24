@@ -482,8 +482,9 @@ fn recording_hangups(scratch: &Path, name: &str) -> String {
          hung() {{ seen=0; all=0; for f in '{scratch}'/alive-*; do read -r p < \"$f\"; \
          all=$((all + 1)); kill -0 \"$p\" 2>/dev/null && seen=$((seen + 1)); done; \
          echo \"{name} saw $seen alive\" >> '{scratch}/hangups'; \
-         while [ $(($(wc -l < '{scratch}/hangups'))) -lt $all ]; do sleep 0.01; done; exit 0; }}; \
-         trap hung HUP; "
+         tries=0; while [ $(($(wc -l < '{scratch}/hangups'))) -lt $all ] && [ $tries -lt {patience} ]; \
+         do sleep 0.01; tries=$((tries + 1)); done; exit 0; }}; trap hung HUP; ",
+        patience = (5 * deadline()).as_millis() / 10,
     )
 }
 

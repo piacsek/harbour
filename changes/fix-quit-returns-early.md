@@ -1,3 +1,3 @@
 kind: fix
 
-- Quitting harbour no longer pauses when every session has already closed.
+- Quitting harbour or ending a session no longer waits the full grace when its programs close as soon as they are hung up.
