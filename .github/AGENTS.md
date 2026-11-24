@@ -60,6 +60,16 @@ speed-up, when its pipeline went from about 3 min 20 s to 37 s:
   `continue-on-error: true` and the action's `fail_ci_if_error` stays `false`, so a Codecov
   outage or a missing secret never turns a shard red. Slow jobs are
   in GitHub's own Insights → Actions performance metrics, which needs nothing here.
+- **The README's test speed chart is drawn on every push to `main`.** On a push, each shard
+  also keeps its `junit.xml` as the artifact `junit-<shard>` for a day, and the `test-speed` job
+  (`needs: shard`, only on a push and only when both legs succeeded) runs
+  `python3 scripts/test-speed.py` over both into `site/test-speed.svg` and deploys `site/` to
+  GitHub Pages (`actions/upload-pages-artifact`, `actions/deploy-pages`, `concurrency: pages`
+  without cancelling), which serves it at `https://piacsek.github.io/harbour/test-speed.svg`, the
+  image the README ends with. It holds `pages: write` and `id-token: write`, the deploy needs
+  both, and runs nothing from a pull request. Pages has to be set to build from GitHub Actions
+  first (see Owner steps): until then the job fails on `main` and the README shows a broken
+  image; it is not a required check, so no merge waits on it.
 - **Every job has a `timeout-minutes`**, a few times its normal run and at least 5, so a hung tmux or
   Neovim test cannot hold a runner for GitHub's 6-hour default.
 - **Here the tests set the floor, not setup.** In conveyor, job setup, checkout, toolchain and
@@ -534,8 +544,9 @@ Every action is pinned to a commit SHA with the tag in a trailing comment; bump 
 `gh api repos/<owner>/<repo>/git/ref/tags/<tag>`. Workflows default to `contents: read`; only the
 `tag` job (pushes the tag), `stable` (pushes the `stable` branch, while `stable-build` that builds
 the tag stays read-only), `publish` (`contents: write`, `id-token` and `attestations: write` for
-`actions/attest-build-provenance`), the delete job of `delete-closed-branch.yml` and the issue job
-of `sweep.yml` get more.
+`actions/attest-build-provenance`), the `test-speed` job of `ci.yml` (`pages: write` and
+`id-token: write`), the delete job of `delete-closed-branch.yml` and the issue job of `sweep.yml`
+get more.
 
 Installed copies: Homebrew puts the release binary in `$(brew --prefix)/bin/harbour`; dev builds
 are only reachable as `harbour-dev`.
@@ -554,3 +565,7 @@ Steps only the owner takes, by hand, outside this repository:
 - For Codecov Test Analytics: install the Codecov GitHub app on this repository and set the
   `CODECOV_TOKEN` secret to its upload token. Until then the upload step logs an error and the
   shards stay green.
+- For the README's test speed chart: under Settings → Pages, set Source to GitHub Actions
+  before merging the pull request that adds the `test-speed` job; that creates the
+  `github-pages` environment the job deploys to. Until then the job fails on every push to
+  `main` and the README's last image is broken.

@@ -13,7 +13,7 @@ Feature depth belongs in the `AGENTS.md` of the directory it is about, never in 
 **Every visible change to the main interface shows in `docs/details.png`**: a new or changed
 line, glyph, bar, title, column or footer element. The `details` shot of `scripts/screenshots.sh`
 takes it from `harbour --demo`, `README.md` embeds it right below the description, and
-`tests/readme.rs` pins it there as the README's only image. Extend the demo (`src/demo.rs`)
+`tests/readme.rs` pins it there as the README's only screenshot; the one other image, the test speed chart that ends `## Development`, is drawn by CI (`.github/AGENTS.md`), never committed. Extend the demo (`src/demo.rs`)
 until the change appears on screen, rerun the script, and commit the image in the same pull
 request; the orchestrator's review reports a missing or stale screenshot as a should. The script also shoots
 `docs/help.png`, the output of `harbour --help`, which the README does not embed. Run `scripts/screenshots.sh` (needs tmux, fzf, `brew install
