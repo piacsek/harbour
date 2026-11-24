@@ -30,10 +30,10 @@ one place up, and the new order comes back after a restart.
   only with the sidebar focused; in a pane they go to the program. A binding of `new`, `end` or
   `close` on `J` or `K` wins, by the order of the match.
 - `J` counts with or without the Shift flag, and so does `j` with the Shift flag; `K` alike.
-- A move saves both swapped cards' positions at once, each as its index, when the card has a
-  remembered conversation whose file is still there: a running card from what it last kept, a
-  stopped card from its id, directory and title. A card whose conversation is open elsewhere is
-  left alone, its file being the other harbour's.
+- A move saves every remembered card's index as its position at once, so the saved order is the
+  shown one even when earlier runs left gaps or ties. Only the position changes: the file on disk
+  is read again, so a newer title or directory another harbour saved is kept, and a file that is
+  gone stays gone. A card open in another harbour gets its new position too (round 1 of review).
 - The help keeps 14 rows: an own row for `J/K` would push it past 20 rows, so the `j/k` row
   becomes `j/k J/K` `select / move the card down / up`, which keeps the asked wording
   `move the card down / up` and fits 57 columns. The README key table follows. `docs/keys.png`
@@ -57,7 +57,7 @@ one place up, and the new order comes back after a restart.
 | Two stopped cards swapped, harbour restarted | | they come back in the new order |
 | A running card swapped with a stopped one, harbour quit and restarted | | the new order |
 | A card's file gone (forgotten by another harbour) | `J` | the card moves; no file comes back |
-| A card open elsewhere | `J` | the card moves; its file is not written |
+| A card open elsewhere | `J` | the card moves; only its position is written |
 | A card with no conversation yet (no transcript) | `J` | the card moves; nothing to save |
 | The help at 60x20 and 59x20, prefix `C-Space` | `C-/ ?` | the `j/k J/K` row whole, the help whole |
 
@@ -74,8 +74,9 @@ The move draws no new text on a card: the narrowest sidebar and a CJK name draw 
 ## Outcome
 
 `J` and `K` in the sidebar swap the selected card with its neighbour, the selection following, in
-#177. A move saves both cards' positions at once, so stopped cards come back in the new order; a
-file another harbour holds or one already forgotten is left alone. The help's first row reads
+#177. A move saves every remembered card's position at once through `Memory::place`, which rewrites
+only the position of a file still on disk, so the cards come back in the order shown. `j` or `k`
+with Shift logs as `J` or `K`. The help's first row reads
 `j/k J/K  select / move the card down / up`, mirrored by the README; `docs/keys.png` was
 retaken (the other shots changed only in rasterising and were left out).
 
@@ -88,3 +89,4 @@ it. Phase 39's ready, merged and released were read from GitHub into `plans/metr
 
 - `design` an own help row for `J/K` overflowed the 14 rows a 20-row terminal fits; it was merged into the `j/k` row within 57 columns → none
 - `tooling` `scripts/screenshots.sh` rewrote every image though only the help changed; the unchanged shots were checked out again by hand → none
+- `review-loop` round 1 found that saving only the two swapped cards left stale positions from earlier runs, so a restart could show another order, and that a stopped card's save rewrote a title another harbour had saved since; every card's position is now saved and only the position is rewritten → code

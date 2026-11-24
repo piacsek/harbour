@@ -7,6 +7,8 @@ use crate::remembering::{ID, OTHER_ID, Scratch, TITLE};
 use crate::{Screen, directory, in_order, numbered_agent, reading_agent, region, script};
 
 const OTHER_TITLE: &str = "Add the acme export";
+const THIRD_ID: &str = "5c4d3e2f-1a0b-4c9d-8e7f-6a5b4c3d2e1f";
+const THIRD_TITLE: &str = "Rename the acme jobs";
 
 #[test]
 fn shift_k_moves_the_selected_card_up_and_it_stays_selected() {
@@ -171,7 +173,7 @@ fn a_moved_card_whose_file_was_forgotten_writes_no_file_back() {
 }
 
 #[test]
-fn a_moved_card_open_elsewhere_keeps_its_file_as_it_was() {
+fn a_moved_card_open_elsewhere_saves_only_its_new_position() {
     let scratch = Scratch::new();
     scratch.remember(ID, TITLE, 0);
     scratch.remember(OTHER_ID, OTHER_TITLE, 1);
@@ -183,8 +185,42 @@ fn a_moved_card_open_elsewhere_keeps_its_file_as_it_was() {
 
     screen.key(KeyCode::Char('J'), KeyModifiers::SHIFT);
 
-    assert_eq!(position(&scratch, ID), 0);
+    assert_eq!(position(&scratch, ID), 1);
     assert_eq!(position(&scratch, OTHER_ID), 0);
+}
+
+#[test]
+fn a_move_saves_every_card_in_the_order_shown() {
+    let scratch = Scratch::new();
+    scratch.remember(ID, TITLE, 5);
+    scratch.remember(OTHER_ID, OTHER_TITLE, 6);
+    scratch.remember(THIRD_ID, THIRD_TITLE, 7);
+    let mut screen = stopped(&scratch);
+    screen.wait_for(THIRD_TITLE);
+    screen.press('j');
+    screen.press('j');
+
+    screen.key(KeyCode::Char('K'), KeyModifiers::SHIFT);
+
+    let recalled = scratch.memory().recall();
+    assert_eq!(recalled[0].session_id, ID);
+    assert_eq!(recalled[1].session_id, THIRD_ID);
+    assert_eq!(recalled[2].session_id, OTHER_ID);
+}
+
+#[test]
+fn a_move_keeps_a_title_another_harbour_saved_since() {
+    let scratch = Scratch::new();
+    scratch.remember(ID, TITLE, 0);
+    scratch.remember(OTHER_ID, OTHER_TITLE, 1);
+    let mut screen = stopped(&scratch);
+    scratch.remember(ID, "Retitled in acme", 0);
+
+    screen.key(KeyCode::Char('J'), KeyModifiers::SHIFT);
+
+    let recalled = scratch.memory().recall();
+    assert_eq!(recalled[1].session_id, ID);
+    assert_eq!(recalled[1].title, "Retitled in acme");
 }
 
 fn two_cards(mut screen: Screen) -> Screen {

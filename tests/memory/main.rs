@@ -480,6 +480,44 @@ fn a_recent_file_is_not_forgotten_as_stale() {
     assert!(dir.join(format!("{ID}.json")).exists());
 }
 
+#[test]
+fn placing_changes_only_the_position() {
+    let scratch = tempfile::tempdir().unwrap();
+    let memory = Memory::new(&folder(scratch.path()));
+    let mut retitled = remembered(ID, 0);
+    retitled.title = "Add the acme export".to_string();
+    retitled.directory = PathBuf::from("/home/acme/web");
+    memory.keep(&retitled).unwrap();
+
+    memory.place(ID, 3).unwrap();
+
+    retitled.position = 3;
+    assert_eq!(memory.recall(), vec![retitled]);
+}
+
+#[test]
+fn placing_a_missing_file_writes_nothing() {
+    let scratch = tempfile::tempdir().unwrap();
+    let memory = Memory::new(&folder(scratch.path()));
+
+    assert!(memory.place(ID, 3).is_err());
+    assert!(!memory.holds(ID));
+}
+
+#[test]
+fn placing_a_file_from_a_newer_harbour_leaves_it_as_it_was() {
+    let scratch = tempfile::tempdir().unwrap();
+    let dir = folder(scratch.path());
+    fs::create_dir_all(&dir).unwrap();
+    fs::write(dir.join(format!("{ID}.json")), newer(ID)).unwrap();
+
+    assert!(Memory::new(&dir).place(ID, 3).is_err());
+    assert_eq!(
+        fs::read_to_string(dir.join(format!("{ID}.json"))).unwrap(),
+        newer(ID)
+    );
+}
+
 pub(crate) fn folder(scratch: &Path) -> PathBuf {
     scratch.join("harbour/sessions")
 }

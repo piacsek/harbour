@@ -97,6 +97,26 @@ fn capital_x_is_logged_by_its_name() {
 }
 
 #[test]
+fn capital_k_is_logged_by_its_name() {
+    let (app, lines) = logged(App::new(reading_agent()));
+    let mut screen = Screen::of(app);
+
+    screen.key(KeyCode::Char('K'), KeyModifiers::SHIFT);
+
+    only(&read(&lines), r#" key name="K""#);
+}
+
+#[test]
+fn j_with_shift_is_logged_as_the_move() {
+    let (app, lines) = logged(App::new(reading_agent()));
+    let mut screen = Screen::of(app);
+
+    screen.key(KeyCode::Char('j'), KeyModifiers::SHIFT);
+
+    only(&read(&lines), r#" key name="J""#);
+}
+
+#[test]
 fn a_control_key_harbour_acts_on_is_logged_with_its_modifier() {
     let (app, lines) = logged(App::new(reading_agent()));
     let mut screen = Screen::of(app);

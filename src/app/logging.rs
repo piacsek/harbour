@@ -11,7 +11,7 @@ use crate::log::Log;
 use crate::session::Session;
 use crate::tmux::Direction;
 
-const BOUND: [char; 4] = ['j', 'k', 'y', 'Y'];
+const BOUND: [char; 6] = ['j', 'k', 'J', 'K', 'y', 'Y'];
 const SLOW_FRAME: Duration = Duration::from_millis(100);
 
 #[derive(Default)]
@@ -392,7 +392,11 @@ fn named(key: KeyEvent, keymap: &Keymap) -> String {
                         Some(Action::New | Action::End | Action::Close)
                     )) =>
         {
-            c.to_string()
+            if key.modifiers == KeyModifiers::SHIFT && matches!(c, 'j' | 'k') {
+                c.to_ascii_uppercase().to_string()
+            } else {
+                c.to_string()
+            }
         }
         KeyCode::Enter if key.modifiers.is_empty() => "Enter".to_string(),
         _ => return "other".to_string(),

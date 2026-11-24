@@ -106,15 +106,7 @@ impl Memory {
                 let name = entry.file_name();
                 let id = name.to_str()?.strip_suffix(".json")?;
                 is_session_id(id).then_some(())?;
-                let saved: Saved = serde_json::from_slice(&read(&entry.path())?).ok()?;
-                let directory = saved.directory.path();
-                (saved.version == VERSION && saved.session_id == id && directory.is_absolute())
-                    .then_some(Remembered {
-                        session_id: saved.session_id,
-                        directory,
-                        title: saved.title,
-                        position: saved.position,
-                    })
+                remembered(&entry.path(), id)
             })
             .collect();
         recalled.sort_by(|a, b| (a.position, &a.session_id).cmp(&(b.position, &b.session_id)));
@@ -150,6 +142,15 @@ impl Memory {
             let _ = fs::remove_file(&staged);
         }
         written
+    }
+
+    pub fn place(&self, id: &str, position: usize) -> io::Result<()> {
+        if !is_session_id(id) {
+            return Err(io::ErrorKind::InvalidInput.into());
+        }
+        let mut placed = remembered(&self.file(id), id).ok_or(io::ErrorKind::NotFound)?;
+        placed.position = position;
+        self.keep(&placed)
     }
 
     pub fn forget(&self, session_id: &str) {
@@ -295,6 +296,19 @@ impl Memory {
             .and_then(|bytes| serde_json::from_slice::<Versioned>(&bytes).ok())
             .is_some_and(|saved| saved.version > VERSION)
     }
+}
+
+fn remembered(path: &Path, id: &str) -> Option<Remembered> {
+    let saved: Saved = serde_json::from_slice(&read(path)?).ok()?;
+    let directory = saved.directory.path();
+    (saved.version == VERSION && saved.session_id == id && directory.is_absolute()).then_some(
+        Remembered {
+            session_id: saved.session_id,
+            directory,
+            title: saved.title,
+            position: saved.position,
+        },
+    )
 }
 
 fn read(path: &Path) -> Option<Vec<u8>> {
