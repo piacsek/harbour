@@ -99,6 +99,7 @@ pub struct App {
     keymap: Keymap,
     prefixing: prefix::Prefixing,
     logging: logging::Logging,
+    hangup_grace: Duration,
 }
 
 #[derive(Clone, Copy, PartialEq)]
@@ -232,7 +233,13 @@ impl App {
             keymap: Keymap::default(),
             prefixing: prefix::Prefixing::default(),
             logging: logging::Logging::default(),
+            hangup_grace: session::HANGUP_GRACE,
         }
+    }
+
+    pub fn with_hangup_grace(mut self, grace: Duration) -> App {
+        self.hangup_grace = grace;
+        self
     }
 
     pub fn with_home(mut self, home: PathBuf) -> App {
@@ -514,7 +521,7 @@ impl App {
                     .session
                     .as_mut()
                     .is_none_or(|session| session.exit().is_some());
-                session::end_all(entry.sessions());
+                session::end_all(entry.sessions(), self.hangup_grace);
                 entry.editors.clear();
                 entry.editor = None;
                 entry.on_editor = false;
@@ -619,7 +626,10 @@ impl App {
 
 impl Drop for App {
     fn drop(&mut self) {
-        session::end_all(self.sessions.iter_mut().flat_map(Entry::sessions));
+        session::end_all(
+            self.sessions.iter_mut().flat_map(Entry::sessions),
+            self.hangup_grace,
+        );
     }
 }
 

@@ -152,19 +152,19 @@ fn an_open_that_starts_a_neovim_which_stops_at_a_prompt_on_loading_the_file_is_r
 }
 
 #[test]
-fn an_open_that_raises_a_prompt_in_a_running_neovim_is_refused_at_once() {
+fn an_open_that_raises_a_prompt_in_a_running_neovim_is_refused_once_a_mode_query_sees_it() {
     let scratch = tempfile::tempdir().unwrap();
     let (mut screen, socket) = editing(scratch.path());
-    let _asked = neovim_in(&socket, "n", false, Edit::Asking);
-    let started = Instant::now();
+    let asked = neovim_in(&socket, "n", false, Edit::Asking);
 
     let reply = screen
         .app
         .hand(Verb::Open, &file(scratch.path(), "acme-api"), soon());
 
-    let elapsed = started.elapsed();
     assert_eq!(reply, Reply::Refused(WAITING.to_string()));
-    assert!(elapsed < OPEN_PATIENCE, "{elapsed:?}");
+    assert_eq!(called(&asked).0, "nvim_get_mode");
+    assert_eq!(called(&asked).0, "nvim_cmd");
+    assert_eq!(called(&asked).0, "nvim_get_mode");
 }
 
 #[test]
@@ -301,6 +301,7 @@ fn neovim_in(
     let listener = UnixListener::bind(socket).unwrap();
     let (asked, calls) = mpsc::channel();
     thread::spawn(move || {
+        let mut silenced = Vec::new();
         let mut held = Vec::new();
         while let Ok((mut stream, _)) = listener.accept() {
             let request = rmpv::decode::read_value(&mut stream).unwrap();
@@ -320,7 +321,7 @@ fn neovim_in(
                 ),
                 (_, Edit::Silent) => {
                     let _ = asked.send((method, fields[3].as_array().unwrap().clone()));
-                    thread::sleep(Duration::from_secs(5));
+                    silenced.push(stream);
                     continue;
                 }
                 (_, Edit::Prompting | Edit::Asking) => {

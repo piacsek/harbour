@@ -12,8 +12,9 @@ use rmpv::Value;
 
 use crate::{Screen, pane_corner, reading_agent, script};
 
-use crate::deadline;
+use crate::{deadline, scaled};
 
+const PATIENCE: Duration = Duration::from_millis(100);
 const LEFTMOST: &str = "winnr('h') == winnr()";
 const RIGHTMOST: &str = "winnr('l') == winnr()";
 const UNSAVED: &str = "len(filter(getbufinfo({'bufmodified': 1}), \
@@ -111,10 +112,10 @@ fn ctrl_h_shows_claude_code_soon_when_neovim_never_answers() {
 }
 
 #[test]
-fn ctrl_h_gives_up_on_a_silent_neovim_well_within_the_deadline_by_default() {
+fn ctrl_h_on_a_silent_neovim_waits_out_one_mode_query_by_default() {
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = open_with(fake_neovim(scratch.path(), "exec sleep 600"));
-    let _asked = answering(&socket(scratch.path()), None, None);
+    let asked = answering(&socket(scratch.path()), None, None);
 
     let before = Instant::now();
     screen.key(KeyCode::Char('h'), KeyModifiers::CONTROL);
@@ -122,7 +123,9 @@ fn ctrl_h_gives_up_on_a_silent_neovim_well_within_the_deadline_by_default() {
 
     let shown = screen.wait_for("acme agent ready");
     assert!(shown.contains("acme agent ready"), "{shown}");
-    assert!(waited < deadline(), "{waited:?}");
+    assert_eq!(asked.recv_timeout(5 * deadline()).unwrap(), "nvim_get_mode");
+    assert!(asked.recv_timeout(scaled(PATIENCE)).is_err());
+    assert!(waited < scaled(10 * PATIENCE), "{waited:?}");
 }
 
 #[test]
@@ -455,6 +458,7 @@ fn serving(
     let listener = UnixListener::bind(socket).unwrap();
     let (asked, requests) = mpsc::channel();
     thread::spawn(move || {
+        let mut held = Vec::new();
         while let Ok((mut stream, _)) = listener.accept() {
             let request = rmpv::decode::read_value(&mut stream).unwrap();
             let fields = request.as_array().unwrap().clone();
@@ -486,7 +490,7 @@ fn serving(
                         Value::Array(vec![Value::from(1), fields[1].clone(), Value::Nil, answer]);
                     rmpv::encode::write_value(&mut stream, &reply).unwrap();
                 }
-                None => thread::sleep(Duration::from_secs(5)),
+                None => held.push(stream),
             }
         }
     });

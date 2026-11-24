@@ -1,9 +1,12 @@
+use std::path::Path;
 use std::time::Instant;
 
 use crossterm::event::{KeyCode, KeyModifiers, MouseButton, MouseEventKind};
+use harbour::app::App;
 
 use crate::{
-    HANGUP_GRACE, Screen, below, directory, numbered_agent, raw_agent, reading_agent, script,
+    Screen, below, deadline, directory, hangups, raw_agent, reading_agent, recording_hangups,
+    script, staying_after_hangups,
 };
 
 #[test]
@@ -163,19 +166,65 @@ fn a_click_in_the_pane_cancels_the_question_and_does_not_focus_the_pane() {
 }
 
 #[test]
-fn quitting_ends_every_running_session_within_one_grace_period() {
+fn quitting_hangs_up_on_every_running_session_before_it_kills_any() {
     let scratch = tempfile::tempdir().unwrap();
-    let mut screen = Screen::new(numbered_agent(scratch.path()));
+    let mut screen =
+        Screen::of(App::new(hanging_up_agent(scratch.path())).with_hangup_grace(deadline()));
     for started in 1..=5 {
         screen.press('n');
         screen.wait_for(&format!("acme agent {started}"));
     }
     screen.prefixed('q');
     screen.press('y');
-    let started = Instant::now();
 
     drop(screen);
 
-    let elapsed = started.elapsed();
-    assert!(elapsed < 3 * HANGUP_GRACE, "{elapsed:?}");
+    let hangups = hangups(scratch.path());
+    assert_eq!(hangups.len(), 5, "{hangups:?}");
+    assert_eq!(hangups[0], "1 saw 5 alive", "{hangups:?}");
+    assert_eq!(hangups[1], "2 saw 5 alive", "{hangups:?}");
+    assert_eq!(hangups[2], "3 saw 5 alive", "{hangups:?}");
+    assert_eq!(hangups[3], "4 saw 5 alive", "{hangups:?}");
+    assert_eq!(hangups[4], "5 saw 5 alive", "{hangups:?}");
+}
+
+#[test]
+fn quitting_waits_one_grace_in_all_for_sessions_that_ignore_the_hangup() {
+    let scratch = tempfile::tempdir().unwrap();
+    let mut screen =
+        Screen::of(App::new(ignoring_agent(scratch.path())).with_hangup_grace(deadline()));
+    for started in 1..=3 {
+        screen.press('n');
+        screen.wait_for(&format!("acme agent {started}"));
+    }
+    screen.prefixed('q');
+    screen.press('y');
+
+    let before = Instant::now();
+    drop(screen);
+    let elapsed = before.elapsed();
+
+    assert!(elapsed >= deadline(), "{elapsed:?}");
+    assert!(elapsed < 2 * deadline(), "{elapsed:?}");
+}
+
+fn hanging_up_agent(scratch: &Path) -> Vec<String> {
+    let count = scratch.join("count");
+    script(&format!(
+        "n=$(($(cat '{count}' 2>/dev/null || echo 0) + 1)); echo $n > '{count}'; \
+         {recording}echo \"acme agent $n\"; {staying}",
+        count = count.display(),
+        recording = recording_hangups(scratch, "$n"),
+        staying = staying_after_hangups(),
+    ))
+}
+
+fn ignoring_agent(scratch: &Path) -> Vec<String> {
+    let count = scratch.join("count");
+    script(&format!(
+        "n=$(($(cat '{count}' 2>/dev/null || echo 0) + 1)); echo $n > '{count}'; \
+         trap '' HUP; echo \"acme agent $n\"; {staying}",
+        count = count.display(),
+        staying = staying_after_hangups(),
+    ))
 }

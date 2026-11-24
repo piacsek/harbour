@@ -19,7 +19,7 @@ use tui_term::widget::{Cursor, PseudoTerminal};
 
 use crate::keys::{Asked, Keyboard};
 
-const HANGUP_GRACE: Duration = Duration::from_millis(200);
+pub const HANGUP_GRACE: Duration = Duration::from_millis(200);
 const HIDDEN_GRACE: Duration = Duration::from_millis(60);
 
 type Parser = vt100::Parser<Replies>;
@@ -192,7 +192,7 @@ impl Session {
     }
 
     pub fn end(&mut self) {
-        end_all([self]);
+        end_all([self], HANGUP_GRACE);
     }
 
     fn group(&mut self) -> Option<Pid> {
@@ -276,7 +276,7 @@ impl Drop for Session {
     }
 }
 
-pub fn end_all<'a>(sessions: impl IntoIterator<Item = &'a mut Session>) {
+pub fn end_all<'a>(sessions: impl IntoIterator<Item = &'a mut Session>, grace: Duration) {
     let mut running: Vec<(&mut Session, Pid)> = sessions
         .into_iter()
         .filter_map(|session| session.group().map(|group| (session, group)))
@@ -287,7 +287,7 @@ pub fn end_all<'a>(sessions: impl IntoIterator<Item = &'a mut Session>) {
     for (_, group) in &running {
         let _ = killpg(*group, Signal::SIGHUP);
     }
-    thread::sleep(HANGUP_GRACE);
+    thread::sleep(grace);
     for (session, group) in &mut running {
         let _ = killpg(*group, Signal::SIGKILL);
         session.exit = session.child.wait().ok();

@@ -4,6 +4,7 @@ const GUARD: &str = "tests/wall_clock.rs";
 const SEAMS: &[&str] = &[
     "with_program(",
     "with_patience(",
+    "with_hangup_grace(",
     "hand(",
     "finish(",
     "retrying_every(",
