@@ -9,7 +9,7 @@ use ratatui::widgets::{Block, Clear, Paragraph, Wrap};
 
 use super::{App, FOCUSED_BORDER, HINT, Question, UNFOCUSED_BORDER, remember, user_home};
 use crate::card::{Card, Ended};
-use crate::editor::{Changes, Program};
+use crate::editor::Changes;
 use crate::help;
 use crate::state;
 use crate::tabs;
@@ -131,7 +131,6 @@ impl App {
                 editor.session.resize(editing.height, editing.width);
             }
         }
-        let neovim = self.editor.as_ref().is_some_and(Program::is_neovim);
         let cards: Vec<Card> = self
             .sessions
             .iter()
@@ -146,7 +145,7 @@ impl App {
                     entry.transcript.as_ref().map(Transcript::facts),
                 );
                 if self.nerd_font {
-                    card.with_icons(neovim && !entry.editors.is_empty())
+                    card.with_icons()
                 } else {
                     card
                 }

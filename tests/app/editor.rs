@@ -250,25 +250,11 @@ fn with_icons_an_editor_that_is_not_neovim_gets_no_glyph() {
 }
 
 #[test]
-fn with_icons_a_card_ends_with_the_neovim_glyph_while_its_editor_is_open() {
+fn with_icons_a_card_shows_no_neovim_glyph_while_its_editor_is_open() {
     let editor = Program::neovim("nvim", reading_editor_script());
     let mut screen = editor_open_in(
         App::new(reading_agent())
             .with_editor(editor)
-            .with_nerd_font(),
-    );
-
-    let shown = screen.draw();
-
-    let card = format!("{REPOSITORY} acme-home {NEOVIM}");
-    assert_eq!(card_text(&shown), card, "{shown}");
-}
-
-#[test]
-fn with_icons_a_card_shows_no_glyph_for_an_editor_that_is_not_neovim() {
-    let mut screen = editor_open_in(
-        App::new(reading_agent())
-            .with_editor(reading_editor())
             .with_nerd_font(),
     );
 
@@ -276,44 +262,6 @@ fn with_icons_a_card_shows_no_glyph_for_an_editor_that_is_not_neovim() {
 
     let card = format!("{REPOSITORY} acme-home");
     assert_eq!(card_text(&shown), card, "{shown}");
-    assert!(!shown.contains(NEOVIM), "{shown}");
-}
-
-#[test]
-fn with_icons_a_card_that_never_opened_neovim_shows_no_editor_glyph() {
-    let editor = Program::neovim("nvim", reading_editor_script());
-    let mut screen = Screen::of(
-        App::new(reading_agent())
-            .with_editor(editor)
-            .with_nerd_font(),
-    );
-    screen.press('n');
-
-    let shown = screen.wait_for("acme agent ready");
-
-    let card = card_line(&shown);
-    assert!(card.contains(REPOSITORY), "{card}");
-    assert!(!card.contains(NEOVIM), "{card}");
-}
-
-#[test]
-fn with_icons_a_card_whose_last_neovim_closed_shows_no_editor_glyph() {
-    let editor = Program::neovim(
-        "nvim",
-        script("echo 'acme editor in place'; read -r line; exit 0"),
-    );
-    let mut screen = editor_open_in(
-        App::new(reading_agent())
-            .with_editor(editor)
-            .with_nerd_font(),
-    );
-    screen.type_text("done\r");
-
-    let shown = screen.wait_for("acme agent ready");
-
-    let card = card_line(&shown);
-    assert!(card.contains(REPOSITORY), "{card}");
-    assert!(!card.contains(NEOVIM), "{card}");
 }
 
 #[test]
