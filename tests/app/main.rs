@@ -501,3 +501,10 @@ fn hangups(scratch: &Path) -> Vec<String> {
     hangups.sort();
     hangups
 }
+
+fn ends_with_a_pane_corner(shown: &str) -> bool {
+    let top = shown.lines().next().unwrap_or_default();
+    [FOCUSED_BORDER, UNFOCUSED_BORDER]
+        .iter()
+        .any(|style| top.ends_with(style.to_border_set().top_right))
+}
