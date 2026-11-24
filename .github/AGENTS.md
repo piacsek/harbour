@@ -67,9 +67,10 @@ speed-up, when its pipeline went from about 3 min 20 s to 37 s:
   GitHub Pages (`actions/upload-pages-artifact`, `actions/deploy-pages`, `concurrency: pages`
   without cancelling), which serves it at `https://piacsek.github.io/harbour/test-speed.svg`, the
   image the README ends with. It holds `pages: write` and `id-token: write`, the deploy needs
-  both, and runs nothing from a pull request. Pages has to be set to build from GitHub Actions
-  first (see Owner steps): until then the job fails on `main` and the README shows a broken
-  image; it is not a required check, so no merge waits on it.
+  both, and runs nothing from a pull request. Like the Codecov upload, it has
+  `continue-on-error: true`, so a Pages outage, a failed deploy or Pages not set up yet (see
+  Owner steps) never turns the run on `main` red; the README keeps the last chart deployed, or
+  shows a broken image before the first. It is not a required check, so no merge waits on it.
 - **Every job has a `timeout-minutes`**, a few times its normal run and at least 5, so a hung tmux or
   Neovim test cannot hold a runner for GitHub's 6-hour default.
 - **Here the tests set the floor, not setup.** In conveyor, job setup, checkout, toolchain and
@@ -567,5 +568,5 @@ Steps only the owner takes, by hand, outside this repository:
   shards stay green.
 - For the README's test speed chart: under Settings → Pages, set Source to GitHub Actions
   before merging the pull request that adds the `test-speed` job; that creates the
-  `github-pages` environment the job deploys to. Until then the job fails on every push to
-  `main` and the README's last image is broken.
+  `github-pages` environment the job deploys to. Until then the job fails, without failing the
+  run, on every push to `main`, and the README's last image is broken.
