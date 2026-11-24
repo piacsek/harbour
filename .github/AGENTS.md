@@ -11,7 +11,7 @@ a sibling project by the recipe's author; a number measured there says so.
 .github/AGENTS.md CI: what the workflows run and why (`check`, `audit`, the flake build, the `version` check, the release queue, the tap, `stable`), the `main` ruleset, branch cleanup, the sweep issue, the issue forms and Discussions; the release internals, the first release from zero tags included
 .github/pull_request_template.md  `## Summary` and `## Changes`: the body `ship.sh` opens a draft PR with
 .github/ISSUE_TEMPLATE/       the bug report and feature request forms, and `config.yml` sending questions to Discussions
-.github/nextest.toml          the `check` shards' cargo-nextest settings: the `e2e` target first and at two threads, no retries, a hung test ended after 3 min
+.github/nextest.toml          the `check` shards' cargo-nextest settings: the `e2e` target first and at two threads, no retries, a hung test ended after 3 min, a JUnit report for Codecov
 .github/workflows/            ci.yml, version.yml, release.yml, sweep.yml and delete-closed-branch.yml, each a bullet below
 .github/CLAUDE.md             a symlink to this file, so it loads when work touches `.github/`
 .github/CONTRIBUTING.md       where a newcomer starts: points here, to `scripts/gates.sh`, `scripts/ship.sh` and the fragment rule, restates none of them
@@ -54,6 +54,12 @@ speed-up, when its pipeline went from about 3 min 20 s to 37 s:
   run and is fixed rather than hidden, and runs every test before failing, so one run names
   every flaky test. nextest runs no doctests, so the `rest` leg runs `cargo test --doc` after it. The
   local gates stay on `cargo test`, which needs no tool installed.
+- **Flaky and slow tests are tracked by Codecov Test Analytics.** nextest writes
+  `target/nextest/default/junit.xml`, and each shard's last step (`if: ${{ !cancelled() }}`, so a
+  failed run reports too) uploads it with `codecov/codecov-action` (`report_type: test_results`,
+  the shard's name as its flag, the `CODECOV_TOKEN` secret). The action's `fail_ci_if_error`
+  stays `false`, so a Codecov outage or a missing secret never turns a shard red. Slow jobs are
+  in GitHub's own Insights → Actions performance metrics, which needs nothing here.
 - **Every job has a `timeout-minutes`**, a few times its normal run and at least 5, so a hung tmux or
   Neovim test cannot hold a runner for GitHub's 6-hour default. `tests/scripts/ci_workflow.rs`
   fails while a job lacks one.
@@ -545,6 +551,9 @@ Steps only the owner takes, by hand, outside this repository:
 - Before merging the pull request that adds `release.yml`: set `TAP_TOKEN` (see the `tap` job
   above). That merge starts the first release run, and without the secret its `tap` job fails
   (a rerun once the secret is set writes `Formula/harbour.rb`).
+- For Codecov Test Analytics: install the Codecov GitHub app on this repository and set the
+  `CODECOV_TOKEN` secret to its upload token. Until then the upload step logs an error and the
+  shards stay green.
 - After that merge: rerun `tui_repo harbour`, which adds `version` to the ruleset's required
   checks (`check` and `audit` are required from the start) and changes nothing else that is
   already set up. Requiring `flake-ok` stays a choice made by hand (see the ruleset bullet under

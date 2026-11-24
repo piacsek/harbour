@@ -17,7 +17,7 @@ fn only_one_job_installs_a_package_with_apt_get() {
 }
 
 #[test]
-fn nextest_runs_the_end_to_end_tests_two_at_a_time_and_never_retries_a_failure() {
+fn nextest_runs_the_end_to_end_tests_two_at_a_time_never_retries_a_failure_and_writes_junit() {
     assert_eq!(nextest_config(), NEXTEST_CONFIG);
 }
 
@@ -120,6 +120,9 @@ e2e = { max-threads = 2 }
 filter = \"binary(e2e)\"
 test-group = \"e2e\"
 priority = 100
+
+[profile.default.junit]
+path = \"junit.xml\"
 ";
 
 const SHARD_JOB: &str = "  shard:
@@ -158,6 +161,14 @@ const SHARD_JOB: &str = "  shard:
       - run: cargo nextest run --locked --config-file .github/nextest.toml --run-ignored all ${{ matrix.tests }}
       - if: matrix.rest
         run: cargo test --doc --locked
+      - if: ${{ !cancelled() }}
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
+        with:
+          report_type: test_results
+          files: target/nextest/default/junit.xml
+          disable_search: true
+          flags: ${{ matrix.name }}
+          token: ${{ secrets.CODECOV_TOKEN }}
     timeout-minutes: 10
 ";
 
