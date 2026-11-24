@@ -1,4 +1,3 @@
-mod ci_workflow;
 mod delete_closed_branch_workflow;
 mod dev_install;
 mod docs_only;

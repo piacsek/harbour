@@ -22,7 +22,7 @@ a sibling project by the recipe's author; a number measured there says so.
 `.github/workflows/ci.yml` runs on every push to `main` and every pull request: two shards and
 the gate job `check` over them (below), an `audit` job
 (`cargo audit`), and the flake build behind its `paths` and `flake-ok` jobs (below).
-`tests/scripts/ci_workflow.rs` pins `check` and its shards step by step. Learnings from conveyor's CI
+No Rust test reads a workflow file (`tests/AGENTS.md`). Learnings from conveyor's CI
 speed-up, when its pipeline went from about 3 min 20 s to 37 s:
 
 - **Measure before touching anything.** Per-step timings are one call away:
@@ -62,8 +62,7 @@ speed-up, when its pipeline went from about 3 min 20 s to 37 s:
   outage or a missing secret never turns a shard red. Slow jobs are
   in GitHub's own Insights → Actions performance metrics, which needs nothing here.
 - **Every job has a `timeout-minutes`**, a few times its normal run and at least 5, so a hung tmux or
-  Neovim test cannot hold a runner for GitHub's 6-hour default. `tests/scripts/ci_workflow.rs`
-  fails while a job lacks one.
+  Neovim test cannot hold a runner for GitHub's 6-hour default.
 - **Here the tests set the floor, not setup.** In conveyor, job setup, checkout, toolchain and
   the `Swatinem/rust-cache` restore took most of its `check`, and fmt, clippy and tests took
   seconds. In harbour the test step took 186 s of `check`'s 226 s in November 2026, so time is
@@ -552,10 +551,10 @@ Steps only the owner takes, by hand, outside this repository:
 - Before merging the pull request that adds `release.yml`: set `TAP_TOKEN` (see the `tap` job
   above). That merge starts the first release run, and without the secret its `tap` job fails
   (a rerun once the secret is set writes `Formula/harbour.rb`).
-- For Codecov Test Analytics: install the Codecov GitHub app on this repository and set the
-  `CODECOV_TOKEN` secret to its upload token. Until then the upload step logs an error and the
-  shards stay green.
 - After that merge: rerun `tui_repo harbour`, which adds `version` to the ruleset's required
   checks (`check` and `audit` are required from the start) and changes nothing else that is
   already set up. Requiring `flake-ok` stays a choice made by hand (see the ruleset bullet under
   CI).
+- For Codecov Test Analytics: install the Codecov GitHub app on this repository and set the
+  `CODECOV_TOKEN` secret to its upload token. Until then the upload step logs an error and the
+  shards stay green.

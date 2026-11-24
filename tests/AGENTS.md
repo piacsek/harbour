@@ -60,6 +60,8 @@ after the Clawd glyph: `tests/tabs.rs`, `tests/app/side_border.rs`, `tests/e2e/c
 - **Script tests guard what ships and releases**: the gates, `ship.sh`, the scrub check, the
   version check and the release scripts. A test of a usage line or a help text that no gate,
   workflow or user reads is not written.
+- **No Rust test reads a workflow file.** A change to `.github/workflows/*.yml` is proven by the
+  CI run of its own pull request, not by a test pinning its text, and needs no red test first.
 
 ## Testing traps hit so far
 
