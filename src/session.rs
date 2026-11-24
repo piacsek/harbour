@@ -20,6 +20,7 @@ use tui_term::widget::{Cursor, PseudoTerminal};
 use crate::keys::{Asked, Keyboard};
 
 pub const HANGUP_GRACE: Duration = Duration::from_millis(200);
+const HANGUP_POLL: Duration = Duration::from_millis(5);
 const HIDDEN_GRACE: Duration = Duration::from_millis(60);
 
 type Parser = vt100::Parser<Replies>;
@@ -287,10 +288,22 @@ pub fn end_all<'a>(sessions: impl IntoIterator<Item = &'a mut Session>, grace: D
     for (_, group) in &running {
         let _ = killpg(*group, Signal::SIGHUP);
     }
-    thread::sleep(grace);
+    let until = Instant::now() + grace;
+    loop {
+        running.retain_mut(|(session, group)| {
+            session.exit().is_none() || killpg(*group, None).is_ok()
+        });
+        let left = until.saturating_duration_since(Instant::now());
+        if running.is_empty() || left.is_zero() {
+            break;
+        }
+        thread::sleep(HANGUP_POLL.min(left));
+    }
     for (session, group) in &mut running {
         let _ = killpg(*group, Signal::SIGKILL);
-        session.exit = session.child.wait().ok();
+        if session.exit.is_none() {
+            session.exit = session.child.wait().ok();
+        }
     }
 }
 

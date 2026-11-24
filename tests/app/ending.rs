@@ -250,7 +250,7 @@ fn a_click_in_the_pane_cancels_the_question_and_does_not_focus_the_pane() {
 fn quitting_hangs_up_on_every_running_session_before_it_kills_any() {
     let scratch = tempfile::tempdir().unwrap();
     let mut screen =
-        Screen::of(App::new(hanging_up_agent(scratch.path())).with_hangup_grace(deadline()));
+        Screen::of(App::new(hanging_up_agent(scratch.path())).with_hangup_grace(5 * deadline()));
     for started in 1..=5 {
         screen.press('n');
         screen.wait_for(&format!("acme agent {started}"));

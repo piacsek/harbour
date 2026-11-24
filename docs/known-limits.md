@@ -24,7 +24,7 @@ good; a finding on one still counts as must when it shows new impact.
   does; `side` and a jump while side by side (the prefix then a digit, a pick from the
   session finder, a stopped card that resumes) do the same reads for where the session works when
   it has no editor yet, and start that editor (`src/app/side.rs`); closing the usage popup while its report still loads hangs up its
-  process group, then kills it, after a 200 ms grace (`src/session.rs`).
+  process group and waits up to 200 ms, killing it only if it is still alive (`src/session.rs`).
 - **C-j and C-k under tmux run tmux on the key thread**: from the sidebar or Claude Code each
   press runs `tmux list-keys`, then `tmux display-message` when tmux binds the key, then
   `tmux select-pane` when a pane lies that way (about 7 ms each measured), the first two within
@@ -66,9 +66,13 @@ good; a finding on one still counts as must when it shows new impact.
   own timeout for that mode ends it;
   a quit, a panic, a first TERM or INT and any HUP turn them off (`src/tui.rs`).
 - **A session that exited by itself leaves behind what ignores hangup**: once its command is
-  reaped its pid can be reused, so harbour never signals its group again, and a background
+  reaped its pid can be reused, so harbour does not signal its group again, and a background
   process that ignores hangup keeps running after its row is removed or harbour quits, as in any
-  terminal (`src/session.rs`).
+  terminal (`src/session.rs`). The one exception is the hangup grace: harbour may reap a
+  session's command during it and still SIGKILL its group when it ends, but only while a probe
+  just before shows the group has members. A group number reused inside that 5 ms window is
+  accepted as unreachable in practice, because keeping the command unreaped instead makes every
+  quit on Linux wait the full grace.
 - **Harbour keeps its working directory in the selected session's directory**, an exited
   session's too, so it can keep a volume busy until another session is selected or harbour
   quits (`plans/phase-11-follow-selected-session.md`).

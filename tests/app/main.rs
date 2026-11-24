@@ -479,9 +479,12 @@ fn recording_hangups(scratch: &Path, name: &str) -> String {
     let scratch = scratch.display();
     format!(
         "echo $$ > \"{scratch}/alive-{name}\"; \
-         hung() {{ seen=0; for f in '{scratch}'/alive-*; do read -r p < \"$f\"; \
-         kill -0 \"$p\" 2>/dev/null && seen=$((seen + 1)); done; \
-         echo \"{name} saw $seen alive\" >> '{scratch}/hangups'; }}; trap hung HUP; "
+         hung() {{ seen=0; all=0; for f in '{scratch}'/alive-*; do read -r p < \"$f\"; \
+         all=$((all + 1)); kill -0 \"$p\" 2>/dev/null && seen=$((seen + 1)); done; \
+         echo \"{name} saw $seen alive\" >> '{scratch}/hangups'; \
+         tries=0; while [ $(($(wc -l < '{scratch}/hangups'))) -lt $all ] && [ $tries -lt {patience} ]; \
+         do sleep 0.01; tries=$((tries + 1)); done; exit 0; }}; trap hung HUP; ",
+        patience = (5 * deadline()).as_millis() / 10,
     )
 }
 
