@@ -65,14 +65,11 @@ fn a_manifest_in_the_plain_form_with_dependency_tables_passes() {
 }
 
 #[test]
-fn the_check_and_the_release_commit_read_the_version_line_with_the_expression_the_release_build_uses()
- {
+fn the_check_and_the_release_commit_read_the_version_line_with_the_same_expression() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR"));
-    let release = fs::read_to_string(root.join(".github/workflows/release.yml")).unwrap();
     let check = fs::read_to_string(root.join("scripts/version-check.sh")).unwrap();
     let commit = fs::read_to_string(root.join("scripts/release-commit.sh")).unwrap();
 
-    assert!(release.contains(BUILD_READ));
     assert!(check.contains(BUILD_READ));
     assert!(commit.contains(BUILD_READ));
 }

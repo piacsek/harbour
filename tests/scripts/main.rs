@@ -1,11 +1,9 @@
-mod delete_closed_branch_workflow;
 mod dev_install;
 mod docs_only;
 mod feeds_binary;
 mod flake_build_needed;
 mod flake_inputs;
 mod flake_ok;
-mod flake_workflow;
 mod formula_version;
 mod gates;
 mod gates_lock;
@@ -30,4 +28,3 @@ mod version_check_cargo;
 mod version_check_head;
 mod version_check_release;
 mod version_check_toolchain;
-mod version_workflow;

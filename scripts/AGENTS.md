@@ -97,7 +97,8 @@ and the locked `rust-overlay` in `flake.lock`, updated without Nix on the host b
 docker run --rm -v "$PWD":/src -w /src nixos/nix sh -c "git config --global --add safe.directory /src; nix --extra-experimental-features 'nix-command flakes' flake update rust-overlay"
 ```
 
-`tests/toolchain.rs` fails while any of the first four differs, and the `version` check refuses
+`tests/toolchain.rs` fails while `rust-version` differs from the channel's `major.minor`; the
+workflows' lines are checked only by the bump's own CI run. The `version` check refuses
 a channel change that keeps the locked `rust-overlay` revision, so the update must actually move
 the `rust-overlay` revision: on a day the overlay has not moved since the lock, the check
 refuses the bump until it does, at most about a day since the overlay commits daily. The `tag`

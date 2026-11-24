@@ -40,8 +40,7 @@ speed-up, when its pipeline went from about 3 min 20 s to 37 s:
   runs the `app` target, the biggest by far, and `rest` runs `cargo fmt --check`, clippy
   `-D warnings` and every other test, the tmux e2e tests included (tmux installed for
   `tests/e2e/`), each with one `cargo nextest run --locked --run-ignored all`, nextest installed
-  by `taiki-e/install-action` at a pinned version. One matrix job keeps the one `toolchain:` line
-  `tests/toolchain.rs` reads, and each leg keeps a cache of its own (`key: ${{ matrix.name }}`).
+  by `taiki-e/install-action` at a pinned version. One matrix job keeps one `toolchain:` line, and each leg keeps a cache of its own (`key: ${{ matrix.name }}`).
   `check` (`needs: shard`, `if: ${{ !cancelled() }}`) passes only when both legs succeeded, so
   the ruleset keeps requiring one name, and a cancelled run leaves it cancelled, not red. `cargo test` ran the 44 test binaries one after another,
   186 s of the 226 s `check` took in November 2026; one nextest pool of every binary still took
@@ -221,9 +220,7 @@ speed-up, when its pipeline went from about 3 min 20 s to 37 s:
   run (`edited`), and so does an edit of its title or body, which only repeats the check. The job
   runs only while the pull request is open (`if: github.event.pull_request.state == 'open'`):
   after a merge, `main` already holds the pull request's fragment, so an edit of a merged pull
-  request's title or body would fail with "is taken on main". `tests/scripts/version_workflow.rs`
-  pins the trigger, the job name, the open-only guard, the token and where it goes, the absence
-  of a checkout of the pull request and the job's `timeout-minutes: 5`.
+  request's title or body would fail with "is taken on main".
   Known and left: a fragment whose file name git would quote is refused as not a fragment, by
   design; a force-push landing between the event and the fetch makes the superseded run fail with
   "is not a commit here", which the run of the newer push replaces; "feeds the binary" is judged
@@ -297,7 +294,6 @@ speed-up, when its pipeline went from about 3 min 20 s to 37 s:
   reopened with GitHub's "Restore branch" button first. The open pull request check is a
   snapshot: closing and reopening one to retrigger CI loses the branch when the reopen comes
   after the job has looked, so push an empty commit or rerun the checks instead.
-  `tests/scripts/delete_closed_branch_workflow.rs` pins the trigger, the guards and the lease.
   Known and left: an open pull request whose **base** is the deleted branch is closed by GitHub
   (branches here are cut from `origin/main`, never stacked).
 - **No tag ruleset guards `v*` tags; the owner can still push or delete one by hand.** In
@@ -328,7 +324,7 @@ as its body, unless an issue of that exact title exists, open or closed. Its job
 `contents: read` and `issues: write` and nothing else: it never pushes, so it cannot backfill
 `plans/metrics.md` itself. It reads only files merged into `main` and takes no input from a pull
 request. Not a required check: a failed run delays a reminder, never a merge.
-`tests/scripts/sweep.rs` pins the workflow text and the scripts.
+`tests/scripts/sweep.rs` pins the scripts.
 
 `CONTRIBUTING.md` sits here rather than at the top: GitHub reads it from `.github/`. `ISSUE_TEMPLATE/`
 holds two issue forms, `bug_report.yml` (labelled `bug`) and `feature_request.yml` (labelled
@@ -387,7 +383,7 @@ what to do instead, when:
   both) with a probe version, and refuses unless the release script's own verification passes,
   cargo reads the probe, the line the `build` job of `release.yml` compares with the tag
   (`grep -m1 '^version = ' Cargo.toml | cut -d'"' -f2`, the same spelling there, here and in
-  `release-commit.sh`, pinned by `tests/scripts/version_check_release.rs`) reads it, and the
+  `release-commit.sh`; `tests/scripts/version_check_release.rs` pins the last two) reads it, and the
   lock's `harbour` entry reads it by the lock rules below. The rewrite works line by line, so
   `Cargo.toml` keeps one plain form: `[package]` alone on its line (no comment, no spaces),
   `version = "0.0.0"` as its own line under it (not `version="0.0.0"`, not a quoted key, not
@@ -454,7 +450,7 @@ checks out `main` at its current head, not the commit that started it, fetches e
    pushed. The `tag` job installs no toolchain: it calls the rustup `cargo` that GitHub's
    `ubuntu-latest` image carries, on the image's preinstalled `stable`. The pin of
    `rust-toolchain.toml` is deliberately not applied there: the job sets
-   `RUSTUP_TOOLCHAIN: stable` (pinned by `tests/toolchain.rs`), because otherwise rustup would
+   `RUSTUP_TOOLCHAIN: stable`, because otherwise rustup would
    download the pinned toolchain before `cargo metadata`, a new network step in the job that
    pushes the tag, whose failure would stop the release. `cargo metadata --no-deps` only reads the
    manifest, so any recent cargo answers the same. The confirmation is skipped silently when cargo

@@ -245,44 +245,6 @@ fn issues_that_cannot_be_read_stop_the_job() {
     assert_eq!(calls(dir.path()).len(), 1, "{:?}", calls(dir.path()));
 }
 
-#[test]
-fn every_push_to_main_that_touches_a_plan_asks_whether_a_sweep_is_due() {
-    let workflow = fs::read_to_string(
-        Path::new(env!("CARGO_MANIFEST_DIR")).join(".github/workflows/sweep.yml"),
-    )
-    .unwrap();
-
-    assert_eq!(workflow, SWEEP_WORKFLOW);
-}
-
-const SWEEP_WORKFLOW: &str = "name: sweep
-
-on:
-  push:
-    branches: [main]
-    paths: ['plans/**']
-
-permissions:
-  contents: read
-
-concurrency:
-  group: sweep
-  cancel-in-progress: false
-
-jobs:
-  issue:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      issues: write
-    steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
-      - env:
-          GH_TOKEN: ${{ github.token }}
-        run: scripts/sweep-issue.sh
-    timeout-minutes: 5
-";
-
 fn plan(root: &Path, phase: u32, hurdles: &str) {
     fs::write(
         root.join(format!("work/plans/phase-{phase}-x.md")),

@@ -235,11 +235,10 @@ after the Clawd glyph: `tests/tabs.rs`, `tests/app/side_border.rs`, `tests/e2e/c
   `grep -q`, `grep -m`, `sed q`, `read`, a loop that `break`s, or an `awk` that calls `exit`
   outside `BEGIN` and `END`: remember the first answer (`!found && ... { print; found = 1 }`),
   `next` past the rest, set the status in `END`, take the first line with `sed -n 1p`, or feed
-  the reader a here-string or a file. `tests/scripts/pipe_readers.rs` reads `scripts/*.sh`
-  and the `run:` steps of `.github/workflows/*.yml` as shell (quotes, comments and
-  here-documents are text) and fails, naming the file and line, on a pipe into `head`, `read` or
-  a `grep` with `-q`, `-m`, `-l`, `-L` or their long names, and on an `exit` outside `BEGIN` and
-  `END` in an `awk`, `gawk`, `mawk` or `nawk` program written as one single-quoted word. It
+  the reader a here-string or a file. `tests/scripts/pipe_readers.rs` reads `scripts/*.sh` as
+  shell (quotes, comments and here-documents are text) and fails, naming the file and line, on a
+  pipe into `head`, `read` or a `grep` with `-q`, `-m`, `-l`, `-L` or their long names, and on an
+  `exit` outside `BEGIN` and `END` in an `awk`, `gawk`, `mawk` or `nawk` program written as one single-quoted word. It
   cannot see, so this rule covers: an `awk` program held in a variable, read from a file
   (`-f`), double-quoted or only partly single-quoted, or given in a here-document; a reader
   started through another program (`xargs`, `env`, `sh -c`, `eval`); `sed q`, `perl`, `python`
@@ -340,7 +339,7 @@ tests/           by level (see "Where a test belongs"): `tests/cli.rs` runs the 
                  `tests/agents_size.rs` fails while the root `AGENTS.md` is over 12 KiB, a line of the fenced block inside its `## Layout` section over 120 characters, or the `CLAUDE.md` of `src/`, `tests/`, `scripts/`, `docs/` or `.github/` neither a symlink to `AGENTS.md` nor a file holding only that name, or that directory's `AGENTS.md` missing; `tests/scripts/flake_inputs.rs` also checks that an `AGENTS.md` or `CLAUDE.md` under `src/` is no flake input;
                  `tests/source_size.rs` fails while any Rust file under `src/` or `tests/` is longer than 700 lines, naming it;
                  `tests/checkout_name.rs` fails while a test under `tests/` reads the process's directory (`current_dir()`, the checkout under cargo) or builds a `tests/app/` `Screen` outside `tests/app/main.rs`, naming the file and line (what it cannot see: `tests/AGENTS.md`);
-                 `tests/toolchain.rs` fails while the `toolchain:` of `ci.yml` or `release.yml` differs from the channel of `rust-toolchain.toml`, or the `components:` of `ci.yml` or of the `build` job of `release.yml` from its `components`, or `rust-version` in `Cargo.toml` from its `major.minor`, or the `tag` job of `release.yml` loses `RUSTUP_TOOLCHAIN: stable`, or `flake.nix` stops leaving out those components;
+                 `tests/toolchain.rs` fails while `rust-version` in `Cargo.toml` differs from the `major.minor` of the channel of `rust-toolchain.toml`, or `flake.nix` stops leaving out its components;
                  `tests/plans.rs` fails while a plan file is missing from the `PLAN.md` index, a phase plan has no `## Outcome` or a malformed `## Hurdles`, a sweep phase's `## Outcome` has no `### Sweep`, or a phase has no `plans/metrics.md` row;
                  `tests/wall_clock.rs` fails while a test bounds elapsed time by a constant or hands a seam a literal deadline (see the traps above);
                  `tests/dead_code.rs` fails while a `pub` item under `src/` has its name nowhere else in `src/` (a name scan, not a resolver) and is not on its `SEAMS` list, while a seam on that list is no longer declared or used by a test, or while a `dead_code` attribute sits anywhere under `src/` or `tests/`, naming each;
