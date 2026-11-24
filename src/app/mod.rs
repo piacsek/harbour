@@ -79,6 +79,7 @@ pub struct App {
     gesture: Gesture,
     failed: Option<String>,
     asking: Option<Question>,
+    closing: bool,
     helping: bool,
     changelog: String,
     reading: Option<changelog::Reading>,
@@ -213,6 +214,7 @@ impl App {
             gesture: Gesture::Idle,
             failed: None,
             asking: None,
+            closing: false,
             helping: false,
             changelog: crate::changelog::CHANGELOG.to_string(),
             reading: None,
@@ -473,8 +475,9 @@ impl App {
         let Some(question) = self.asking.take() else {
             return false;
         };
+        let closing = std::mem::take(&mut self.closing);
         if yes {
-            self.answer_yes(question);
+            self.answer_yes(question, closing);
         }
         true
     }
@@ -511,7 +514,7 @@ impl App {
         }
     }
 
-    fn answer_yes(&mut self, question: Question) {
+    fn answer_yes(&mut self, question: Question, closing: bool) {
         match question {
             Question::End(_) => {
                 let Some(entry) = self.sessions.get_mut(self.selected) else {
@@ -525,7 +528,10 @@ impl App {
                 entry.editors.clear();
                 entry.editor = None;
                 entry.on_editor = false;
-                if exited {
+                if closing {
+                    self.pane_focused = false;
+                }
+                if exited || closing {
                     self.remove_selected();
                 }
             }

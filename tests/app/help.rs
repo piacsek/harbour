@@ -17,7 +17,7 @@ fn question_mark_shows_the_keys_and_the_last_dot() {
     assert!(shown.starts_with("┌ help "), "{shown}");
     assert!(shown.contains("j/k"), "{shown}");
     assert!(
-        shown.contains("n/x        start / end or forget a session, C-/ too"),
+        shown.contains("n/x/X      start / end or forget / end & forget, C-/ too"),
         "{shown}"
     );
     assert!(shown.contains(LAST), "{shown}");
@@ -88,7 +88,7 @@ fn question_mark_says_how_to_resume_and_forget_a_stopped_session() {
 
     let shown = screen.draw();
     assert!(shown.contains("focus or resume;"), "{shown}");
-    assert!(shown.contains("end or forget a session"), "{shown}");
+    assert!(shown.contains("end or forget"), "{shown}");
     assert!(shown.contains("○ idle, exited, or stopped"), "{shown}");
 }
 
@@ -327,7 +327,7 @@ fn the_help_names_a_configured_prefix_in_its_rows() {
         "{shown}"
     );
     assert!(
-        shown.contains("n/x        start / end or forget a session, C-] too"),
+        shown.contains("n/x/X      start / end or forget / end & forget, C-] too"),
         "{shown}"
     );
 }
@@ -361,7 +361,8 @@ fn the_help_leaves_out_the_row_of_an_unbound_action() {
 fn a_pair_row_with_one_side_unbound_shows_the_other_alone() {
     let keymap = Keymap::default()
         .bind(Action::Sidebar, None)
-        .bind(Action::End, None);
+        .bind(Action::End, None)
+        .bind(Action::Close, None);
     let mut screen = Screen::of(App::new(reading_agent()).with_keymap(keymap));
 
     screen.prefixed('?');

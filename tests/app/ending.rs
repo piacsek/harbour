@@ -73,6 +73,87 @@ fn x_on_an_exited_session_removes_its_row() {
 }
 
 #[test]
+fn capital_x_on_a_running_session_asks_before_ending_it() {
+    let mut screen = Screen::new(reading_agent());
+    screen.press('n');
+    screen.wait_for("acme agent ready");
+
+    screen.key(KeyCode::Char('X'), KeyModifiers::SHIFT);
+
+    let shown = screen.draw();
+    assert!(shown.contains("End and remove? y/n"), "{shown}");
+    assert!(shown.contains(&format!("· {} 1", directory())), "{shown}");
+}
+
+#[test]
+fn y_to_capital_x_ends_the_session_and_removes_its_card() {
+    let scratch = tempfile::tempdir().unwrap();
+    let mut screen =
+        Screen::of(App::new(hanging_up_agent(scratch.path())).with_hangup_grace(deadline()));
+    for started in 1..=2 {
+        screen.press('n');
+        screen.wait_for(&format!("acme agent {started}"));
+    }
+    screen.key(KeyCode::Char('X'), KeyModifiers::SHIFT);
+
+    screen.press('y');
+
+    let shown = screen.draw();
+    assert!(shown.contains(&format!("▌ · {} 1", directory())), "{shown}");
+    assert!(!shown.contains(&format!("{} 2", directory())), "{shown}");
+    assert!(!shown.contains("y/n"), "{shown}");
+    let hangups = hangups(scratch.path());
+    assert_eq!(hangups.len(), 1, "{hangups:?}");
+    assert_eq!(hangups[0], "2 saw 2 alive", "{hangups:?}");
+}
+
+#[test]
+fn another_answer_to_capital_x_keeps_the_session_and_its_card() {
+    let mut screen = Screen::new(reading_agent());
+    screen.press('n');
+    screen.wait_for("acme agent ready");
+    screen.key(KeyCode::Char('X'), KeyModifiers::SHIFT);
+
+    screen.press('n');
+
+    let shown = screen.draw();
+    assert!(!shown.contains("y/n"), "{shown}");
+    assert!(shown.contains(&format!("· {} 1", directory())), "{shown}");
+    assert!(!shown.contains("exited"), "{shown}");
+}
+
+#[test]
+fn x_answered_yes_after_capital_x_was_declined_keeps_the_card() {
+    let mut screen = Screen::new(reading_agent());
+    screen.press('n');
+    screen.wait_for("acme agent ready");
+    screen.key(KeyCode::Char('X'), KeyModifiers::SHIFT);
+    screen.press('n');
+    screen.press('x');
+
+    screen.press('y');
+
+    let shown = screen.wait_for("exited");
+    assert!(shown.contains(&format!("○ {} 1", directory())), "{shown}");
+}
+
+#[test]
+fn capital_x_on_an_exited_session_removes_its_card_without_asking() {
+    let mut screen = Screen::new(script("exit 0"));
+    screen.press('n');
+    screen.press('n');
+    screen.wait_for(&format!("○ {} 1", directory()));
+    screen.wait_for(&format!("○ {} 2", directory()));
+
+    screen.key(KeyCode::Char('X'), KeyModifiers::SHIFT);
+
+    let shown = screen.draw();
+    assert!(shown.contains(&format!("▌ ○ {} 1", directory())), "{shown}");
+    assert!(!shown.contains(&format!("{} 2", directory())), "{shown}");
+    assert!(!shown.contains("y/n"), "{shown}");
+}
+
+#[test]
 fn ctrl_y_to_the_question_keeps_the_session_running() {
     let mut screen = Screen::new(reading_agent());
     screen.press('n');

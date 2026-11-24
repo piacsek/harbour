@@ -1,5 +1,5 @@
 use harbour::help::{KEYS, rows};
-use harbour::keymap::Keymap;
+use harbour::keymap::{Action, Keymap};
 use unicode_width::UnicodeWidthStr;
 
 #[test]
@@ -21,6 +21,40 @@ fn the_default_bindings_draw_the_rows_of_keys() {
     assert_eq!(rows[11], owned(KEYS[11]));
     assert_eq!(rows[12], owned(KEYS[12]));
     assert_eq!(rows[13], owned(KEYS[13]));
+}
+
+#[test]
+fn the_session_row_names_start_end_and_close() {
+    assert_eq!(KEYS[3].0, "n/x/X");
+    assert_eq!(KEYS[3].1, "start / end or forget / end & forget, C-/ too");
+}
+
+#[test]
+fn the_session_row_without_close_reads_as_before() {
+    let rows = rows(&Keymap::default().bind(Action::Close, None));
+
+    assert_eq!(rows[3].0, "n/x");
+    assert_eq!(rows[3].1, "start / end or forget a session, C-/ too");
+}
+
+#[test]
+fn the_session_row_with_close_alone_names_its_session() {
+    let rows = rows(
+        &Keymap::default()
+            .bind(Action::New, None)
+            .bind(Action::End, None),
+    );
+
+    assert_eq!(rows[3].0, "X");
+    assert_eq!(rows[3].1, "end & forget a session, C-/ too");
+}
+
+#[test]
+fn the_session_row_with_end_and_close_drops_the_session() {
+    let rows = rows(&Keymap::default().bind(Action::New, None));
+
+    assert_eq!(rows[3].0, "x/X");
+    assert_eq!(rows[3].1, "end or forget / end & forget, C-/ too");
 }
 
 #[test]

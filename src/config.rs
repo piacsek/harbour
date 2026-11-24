@@ -37,6 +37,7 @@ pub enum Source {
     Variable(&'static str),
     File,
     Default,
+    Yielded(&'static str),
 }
 
 pub struct Setting<T> {
@@ -519,18 +520,34 @@ impl Reader<'_> {
             }
             .map_err(|what| self.refusal(&span, &key, &what))?;
             if let Some(c) = bound.filter(|c| {
-                matches!(action, Action::New | Action::End) && matches!(c, 'j' | 'J' | 'k' | 'K')
+                matches!(action, Action::New | Action::End | Action::Close)
+                    && matches!(c, 'j' | 'J' | 'k' | 'K')
             }) {
                 let what = format!("{:?} moves the selection in the sidebar", c.to_string());
                 return Err(self.refusal(&span, &key, &what));
             }
             written.push((span, key, action, bound));
         }
-        let keymap = written
+        let mut keymap = written
             .iter()
             .fold(Keymap::default(), |keymap, (_, _, action, bound)| {
                 keymap.bind(*action, *bound)
             });
+        if let Some(taker) = keymap.clash(Action::Close).filter(|_| {
+            !written
+                .iter()
+                .any(|(_, _, action, _)| *action == Action::Close)
+        }) {
+            keymap = keymap.bind(Action::Close, None);
+            for (each, setting) in &mut bindings {
+                if *each == Action::Close {
+                    *setting = Setting {
+                        value: None,
+                        source: Source::Yielded(keymap::name(taker)),
+                    };
+                }
+            }
+        }
         for (span, key, action, bound) in written.iter().rev() {
             if let (Some(other), Some(c)) = (keymap.clash(*action), bound) {
                 let other = keymap::name(other);
@@ -578,6 +595,7 @@ fn line(key: &str, value: &str, source: &Source) -> String {
         Source::Variable(name) => format!("variable {name}"),
         Source::File => "file".to_string(),
         Source::Default => "default".to_string(),
+        Source::Yielded(taker) => format!("yields to {taker}"),
     };
     format!("{key} = {value}  ({source})")
 }

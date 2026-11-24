@@ -87,6 +87,16 @@ fn a_sidebar_key_with_shift_is_logged_by_its_name() {
 }
 
 #[test]
+fn capital_x_is_logged_by_its_name() {
+    let (app, lines) = logged(App::new(reading_agent()));
+    let mut screen = Screen::of(app);
+
+    screen.key(KeyCode::Char('X'), KeyModifiers::SHIFT);
+
+    only(&read(&lines), r#" key name="X""#);
+}
+
+#[test]
 fn a_control_key_harbour_acts_on_is_logged_with_its_modifier() {
     let (app, lines) = logged(App::new(reading_agent()));
     let mut screen = Screen::of(app);

@@ -9,6 +9,7 @@ pub enum Action {
     Find,
     New,
     End,
+    Close,
     Editor,
     Sidebar,
     Pane,
@@ -20,7 +21,7 @@ pub enum Action {
     Quit,
 }
 
-pub const ACTIONS: [(Action, &str, char); 16] = [
+pub const ACTIONS: [(Action, &str, char); 17] = [
     (Action::Zoom, "zoom", 'z'),
     (Action::Side, "side", '\\'),
     (Action::SwapLeft, "swap_left", '{'),
@@ -28,6 +29,7 @@ pub const ACTIONS: [(Action, &str, char); 16] = [
     (Action::Find, "find", 's'),
     (Action::New, "new", 'n'),
     (Action::End, "end", 'x'),
+    (Action::Close, "close", 'X'),
     (Action::Editor, "editor", 'e'),
     (Action::Sidebar, "sidebar", 'h'),
     (Action::Pane, "pane", 'l'),
@@ -92,9 +94,7 @@ impl Keymap {
         let key = self.key_of(action)?;
         self.bound
             .iter()
-            .find(|(each, other)| {
-                *each != action && other.is_some_and(|other| other.eq_ignore_ascii_case(&key))
-            })
+            .find(|(each, other)| *each != action && *other == Some(key))
             .map(|(each, _)| *each)
     }
 
@@ -136,7 +136,12 @@ impl Keymap {
     pub fn action_on(&self, c: char) -> Option<Action> {
         self.bound
             .iter()
-            .find(|(_, key)| key.is_some_and(|key| key.eq_ignore_ascii_case(&c)))
+            .find(|(_, key)| *key == Some(c))
+            .or_else(|| {
+                self.bound.iter().find(|(action, key)| {
+                    *action != Action::Close && key.is_some_and(|key| key.eq_ignore_ascii_case(&c))
+                })
+            })
             .map(|(action, _)| *action)
     }
 }

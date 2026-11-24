@@ -43,7 +43,7 @@ harbour config      # the settings file's path and where each setting comes from
 | `j/k` | select the next / previous session |
 | `Enter/C-l` | focus or resume; C-l in Claude Code: editor |
 | `C-h` | focus the sidebar; from an editor, Claude Code |
-| `n/x` | start / end or forget a session, C-/ too |
+| `n/x/X` | start / end or forget / end & forget, C-/ too |
 | `C-/ 1..9` | focus or resume that card; 9 the last |
 | `C-/ z` | zoom the session to the whole screen, or back |
 | `C-/ \ {}` | side by side (120+ columns); swap the halves |
@@ -70,4 +70,5 @@ scripts/dev-install.sh    # the working tree as ~/.local/bin/harbour-dev
 scripts/ship.sh "message" # gates, dev-install, commit, push, draft PR
 ```
 
-Guidelines live in `AGENTS.md`.
+Guidelines live in `AGENTS.md`. CI's flaky and slow tests are tracked in
+[Codecov Test Analytics](https://app.codecov.io/gh/piacsek/harbour/tests).

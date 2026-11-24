@@ -143,6 +143,48 @@ fn a_capital_letter_binds_both_cases() {
 }
 
 #[test]
+fn capital_x_closes_by_default() {
+    let home = tempfile::tempdir().unwrap();
+
+    let config = read_at(home.path(), None).unwrap();
+
+    assert_eq!(config.keymap().action_on('X'), Some(Action::Close));
+    assert_eq!(config.keymap().action_on('x'), Some(Action::End));
+}
+
+#[test]
+fn end_written_on_x_alone_still_loads() {
+    let home = tempfile::tempdir().unwrap();
+    write_config(home.path(), "[keys]\nend = \"x\"\n");
+
+    let config = read_at(home.path(), None).unwrap();
+
+    assert_eq!(config.keymap().action_on('x'), Some(Action::End));
+    assert_eq!(config.keymap().action_on('X'), Some(Action::Close));
+}
+
+#[test]
+fn end_written_on_capital_x_loads_and_takes_it_from_close() {
+    let home = tempfile::tempdir().unwrap();
+    write_config(home.path(), "[keys]\nend = \"X\"\n");
+
+    let config = read_at(home.path(), None).unwrap();
+
+    assert_eq!(config.keymap().action_on('X'), Some(Action::End));
+    assert_eq!(config.keymap().key_of(Action::Close), None);
+}
+
+#[test]
+fn x_never_falls_back_to_close_when_end_is_unbound() {
+    let home = tempfile::tempdir().unwrap();
+    write_config(home.path(), "[keys]\nend = \"none\"\n");
+
+    let config = read_at(home.path(), None).unwrap();
+
+    assert_eq!(config.keymap().action_on('x'), None);
+}
+
+#[test]
 fn none_unbinds_an_action() {
     let home = tempfile::tempdir().unwrap();
     write_config(home.path(), "[keys]\nusage = \"none\"\n");
@@ -179,14 +221,25 @@ fn moving_the_other_action_away_lets_the_key_be_taken() {
 }
 
 #[test]
+fn two_written_bindings_differing_in_case_each_keep_their_case() {
+    let home = tempfile::tempdir().unwrap();
+    write_config(home.path(), "[keys]\nzoom = \"f\"\nfind = \"F\"\n");
+
+    let config = read_at(home.path(), None).unwrap();
+
+    assert_eq!(config.keymap().action_on('f'), Some(Action::Zoom));
+    assert_eq!(config.keymap().action_on('F'), Some(Action::Find));
+}
+
+#[test]
 fn two_written_bindings_on_one_key_are_refused_on_the_later_line() {
     let home = tempfile::tempdir().unwrap();
-    let path = write_config(home.path(), "[keys]\nzoom = \"f\"\nfind = \"F\"\n");
+    let path = write_config(home.path(), "[keys]\nzoom = \"f\"\nfind = \"f\"\n");
 
     assert_eq!(
         refusal(home.path()),
         format!(
-            "{}:3: keys.find: \"F\" is zoom's key too; bind zoom elsewhere",
+            "{}:3: keys.find: \"f\" is zoom's key too; bind zoom elsewhere",
             path.display()
         )
     );
@@ -215,6 +268,34 @@ fn a_sidebar_key_on_k_is_refused() {
         refusal(home.path()),
         format!(
             "{}:2: keys.end: \"K\" moves the selection in the sidebar",
+            path.display()
+        )
+    );
+}
+
+#[test]
+fn close_on_j_is_refused() {
+    let home = tempfile::tempdir().unwrap();
+    let path = write_config(home.path(), "[keys]\nclose = \"j\"\n");
+
+    assert_eq!(
+        refusal(home.path()),
+        format!(
+            "{}:2: keys.close: \"j\" moves the selection in the sidebar",
+            path.display()
+        )
+    );
+}
+
+#[test]
+fn close_on_capital_j_is_refused() {
+    let home = tempfile::tempdir().unwrap();
+    let path = write_config(home.path(), "[keys]\nclose = \"J\"\n");
+
+    assert_eq!(
+        refusal(home.path()),
+        format!(
+            "{}:2: keys.close: \"J\" moves the selection in the sidebar",
             path.display()
         )
     );
@@ -307,7 +388,7 @@ fn an_unknown_action_is_refused_naming_the_actions() {
     assert_eq!(
         refusal(home.path()),
         format!(
-            "{}:3: keys.zoomed: no such action; the actions are zoom, side, swap_left, swap_right, find, new, end, editor, sidebar, pane, narrower, wider, usage, changelog, help, quit",
+            "{}:3: keys.zoomed: no such action; the actions are zoom, side, swap_left, swap_right, find, new, end, close, editor, sidebar, pane, narrower, wider, usage, changelog, help, quit",
             path.display()
         )
     );

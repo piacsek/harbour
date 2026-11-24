@@ -151,6 +151,7 @@ impl App {
             Action::Find => {}
             Action::New => self.pick_or_start(),
             Action::End => self.end_or_remove(),
+            Action::Close => self.close_or_remove(),
             Action::Editor => self.next_editor(),
             Action::Sidebar => self.pane_focused = false,
             Action::Pane => self.focus_or_resume(),
