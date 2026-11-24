@@ -253,6 +253,35 @@ fn x_after_the_prefix_from_claude_code_asks_to_end_it() {
 }
 
 #[test]
+fn capital_x_after_the_prefix_from_claude_code_asks_to_end_it() {
+    let mut screen = focused(raw_reader(1));
+
+    screen.prefixed('X');
+
+    screen.wait_for("End and remove? y/n");
+}
+
+#[test]
+fn capital_x_answered_yes_from_a_pane_gives_the_keys_back_to_the_sidebar() {
+    let scratch = tempfile::tempdir().unwrap();
+    let mut screen = Screen::new(lined_agent(scratch.path()));
+    for n in 1..=2 {
+        screen.press('n');
+        screen.wait_for(&format!("acme agent {n}"));
+    }
+    screen.key(KeyCode::Enter, KeyModifiers::NONE);
+    screen.prefixed('X');
+    screen.wait_for("End and remove? y/n");
+    screen.press('y');
+
+    screen.press('w');
+    screen.key(KeyCode::Enter, KeyModifiers::NONE);
+
+    let shown = settled(&mut screen, |shown| shown.contains("got: w"));
+    assert!(!shown.contains("got: w"), "{shown}");
+}
+
+#[test]
 fn q_after_the_prefix_while_zoomed_shows_the_question_over_the_pane() {
     let mut screen = focused(raw_reader(1));
     screen.prefixed('z');

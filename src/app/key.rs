@@ -98,6 +98,9 @@ impl App {
             KeyCode::Char(c) if self.keymap.action_on(c) == Some(Action::End) => {
                 self.end_or_remove()
             }
+            KeyCode::Char(c) if self.keymap.action_on(c) == Some(Action::Close) => {
+                self.close_or_remove()
+            }
             KeyCode::Char('j') => {
                 self.select((self.selected + 1).min(self.sessions.len().saturating_sub(1)))
             }
@@ -149,11 +152,20 @@ impl App {
     }
 
     pub(super) fn end_or_remove(&mut self) {
+        self.ask_or_remove(false);
+    }
+
+    pub(super) fn close_or_remove(&mut self) {
+        self.ask_or_remove(true);
+    }
+
+    fn ask_or_remove(&mut self, closing: bool) {
         let Some(entry) = self.sessions.get_mut(self.selected) else {
             return;
         };
         if entry.running() {
             let changes = changes(&entry.editors);
+            self.closing = closing;
             self.asking = Some(Question::End(changes));
         } else {
             self.remove_selected();
