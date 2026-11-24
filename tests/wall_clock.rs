@@ -192,10 +192,80 @@ fn a_count_bound_scaled_from_the_shared_deadline_is_not_found() {
 }
 
 #[test]
-fn a_constant_bound_on_any_count_of_a_duration_is_found() {
-    let source = "    assert!(elapsed.as_secs_f64() < 1.5);\n    assert!(elapsed.as_secs_f32() < 1.5);\n    assert!(elapsed.as_micros() < 500);\n    assert!(elapsed.as_nanos() <= 500);\n";
+fn a_constant_bound_on_a_fractional_count_of_seconds_is_found() {
+    let source = "    assert!(elapsed.as_secs_f64() < 1.5);\n";
 
-    assert_eq!(constant_upper_bounds(source), vec![1, 2, 3, 4]);
+    assert_eq!(constant_upper_bounds(source), vec![1]);
+}
+
+#[test]
+fn a_constant_bound_on_a_single_precision_count_of_seconds_is_found() {
+    let source = "    assert!(elapsed.as_secs_f32() < 1.5);\n";
+
+    assert_eq!(constant_upper_bounds(source), vec![1]);
+}
+
+#[test]
+fn a_constant_bound_on_a_count_of_microseconds_is_found() {
+    let source = "    assert!(elapsed.as_micros() < 500);\n";
+
+    assert_eq!(constant_upper_bounds(source), vec![1]);
+}
+
+#[test]
+fn a_constant_bound_on_a_count_of_nanoseconds_that_allows_equality_is_found() {
+    let source = "    assert!(elapsed.as_nanos() <= 500);\n";
+
+    assert_eq!(constant_upper_bounds(source), vec![1]);
+}
+
+#[test]
+fn a_count_bound_with_the_deadline_only_in_its_message_is_found() {
+    let source = "    assert!(elapsed.as_millis() < 1500, \"slower than {:?}\", deadline());\n";
+
+    assert_eq!(constant_upper_bounds(source), vec![1]);
+}
+
+#[test]
+fn a_count_bound_with_the_deadline_only_in_another_condition_is_found() {
+    let source = "    assert!(a.as_millis() < 1500 && b < deadline());\n";
+
+    assert_eq!(constant_upper_bounds(source), vec![1]);
+}
+
+#[test]
+fn a_count_bound_with_the_deadline_added_to_a_constant_is_found() {
+    let source = "    assert!(e.as_millis() < 1500 + deadline().as_millis());\n";
+
+    assert_eq!(constant_upper_bounds(source), vec![1]);
+}
+
+#[test]
+fn a_count_bound_in_parentheses_is_found() {
+    let source = "    assert!(elapsed.as_millis() < (1500));\n";
+
+    assert_eq!(constant_upper_bounds(source), vec![1]);
+}
+
+#[test]
+fn a_count_bound_by_a_converted_constant_is_found() {
+    let source = "    assert!(elapsed.as_millis() < u128::from(LIMIT_MS));\n";
+
+    assert_eq!(constant_upper_bounds(source), vec![1]);
+}
+
+#[test]
+fn a_count_bound_by_a_named_constant_is_found() {
+    let source = "    assert!(elapsed.as_secs() < LIMIT);\n";
+
+    assert_eq!(constant_upper_bounds(source), vec![1]);
+}
+
+#[test]
+fn a_count_bound_scaled_by_the_slowdown_is_not_found() {
+    let source = "    assert!(waited.as_millis() < 10 * scaled(PATIENCE).as_millis());\n";
+
+    assert!(constant_upper_bounds(source).is_empty());
 }
 
 fn constant_upper_bounds(source: &str) -> Vec<usize> {
@@ -245,13 +315,41 @@ const COUNTS: &[&str] = &[
 fn constant_count_bound(line: &str) -> bool {
     COUNTS.iter().any(|count| {
         line.match_indices(count).any(|(start, _)| {
-            let bound = line[start + count.len()..]
-                .trim_start_matches('=')
-                .trim_start();
-            bound.starts_with(|character: char| character.is_ascii_digit())
-                && !bound.contains("deadline()")
+            let rest = line[start + count.len()..].trim_start_matches('=');
+            !scaled_from_the_deadline(operand(rest))
         })
     })
+}
+
+fn operand(text: &str) -> &str {
+    let mut depth = 0;
+    let end = text
+        .char_indices()
+        .find(|(index, character)| {
+            match character {
+                '(' | '[' => depth += 1,
+                ')' | ']' if depth == 0 => return true,
+                ')' | ']' => depth -= 1,
+                ',' if depth == 0 => return true,
+                _ => {}
+            }
+            depth == 0 && (text[*index..].starts_with("&&") || text[*index..].starts_with("||"))
+        })
+        .map_or(text.len(), |(index, _)| index);
+    &text[..end]
+}
+
+fn scaled_from_the_deadline(operand: &str) -> bool {
+    let mut depth = 0;
+    let summed = operand.chars().any(|character| {
+        match character {
+            '(' | '[' => depth += 1,
+            ')' | ']' => depth -= 1,
+            _ => {}
+        }
+        depth == 0 && (character == '+' || character == '-')
+    });
+    !summed && (operand.contains("deadline()") || operand.contains("scaled("))
 }
 
 fn constant_on_the_left(line: &str) -> bool {
