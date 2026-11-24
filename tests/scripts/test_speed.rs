@@ -69,6 +69,10 @@ fn the_chart_is_one_svg_document() {
     );
     assert!(svg.ends_with("</svg>\n"), "{svg}");
     assert!(svg.contains(">harbour a::b</text>"), "{svg}");
+    assert!(
+        svg.contains(">Test suite health report: the slowest tests</text>"),
+        "{svg}"
+    );
 }
 
 #[test]

@@ -14,8 +14,7 @@ fn the_readme_shows_the_details_screenshot_right_below_the_description() {
     ));
 }
 
-const TEST_SPEED_CHART: &str =
-    "![the slowest tests of CI on main](https://piacsek.github.io/harbour/test-speed.svg)";
+const TEST_SPEED_CHART: &str = "![test suite health report: the slowest tests of CI on main](https://piacsek.github.io/harbour/test-speed.svg)";
 
 #[test]
 fn the_readme_embeds_the_screenshot_and_the_test_speed_chart_only() {

@@ -44,9 +44,9 @@ def chart(found):
     height = TOP + ROW * len(slowest) + 28
     lines = [
         f'<svg xmlns="http://www.w3.org/2000/svg" width="{WIDTH}" height="{height}" '
-        f'viewBox="0 0 {WIDTH} {height}" role="img" aria-label="The slowest tests">',
+        f'viewBox="0 0 {WIDTH} {height}" role="img" aria-label="Test suite health report: the slowest tests">',
         STYLE,
-        f'<text class="title" x="{MARGIN}" y="24">Slowest tests</text>',
+        f'<text class="title" x="{MARGIN}" y="24">Test suite health report: the slowest tests</text>',
     ]
     for row, (seconds, label) in enumerate(slowest):
         y = TOP + ROW * row
