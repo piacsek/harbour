@@ -73,9 +73,18 @@ The move draws no new text on a card: the narrowest sidebar and a CJK name draw 
 
 ## Outcome
 
+`J` and `K` in the sidebar swap the selected card with its neighbour, the selection following, in
+#177. A move saves both cards' positions at once, so stopped cards come back in the new order; a
+file another harbour holds or one already forgotten is left alone. The help's first row reads
+`j/k J/K  select / move the card down / up`, mirrored by the README; `docs/keys.png` was
+retaken (the other shots changed only in rasterising and were left out).
+
 ### Sweep
 
 Not run: the owner parked the sweep (#128), and the one due before this phase (#170) waits with
 it. Phase 39's ready, merged and released were read from GitHub into `plans/metrics.md`.
 
 ## Hurdles
+
+- `design` an own help row for `J/K` overflowed the 14 rows a 20-row terminal fits; it was merged into the `j/k` row within 57 columns → none
+- `tooling` `scripts/screenshots.sh` rewrote every image though only the help changed; the unchanged shots were checked out again by hand → none

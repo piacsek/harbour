@@ -3,7 +3,7 @@ use std::time::{Duration, SystemTime};
 
 use harbour::tui::SESSION_COMMAND;
 
-use super::{AGENT, Server};
+use super::{AGENT, Server, in_order};
 
 const RESUMABLE_AGENT: &str = concat!(
     env!("CARGO_MANIFEST_DIR"),
@@ -185,6 +185,37 @@ fn the_demo_shows_a_stopped_session_it_remembers() {
     assert!(screen.contains(rows[1]), "{screen}");
     assert!(screen.contains(rows[2]), "{screen}");
     assert!(screen.contains(rows[3]), "{screen}");
+}
+
+#[test]
+#[ignore]
+fn capital_k_moves_the_selected_card_above_the_one_before_it() {
+    let home = tempfile::tempdir().unwrap();
+    let server = Server::start("reorder", 160, 20);
+    server.run(home.path(), &[(SESSION_COMMAND, AGENT)], &[]);
+    server.wait_for_screen("press n to start one");
+    server.send_keys(&["n"]);
+    server.wait_for_screen("acme-api 1");
+    server.send_keys(&["n"]);
+    server.wait_for_screen("acme-api 2");
+
+    server.send_keys(&["K"]);
+
+    let screen = server.wait_until("acme-api 2 above acme-api 1", |screen| {
+        in_order(&sidebar(screen), &["acme-api 2", "acme-api 1"])
+    });
+    assert!(
+        in_order(&sidebar(&screen), &["acme-api 2", "acme-api 1"]),
+        "{screen}"
+    );
+}
+
+fn sidebar(screen: &str) -> String {
+    screen
+        .lines()
+        .map(|line| line.chars().take(30).collect::<String>())
+        .collect::<Vec<_>>()
+        .join("\n")
 }
 
 fn line_below(screen: &str, text: &str) -> String {
