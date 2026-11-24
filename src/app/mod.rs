@@ -528,9 +528,6 @@ impl App {
                 entry.editors.clear();
                 entry.editor = None;
                 entry.on_editor = false;
-                if closing {
-                    self.pane_focused = false;
-                }
                 if exited || closing {
                     self.remove_selected();
                 }
@@ -547,6 +544,7 @@ impl App {
         removed.reservation = None;
         self.forget(&removed);
         self.selected = self.selected.min(self.sessions.len().saturating_sub(1));
+        self.pane_focused = false;
     }
 
     fn finish_pick(&mut self) {
