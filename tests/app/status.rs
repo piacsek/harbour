@@ -515,7 +515,8 @@ fn last_column(shown: &str, text: &str, row: usize) -> u16 {
 }
 
 fn wait_for_dot(screen: &mut Screen, what: &str, done: impl Fn(&Cell) -> bool) -> Cell {
-    let deadline = Instant::now() + Duration::from_secs(5);
+    let patience = 5 * deadline();
+    let until = Instant::now() + patience;
     loop {
         screen.draw();
         let dot = screen.cell(3, 1);
@@ -523,8 +524,8 @@ fn wait_for_dot(screen: &mut Screen, what: &str, done: impl Fn(&Cell) -> bool) -
             return dot;
         }
         assert!(
-            Instant::now() < deadline,
-            "waited 5 s for {what} on the first card, last dot: {dot:?}"
+            Instant::now() < until,
+            "waited {patience:?} for {what} on the first card, last dot: {dot:?}"
         );
         sleep(Duration::from_millis(20));
     }
@@ -547,7 +548,7 @@ fn only_file(registry: &Path) -> PathBuf {
 }
 
 fn counts_file(state: &Path) -> PathBuf {
-    let deadline = std::time::Instant::now() + Duration::from_secs(5);
+    let until = Instant::now() + 5 * deadline();
     loop {
         let found = std::fs::read_dir(state)
             .unwrap()
@@ -556,7 +557,7 @@ fn counts_file(state: &Path) -> PathBuf {
         if let Some(path) = found {
             return path;
         }
-        assert!(std::time::Instant::now() < deadline, "no counts published");
+        assert!(Instant::now() < until, "no counts published");
         std::thread::sleep(Duration::from_millis(20));
     }
 }
@@ -586,15 +587,16 @@ fn wait_for_sidebar_row(screen: &mut Screen, text: &str) -> String {
 }
 
 fn wait_for_files(registry: &Path, count: usize) {
-    let deadline = Instant::now() + Duration::from_secs(5);
+    let patience = 5 * deadline();
+    let until = Instant::now() + patience;
     loop {
         let found = std::fs::read_dir(registry).unwrap().count();
         if found >= count {
             return;
         }
         assert!(
-            Instant::now() < deadline,
-            "waited 5 s for {count} registry files, found {found}"
+            Instant::now() < until,
+            "waited {patience:?} for {count} registry files, found {found}"
         );
         sleep(Duration::from_millis(20));
     }

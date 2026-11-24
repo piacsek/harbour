@@ -438,15 +438,16 @@ fn existing(scratch: &Path, name: &str) -> PathBuf {
 }
 
 fn bound_again(dir: &Path) -> Vec<PathBuf> {
-    let deadline = Instant::now() + Duration::from_secs(2);
+    let patience = 5 * deadline();
+    let until = Instant::now() + patience;
     loop {
         let found = socket_files(dir);
         if !found.is_empty() {
             return found;
         }
         assert!(
-            Instant::now() < deadline,
-            "waited 2 s for a socket in {}",
+            Instant::now() < until,
+            "waited {patience:?} for a socket in {}",
             dir.display()
         );
         sleep(Duration::from_millis(5));

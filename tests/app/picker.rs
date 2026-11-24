@@ -480,15 +480,16 @@ fn closed(screen: &mut Screen) -> String {
 }
 
 fn popup_closed(screen: &mut Screen) -> String {
-    let deadline = Instant::now() + Duration::from_secs(5);
+    let patience = 5 * deadline();
+    let until = Instant::now() + patience;
     loop {
         let shown = screen.draw();
         if !shown.contains(" directory ") {
             return shown;
         }
         assert!(
-            Instant::now() < deadline,
-            "waited 5 s for the picker to close, last screen:\n{shown}"
+            Instant::now() < until,
+            "waited {patience:?} for the picker to close, last screen:\n{shown}"
         );
         sleep(Duration::from_millis(20));
     }

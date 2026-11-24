@@ -584,8 +584,8 @@ fn served(
 ) -> (Output, Vec<Vec<(Verb, PathBuf)>>) {
     let mut child = spawned(scratch, file);
     let mut heard = vec![Vec::new(); harbours.len()];
-    let deadline = Instant::now() + Duration::from_secs(10);
-    while child.try_wait().unwrap().is_none() && Instant::now() < deadline {
+    let until = Instant::now() + 5 * deadline();
+    while child.try_wait().unwrap().is_none() && Instant::now() < until {
         for (index, (listener, answer)) in harbours.iter_mut().enumerate() {
             if let Some(request) = listener.incoming() {
                 heard[index].push((request.verb, request.file.clone()));

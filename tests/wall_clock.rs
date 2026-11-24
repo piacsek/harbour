@@ -156,6 +156,34 @@ fn a_literal_deadline_after_a_parenthesis_in_a_character_is_found() {
     assert_eq!(literal_seam_deadlines(source), vec![3]);
 }
 
+#[test]
+fn a_literal_deadline_inside_the_leftmost_of_two_seams_on_a_line_is_found() {
+    let source = "    screen.app.hand(Verb::Open, with_program(acme()),\n        Duration::from_secs(5),\n    );\n";
+
+    assert_eq!(literal_seam_deadlines(source), vec![2]);
+}
+
+#[test]
+fn a_call_whose_name_only_ends_like_a_seam_is_not_a_seam() {
+    let source = "    let shown = beforehand(\n        Duration::from_secs(5),\n    );\n";
+
+    assert!(literal_seam_deadlines(source).is_empty());
+}
+
+#[test]
+fn a_bound_on_a_count_tied_to_the_shared_deadline_is_not_found() {
+    let source = "    assert!(elapsed.as_millis() < deadline().as_millis());\n";
+
+    assert!(constant_upper_bounds(source).is_empty());
+}
+
+#[test]
+fn a_constant_wait_followed_by_an_error_check_of_something_else_is_found() {
+    let source = "    let first = asked.recv_timeout(Duration::from_secs(5)).unwrap(); assert!(other.is_err());\n";
+
+    assert_eq!(constant_upper_bounds(source), vec![1]);
+}
+
 fn constant_upper_bounds(source: &str) -> Vec<usize> {
     numbered(source)
         .filter(|(_, line)| bounds_by_a_constant(line))
@@ -166,11 +194,40 @@ fn constant_upper_bounds(source: &str) -> Vec<usize> {
 fn bounds_by_a_constant(line: &str) -> bool {
     line.contains("< Duration::from_")
         || line.contains("<= Duration::from_")
-        || (line.contains("recv_timeout(Duration::from_") && !line.contains(".is_err()"))
+        || constant_wait_that_must_arrive(line)
         || constant_on_the_left(line)
-        || ["as_millis() <", "as_secs() <"]
-            .iter()
-            .any(|count| line.contains(count))
+        || constant_count_bound(line)
+}
+
+fn constant_wait_that_must_arrive(line: &str) -> bool {
+    line.match_indices("recv_timeout(").any(|(start, call)| {
+        let rest = &line[start + call.len()..];
+        rest.starts_with("Duration::from_")
+            && closing(rest).is_none_or(|end| !rest[end + 1..].starts_with(".is_err()"))
+    })
+}
+
+fn closing(text: &str) -> Option<usize> {
+    let mut depth = 1;
+    text.char_indices().find_map(|(index, character)| {
+        match character {
+            '(' => depth += 1,
+            ')' => depth -= 1,
+            _ => {}
+        }
+        (depth == 0).then_some(index)
+    })
+}
+
+fn constant_count_bound(line: &str) -> bool {
+    ["as_millis() <", "as_secs() <"].iter().any(|count| {
+        line.match_indices(count).any(|(start, _)| {
+            line[start + count.len()..]
+                .trim_start_matches('=')
+                .trim_start()
+                .starts_with(|character: char| character.is_ascii_digit())
+        })
+    })
 }
 
 fn constant_on_the_left(line: &str) -> bool {
@@ -185,7 +242,7 @@ fn literal_seam_deadlines(source: &str) -> Vec<usize> {
     let mut found = Vec::new();
     let mut call = Call::default();
     for (number, line) in numbered(source) {
-        let opened = SEAMS.iter().find_map(|seam| line.find(seam));
+        let opened = leftmost_seam(line);
         let inside = call.depth > 0;
         if (inside || opened.is_some()) && line.contains("Duration::from_") {
             found.push(number);
@@ -197,6 +254,17 @@ fn literal_seam_deadlines(source: &str) -> Vec<usize> {
         }
     }
     found
+}
+
+fn leftmost_seam(line: &str) -> Option<usize> {
+    SEAMS
+        .iter()
+        .flat_map(|seam| line.match_indices(seam).map(|(start, _)| start))
+        .filter(|start| {
+            !line[..*start]
+                .ends_with(|character: char| character.is_alphanumeric() || character == '_')
+        })
+        .min()
 }
 
 fn skip_character_literal(characters: &mut std::iter::Peekable<std::str::Chars>) {
