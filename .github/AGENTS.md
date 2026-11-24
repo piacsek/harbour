@@ -61,16 +61,20 @@ speed-up, when its pipeline went from about 3 min 20 s to 37 s:
   outage or a missing secret never turns a shard red. Slow jobs are
   in GitHub's own Insights → Actions performance metrics, which needs nothing here.
 - **The README's test speed chart is drawn on every push to `main`.** On a push, each shard
-  also keeps its `junit.xml` as the artifact `junit-<shard>` for a day, and the `test-speed` job
-  (`needs: shard`, only on a push and only when both legs succeeded) runs
-  `python3 scripts/test-speed.py` over both into `site/test-speed.svg` and deploys `site/` to
-  GitHub Pages (`actions/upload-pages-artifact`, `actions/deploy-pages`, `concurrency: pages`
-  without cancelling), which serves it at `https://piacsek.github.io/harbour/test-speed.svg`, the
-  image the README ends with. It holds `pages: write` and `id-token: write`, the deploy needs
-  both, and runs nothing from a pull request. Like the Codecov upload, it has
-  `continue-on-error: true`, so a Pages outage, a failed deploy or Pages not set up yet (see
-  Owner steps) never turns the run on `main` red; the README keeps the last chart deployed, or
-  shows a broken image before the first. It is not a required check, so no merge waits on it.
+  also keeps its `junit.xml` as the artifact `junit-<shard>` for a day. The `test-speed` job
+  (`needs: shard`, only on a push and only when both legs succeeded, `contents: read`) runs
+  `python3 scripts/test-speed.py` over both into `site/test-speed.svg` and uploads `site/` with
+  `actions/upload-pages-artifact`; the `test-speed-deploy` job (`needs: test-speed`) deploys it
+  with `actions/deploy-pages` to GitHub Pages (`concurrency: pages` without cancelling), which
+  serves it at `https://piacsek.github.io/harbour/test-speed.svg`, the image the README ends
+  with. Upload and deploy are two jobs, as GitHub's Pages starter workflow has them: run in one
+  job, `deploy-pages` listed the run's artifacts right after the upload, found the two
+  `junit-*` but not `github-pages`, and failed (run 45328992619). Only the deploy job holds
+  `pages: write` and `id-token: write`, and it checks out and runs nothing of the repository.
+  Like the Codecov upload, both have `continue-on-error: true`, so a Pages outage, a failed
+  deploy or Pages not set up yet (see Owner steps) never turns the run on `main` red; the README
+  keeps the last chart deployed, or shows a broken image before the first. Neither is a
+  required check, so no merge waits on them.
 - **Every job has a `timeout-minutes`**, a few times its normal run and at least 5, so a hung tmux or
   Neovim test cannot hold a runner for GitHub's 6-hour default.
 - **Here the tests set the floor, not setup.** In conveyor, job setup, checkout, toolchain and
@@ -545,8 +549,8 @@ Every action is pinned to a commit SHA with the tag in a trailing comment; bump 
 `gh api repos/<owner>/<repo>/git/ref/tags/<tag>`. Workflows default to `contents: read`; only the
 `tag` job (pushes the tag), `stable` (pushes the `stable` branch, while `stable-build` that builds
 the tag stays read-only), `publish` (`contents: write`, `id-token` and `attestations: write` for
-`actions/attest-build-provenance`), the `test-speed` job of `ci.yml` (`pages: write` and
-`id-token: write`), the delete job of `delete-closed-branch.yml` and the issue job of `sweep.yml`
+`actions/attest-build-provenance`), the `test-speed-deploy` job of `ci.yml` (`pages: write`
+and `id-token: write`), the delete job of `delete-closed-branch.yml` and the issue job of `sweep.yml`
 get more.
 
 Installed copies: Homebrew puts the release binary in `$(brew --prefix)/bin/harbour`; dev builds
@@ -568,5 +572,5 @@ Steps only the owner takes, by hand, outside this repository:
   shards stay green.
 - For the README's test speed chart: under Settings → Pages, set Source to GitHub Actions
   before merging the pull request that adds the `test-speed` job; that creates the
-  `github-pages` environment the job deploys to. Until then the job fails, without failing the
-  run, on every push to `main`, and the README's last image is broken.
+  `github-pages` environment `test-speed-deploy` deploys to. Until then that job fails, without
+  failing the run, on every push to `main`, and the README's last image is broken.
