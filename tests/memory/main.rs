@@ -496,6 +496,21 @@ fn placing_changes_only_the_position() {
 }
 
 #[test]
+fn placing_at_the_same_position_writes_nothing() {
+    let scratch = tempfile::tempdir().unwrap();
+    let dir = folder(scratch.path());
+    let memory = Memory::new(&dir);
+    memory.keep(&remembered(ID, 3)).unwrap();
+    let file = dir.join(format!("{ID}.json"));
+    age(&file, Duration::from_secs(DAY));
+    let before = fs::metadata(&file).unwrap().modified().unwrap();
+
+    memory.place(ID, 3).unwrap();
+
+    assert_eq!(fs::metadata(&file).unwrap().modified().unwrap(), before);
+}
+
+#[test]
 fn placing_a_missing_file_writes_nothing() {
     let scratch = tempfile::tempdir().unwrap();
     let memory = Memory::new(&folder(scratch.path()));

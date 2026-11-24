@@ -95,7 +95,7 @@ impl App {
             return;
         }
         self.sessions.swap(from, to);
-        self.select(to);
+        self.selected = to;
         self.keep_positions();
     }
 

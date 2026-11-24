@@ -1,6 +1,7 @@
 use crossterm::event::{KeyCode, KeyModifiers};
 use harbour::app::App;
 use harbour::keymap::{Action, Keymap};
+use harbour::memory::Remembered;
 
 use crate::refusing::Elsewhere;
 use crate::remembering::{ID, OTHER_ID, Scratch, TITLE};
@@ -187,6 +188,30 @@ fn a_moved_card_open_elsewhere_saves_only_its_new_position() {
 
     assert_eq!(position(&scratch, ID), 1);
     assert_eq!(position(&scratch, OTHER_ID), 0);
+    assert_eq!(recalled(&scratch, ID).title, TITLE);
+    assert_eq!(recalled(&scratch, ID).directory, scratch.checkout());
+}
+
+#[test]
+fn a_move_keeps_the_message_of_a_card_open_elsewhere() {
+    let scratch = Scratch::new();
+    scratch.remember(ID, TITLE, 0);
+    scratch.remember(OTHER_ID, OTHER_TITLE, 1);
+    scratch.transcript(ID, r#"{"type":"user","message":{}}"#);
+    scratch.transcript(OTHER_ID, r#"{"type":"user","message":{}}"#);
+    let _other = Elsewhere::open(&scratch.sessions(), ID);
+    let mut screen = scratch.watching(script("exec sleep 600"));
+    screen.wait_for("open elsewhere");
+    screen.key(KeyCode::Enter, KeyModifiers::NONE);
+    screen.wait_for("This conversation is open elsewhere");
+
+    screen.key(KeyCode::Char('J'), KeyModifiers::SHIFT);
+
+    let shown = screen.draw();
+    assert!(
+        shown.contains("This conversation is open elsewhere"),
+        "{shown}"
+    );
 }
 
 #[test]
@@ -251,11 +276,14 @@ fn stopped(scratch: &Scratch) -> Screen {
 }
 
 fn position(scratch: &Scratch, id: &str) -> usize {
+    recalled(scratch, id).position
+}
+
+fn recalled(scratch: &Scratch, id: &str) -> Remembered {
     scratch
         .memory()
         .recall()
         .into_iter()
         .find(|remembered| remembered.session_id == id)
         .unwrap()
-        .position
 }

@@ -149,6 +149,9 @@ impl Memory {
             return Err(io::ErrorKind::InvalidInput.into());
         }
         let mut placed = remembered(&self.file(id), id).ok_or(io::ErrorKind::NotFound)?;
+        if placed.position == position {
+            return Ok(());
+        }
         placed.position = position;
         self.keep(&placed)
     }

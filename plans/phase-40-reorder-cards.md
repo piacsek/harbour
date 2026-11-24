@@ -75,7 +75,8 @@ The move draws no new text on a card: the narrowest sidebar and a CJK name draw 
 
 `J` and `K` in the sidebar swap the selected card with its neighbour, the selection following, in
 #177. A move saves every remembered card's position at once through `Memory::place`, which rewrites
-only the position of a file still on disk, so the cards come back in the order shown. `j` or `k`
+only the position of a file still on disk and writes nothing when it is unchanged, so the cards come
+back in the order shown. A move keeps the card's `gone` or `open elsewhere` message. `j` or `k`
 with Shift logs as `J` or `K`. The help's first row reads
 `j/k J/K  select / move the card down / up`, mirrored by the README; `docs/keys.png` was
 retaken (the other shots changed only in rasterising and were left out).
@@ -90,3 +91,4 @@ it. Phase 39's ready, merged and released were read from GitHub into `plans/metr
 - `design` an own help row for `J/K` overflowed the 14 rows a 20-row terminal fits; it was merged into the `j/k` row within 57 columns → none
 - `tooling` `scripts/screenshots.sh` rewrote every image though only the help changed; the unchanged shots were checked out again by hand → none
 - `review-loop` round 1 found that saving only the two swapped cards left stale positions from earlier runs, so a restart could show another order, and that a stopped card's save rewrote a title another harbour had saved since; every card's position is now saved and only the position is rewritten → code
+- `review-loop` round 2 found no must or should; its nits made a move write only changed positions and keep the card's refusal message, and `place`'s read-then-rename gap joined `docs/known-limits.md` → code
