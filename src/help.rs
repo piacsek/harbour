@@ -1,7 +1,7 @@
 use crate::keymap::{Action, Keymap};
 
 pub const KEYS: &[(&str, &str)] = &[
-    ("j/k", "select the next / previous session"),
+    ("j/k J/K", "select / move the card down / up"),
     ("Enter/C-l", "focus or resume; C-l in Claude Code: editor"),
     ("C-h", "focus the sidebar; from an editor, Claude Code"),
     ("n/x/X", "start / end or forget / end & forget, C-/ too"),

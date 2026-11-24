@@ -40,7 +40,7 @@ harbour config      # the settings file's path and where each setting comes from
 
 | Key | Action |
 |---|---|
-| `j/k` | select the next / previous session |
+| `j/k J/K` | select / move the card down / up |
 | `Enter/C-l` | focus or resume; C-l in Claude Code: editor |
 | `C-h` | focus the sidebar; from an editor, Claude Code |
 | `n/x/X` | start / end or forget / end & forget, C-/ too |

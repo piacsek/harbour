@@ -96,6 +96,31 @@ impl App {
         }
         self.sessions.swap(from, to);
         self.select(to);
+        self.keep_position(from);
+        self.keep_position(to);
+    }
+
+    fn keep_position(&mut self, index: usize) {
+        let Some(memory) = &self.memory else {
+            return;
+        };
+        let entry = &self.sessions[index];
+        let Some(id) = entry.remembered.clone() else {
+            return;
+        };
+        if entry.why == ELSEWHERE || !memory.holds(&id) {
+            return;
+        }
+        let mut wanted = entry.kept.clone().unwrap_or_else(|| Remembered {
+            session_id: id,
+            directory: entry.directory.clone(),
+            title: entry.name.clone(),
+            position: index,
+        });
+        wanted.position = index;
+        if memory.keep(&wanted).is_ok() && entry.kept.is_some() {
+            self.sessions[index].kept = Some(wanted);
+        }
     }
 
     fn clear_refusal(&mut self) {

@@ -2,7 +2,11 @@ use crossterm::event::{KeyCode, KeyModifiers};
 use harbour::app::App;
 use harbour::keymap::{Action, Keymap};
 
-use crate::{Screen, directory, in_order, numbered_agent, reading_agent, region};
+use crate::refusing::Elsewhere;
+use crate::remembering::{ID, OTHER_ID, Scratch, TITLE};
+use crate::{Screen, directory, in_order, numbered_agent, reading_agent, region, script};
+
+const OTHER_TITLE: &str = "Add the acme export";
 
 #[test]
 fn shift_k_moves_the_selected_card_up_and_it_stays_selected() {
@@ -138,6 +142,51 @@ fn the_prefix_then_1_jumps_to_the_card_moved_first() {
     assert!(!shown.contains("acme agent 1"), "{shown}");
 }
 
+#[test]
+fn two_stopped_cards_swapped_come_back_in_the_new_order() {
+    let scratch = Scratch::new();
+    scratch.remember(ID, TITLE, 0);
+    scratch.remember(OTHER_ID, OTHER_TITLE, 1);
+    let mut screen = stopped(&scratch);
+
+    screen.key(KeyCode::Char('J'), KeyModifiers::SHIFT);
+
+    let recalled = scratch.memory().recall();
+    assert_eq!(recalled[0].session_id, OTHER_ID);
+    assert_eq!(recalled[1].session_id, ID);
+}
+
+#[test]
+fn a_moved_card_whose_file_was_forgotten_writes_no_file_back() {
+    let scratch = Scratch::new();
+    scratch.remember(ID, TITLE, 0);
+    scratch.remember(OTHER_ID, OTHER_TITLE, 1);
+    let mut screen = stopped(&scratch);
+    scratch.memory().forget(ID);
+
+    screen.key(KeyCode::Char('J'), KeyModifiers::SHIFT);
+
+    assert!(!scratch.memory().holds(ID));
+    assert_eq!(scratch.memory().recall()[0].session_id, OTHER_ID);
+}
+
+#[test]
+fn a_moved_card_open_elsewhere_keeps_its_file_as_it_was() {
+    let scratch = Scratch::new();
+    scratch.remember(ID, TITLE, 0);
+    scratch.remember(OTHER_ID, OTHER_TITLE, 1);
+    scratch.transcript(ID, r#"{"type":"user","message":{}}"#);
+    scratch.transcript(OTHER_ID, r#"{"type":"user","message":{}}"#);
+    let _other = Elsewhere::open(&scratch.sessions(), ID);
+    let mut screen = scratch.watching(script("exec sleep 600"));
+    screen.wait_for("open elsewhere");
+
+    screen.key(KeyCode::Char('J'), KeyModifiers::SHIFT);
+
+    assert_eq!(position(&scratch, ID), 0);
+    assert_eq!(position(&scratch, OTHER_ID), 0);
+}
+
 fn two_cards(mut screen: Screen) -> Screen {
     screen.press('n');
     screen.wait_for("acme agent 1");
@@ -156,4 +205,21 @@ fn card(n: usize) -> String {
 
 fn selected(n: usize) -> String {
     format!("▌ · {}", card(n))
+}
+
+fn stopped(scratch: &Scratch) -> Screen {
+    let mut screen = Screen::of(App::new(script("exec sleep 600")).with_memory(scratch.memory()));
+    screen.wait_for(TITLE);
+    screen.wait_for(OTHER_TITLE);
+    screen
+}
+
+fn position(scratch: &Scratch, id: &str) -> usize {
+    scratch
+        .memory()
+        .recall()
+        .into_iter()
+        .find(|remembered| remembered.session_id == id)
+        .unwrap()
+        .position
 }
