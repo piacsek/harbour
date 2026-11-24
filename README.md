@@ -73,4 +73,4 @@ scripts/ship.sh "message" # gates, dev-install, commit, push, draft PR
 Guidelines live in `AGENTS.md`. CI's flaky and slow tests are tracked in
 [Codecov Test Analytics](https://app.codecov.io/gh/piacsek/harbour/tests).
 
-![test suite health report: ](https://piacsek.github.io/harbour/test-speed.svg)
+![test suite health report](https://piacsek.github.io/harbour/test-speed.svg)
