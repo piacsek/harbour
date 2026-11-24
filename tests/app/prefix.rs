@@ -253,6 +253,15 @@ fn x_after_the_prefix_from_claude_code_asks_to_end_it() {
 }
 
 #[test]
+fn capital_x_after_the_prefix_from_claude_code_asks_to_end_it() {
+    let mut screen = focused(raw_reader(1));
+
+    screen.prefixed('X');
+
+    screen.wait_for("End? y/n");
+}
+
+#[test]
 fn q_after_the_prefix_while_zoomed_shows_the_question_over_the_pane() {
     let mut screen = focused(raw_reader(1));
     screen.prefixed('z');

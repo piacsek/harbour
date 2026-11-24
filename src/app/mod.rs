@@ -79,6 +79,7 @@ pub struct App {
     gesture: Gesture,
     failed: Option<String>,
     asking: Option<Question>,
+    closing: bool,
     helping: bool,
     changelog: String,
     reading: Option<changelog::Reading>,
@@ -213,6 +214,7 @@ impl App {
             gesture: Gesture::Idle,
             failed: None,
             asking: None,
+            closing: false,
             helping: false,
             changelog: crate::changelog::CHANGELOG.to_string(),
             reading: None,
@@ -525,7 +527,7 @@ impl App {
                 entry.editors.clear();
                 entry.editor = None;
                 entry.on_editor = false;
-                if exited {
+                if exited || self.closing {
                     self.remove_selected();
                 }
             }

@@ -55,6 +55,25 @@ fn a_home_directory_kept_in_git_is_not_the_repository_of_a_folder_below_it() {
 
 #[test]
 #[ignore]
+fn capital_x_answered_yes_ends_a_running_session_and_removes_its_card() {
+    let home = tempfile::tempdir().unwrap();
+    let server = Server::start("close", 160, 20);
+    server.run(home.path(), &[(SESSION_COMMAND, AGENT)], &[]);
+    server.wait_for_screen("press n to start one");
+    server.send_keys(&["n"]);
+    server.wait_for_screen("acme-api 1");
+    server.send_keys(&["X"]);
+    server.wait_for_screen("End? y/n");
+
+    server.send_keys(&["y"]);
+
+    let screen = server.wait_for_screen("press n to start one");
+    assert!(!screen.contains("acme-api 1"), "{screen}");
+    assert!(!screen.contains("exited"), "{screen}");
+}
+
+#[test]
+#[ignore]
 fn a_session_comes_back_stopped_after_quitting_and_resumes_with_enter() {
     let home = tempfile::tempdir().unwrap();
     let config = tempfile::tempdir().unwrap();

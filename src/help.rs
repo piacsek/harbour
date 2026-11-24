@@ -4,7 +4,7 @@ pub const KEYS: &[(&str, &str)] = &[
     ("j/k", "select the next / previous session"),
     ("Enter/C-l", "focus or resume; C-l in Claude Code: editor"),
     ("C-h", "focus the sidebar; from an editor, Claude Code"),
-    ("n/x", "start / end or forget a session, C-/ too"),
+    ("n/x/X", "start / end or forget / end & forget, C-/ too"),
     ("C-/ 1..9", "focus or resume that card; 9 the last"),
     ("C-/ z", "zoom the session to the whole screen, or back"),
     ("C-/ \\ {}", "side by side (120+ columns); swap the halves"),
@@ -21,18 +21,7 @@ pub fn rows(keymap: &Keymap) -> Vec<(String, String)> {
     let prefix = keymap.prefix_name().replace("Space", "\u{2423}");
     let key = |action| keymap.key_of(action);
     let mut rows = vec![owned(KEYS[0]), owned(KEYS[1]), owned(KEYS[2])];
-    rows.extend(
-        pair(
-            "",
-            [key(Action::New), key(Action::End)],
-            [
-                "start / end or forget a session",
-                "start a session",
-                "end or forget a session",
-            ],
-        )
-        .map(|(keys, what)| (keys, format!("{what}, {prefix} too"))),
-    );
+    rows.extend(sessions(keymap).map(|(keys, what)| (keys, format!("{what}, {prefix} too"))));
     rows.push((format!("{prefix} 1..9"), KEYS[4].1.to_string()));
     rows.extend(single(&prefix, key(Action::Zoom), KEYS[5].1));
     rows.extend(side(&prefix, keymap));
@@ -67,6 +56,29 @@ pub fn rows(keymap: &Keymap) -> Vec<(String, String)> {
         format!("send {prefix} to the program"),
     ));
     rows
+}
+
+fn sessions(keymap: &Keymap) -> Option<(String, String)> {
+    let bound: Vec<(char, &str)> = [
+        (Action::New, "start"),
+        (Action::End, "end or forget"),
+        (Action::Close, "end & forget"),
+    ]
+    .into_iter()
+    .filter_map(|(action, what)| keymap.key_of(action).map(|key| (key, what)))
+    .collect();
+    if bound.is_empty() {
+        return None;
+    }
+    let keys: Vec<String> = bound.iter().map(|(key, _)| key.to_string()).collect();
+    let what: Vec<&str> = bound.iter().map(|(_, what)| *what).collect();
+    let closing = keymap.key_of(Action::Close).is_some();
+    let noun = if closing && bound.len() > 1 {
+        ""
+    } else {
+        " a session"
+    };
+    Some((keys.join("/"), format!("{}{noun}", what.join(" / "))))
 }
 
 fn side(prefix: &str, keymap: &Keymap) -> Option<(String, String)> {
