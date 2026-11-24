@@ -57,8 +57,9 @@ speed-up, when its pipeline went from about 3 min 20 s to 37 s:
 - **Flaky and slow tests are tracked by Codecov Test Analytics.** nextest writes
   `target/nextest/default/junit.xml`, and each shard's last step (`if: ${{ !cancelled() }}`, so a
   failed run reports too) uploads it with `codecov/codecov-action` (`report_type: test_results`,
-  the shard's name as its flag, the `CODECOV_TOKEN` secret). The action's `fail_ci_if_error`
-  stays `false`, so a Codecov outage or a missing secret never turns a shard red. Slow jobs are
+  the shard's name as its flag, the `CODECOV_TOKEN` secret). The step has
+  `continue-on-error: true` and the action's `fail_ci_if_error` stays `false`, so a Codecov
+  outage or a missing secret never turns a shard red. Slow jobs are
   in GitHub's own Insights → Actions performance metrics, which needs nothing here.
 - **Every job has a `timeout-minutes`**, a few times its normal run and at least 5, so a hung tmux or
   Neovim test cannot hold a runner for GitHub's 6-hour default. `tests/scripts/ci_workflow.rs`

@@ -162,6 +162,7 @@ const SHARD_JOB: &str = "  shard:
       - if: matrix.rest
         run: cargo test --doc --locked
       - if: ${{ !cancelled() }}
+        continue-on-error: true
         uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
         with:
           report_type: test_results
