@@ -74,29 +74,30 @@ after the Clawd glyph: `tests/tabs.rs`, `tests/app/side_border.rs`, `tests/e2e/c
   command exits at once loses its output before `capture-pane` reads it, even with
   `remain-on-exit`, so the pane command ends in `echo "harbour exited $?"; exec sleep 600`.
 
-- **No elapsed-time bound is an idle-machine constant.** A busy machine stretches every wait, so
-  an upper bound on elapsed time comes from `deadline()` in `tests/support/timing.rs` (2 s, times
-  the whole number in `HARBOUR_TEST_SLOWDOWN`, 1 when unset), pulled in with `#[path]` (in
-  `tests/app/` once, by `main.rs`). A test of giving up injects `deadline()` and asserts
-  `elapsed >= deadline()` and `elapsed < 2 * deadline()`, or only the upper bound where a platform
-  refuses at once (a socket that never accepts is refused at once on macOS, so `tests/nvim.rs`
-  asserts only it); a test of returning early injects or stalls `5 * deadline()` and asserts
-  `elapsed < deadline()`; any other deadline a seam or a waiting helper takes is `5 * deadline()`,
-  and a stall that must outlast a test's waits is `10 * deadline()`. A test that harbour is fast
-  checks the order of events the fakes record, not the clock: each session and editor hangs up
-  before any is killed (`tests/app/ending.rs`, `tests/app/editor_ending.rs`: a fake's HUP trap
-  writes how many fakes it saw alive and exits once every fake has written, or after
-  `5 * deadline()`, under a hangup grace of `5 * deadline()` injected with `with_hangup_grace`;
-  `ending_sessions_that_exit_on_hangup_returns_before_the_grace_runs_out` in `tests/session/`
-  owns not waiting out the grace once every group has gone; fakes that ignore the hangup make quitting wait a grace of `deadline()` once in all), C-h on a silent Neovim
-  sends one mode query (`tests/app/neovim.rs`), an open that raises a prompt in a running Neovim is
-  refused once a mode query sees it (`tests/app/handing.rs`), the picker is drawn before a slow list
-  ends (`tests/app/picker.rs`). A time bound stays only where no event can be ordered against it: on
-  `deadline()` for an open whose Neovim exits or prompts (`tests/app/handing.rs`) and for writes to
-  a log that cannot be written (`tests/log.rs`); on a test constant mirroring `src` with the loosest
-  margin a regression still breaks (`PATIENCE` in `tests/app/neovim.rs`, stretched by `scaled` from
-  `tests/support/timing.rs`, and `ASKING` in `tests/edit.rs`, plus `deadline()`) where the time is
-  the product's own latency and no deadline can be injected.
+- **No elapsed-time bound is an idle-machine constant.** A busy machine stretches every wait, so an
+  upper bound on elapsed time comes from `deadline()` in `tests/support/timing.rs` (2 s, times the
+  whole number in `HARBOUR_TEST_SLOWDOWN`, 1 when unset), pulled in with `#[path]` (in `tests/app/`
+  once, by `main.rs`). A test of giving up injects `deadline()` and asserts `elapsed >= deadline()`
+  and `elapsed < 2 * deadline()`, or only the upper bound where a platform refuses at once (a socket
+  that never accepts is refused at once on macOS, so `tests/nvim.rs` asserts only it); a test of
+  returning early injects or stalls `5 * deadline()` and asserts `elapsed < deadline()`
+  (`ending_sessions_that_exit_on_hangup_returns_before_the_grace_runs_out` in `tests/session/`,
+  ending sessions that exit on their hangup); any other deadline a seam or a waiting helper takes is
+  `5 * deadline()`, and a stall that must outlast a test's waits is `10 * deadline()`. A test that
+  harbour is fast checks the order of events the fakes record, not the clock: each session and
+  editor hangs up before any is killed (`tests/app/ending.rs`, `tests/app/editor_ending.rs`: a
+  fake's HUP trap writes how many fakes it saw alive and exits once every fake has written, giving
+  up after about `5 * deadline()` of polling, under a hangup grace of `5 * deadline()` injected with
+  `with_hangup_grace`; fakes that ignore the hangup make quitting wait a grace of `deadline()` once
+  in all), C-h on a silent Neovim sends one mode query (`tests/app/neovim.rs`), an open that raises
+  a prompt in a running Neovim is refused once a mode query sees it (`tests/app/handing.rs`), the
+  picker is drawn before a slow list ends (`tests/app/picker.rs`). A time bound stays only where no
+  event can be ordered against it: on `deadline()` for an open whose Neovim exits or prompts
+  (`tests/app/handing.rs`) and for writes to a log that cannot be written (`tests/log.rs`); on a
+  test constant mirroring `src` with the loosest margin a regression still breaks (`PATIENCE` in
+  `tests/app/neovim.rs`, stretched by `scaled` from `tests/support/timing.rs`, and `ASKING` in
+  `tests/edit.rs`, plus `deadline()`) where the time is the product's own latency and no deadline
+  can be injected.
   `tests/wall_clock.rs` fails on a `<` or `<=` bound by a
   `Duration::from_` or after `as_millis()` or `as_secs()`, a `Duration::from_` on the left of `>`,
   a `recv_timeout(Duration::from_` not followed by `.is_err()` on its line, and a literal

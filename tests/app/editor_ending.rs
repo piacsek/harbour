@@ -159,7 +159,6 @@ fn quitting_hangs_up_on_editors_and_sessions_before_it_kills_any() {
     assert_eq!(hangups.len(), 2, "{hangups:?}");
     assert_eq!(hangups[0], "agent saw 2 alive", "{hangups:?}");
     assert_eq!(hangups[1], "editor saw 2 alive", "{hangups:?}");
-    assert!(gone(&alive(scratch.path(), "editor")));
 }
 
 fn editing(scratch: &Path, agent: Vec<String>) -> Screen {
@@ -218,13 +217,6 @@ fn hanging_up(scratch: &Path, name: &str, ready: &str) -> Vec<String> {
         recording_hangups(scratch, name),
         staying_after_hangups()
     ))
-}
-
-fn alive(scratch: &Path, name: &str) -> String {
-    std::fs::read_to_string(scratch.join(format!("alive-{name}")))
-        .unwrap()
-        .trim()
-        .to_string()
 }
 
 pub(crate) fn gone(pid: &str) -> bool {

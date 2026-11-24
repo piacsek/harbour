@@ -538,7 +538,7 @@ fn a_cursor_hidden_for_a_second_is_hidden() {
 fn a_session_is_drained_only_once_its_output_is_read_to_its_end() {
     let mut session = start("echo 'acme quick report'");
 
-    let deadline = Instant::now() + Duration::from_secs(5);
+    let deadline = Instant::now() + 5 * deadline();
     while !(session.exit().is_some() && session.drained()) && Instant::now() < deadline {
         sleep(Duration::from_millis(10));
     }
@@ -585,7 +585,7 @@ fn start(script: &str) -> Session {
 }
 
 fn wait_for(session: &Session, text: &str) -> String {
-    let deadline = Instant::now() + Duration::from_secs(5);
+    let deadline = Instant::now() + 5 * deadline();
     loop {
         let screen = rendered(session);
         if screen.contains(text) {
