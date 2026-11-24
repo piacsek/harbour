@@ -88,6 +88,33 @@ impl App {
         self.clear_refusal();
     }
 
+    pub(super) fn move_card(&mut self, down: bool) {
+        let from = self.selected;
+        let to = if down { from + 1 } else { from.wrapping_sub(1) };
+        if from >= self.sessions.len() || to >= self.sessions.len() {
+            return;
+        }
+        self.sessions.swap(from, to);
+        self.selected = to;
+        self.keep_positions();
+    }
+
+    fn keep_positions(&mut self) {
+        let Some(memory) = &self.memory else {
+            return;
+        };
+        for (index, entry) in self.sessions.iter_mut().enumerate() {
+            let Some(id) = &entry.remembered else {
+                continue;
+            };
+            if memory.place(id, index).is_ok()
+                && let Some(kept) = &mut entry.kept
+            {
+                kept.position = index;
+            }
+        }
+    }
+
     fn clear_refusal(&mut self) {
         if self
             .failed

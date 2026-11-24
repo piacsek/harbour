@@ -135,4 +135,8 @@ good; a finding on one still counts as must when it shows new impact.
   ambiguous-width characters double-wide pushes the pane's top border out of place with
   `nerd_font` on, and the zoomed top row's names a column into its counts (`src/tabs.rs`), and a card's third line can reach the sidebar's border
   (`src/card.rs`).
+- **A card move can undo another harbour's change made in the same instant**: `Memory::place`,
+  like `keep` and `forget`, reads a file, then renames a new one over it with nothing guarding the
+  gap, so a forget or a title saved by another harbour inside that sub-millisecond window is
+  undone (`src/memory.rs`).
 

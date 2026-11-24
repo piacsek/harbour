@@ -371,12 +371,12 @@ fn at_most_a_hundred_cards_come_back() {
     assert!(!shown.contains("Card 100"), "{shown}");
 }
 
-struct Elsewhere {
+pub(crate) struct Elsewhere {
     child: Child,
 }
 
 impl Elsewhere {
-    fn open(sessions: &Path, id: &str) -> Elsewhere {
+    pub(crate) fn open(sessions: &Path, id: &str) -> Elsewhere {
         let child = Command::new("sleep").arg("600").spawn().unwrap();
         fs::write(
             sessions.join(format!("{}.json", child.id())),

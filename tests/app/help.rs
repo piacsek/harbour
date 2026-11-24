@@ -1,5 +1,6 @@
 use crossterm::event::{KeyCode, KeyModifiers, MouseButton, MouseEventKind};
 use harbour::app::App;
+use harbour::help::KEYS;
 use harbour::keymap::{Action, Keymap};
 use ratatui::style::Color;
 
@@ -124,10 +125,7 @@ fn the_whole_help_shows_on_an_80_by_24_terminal() {
     screen.prefixed('?');
 
     let shown = screen.draw();
-    assert!(
-        shown.contains("select the next / previous session"),
-        "{shown}"
-    );
+    assert!(shown.contains(KEYS[0].1), "{shown}");
     assert!(shown.contains("status unknown"), "{shown}");
     assert!(shown.contains(LAST), "{shown}");
 }
@@ -139,10 +137,7 @@ fn the_whole_help_shows_on_a_20_row_terminal() {
     screen.prefixed('?');
 
     let shown = screen.draw();
-    assert!(
-        shown.contains("select the next / previous session"),
-        "{shown}"
-    );
+    assert!(shown.contains(KEYS[0].1), "{shown}");
     assert!(shown.contains("status unknown"), "{shown}");
     assert!(shown.contains(LAST), "{shown}");
 }
@@ -237,7 +232,7 @@ fn the_whole_help_shows_beside_the_narrowest_sidebar() {
     screen.prefixed('?');
 
     let shown = screen.draw();
-    assert!(shown.contains("select the next / previous"), "{shown}");
+    assert!(shown.contains(KEYS[0].1), "{shown}");
     assert!(shown.contains(LAST), "{shown}");
 }
 
@@ -249,7 +244,7 @@ fn the_whole_help_shows_in_the_narrow_layout_on_20_rows() {
     screen.prefixed('?');
 
     let shown = screen.draw();
-    assert!(shown.contains("select the next / previous"), "{shown}");
+    assert!(shown.contains(KEYS[0].1), "{shown}");
     assert!(shown.contains(LAST), "{shown}");
 }
 
@@ -402,7 +397,7 @@ fn the_space_prefix_is_named_by_its_symbol_so_the_column_keeps_its_width() {
         "{shown}"
     );
     assert!(
-        shown.contains("j/k        select the next / previous session"),
+        shown.contains(&format!("{:<10} {}", KEYS[0].0, KEYS[0].1)),
         "{shown}"
     );
 }

@@ -24,6 +24,12 @@ fn the_default_bindings_draw_the_rows_of_keys() {
 }
 
 #[test]
+fn the_first_row_names_selecting_and_moving_a_card() {
+    assert_eq!(KEYS[0].0, "j/k J/K");
+    assert_eq!(KEYS[0].1, "select / move the card down / up");
+}
+
+#[test]
 fn the_session_row_names_start_end_and_close() {
     assert_eq!(KEYS[3].0, "n/x/X");
     assert_eq!(KEYS[3].1, "start / end or forget / end & forget, C-/ too");
