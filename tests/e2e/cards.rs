@@ -41,7 +41,7 @@ fn the_prefix_then_r_renames_the_selected_card() {
     server.wait_for_screen("permission prompt");
 
     server.send_keys(&["C-/", "r"]);
-    server.wait_for_screen("Title: ");
+    server.wait_for_screen_all(&[" rename ", "Title: "]);
     let erased = vec!["BSpace"; 40];
     server.send_keys(&erased);
     server.send_keys(&["acme deploy", "Enter"]);

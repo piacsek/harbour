@@ -29,8 +29,11 @@ their own, which the card shows in place of Claude Code's.
 - The input line reads `Title: <text>`, the label bold, then the text's end that fits with one
   column left for the cursor, `…` at its start when cut. Under 17 columns the label goes and the
   text has the whole line.
-- With the sidebar hidden, the input line takes the bottom row of the pane, where the question
-  and the failure message already go: the smallest change, and it stays visible in every layout.
+- The owner asked on the pull request for the input in a popup: a box of 3 rows centred on the
+  screen, ` rename ` on its top border, 60 columns or the screen's width less 4, whichever is
+  smaller. A screen with no room for the box (under 3 rows, or under 7 columns) shows the line
+  alone on its last row. This replaced the first placement, the bottom of the sidebar or of the
+  pane while the sidebar was hidden.
 - Enter on the prefilled title unchanged changes nothing, so a card keeps following Claude Code's
   title until the user types one.
 - The input line takes Backspace and printable keys; a paste is cleaned and added; every other
@@ -55,7 +58,8 @@ their own, which the card shows in place of Claude Code's.
 | input | Esc | closed, nothing changes |
 | input | a paste holding a newline or a control character | cleaned, one line |
 | sidebar | narrowest (15 columns, 13 inside) | no label, the text's end and the cursor |
-| sidebar | hidden (zoomed, side by side, narrow layout on the pane) | the line at the pane's bottom |
+| screen | any layout (zoomed, side by side, narrow) | the popup centred over it |
+| screen | under 3 rows or 7 columns | the line alone on the last row |
 | title | CJK (`東京の会議`, 2 columns each) | cut by display width, never half a character |
 | remembered file | none yet (running, no transcript) | written with the title once the transcript shows |
 | remembered file | exists (stopped, exited, running) | rewritten with the title, other fields read fresh |
@@ -79,9 +83,8 @@ their own, which the card shows in place of Claude Code's.
 
 ## Outcome
 
-The prefix then `r` (the `rename` action, configurable under `[keys]`) opens one line at the
-bottom of the sidebar, or of the pane while the sidebar is hidden, prefilled with the card's
-title and the cursor after it. Enter saves the cleaned text as the card's given title, which
+The prefix then `r` (the `rename` action, configurable under `[keys]`) opens a popup centred on
+the screen holding one line, prefilled with the card's title and the cursor after it. Enter saves the cleaned text as the card's given title, which
 wins on the card, the zoomed headline, the side-by-side border and the session finder (all but
 the card read `title_of`); empty goes back to Claude Code's title, unchanged changes nothing, Esc
 cancels. The title is written into the remembered file at once (`Memory::title`) and with every
@@ -100,6 +103,9 @@ demo's stopped card now has a given title, so `docs/details.png` shows one. A me
 sides have a given title keeps the session's, a known limit. Round 2 found no must; its findings
 (a paste losing the spaces where it joins the text, Enter not checking again for a card open
 elsewhere, three nits) were left as issue #211, and the loop ended at the owner's 2-round limit.
+The owner then asked on the pull request for the input in a centred popup instead of the
+sidebar's bottom line; it moved there, with the line alone on the last row of a screen too
+small for the box.
 
 ## Hurdles
 

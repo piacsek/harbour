@@ -1,15 +1,18 @@
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-use ratatui::layout::{Position, Rect};
+use ratatui::Frame;
+use ratatui::layout::{Constraint, Position, Rect};
 use ratatui::style::Stylize;
 use ratatui::text::{Line, Span};
+use ratatui::widgets::Clear;
 use unicode_segmentation::UnicodeSegmentation;
 
-use super::App;
 use super::key::typed;
+use super::{App, draw};
 use crate::rename;
 use crate::text::{clean, columns};
 
 const LONGEST: usize = 512;
+const WIDEST: u16 = 60;
 
 pub(super) struct Renaming {
     text: String,
@@ -86,22 +89,31 @@ impl App {
         self.renaming.is_some()
     }
 
-    pub(super) fn rename_line(&self, width: u16) -> Option<(Line<'static>, u16)> {
+    pub(super) fn draw_rename(&self, frame: &mut Frame) -> Option<Position> {
         let renaming = self.renaming.as_ref()?;
-        let (label, text) = rename::line(&renaming.text, usize::from(width));
-        let at = u16::try_from(columns(label) + columns(&text)).unwrap_or(width);
-        Some((
+        let screen = frame.area();
+        let area = match boxed(screen) {
+            Some(area) => {
+                let block = draw::bordered(true, self.accent).title(" rename ");
+                let inner = block.inner(area);
+                frame.render_widget(Clear, area);
+                frame.render_widget(block, area);
+                inner
+            }
+            None => Rect {
+                y: screen.bottom().checked_sub(1)?,
+                height: 1,
+                ..screen
+            },
+        };
+        let (label, text) = rename::line(&renaming.text, usize::from(area.width));
+        let at = u16::try_from(columns(label) + columns(&text)).unwrap_or(area.width);
+        frame.render_widget(Clear, area);
+        frame.render_widget(
             Line::from(vec![Span::from(label).bold(), Span::from(text)]),
-            at,
-        ))
-    }
-
-    pub(super) fn rename_cursor(&self, area: Rect) -> Option<Position> {
-        if area.is_empty() {
-            return None;
-        }
-        let (_, at) = self.rename_line(area.width)?;
-        Some(Position::new(area.x + at, area.bottom().checked_sub(1)?))
+            area,
+        );
+        Some(Position::new(area.x + at, area.y))
     }
 
     fn save_rename(&mut self) {
@@ -131,4 +143,10 @@ fn kept_to_longest(text: &mut String) {
     if let Some((at, _)) = text.char_indices().nth(LONGEST) {
         text.truncate(at);
     }
+}
+
+fn boxed(screen: Rect) -> Option<Rect> {
+    let width = WIDEST.min(screen.width.saturating_sub(4));
+    (width >= 3 && screen.height >= 3)
+        .then(|| screen.centered(Constraint::Length(width), Constraint::Length(3)))
 }

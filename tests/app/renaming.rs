@@ -10,29 +10,70 @@ use crate::zoom_border::{Claude, started as started_titled, top};
 use crate::{Screen, in_order, reading_agent};
 
 #[test]
-fn the_prefix_then_r_opens_a_line_at_the_bottom_of_the_sidebar_holding_the_title() {
+fn the_prefix_then_r_opens_a_popup_in_the_middle_of_the_screen_holding_the_title() {
     let mut screen = started(App::new(reading_agent()));
 
     screen.prefixed('r');
 
     let shown = screen.draw();
-    let last: String = shown
-        .lines()
-        .nth(18)
-        .unwrap_or_default()
-        .chars()
-        .skip(1)
-        .collect();
-    assert!(last.starts_with("Title: acme-home 1 "), "{shown}");
+    let rows: Vec<&str> = shown.lines().collect();
+    let top: String = rows[9].chars().skip(30).take(60).collect();
+    let inside: String = rows[10].chars().skip(31).take(58).collect();
+    assert!(top.contains(" rename "), "{shown}");
+    assert!(inside.starts_with("Title: acme-home 1 "), "{shown}");
 }
 
 #[test]
-fn the_cursor_sits_after_the_title() {
+fn the_cursor_sits_after_the_title_in_the_popup() {
     let mut screen = started(App::new(reading_agent()));
 
     screen.prefixed('r');
 
-    assert_eq!(screen.cursor(), Some(Position::new(19, 18)));
+    assert_eq!(screen.cursor(), Some(Position::new(49, 10)));
+}
+
+#[test]
+fn a_narrow_screen_keeps_two_columns_either_side_of_the_popup() {
+    let mut screen = started(App::new(reading_agent()));
+    screen.resize(30, 20);
+
+    screen.prefixed('r');
+
+    let shown = screen.draw();
+    let inside: String = shown
+        .lines()
+        .nth(10)
+        .unwrap_or_default()
+        .chars()
+        .skip(3)
+        .take(24)
+        .collect();
+    assert!(inside.starts_with("Title: acme-home 1"), "{shown}");
+}
+
+#[test]
+fn zoomed_the_popup_shows_over_the_session() {
+    let mut screen = started(App::new(reading_agent()));
+    screen.prefixed('z');
+
+    screen.prefixed('r');
+
+    let shown = screen.draw();
+    assert!(shown.contains(" rename "), "{shown}");
+    assert!(shown.contains("Title: acme-home 1 "), "{shown}");
+}
+
+#[test]
+fn a_screen_too_short_for_the_popup_shows_the_line_on_its_last_row() {
+    let mut screen = started(App::new(reading_agent()));
+    screen.prefixed('r');
+
+    screen.resize(120, 2);
+
+    let shown = screen.draw();
+    let last = shown.lines().nth(1).unwrap_or_default();
+    assert!(last.starts_with("Title: acme-home 1 "), "{shown}");
+    assert_eq!(screen.cursor(), Some(Position::new(18, 1)));
 }
 
 #[test]
@@ -144,18 +185,6 @@ fn a_mouse_press_leaves_the_line_open() {
 }
 
 #[test]
-fn zoomed_the_line_takes_the_bottom_row_of_the_pane() {
-    let mut screen = started(App::new(reading_agent()));
-    screen.prefixed('z');
-
-    screen.prefixed('r');
-
-    let shown = screen.draw();
-    let last = shown.lines().nth(19).unwrap_or_default();
-    assert!(last.starts_with("Title: acme-home 1 "), "{shown}");
-}
-
-#[test]
 fn the_rename_key_moves_with_the_keys_table() {
     let keymap = Keymap::default().bind(Action::Rename, Some('t'));
     let mut screen = started(App::new(reading_agent()).with_keymap(keymap));
@@ -248,16 +277,6 @@ fn shift_with_a_letter_types_its_capital() {
 
     let shown = screen.draw();
     assert!(shown.contains("Title: acme-home 1A "), "{shown}");
-}
-
-#[test]
-fn a_terminal_too_short_for_the_line_shows_no_cursor() {
-    let mut screen = started(App::new(reading_agent()));
-    screen.prefixed('r');
-
-    screen.resize(120, 2);
-
-    assert_eq!(screen.cursor(), None);
 }
 
 #[test]

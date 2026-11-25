@@ -375,7 +375,7 @@ C-c in the sidebar quits as C-/ q does, asking while a session runs, and C-c
 again says yes when nothing is unsaved; in a pane, C-c goes to the program.
 C-/ s lists every session in fzf and Enter jumps to the one picked; with a
 picker other than fzf it says so.
-C-/ r renames the selected card: type a title on the line that opens, Enter
+C-/ r renames the selected card: type a title in the popup that opens, Enter
 saves it, Esc cancels, and an empty title brings back Claude Code's.
 C-l opens nvim at Claude Code's repository root; HARBOUR_EDITOR names another.
 C-Backspace acts as C-h. In Neovim, C-h goes back only from the leftmost window,

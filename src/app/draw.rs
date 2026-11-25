@@ -223,10 +223,6 @@ impl App {
             below_rows
         };
         let mut free = bottom;
-        let renamed_at = self.rename_cursor(bottom);
-        if let Some((line, _)) = self.rename_line(bottom.width) {
-            free = draw_bottom(frame, vec![line], free);
-        }
         if let Some(question) = self.asking {
             let mut lines = question_lines(question, self.closing, bottom.width);
             if matches!(question, Question::Quit(_)) {
@@ -243,7 +239,7 @@ impl App {
         {
             cursor.0 = None;
         }
-        if let Some(at) = renamed_at {
+        if let Some(at) = self.draw_rename(frame) {
             cursor = (Some(at), 0);
         }
         if self.helping {
