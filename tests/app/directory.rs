@@ -54,6 +54,26 @@ fn with_the_exact_directory_the_editor_opens_in_the_folder_claude_code_started_i
 }
 
 #[test]
+fn with_the_exact_directory_the_editor_stays_in_the_start_folder_after_claude_code_moves() {
+    let scratch = tempfile::tempdir().unwrap();
+    repository(scratch.path(), "acme-api");
+    let rust = folder(scratch.path(), "acme-api/rust");
+    let tests = folder(scratch.path(), "acme-api/rust/tests");
+    let mut screen = following_from(
+        scratch.path(),
+        &rust,
+        &[&cwd(&tests)],
+        locating_editor(),
+        EditorDir::Exact,
+    );
+
+    screen.key(KeyCode::Char('l'), KeyModifiers::CONTROL);
+
+    let shown = screen.wait_for("acme editor at rust");
+    assert!(shown.contains("acme editor at rust"), "{shown}");
+}
+
+#[test]
 fn outside_a_repository_the_editor_opens_in_claude_codes_directory() {
     let scratch = tempfile::tempdir().unwrap();
     let start = folder(scratch.path(), "acme-plain/notes");
@@ -473,11 +493,21 @@ pub(crate) fn following_in(
     editor_dir: EditorDir,
 ) -> Screen {
     let start = repository(scratch, "acme-start");
+    following_from(scratch, &start, lines, editor, editor_dir)
+}
+
+pub(crate) fn following_from(
+    scratch: &Path,
+    start: &Path,
+    lines: &[&str],
+    editor: Program,
+    editor_dir: EditorDir,
+) -> Screen {
     let mut screen = Screen::wide(
         App::new(recording_agent(scratch))
             .with_editor(editor)
             .with_editor_dir(editor_dir)
-            .with_picker(choosing(&start))
+            .with_picker(choosing(start))
             .with_transcripts(scratch.join("projects"))
             .naming_sessions()
             .with_registry(folder(scratch, "sessions")),

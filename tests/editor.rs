@@ -32,7 +32,10 @@ fn a_repository_at_the_home_directory_is_not_the_root() {
     fs::create_dir_all(home.join(".git")).unwrap();
     fs::create_dir_all(&notes).unwrap();
 
-    assert_eq!(directory(&notes, Some(&home), EditorDir::Root), notes);
+    assert_eq!(
+        directory(&notes, &home, Some(&home), EditorDir::Root),
+        notes
+    );
 }
 
 #[test]
@@ -45,41 +48,50 @@ fn a_repository_below_the_home_directory_is_the_root() {
     fs::create_dir_all(api.join("src")).unwrap();
 
     assert_eq!(
-        directory(&api.join("src"), Some(&home), EditorDir::Root),
+        directory(&api.join("src"), &home, Some(&home), EditorDir::Root),
         api
     );
 }
 
 #[test]
-fn the_exact_directory_is_the_folder_itself_inside_a_repository() {
+fn the_exact_directory_is_the_folder_the_session_started_in_wherever_claude_code_went() {
+    let scratch = tempfile::tempdir().unwrap();
+    let api = scratch.path().join("acme-api");
+    fs::create_dir_all(api.join(".git")).unwrap();
+    fs::create_dir_all(api.join("rust/tests")).unwrap();
+
+    assert_eq!(
+        directory(
+            &api.join("rust/tests"),
+            &api.join("rust"),
+            None,
+            EditorDir::Exact
+        ),
+        api.join("rust")
+    );
+}
+
+#[test]
+fn the_exact_directory_of_a_session_started_at_a_repository_root_is_that_root() {
     let scratch = tempfile::tempdir().unwrap();
     let api = scratch.path().join("acme-api");
     fs::create_dir_all(api.join(".git")).unwrap();
     fs::create_dir_all(api.join("src")).unwrap();
 
     assert_eq!(
-        directory(&api.join("src"), None, EditorDir::Exact),
-        api.join("src")
+        directory(&api.join("src"), &api, None, EditorDir::Exact),
+        api
     );
 }
 
 #[test]
-fn the_exact_directory_of_a_repository_root_is_that_root() {
-    let scratch = tempfile::tempdir().unwrap();
-    let api = scratch.path().join("acme-api");
-    fs::create_dir_all(api.join(".git")).unwrap();
-
-    assert_eq!(directory(&api, None, EditorDir::Exact), api);
-}
-
-#[test]
-fn the_exact_directory_of_a_folder_that_is_gone_is_that_folder() {
+fn the_exact_directory_of_a_start_folder_that_is_gone_is_that_folder() {
     let scratch = tempfile::tempdir().unwrap();
     let api = scratch.path().join("acme-api");
     fs::create_dir_all(api.join(".git")).unwrap();
     let gone = api.join("gone");
 
-    assert_eq!(directory(&gone, None, EditorDir::Exact), gone);
+    assert_eq!(directory(&api, &gone, None, EditorDir::Exact), gone);
 }
 
 fn long_directory(length: usize) -> PathBuf {

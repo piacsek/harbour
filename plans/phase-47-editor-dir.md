@@ -3,7 +3,7 @@
 Issue #228. C-l opens the editor at the repository root of the directory Claude Code was last
 seen in. For a repository of separate projects that is the wrong folder: a session working in
 `~/acme/notes/rust` gets Neovim at `~/acme/notes`. A setting from the file picks either the
-root, as today, or that exact directory.
+root, as today, or the folder the session started in.
 
 ## Verified facts
 
@@ -31,19 +31,29 @@ root, as today, or that exact directory.
 - The builder's: `editor::root` becomes `editor::directory`, taking an `EditorDir`, since under
   `"exact"` it is no root; the refusal reads `editor_dir: expected "root" or "exact"`;
   `harbour config` prints `editor_dir` right after `editor`.
+- Review round 2, the orchestrator's, replacing "the directory Claude Code was last seen in" as
+  the meaning of `"exact"`: it is the folder the session started in (the one picked for it, or a
+  stopped card's remembered directory it resumes in), and Claude Code's later `cd`s never move
+  it. Last seen, one `cd tests && cargo test` by Claude Code moved C-l to a second Neovim in
+  `tests/`, the folder tmux follows and `harbour edit` routing; the owner picks the folder when
+  starting the session. `"root"` is unchanged. The start directory already lives on each card
+  (`Entry::directory`, the one a stopped card resumes in and its remembered file keeps), so
+  `editor::directory` takes it beside the last seen one and no second record is kept.
 
 ## States
 
-| `editor_dir` | Claude Code last seen in | The editor opens in, tmux follows, `harbour edit` takes files under |
+| `editor_dir` | The session started in, Claude Code last seen in | The editor opens in, tmux follows, `harbour edit` takes files under |
 | --- | --- | --- |
-| absent or `"root"` | a subfolder of a repository | the repository root, as today |
-| `"exact"` | a subfolder of a repository | that subfolder |
-| `"exact"` | a repository root | that root |
+| absent or `"root"` | anywhere, a subfolder of a repository | the repository root of where it was last seen, as on `main` |
+| `"exact"` | a subfolder of a repository, the same | that subfolder |
+| `"exact"` | a subfolder, then a folder below it (`cd tests`) | the start subfolder; nothing moves |
+| `"exact"` | a subfolder, then another repository | the start subfolder; nothing moves |
+| `"exact"` | a repository root, a subfolder | that root |
 | `"exact"` | a folder outside any repository | that folder, as today |
 | `"exact"` | the home directory holding a dotfiles `.git` | the home directory |
-| `"exact"` | a directory that is gone | named as today, nothing walks up; tmux goes back where harbour was opened |
+| `"exact"` | a start folder that is gone | named as today, nothing walks up; tmux goes back where harbour was opened |
 | `"exact"` | a symlinked folder | that folder; `harbour edit` compares through symlinks, as today |
-| `"exact"`, then Claude Code moves to another subfolder | a second subfolder | a second editor there, as two repositories get today |
+| `"exact"` | a stopped card resumed | its remembered directory, the one it resumes in |
 | `"Root"`, `"x"`, `1`, `true` | any | harbour refuses to open, in one line naming the file, the line and `editor_dir` |
 | `"exact"` | any, under `--demo` | the demo never reads the file: the root, as today |
 
@@ -84,7 +94,19 @@ open disagree. The ask now reads each running session's folder again as the open
 per ask. Two new tests now wait for exactly what they assert, and the `src/AGENTS.md` entry of
 `src/app/handoff.rs` says directory where root was no longer right.
 
+Review round 2 changed what `"exact"` means, as decided above: `editor::directory` now takes the
+session's start directory (`Entry::directory`) beside the last seen one and returns it under
+`"exact"`, and `Follow::to` gets both. Red first: three rows of `tests/editor.rs`, C-l still
+opening in `acme-api/rust` after the transcript's `cwd` moved to `acme-api/rust/tests`
+(`tests/app/directory.rs`), the ask still holding `acme-api/rust` after it
+(`tests/app/nearest.rs`) and harbour staying in the start folder (`tests/app/moving.rs`). Round
+1's ask test, which a start folder now makes pass for the wrong reason, became a `"root"` test
+across two repositories, where the ask's read still matters (shown red by taking the read out).
+A resumed card has no test of its own: it resumes in the same `Entry::directory`. `--help`, the
+fragment and `docs/help.png` say "the folder the session started in".
+
 ## Hurdles
 
 - `tooling` `scripts/screenshots.sh` rewrote five images besides `docs/help.png` whose content did not change (a run renders them differently each time); only the help image was kept → none
 - `review-loop` round 1 found the ask and the open of `harbour edit` judging by different reads of where a session works, harmless while both walked up to the same repository root and wrong under `"exact"`; the plan's States table listed what each directory opens, not when it is read → code
+- `design` the plan read "exact" from the issue as the directory Claude Code was last seen in; round 2 found that one `cd` by Claude Code moves the editor, and it became the folder the session started in; the States table had no row for Claude Code moving after the start → code

@@ -91,6 +91,17 @@ fn with_the_exact_directory_a_session_inside_a_repository_moves_harbour_to_its_o
 }
 
 #[test]
+fn with_the_exact_directory_claude_code_moving_leaves_harbour_in_the_start_folder() {
+    let scratch = tempfile::tempdir().unwrap();
+    let (mut screen, moves) = transcribed_in(scratch.path(), EditorDir::Exact);
+    let start = scratch.path().join("acme-start").canonicalize().unwrap();
+
+    write_transcript(scratch.path(), &[&cwd(&folder(&start, "lib"))]);
+
+    assert_eq!(last_move(&mut screen, &moves), Some(start));
+}
+
+#[test]
 fn a_session_outside_any_repository_moves_harbour_to_its_own_directory() {
     let scratch = tempfile::tempdir().unwrap();
     let notes = folder(scratch.path(), "acme-plain/notes");
@@ -260,10 +271,15 @@ fn opened(scratch: &Path, agent: Vec<String>, refused: Option<PathBuf>) -> (Scre
 }
 
 fn transcribed(scratch: &Path) -> (Screen, Moves) {
+    transcribed_in(scratch, EditorDir::Root)
+}
+
+fn transcribed_in(scratch: &Path, editor_dir: EditorDir) -> (Screen, Moves) {
     let start = repository(scratch, "acme-start");
     let (mover, moves) = recording(None);
     let app = App::new(recording_agent(scratch))
         .with_picker(next_picked(scratch))
+        .with_editor_dir(editor_dir)
         .with_transcripts(scratch.join("projects"))
         .naming_sessions()
         .with_mover(mover);

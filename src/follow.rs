@@ -18,7 +18,7 @@ pub type Mover = Box<dyn FnMut(&Path) -> io::Result<()>>;
 pub struct Follow {
     mover: Mover,
     at: Option<(PathBuf, Option<(u64, u64)>)>,
-    seen: Option<PathBuf>,
+    session: Option<(PathBuf, PathBuf)>,
     checked_at: Option<Instant>,
 }
 
@@ -27,27 +27,30 @@ impl Follow {
         Follow {
             mover,
             at: None,
-            seen: None,
+            session: None,
             checked_at: None,
         }
     }
 
     pub fn to(
         &mut self,
-        seen: Option<&Path>,
+        session: Option<(&Path, &Path)>,
         home: &Path,
         user_home: Option<&Path>,
         editor_dir: EditorDir,
     ) {
-        if self.seen.as_deref() == seen
-            && self.checked_at.is_some_and(|at| at.elapsed() < CHECK_EVERY)
-        {
+        let unchanged = self
+            .session
+            .as_ref()
+            .map(|(seen, started)| (seen.as_path(), started.as_path()))
+            == session;
+        if unchanged && self.checked_at.is_some_and(|at| at.elapsed() < CHECK_EVERY) {
             return;
         }
-        self.seen = seen.map(Path::to_path_buf);
+        self.session = session.map(|(seen, started)| (seen.to_path_buf(), started.to_path_buf()));
         self.checked_at = Some(Instant::now());
-        let target = seen
-            .map(|seen| editor::directory(seen, user_home, editor_dir))
+        let target = session
+            .map(|(seen, started)| editor::directory(seen, started, user_home, editor_dir))
             .filter(|root| root.is_dir())
             .unwrap_or_else(|| home.to_path_buf());
         if !self.enter(&target) {
