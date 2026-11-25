@@ -74,6 +74,19 @@ fn every_demo_transcript_names_a_checkout_inside_the_demo() {
     assert!(root.join("acme-api/.git/HEAD").is_file());
 }
 
+#[test]
+fn the_demos_stopped_session_has_a_title_of_its_own() {
+    let scratch = tempfile::tempdir().unwrap();
+    let registry = Registry::create_in(scratch.path()).unwrap();
+
+    let recalled = demo::stopped(registry.path()).recall();
+
+    assert_eq!(
+        recalled[0].given_title.as_deref(),
+        Some("acme-docs cleanup")
+    );
+}
+
 fn transcript_cwd(registry: &Path, command: &[String], id: &str) -> PathBuf {
     let file = registry.join(format!("projects/demo/{id}.jsonl"));
     let mut child = Command::new(&command[0])

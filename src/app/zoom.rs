@@ -66,11 +66,7 @@ impl App {
     pub(super) fn headline_of(&self, index: usize) -> Option<Headline> {
         let entry = self.sessions.get(index)?;
         let facts = entry.transcript.as_ref().map(Transcript::facts);
-        let title = facts
-            .and_then(|facts| facts.title.as_deref())
-            .map(clean)
-            .filter(|title| !title.is_empty())
-            .unwrap_or_else(|| clean(&entry.name));
+        let title = self.title_of(index)?;
         let place = Place {
             repository: entry.place.repository.clone(),
             branch: facts

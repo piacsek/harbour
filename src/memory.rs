@@ -24,6 +24,7 @@ pub struct Remembered {
     pub session_id: String,
     pub directory: PathBuf,
     pub title: String,
+    pub given_title: Option<String>,
     pub position: usize,
 }
 
@@ -34,6 +35,8 @@ struct Saved {
     session_id: String,
     directory: Directory,
     title: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    given_title: Option<String>,
     position: usize,
 }
 
@@ -128,6 +131,7 @@ impl Memory {
             session_id: id.clone(),
             directory: Directory::of(&remembered.directory),
             title: remembered.title.clone(),
+            given_title: remembered.given_title.clone(),
             position: remembered.position,
         })?;
         let staged = self.dir.join(format!(".{id}.{}.tmp", unique()));
@@ -154,6 +158,18 @@ impl Memory {
         }
         placed.position = position;
         self.keep(&placed)
+    }
+
+    pub fn title(&self, id: &str, given: Option<&str>) -> io::Result<()> {
+        if !is_session_id(id) {
+            return Err(io::ErrorKind::InvalidInput.into());
+        }
+        let mut titled = remembered(&self.file(id), id).ok_or(io::ErrorKind::NotFound)?;
+        if titled.given_title.as_deref() == given {
+            return Ok(());
+        }
+        titled.given_title = given.map(str::to_string);
+        self.keep(&titled)
     }
 
     pub fn forget(&self, session_id: &str) {
@@ -309,6 +325,7 @@ fn remembered(path: &Path, id: &str) -> Option<Remembered> {
             session_id: saved.session_id,
             directory,
             title: saved.title,
+            given_title: saved.given_title,
             position: saved.position,
         },
     )

@@ -17,7 +17,7 @@ const SERVED_PER_FRAME: usize = 4;
 
 impl App {
     pub fn hand(&mut self, verb: Verb, file: &Path, deadline: Instant) -> Reply {
-        if self.picking.is_some() || self.asking.is_some() || self.usage_open() {
+        if self.picking.is_some() || self.asking.is_some() || self.usage_open() || self.renaming() {
             return match verb {
                 Verb::Ask => Reply::None,
                 Verb::Open => Reply::Refused(WAITING.to_string()),

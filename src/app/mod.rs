@@ -18,6 +18,7 @@ mod navigate;
 mod prefix;
 mod read;
 mod remember;
+mod rename;
 mod side;
 mod split;
 mod usage;
@@ -99,6 +100,7 @@ pub struct App {
     tmux: Option<Tmux>,
     keymap: Keymap,
     prefixing: prefix::Prefixing,
+    renaming: Option<rename::Renaming>,
     logging: logging::Logging,
     hangup_grace: Duration,
 }
@@ -112,6 +114,7 @@ enum Question {
 struct Entry {
     id: usize,
     name: String,
+    given: Option<String>,
     session: Option<Session>,
     started_at: SystemTime,
     used_at: SystemTime,
@@ -234,6 +237,7 @@ impl App {
             tmux: None,
             keymap: Keymap::default(),
             prefixing: prefix::Prefixing::default(),
+            renaming: None,
             logging: logging::Logging::default(),
             hangup_grace: session::HANGUP_GRACE,
         }
@@ -379,6 +383,9 @@ impl App {
 
     fn paste_handled(&mut self, text: &str) {
         self.cancel_prefix();
+        if self.rename_paste(text) {
+            return;
+        }
         if self.usage_paste(text) {
             return;
         }
@@ -405,6 +412,10 @@ impl App {
     fn mouse_handled(&mut self, event: MouseEvent) {
         if matches!(event.kind, MouseEventKind::Down(_)) {
             self.cancel_prefix();
+        }
+        if self.renaming() {
+            self.gesture = Gesture::Idle;
+            return;
         }
         if self.usage_mouse(event) {
             return;
@@ -601,6 +612,7 @@ impl App {
                 self.sessions.push(Entry {
                     id: self.started,
                     name: format!("{} {}", folder_name(directory), self.named),
+                    given: None,
                     session: Some(session),
                     started_at,
                     used_at: started_at,

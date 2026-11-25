@@ -144,6 +144,13 @@ impl Card {
         }
     }
 
+    pub fn renamed(mut self, given: Option<&str>) -> Card {
+        if let Some(given) = given.map(clean).filter(|given| !given.is_empty()) {
+            self.title = given;
+        }
+        self
+    }
+
     pub fn with_icons(mut self) -> Card {
         self.iconed = true;
         self

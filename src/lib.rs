@@ -19,6 +19,7 @@ pub mod mouse;
 pub mod nvim;
 pub mod picker;
 pub mod registry;
+pub mod rename;
 pub mod repo;
 pub mod session;
 pub mod state;

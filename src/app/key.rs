@@ -18,6 +18,9 @@ impl App {
     fn key_handled(&mut self, key: KeyEvent) {
         let key = ctrl_backspace_as_ctrl_h(key);
         let acted = ctrl_shift_as_ctrl(key);
+        if self.rename_key(key) {
+            return;
+        }
         if self.usage_key(key) {
             return;
         }
@@ -254,7 +257,7 @@ fn plain_enter(key: KeyEvent) -> KeyEvent {
     }
 }
 
-fn typed(key: KeyEvent, c: char) -> char {
+pub(super) fn typed(key: KeyEvent, c: char) -> char {
     if key.modifiers.contains(KeyModifiers::SHIFT) {
         c.to_ascii_uppercase()
     } else {

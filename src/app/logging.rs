@@ -144,6 +144,10 @@ impl App {
         self.logging.log.write(|| line);
     }
 
+    pub(super) fn log_unforwarded(&mut self) {
+        self.logging.forwarded = true;
+    }
+
     pub(super) fn fail_unlogged(&mut self, message: String) {
         self.logging.failed = Some(message.clone());
         self.failed = Some(message);

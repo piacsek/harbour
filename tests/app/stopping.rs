@@ -178,6 +178,7 @@ fn the_narrowest_sidebar_shows_why_a_card_is_stopped() {
             session_id: OTHER_ID.to_string(),
             directory: gone.clone(),
             title: "Gone".to_string(),
+            given_title: None,
             position: 1,
         })
         .unwrap();
