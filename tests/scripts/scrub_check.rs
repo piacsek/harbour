@@ -1,7 +1,8 @@
 use std::fs;
+use std::io::Write;
 use std::os::unix::fs::{PermissionsExt, symlink};
 use std::path::{Path, PathBuf};
-use std::process::{Command, Output};
+use std::process::{Command, Output, Stdio};
 
 use crate::helpers::{
     git, isolated, link_script, on_a_terminal, recording_pager, repository, stderr, stdout,
@@ -396,6 +397,33 @@ fn an_outgoing_branch_name_that_holds_a_listed_term_fails_the_scrub() {
 }
 
 #[test]
+fn a_title_that_holds_a_listed_term_fails_the_scrub() {
+    let dir = tempfile::tempdir().unwrap();
+    let work = scrub_sandbox(dir.path());
+    let list = denylist(dir.path(), "acme-secret-term\n");
+
+    let output = scrub_title(&work, &list, "fix: the acme-secret-term workaround");
+
+    assert!(!output.status.success(), "{}", stdout(&output));
+    assert!(
+        stdout(&output).contains("scrub-check: title: fix: the acme-secret-term workaround\n"),
+        "{}",
+        stdout(&output)
+    );
+}
+
+#[test]
+fn a_clean_title_passes_the_scrub() {
+    let dir = tempfile::tempdir().unwrap();
+    let work = scrub_sandbox(dir.path());
+    let list = denylist(dir.path(), "acme-secret-term\n");
+
+    let output = scrub_title(&work, &list, "fix: the workaround");
+
+    assert!(output.status.success(), "{}", stdout(&output));
+}
+
+#[test]
 fn an_outgoing_merge_that_resolves_a_conflict_with_a_listed_term_fails_the_scrub() {
     let dir = tempfile::tempdir().unwrap();
     let work = scrub_sandbox(dir.path());
@@ -578,6 +606,20 @@ pub fn scrub_outgoing(work: &Path, list: &Path) -> Output {
         .env("HARBOUR_DENYLIST", list)
         .output()
         .unwrap()
+}
+
+fn scrub_title(work: &Path, list: &Path, title: &str) -> Output {
+    let mut child = isolated(&mut Command::new(work.join("scripts/scrub-check.sh")))
+        .arg("--title")
+        .env("HOME", work.parent().unwrap().join("home"))
+        .env("HARBOUR_DENYLIST", list)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .unwrap();
+    writeln!(child.stdin.take().unwrap(), "{title}").unwrap();
+    child.wait_with_output().unwrap()
 }
 
 fn pushed_file(work: &Path, path: &str, text: &str) {
