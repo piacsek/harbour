@@ -47,7 +47,7 @@ harbour config      # the settings file's path and where each setting comes from
 | `C-/ 1..9` | focus or resume that card; 9 the last |
 | `C-/ z` | zoom the session to the whole screen, or back |
 | `C-/ \ {}` | side by side (120+ columns); swap the halves |
-| `C-/ s` | jump to a session by part of its name |
+| `C-/ s/r` | jump to a session by name / rename the card |
 | `C-/ e` | show the next editor, one per directory |
 | `C-/ h/l` | focus the sidebar / the pane |
 | `C-/ -/=` | narrow / widen the sidebar by 2 columns |

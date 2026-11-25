@@ -38,15 +38,25 @@ fn no_given_title_keeps_claude_codes() {
 
 #[test]
 fn a_given_title_is_cleaned() {
-    let (rows, _) = sidebar(&[stopped().renamed(Some("acme\n login\u{200b}  fix ")), idle()], 1, 30);
+    let (rows, _) = sidebar(
+        &[
+            stopped().renamed(Some("acme\n login\u{200b}  fix ")),
+            idle(),
+        ],
+        1,
+        30,
+    );
 
     assert_eq!(rows[0], "  ○ acme login fix");
 }
 
 #[test]
 fn a_cjk_given_title_at_the_narrowest_sidebar_is_cut_at_a_whole_character() {
-    let (rows, _) = sidebar(&[stopped().renamed(Some("東京の会議の準備")), idle()], 1, 13);
+    let (rows, _) = sidebar(
+        &[stopped().renamed(Some("東京の会議の準備")), idle()],
+        1,
+        13,
+    );
 
     assert_eq!(rows[0], "  ○ 東京の会…");
 }
-

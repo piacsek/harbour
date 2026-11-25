@@ -332,6 +332,22 @@ fn open_while_a_question_is_asked_is_refused_and_the_question_stays() {
 }
 
 #[test]
+fn open_while_a_card_is_renamed_is_refused_and_the_line_stays() {
+    let scratch = tempfile::tempdir().unwrap();
+    let mut screen = harbour(scratch.path());
+    start_in(&mut screen, scratch.path(), "acme-api", 1);
+    screen.prefixed('r');
+
+    let reply = screen
+        .app
+        .hand(Verb::Open, &file(scratch.path(), "acme-api"), soon());
+
+    assert_eq!(reply, Reply::Refused(WAITING.to_string()));
+    let shown = screen.draw();
+    assert!(shown.contains("Title: "), "{shown}");
+}
+
+#[test]
 fn open_while_the_picker_is_open_is_refused() {
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = harbour(scratch.path());

@@ -18,6 +18,9 @@ impl App {
     fn key_handled(&mut self, key: KeyEvent) {
         let key = ctrl_backspace_as_ctrl_h(key);
         let acted = ctrl_shift_as_ctrl(key);
+        if self.rename_key(key) {
+            return;
+        }
         if self.usage_key(key) {
             return;
         }

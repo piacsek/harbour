@@ -8,7 +8,7 @@ pub const KEYS: &[(&str, &str)] = &[
     ("C-/ 1..9", "focus or resume that card; 9 the last"),
     ("C-/ z", "zoom the session to the whole screen, or back"),
     ("C-/ \\ {}", "side by side (120+ columns); swap the halves"),
-    ("C-/ s", "jump to a session by part of its name"),
+    ("C-/ s/r", "jump to a session by name / rename the card"),
     ("C-/ e", "show the next editor, one per directory"),
     ("C-/ h/l", "focus the sidebar / the pane"),
     ("C-/ -/=", "narrow / widen the sidebar by 2 columns"),
@@ -25,7 +25,15 @@ pub fn rows(keymap: &Keymap) -> Vec<(String, String)> {
     rows.push((format!("{prefix} 1..9"), KEYS[4].1.to_string()));
     rows.extend(single(&prefix, key(Action::Zoom), KEYS[5].1));
     rows.extend(side(&prefix, keymap));
-    rows.extend(single(&prefix, key(Action::Find), KEYS[7].1));
+    rows.extend(pair(
+        &prefix,
+        [key(Action::Find), key(Action::Rename)],
+        [
+            KEYS[7].1,
+            "jump to a session by part of its name",
+            "rename the selected card",
+        ],
+    ));
     rows.extend(single(&prefix, key(Action::Editor), KEYS[8].1));
     rows.extend(pair(
         &prefix,

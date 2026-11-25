@@ -407,7 +407,7 @@ fn an_unknown_action_is_refused_naming_the_actions() {
     assert_eq!(
         refusal(home.path()),
         format!(
-            "{}:3: keys.zoomed: no such action; the actions are zoom, side, swap_left, swap_right, find, new, end, close, editor, sidebar, pane, narrower, wider, usage, changelog, help, quit",
+            "{}:3: keys.zoomed: no such action; the actions are zoom, side, swap_left, swap_right, find, rename, new, end, close, editor, sidebar, pane, narrower, wider, usage, changelog, help, quit",
             path.display()
         )
     );

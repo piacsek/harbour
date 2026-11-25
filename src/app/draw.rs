@@ -143,7 +143,8 @@ impl App {
                     &entry.place,
                     entry.elapsed(),
                     entry.transcript.as_ref().map(Transcript::facts),
-                );
+                )
+                .renamed(entry.given.as_deref());
                 if self.nerd_font {
                     card.with_icons()
                 } else {
@@ -222,6 +223,10 @@ impl App {
             below_rows
         };
         let mut free = bottom;
+        let renamed_at = self.rename_cursor(bottom);
+        if let Some((line, _)) = self.rename_line(bottom.width) {
+            free = draw_bottom(frame, vec![line], free);
+        }
         if let Some(question) = self.asking {
             let mut lines = question_lines(question, self.closing, bottom.width);
             if matches!(question, Question::Quit(_)) {
@@ -237,6 +242,9 @@ impl App {
             .is_some_and(|at| bottom.contains(at) && !free.contains(at))
         {
             cursor.0 = None;
+        }
+        if let Some(at) = renamed_at {
+            cursor = (Some(at), 0);
         }
         if self.helping {
             self.draw_help(frame);

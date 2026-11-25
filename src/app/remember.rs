@@ -62,6 +62,7 @@ impl App {
             self.sessions.push(Entry {
                 id: 0,
                 name: remembered.title,
+                given: None,
                 session: None,
                 started_at: SystemTime::now(),
                 used_at: SystemTime::now(),
