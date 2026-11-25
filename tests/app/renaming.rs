@@ -3,9 +3,11 @@ use harbour::app::App;
 use harbour::keymap::{Action, Keymap};
 use ratatui::layout::Position;
 
+use crate::finding::three_sessions;
 use crate::logging::{count, logged, read};
 use crate::zoom::corners;
-use crate::{Screen, reading_agent};
+use crate::zoom_border::{Claude, started as started_titled, top};
+use crate::{Screen, in_order, reading_agent};
 
 #[test]
 fn the_prefix_then_r_opens_a_line_at_the_bottom_of_the_sidebar_holding_the_title() {
@@ -175,6 +177,66 @@ fn renaming_logs_the_key_and_never_the_text() {
     let logged = read(&lines);
     assert_eq!(count(&logged, "prefix key=rename"), 1, "{logged:#?}");
     assert_eq!(count(&logged, "key name="), 0, "{logged:#?}");
+}
+
+#[test]
+fn a_given_title_wins_over_claude_codes_on_the_card() {
+    let claude = Claude::new("Fix the login");
+    let mut screen = Screen::of(claude.app());
+    titled(&mut screen);
+
+    rename(&mut screen, "acme login fix");
+
+    let shown = screen.draw();
+    assert!(shown.contains(" acme login fix "), "{shown}");
+    assert!(!shown.contains("Fix the login"), "{shown}");
+}
+
+#[test]
+fn a_given_title_leads_the_zoomed_top_row() {
+    let claude = Claude::new("Fix the login");
+    let mut screen = Screen::of(claude.app());
+    titled(&mut screen);
+    rename(&mut screen, "acme login fix");
+
+    screen.prefixed('z');
+
+    let top = top(&screen.draw());
+    assert!(
+        in_order(&top, &["acme login fix", "acme-api · main"]),
+        "{top}"
+    );
+    assert!(!top.contains("Fix the login"), "{top}");
+}
+
+#[test]
+fn enter_on_the_title_unchanged_keeps_following_claude_codes() {
+    let claude = Claude::new("Fix the login");
+    let mut screen = Screen::of(claude.app());
+    titled(&mut screen);
+    screen.prefixed('r');
+    screen.key(KeyCode::Enter, KeyModifiers::NONE);
+
+    claude.retitle("Fix the logout");
+
+    screen.wait_for(" Fix the logout ");
+}
+
+#[test]
+fn the_session_finder_lists_a_given_title() {
+    let scratch = tempfile::tempdir().unwrap();
+    let mut screen = three_sessions(scratch.path());
+    rename(&mut screen, "acme deploy");
+
+    screen.prefixed('s');
+
+    let shown = screen.wait_for("acme fzf ready");
+    assert!(shown.contains("2|·|acme deploy |acme-home |"), "{shown}");
+}
+
+fn titled(screen: &mut Screen) {
+    started_titled(screen);
+    screen.wait_for("Fix the login");
 }
 
 fn started(app: App) -> Screen {
