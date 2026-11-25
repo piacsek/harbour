@@ -148,4 +148,7 @@ good; a finding on one still counts as must when it shows new impact.
 - **Ctrl held after the prefix on a key that needs Shift works only where the terminal reports
   the shifted character**: `?`, `{` and `}` with Ctrl held reach harbour as that character only
   in some terminals and layouts, and with the default prefix, Ctrl-Shift-/ in the csi-u form
-  matches the prefix and sends it to the program (`plans/phase-46-ctrl-held-after-prefix.md`).
+  matches the prefix and sends it to the program; without extended keys a Ctrl key whose control
+  byte is another key's acts as that key (C-- and C-7 as C-_ send the default prefix on, C-4 as
+  C-\ toggles side by side, C-2 is C-Space, C-3 is Esc and cancels)
+  (`plans/phase-46-ctrl-held-after-prefix.md`).

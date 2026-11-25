@@ -32,12 +32,16 @@ does without it, for every action and the digit jumps, as in tmux.
   terminal that reports extended keys.`, under the line of the jumps.
 - From review round 1: a letter with Shift held after the prefix is its capital whatever case
   the terminal reports (`typed`, moved from `src/app/key.rs` to `src/keymap.rs`), so
-  `C-/ C-S-x` closes as `C-/ X` does; the width keys' repeat takes Ctrl held too, so
-  `C-/ C-= C-=` widens twice; Ctrl+C after the prefix shows the changelog, as `c` does; the
+  `C-/ C-S-x` closes as `C-/ X` does; the width keys' repeat takes Ctrl held too (redesigned in round 2, below); Ctrl+C after the prefix shows the changelog, as `c` does; the
   digits with Ctrl held need extended keys (a legacy terminal sends C-2 as NUL, C-3 as Esc, C-4
   as C-\ and C-7 as C-_, which are not special-cased), so the help line and the fragment say so;
   a key whose character needs Shift on the user's layout is a known limit
   (`docs/known-limits.md`).
+- From review round 2, replacing round 1's repeat: the repeat takes the Ctrl state of the width
+  key that started it, Shift ignored as before. `C-/ = =` and `C-/ C-= C-=` repeat; `C-/ =`
+  then `C-=` does not and goes on as before, so a Ctrl-letter prefix bound as a width key's
+  letter (`prefix = "C-a"`, `wider = "a"`) starts the prefix again, and C-h or C-l after a bare
+  resize still move the focus.
 
 ## States
 
@@ -47,7 +51,9 @@ does without it, for every action and the digit jumps, as in tmux.
 | a bound key with Ctrl, or Ctrl and Shift | `does nothing` | its action, as without Ctrl |
 | a lower-case letter with Shift (csi-u form), Ctrl or not | the lower-case action | the capital's action |
 | C-c | `does nothing` | the changelog, as `c` |
-| C-= or C-- again within 500 ms of a width key | sent to the program | widens or narrows again |
+| C-= or C-- again within 500 ms of `C-/ C-=` or `C-/ C--` | sent to the program | widens or narrows again |
+| C-= or C-- within 500 ms of `C-/ =` or `C-/ -` | sent to the program | goes on as before (no repeat) |
+| the C-a prefix within 500 ms of `C-a a`, `wider = "a"` | starts the prefix | starts the prefix |
 | a digit 1 to 9 with Ctrl (extended keys on) | `does nothing` | the jump |
 | C-2, C-3, C-4, C-7 with extended keys off (NUL, Esc, C-\, C-_) | nothing, a cancel, nothing, the prefix sent on | nothing, a cancel, `side`, the prefix sent on |
 | C-m, C-i, C-h with extended keys off | Enter, Tab, Backspace: `does nothing` | the same |
@@ -87,8 +93,15 @@ rename popup, so a letter with Shift is its capital with or without Ctrl (red ro
 extended keys. A `tests/keymap.rs` row pins Ctrl+C after the prefix as the changelog (a guard,
 shown red by breaking `after`), and `docs/known-limits.md` gained the keys that need Shift.
 
+Review round 2 found the round 1 repeat swallowing Ctrl keys after a bare resize: with
+`prefix = "C-a"` and `wider = "a"`, `C-a a` then `C-a` widened again instead of starting the
+prefix. The repeat now remembers whether the width key had Ctrl held and repeats only a key with
+the same Ctrl state (red in `tests/app/width_keys.rs`: that case, and `C-/ =` then `C-=`). The
+known limit gained the legacy keys a Ctrl key arrives as.
+
 ## Hurdles
 
 - `test-seam` seven guard rows of `tests/keymap.rs` (Esc, Alt, Ctrl and Alt, the prefix again twice, a bare key, an unbound Ctrl key) held before the change and were green on their first run; each was shown red by breaking the code it covers, then restored → code
 - `tooling` `tests/app/prefix.rs` sits at 672 of the 700 lines `tests/source_size.rs` allows, so the in-process wiring test went into `tests/app/bindings.rs`, beside the other `C-;` test → none
 - `review-loop` round 1 found states the plan's table missed: a lower-case letter reported with Shift (csi-u), the width keys' repeat with Ctrl held, and the digits a legacy terminal sends as other keys (C-3 Esc, C-4 C-\, C-7 C-_) → code
+- `review-loop` round 2 found another hole in the width repeat, the mechanism round 1 changed: dropping Ctrl let it swallow a Ctrl-letter prefix and C-h or C-l after a bare resize; redesigned to repeat only a key with the width key's own Ctrl state → code

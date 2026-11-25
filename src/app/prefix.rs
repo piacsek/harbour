@@ -14,6 +14,7 @@ const REPEAT: Duration = Duration::from_millis(500);
 pub(super) struct Prefixing {
     waiting: bool,
     repeat: Option<(bool, Instant)>,
+    ctrl: bool,
     closed: Option<Action>,
 }
 
@@ -41,6 +42,7 @@ impl App {
         self.prefixing.waiting = false;
         let closed = self.prefixing.closed.take();
         let after = self.keymap.after(key);
+        self.prefixing.ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
         self.log_prefix(&logged(after));
         match after {
             After::Act(action) if closed == Some(action) => {}
@@ -129,6 +131,7 @@ impl App {
             Action::Narrower
         };
         if !(key.modifiers - KeyModifiers::SHIFT - KeyModifiers::CONTROL).is_empty()
+            || key.modifiers.contains(KeyModifiers::CONTROL) != self.prefixing.ctrl
             || at.elapsed() > REPEAT
             || self.keymap.action_on(typed(key, c)) != Some(action)
         {
