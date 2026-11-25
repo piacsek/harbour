@@ -4,8 +4,10 @@ use std::path::{Path, PathBuf};
 use crossterm::event::{KeyCode, KeyModifiers};
 use harbour::app::App;
 use harbour::editor::Program;
+use harbour::state::State;
+use ratatui::style::Color;
 
-use crate::{Screen, in_order, script};
+use crate::{Screen, column_of, in_order, script};
 
 const ID: &str = "4c3b2a19-0f8e-4d7c-9b6a-5f4e3d2c1b0a";
 
@@ -159,6 +161,33 @@ fn leaving_zoom_takes_the_session_off_the_top_row() {
 
     let top = top(&screen.draw());
     assert!(!top.contains("acme-api · main"), "{top}");
+}
+
+#[test]
+fn the_zoomed_top_row_draws_the_names_in_the_accent() {
+    let claude = Claude::new("Fix the login");
+    let editor = Program::new("acme-edit", script("exec sleep 600"));
+    let mut screen = Screen::of(claude.app().with_editor(editor).with_accent(Color::Magenta));
+    started(&mut screen);
+
+    zoom(&mut screen);
+
+    let shown = screen.draw();
+    let name = screen.cell(column_of(&shown, 0, " claude ") + 1, 0);
+    assert_eq!(name.fg, Color::Magenta, "{shown}");
+}
+
+#[test]
+fn the_zoomed_top_row_keeps_the_state_dot_in_its_own_colour() {
+    let claude = Claude::new("Fix the login");
+    let mut screen = Screen::of(claude.app().with_accent(Color::Magenta));
+    started(&mut screen);
+
+    zoom(&mut screen);
+
+    let shown = screen.draw();
+    let dot = screen.cell(column_of(&shown, 0, "●"), 0);
+    assert_eq!(Some(dot.fg), State::Working.style().fg, "{shown}");
 }
 
 fn zoom(screen: &mut Screen) {
