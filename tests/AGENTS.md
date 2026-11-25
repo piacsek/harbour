@@ -67,8 +67,10 @@ after the Clawd glyph: `tests/tabs.rs`, `tests/app/side_border.rs`, `tests/e2e/c
 - **Script tests guard what ships and releases**: the gates, `ship.sh`, the scrub check, the
   version check and the release scripts. A test of a usage line or a help text that no gate,
   workflow or user reads is not written.
-- **No Rust test reads a workflow file.** A change to `.github/workflows/*.yml` is proven by the
-  CI run of its own pull request, not by a test pinning its text, and needs no red test first.
+- **No Rust test reads a workflow file**, except `tests/workflows.rs`: a pull request's CI run
+  never runs the release's `tap` job, so nothing else proves where `TAP_TOKEN` is read. Any
+  other change to `.github/workflows/*.yml` is proven by the CI run of its own pull request, not
+  by a test pinning its text, and needs no red test first.
 
 ## Testing traps hit so far
 
@@ -354,6 +356,7 @@ tests/           by level (see "Where a test belongs"): `tests/cli.rs` runs the 
                  `tests/tui.rs` covers entering the terminal (extended keys asked for) and leaving it (mouse capture, bracketed paste and extended keys off, the default cursor shape only after another was sent) and the panic hook, `tests/cursor.rs` when a cursor shape is sent;
                  `tests/config/` reads the settings file in process (every refusal, the precedence) and runs `harbour config`; `tests/e2e/config.rs` runs the interface over a scratch config; `tests/real_config.rs` fails while a launch of the binary under `tests/`, or the launch line of `scripts/screenshots.sh`, leaves the user's `XDG_CONFIG_HOME` or `HOME` in place, naming it;
                  `tests/readme.rs` pins the README shape (see `docs/AGENTS.md`);
+                 `tests/workflows.rs` fails while the one release job reading `secrets.TAP_TOKEN` lacks `environment: homebrew-tap` or has a checkout not pinned to `ref: main`, or a workflow but `release.yml` names `TAP_TOKEN`;
                  `tests/skills.rs` fails while the `orchestrate-issue-execution-autonomously` skill does not find the owner's login as a step of its own, its first `gh issue list` lacks `--author <login>` or `author`, or a `gh issue list`, `gh issue view` or `gh api .../issues/` line without that filter reads a `title`, `body` or `comments` (no `--json`, or no `--jq`, counts as reading them; a listing of `--author app/github-actions` may read a `title`);
                  `tests/agents_size.rs` fails while the root `AGENTS.md` is over 12 KiB, a line of the fenced block inside its `## Layout` section over 120 characters, or the `CLAUDE.md` of `src/`, `tests/`, `scripts/`, `docs/` or `.github/` neither a symlink to `AGENTS.md` nor a file holding only that name, or that directory's `AGENTS.md` missing; `tests/scripts/flake_inputs.rs` also checks that an `AGENTS.md` or `CLAUDE.md` under `src/` is no flake input;
                  `tests/source_size.rs` fails while any Rust file under `src/` or `tests/` is longer than 700 lines, naming it;
