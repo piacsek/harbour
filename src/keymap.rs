@@ -126,7 +126,7 @@ impl Keymap {
         let KeyCode::Char(c) = key.code else {
             return After::Unknown;
         };
-        if !(key.modifiers - KeyModifiers::SHIFT).is_empty() {
+        if !(key.modifiers - KeyModifiers::SHIFT - KeyModifiers::CONTROL).is_empty() {
             return After::Unknown;
         }
         if let Some(digit @ 1..=9) = c.to_digit(10) {

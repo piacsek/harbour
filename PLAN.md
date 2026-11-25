@@ -52,7 +52,8 @@ file under `plans/`; its time and tokens are a row of [`plans/metrics.md`](plans
 | 42 | [C-; as a prefix setting](plans/phase-42-ctrl-semicolon-prefix.md) | [v0.37.0](https://github.com/piacsek/harbour/releases/tag/v0.37.0) |
 | 43 | [rename a card with the prefix then r](plans/phase-43-rename-card.md) | [v0.38.0](https://github.com/piacsek/harbour/releases/tag/v0.38.0) |
 | 44 | [group the cards of one repository](plans/phase-44-group-by-repository.md) | [v0.39.0](https://github.com/piacsek/harbour/releases/tag/v0.39.0) |
-| 45 | [old ended cards tidy themselves away](plans/phase-45-tidy-ended-cards.md), with the sweep of phases 41 to 44 | |
+| 45 | [old ended cards tidy themselves away](plans/phase-45-tidy-ended-cards.md), with the sweep of phases 41 to 44 | [v0.40.0](https://github.com/piacsek/harbour/releases/tag/v0.40.0) |
+| 46 | [Ctrl may stay held for the key after the prefix](plans/phase-46-ctrl-held-after-prefix.md) | |
 
 ## Backlog
 
