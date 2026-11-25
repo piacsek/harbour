@@ -318,6 +318,24 @@ fn unpushed_commits_with_nothing_staged_open_the_draft_under_the_message() {
 }
 
 #[test]
+fn a_title_longer_than_a_pipe_holds_opens_the_draft_without_a_denylist() {
+    let dir = tempfile::tempdir().unwrap();
+    let work = ship_sandbox(dir.path());
+    link_dev_binary(dir.path(), &another_build(dir.path()));
+    fs::write(work.join("README.md"), "changed\n").unwrap();
+    let title = format!("docs: {}", "a".repeat(200_000));
+
+    let output = first_ship(dir.path(), &title);
+
+    assert!(output.status.success(), "{}", stderr(&output));
+    assert!(
+        stdout(&output).contains("opened draft PR for topic\n"),
+        "{}",
+        stdout(&output)
+    );
+}
+
+#[test]
 fn ship_pushes_nothing_from_a_branch_named_after_a_listed_term() {
     let dir = tempfile::tempdir().unwrap();
     let work = ship_sandbox(dir.path());

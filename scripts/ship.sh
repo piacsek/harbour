@@ -36,7 +36,7 @@ title="${message%%$'\n'*}"
 opening=
 if ! gh pr view "$branch" --json number >/dev/null 2>&1; then
   opening=1
-  if ! printf '%s\n' "$title" | scripts/scrub-check.sh --title; then
+  if ! scripts/scrub-check.sh --title <<<"$title"; then
     echo "ship: nothing was pushed and no pull request opened; ship again with a message whose first line holds none of what is named above" >&2
     exit 1
   fi
