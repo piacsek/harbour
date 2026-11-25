@@ -56,7 +56,12 @@ fn every_card_due_is_named_in_order() {
         ended(AFTER + SECOND),
     ];
 
-    assert_eq!(tidy::due(&cards, 1, AFTER), vec![0, 2, 4]);
+    let due = tidy::due(&cards, 1, AFTER);
+
+    assert_eq!(due.len(), 3);
+    assert_eq!(due[0], 0);
+    assert_eq!(due[1], 2);
+    assert_eq!(due[2], 4);
 }
 
 fn ended(age: Duration) -> Card {

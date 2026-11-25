@@ -1,5 +1,5 @@
 use std::path::Path;
-use std::time::Instant;
+use std::time::{Instant, SystemTime};
 
 use super::{App, Entry, READ_EVERY, user_home};
 use crate::registry;
@@ -49,6 +49,7 @@ impl App {
         for entry in &mut self.sessions {
             if entry.session.is_some() && settling.contains(&entry.id) {
                 entry.exited_at = Some(Instant::now());
+                entry.exited_wall = Some(SystemTime::now());
                 entry.reservation = None;
             }
         }

@@ -146,9 +146,19 @@ or a waiting prefix is open waits for it to close. Each check that removed cards
 `docs/details.png` came back byte-identical (the demo never tidies). Tasks 2 to 5 shipped
 together: each new `pub` item is dead code until the app and `src/tui.rs` use it.
 
+Review round 1 found no must; its six findings were fixed in one ship. An exited card's age now
+runs on the wall clock (`exited_wall`, a `SystemTime`), since an `Instant` stops while a laptop
+sleeps; `with_tidy_clock` lets a test move that clock. A check reads the held ids once for all
+its removals, and saves the remaining cards' positions after it removes any, so a restart keeps
+the order on screen. A stopped card's age stats its own transcript, its path found once and
+kept, instead of listing every transcript each minute (the simpler of the two ways the review
+offered). The picker and the usage popup got their own "nothing while open" tests, and the
+`tidy::due` order test asserts one index a line.
+
 ## Hurdles
 
 - `tooling` `src/config.rs` sat at 699 lines, so one setting broke `tests/source_size.rs`; `report` moved to `src/config/report.rs` → code
 - `test-seam` the variable's `"off"`, the stopped card kept while its conversation is fresh, the selected card and the three "nothing while open" tests were green on their first run (their stubs already kept cards); each was shown red by breaking the code it covers → code
 - `process` tasks 2 to 5 could not ship apart: `Config::tidy_after`, `tidy::due` and the app's seams are dead code until the app and `src/tui.rs` use them (already #97) → backlog
 - `tooling` the first ship of the feature stopped at clippy on a `u64` to `usize` cast in the new end-to-end test, which a targeted `cargo test` run does not lint, and the next at `tests/real_config.rs`: the two new `harbour config` tests did not remove the session, picker and editor variables → code
+- `review-loop` round 1 found states the plan missed: a laptop asleep (an `Instant` age stops), a first launch with many old cards (a held-id scan per removal, every transcript listed each minute), and positions left stale after a removal → code

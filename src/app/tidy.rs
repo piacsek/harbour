@@ -1,4 +1,5 @@
-use std::collections::HashMap;
+use std::collections::HashSet;
+use std::fs;
 use std::time::{Duration, Instant, SystemTime};
 
 use super::App;
@@ -19,6 +20,11 @@ impl App {
         self
     }
 
+    pub fn with_tidy_clock(mut self, clock: Box<dyn Fn() -> SystemTime>) -> App {
+        self.tidy_clock = clock;
+        self
+    }
+
     pub(super) fn tidy(&mut self) {
         let Some(after) = self.tidy_after else {
             return;
@@ -31,30 +37,28 @@ impl App {
             return;
         }
         self.tidied_at = Some(Instant::now());
-        let changed = self.conversations_changed();
-        let now = SystemTime::now();
-        let cards: Vec<Card> = self
-            .sessions
-            .iter_mut()
-            .map(|entry| Card {
-                age: match (&entry.session, entry.exited_at) {
-                    (Some(_), exited_at) => exited_at.map(|at| at.elapsed()),
-                    (None, _) => entry
-                        .remembered
-                        .as_ref()
-                        .and_then(|id| changed.get(id).copied().flatten())
-                        .map(|at| now.duration_since(at).unwrap_or_default()),
-                },
-                running: entry.running(),
-            })
-            .collect();
+        let now = (self.tidy_clock)();
+        let mut cards = Vec::with_capacity(self.sessions.len());
+        for index in 0..self.sessions.len() {
+            let changed = match &self.sessions[index].session {
+                Some(_) => self.sessions[index].exited_wall,
+                None => self.conversation_changed(index),
+            };
+            cards.push(Card {
+                age: changed.map(|at| now.duration_since(at).unwrap_or_default()),
+                running: self.sessions[index].running(),
+            });
+        }
         let due = tidy::due(&cards, self.selected, after);
+        if due.is_empty() {
+            return;
+        }
+        let held = self.held_ids();
         for index in due.iter().rev() {
-            self.remove_tidied(*index);
+            self.remove_tidied(*index, &held);
         }
-        if !due.is_empty() {
-            self.log_tidy(due.len());
-        }
+        self.keep_positions();
+        self.log_tidy(due.len());
     }
 
     fn busy(&self) -> bool {
@@ -65,20 +69,36 @@ impl App {
             || self.prefix_waiting()
     }
 
-    fn conversations_changed(&self) -> HashMap<String, Option<SystemTime>> {
-        let stopped = self.sessions.iter().any(|entry| entry.session.is_none());
-        self.transcripts
-            .as_deref()
-            .filter(|_| stopped)
-            .and_then(Transcript::changed)
-            .unwrap_or_default()
+    fn conversation_changed(&mut self, index: usize) -> Option<SystemTime> {
+        let id = self.sessions[index].remembered.clone()?;
+        let projects = self.transcripts.as_deref()?;
+        let changed = |path: &std::path::Path| {
+            fs::metadata(path)
+                .ok()
+                .filter(fs::Metadata::is_file)
+                .and_then(|meta| meta.modified().ok())
+        };
+        if let Some(at) = self
+            .transcript_paths
+            .get(&id)
+            .and_then(|path| changed(path))
+        {
+            return Some(at);
+        }
+        let path = Transcript::located(projects, &id)?;
+        let at = changed(&path);
+        self.transcript_paths.insert(id, path);
+        at
     }
 
-    fn remove_tidied(&mut self, index: usize) {
+    fn remove_tidied(&mut self, index: usize, held: &HashSet<String>) {
         let mut removed = self.sessions.remove(index);
         session::end_all(removed.sessions(), self.hangup_grace);
         removed.reservation = None;
-        self.forget(&removed);
+        self.forget_unless(&removed, held);
+        if let Some(id) = &removed.remembered {
+            self.transcript_paths.remove(id);
+        }
         if index < self.selected {
             self.selected -= 1;
         }
