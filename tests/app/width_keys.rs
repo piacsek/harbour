@@ -1,5 +1,6 @@
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use harbour::app::App;
+use harbour::keymap::{Action, Keymap};
 
 use crate::usage_states::place;
 use crate::zoom::raw_reader;
@@ -44,6 +45,42 @@ fn the_prefix_then_shifted_equals_widens_it_on_a_layout_where_equals_needs_shift
     screen.key(KeyCode::Char('='), KeyModifiers::SHIFT);
 
     assert_eq!(pane_corner(&screen.draw()), 32);
+}
+
+#[test]
+fn ctrl_equals_after_the_prefix_then_ctrl_equals_again_soon_widens_it_twice() {
+    let mut screen = started(30);
+
+    screen.key(KeyCode::Char('/'), KeyModifiers::CONTROL);
+    screen.key(KeyCode::Char('='), KeyModifiers::CONTROL);
+    screen.key(KeyCode::Char('='), KeyModifiers::CONTROL);
+
+    assert_eq!(pane_corner(&screen.draw()), 34);
+}
+
+#[test]
+fn equals_after_the_prefix_then_ctrl_equals_soon_does_not_widen_it_again() {
+    let mut screen = started(30);
+
+    wider(&mut screen);
+    screen.key(KeyCode::Char('='), KeyModifiers::CONTROL);
+
+    assert_eq!(pane_corner(&screen.draw()), 32);
+}
+
+#[test]
+fn a_ctrl_letter_prefix_soon_after_its_letter_widened_starts_the_prefix_again() {
+    let keymap = Keymap::default()
+        .with_prefix('a')
+        .bind(Action::Wider, Some('a'));
+    let mut screen = started_with(keymap);
+
+    screen.key(KeyCode::Char('a'), KeyModifiers::CONTROL);
+    screen.press('a');
+    screen.key(KeyCode::Char('a'), KeyModifiers::CONTROL);
+    screen.press('a');
+
+    assert_eq!(pane_corner(&screen.draw()), 34);
 }
 
 #[test]
@@ -346,6 +383,20 @@ fn started(width: u16) -> Screen {
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = Screen::at(
         App::new(numbered_agent(scratch.path())).with_sidebar_width(width),
+        home(),
+        120,
+    );
+    screen.press('n');
+    screen.wait_for("acme agent 1");
+    screen
+}
+
+fn started_with(keymap: Keymap) -> Screen {
+    let scratch = tempfile::tempdir().unwrap();
+    let mut screen = Screen::at(
+        App::new(numbered_agent(scratch.path()))
+            .with_sidebar_width(30)
+            .with_keymap(keymap),
         home(),
         120,
     );

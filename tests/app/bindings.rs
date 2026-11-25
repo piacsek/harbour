@@ -82,6 +82,19 @@ fn ctrl_semicolon_twice_sends_claude_code_a_semicolon() {
 }
 
 #[test]
+fn ctrl_held_through_a_ctrl_semicolon_prefix_runs_the_action() {
+    let scratch = tempfile::tempdir().unwrap();
+    let mut screen = started(Keymap::default().with_prefix(';'), scratch.path());
+
+    screen.key(KeyCode::Char(';'), KeyModifiers::CONTROL);
+    screen.key(KeyCode::Char('z'), KeyModifiers::CONTROL);
+    screen.type_text("hi\r");
+
+    let shown = screen.wait_for("acme agent 1 got: hi");
+    assert_eq!(corners(&shown), 0, "{shown}");
+}
+
+#[test]
 fn a_configured_prefix_is_named_in_the_unknown_key_message() {
     let scratch = tempfile::tempdir().unwrap();
     let app = App::new(lined_agent(scratch.path())).with_keymap(Keymap::default().with_prefix(']'));

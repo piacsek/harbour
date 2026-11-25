@@ -3,7 +3,7 @@ use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use super::logging::Input;
 use super::{App, Entry, Question, draw, refusal};
 use crate::editor::{Changes, Editor};
-use crate::keymap::Action;
+use crate::keymap::{Action, typed};
 use crate::keys::{self, Keyboard};
 use crate::mouse::Gesture;
 use crate::picker::Pick;
@@ -254,14 +254,6 @@ fn plain_enter(key: KeyEvent) -> KeyEvent {
         )
     } else {
         key
-    }
-}
-
-pub(super) fn typed(key: KeyEvent, c: char) -> char {
-    if key.modifiers.contains(KeyModifiers::SHIFT) {
-        c.to_ascii_uppercase()
-    } else {
-        c
     }
 }
 

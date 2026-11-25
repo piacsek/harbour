@@ -183,6 +183,22 @@ fn the_prefix_then_a_digit_jumps_between_cards_with_extended_keys_on() {
 
 #[test]
 #[ignore]
+fn the_prefix_then_a_digit_with_ctrl_held_jumps_between_cards_with_extended_keys_on() {
+    let Some((_home, server)) = two_raw_agents("ext-xterm-ctrl-jump", "xterm") else {
+        return;
+    };
+
+    server.send_keys(&["C-/", "C-1", "a"]);
+    server.wait_for_screen("read:a");
+    server.send_keys(&["C-/", "C-2", "b"]);
+
+    let screen = server.wait_for_screen("read:b");
+    assert!(screen.contains("read:b"), "{screen}");
+    assert!(!screen.contains("read:a"), "{screen}");
+}
+
+#[test]
+#[ignore]
 fn the_prefix_then_nine_jumps_to_the_last_card_in_the_csi_u_form() {
     let Some((_home, server)) = two_raw_agents("ext-csi-u-jump", "csi-u") else {
         return;
