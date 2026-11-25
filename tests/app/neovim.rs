@@ -314,6 +314,22 @@ fn q_names_unsaved_changes_in_neovim() {
 }
 
 #[test]
+fn ctrl_c_to_the_quit_question_with_unsaved_changes_in_neovim_keeps_harbour_running() {
+    let scratch = tempfile::tempdir().unwrap();
+    let mut screen = in_the_sidebar(scratch.path());
+    let _asked = ready(&socket(scratch.path()), Some(1));
+    screen.prefixed('q');
+    let asked = screen.draw();
+    assert!(asked.contains("Unsaved changes. Quit? y/n"), "{asked}");
+
+    screen.key(KeyCode::Char('c'), KeyModifiers::CONTROL);
+
+    let shown = screen.draw();
+    assert!(!shown.contains("y/n"), "{shown}");
+    assert!(screen.app.running());
+}
+
+#[test]
 fn ctrl_h_kept_by_a_neovim_that_asked_for_the_kitty_protocol_reaches_it_in_the_kitty_form() {
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = open_with(kitty_neovim(scratch.path()));

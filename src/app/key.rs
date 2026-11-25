@@ -34,8 +34,8 @@ impl App {
         if self.changelog_key(key) {
             return;
         }
-        let quit_question = matches!(self.asking, Some(Question::Quit(_)));
-        if self.dismiss(is_yes(key) || quit_question && is_ctrl(key, 'c')) {
+        let quit_with_nothing_unsaved = matches!(self.asking, Some(Question::Quit(Changes::Saved)));
+        if self.dismiss(is_yes(key) || quit_with_nothing_unsaved && is_ctrl(key, 'c')) {
             return;
         }
         if self.sidebar.is_empty() && !self.sessions.is_empty() {

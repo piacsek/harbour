@@ -123,6 +123,21 @@ fn the_whole_question_shows_in_the_sidebar_of_an_80_column_terminal() {
 }
 
 #[test]
+fn ctrl_c_to_the_quit_question_when_an_editor_may_have_unsaved_changes_keeps_harbour_running() {
+    let scratch = tempfile::tempdir().unwrap();
+    let mut screen = in_the_sidebar(scratch.path());
+    screen.prefixed('q');
+    let asked = screen.draw();
+    assert!(asked.contains("May have unsaved changes"), "{asked}");
+
+    screen.key(KeyCode::Char('c'), KeyModifiers::CONTROL);
+
+    let shown = screen.draw();
+    assert!(!shown.contains("y/n"), "{shown}");
+    assert!(screen.app.running());
+}
+
+#[test]
 fn q_with_only_an_editor_running_asks_before_quitting() {
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = with_exited_agent(scratch.path());

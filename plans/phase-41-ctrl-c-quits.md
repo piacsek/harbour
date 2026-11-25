@@ -22,7 +22,11 @@ question counts as yes, so Ctrl+C twice always quits.
 
 - The orchestrator's: Ctrl+C acts only in the sidebar; a focused pane gets it as before. The
   usage popup, the pickers, the help and the changelog view take it as they take any key.
-- Ctrl+C to the quit question is a yes; to `End? y/n` and `End and remove? y/n` it stays a no.
+- Ctrl+C to the quit question is a yes only when nothing is unsaved (round 1 of review): to
+  `Unsaved changes. Quit? y/n` and `May have unsaved changes. Quit? y/n` it is a no, so a
+  double tap never loses an editor's edits. To `End? y/n` and `End and remove? y/n` it stays a
+  no. Two taps in the sidebar ending every session otherwise is the owner's ask, kept in
+  `docs/known-limits.md`.
 - Ctrl-Shift-c gets no handling of its own.
 - The log names it `C-c`, as it names `C-h` and `C-l`.
 - `harbour --help` names the key; the help view keeps its 14 rows (no room), so no screenshot.
@@ -34,13 +38,15 @@ question counts as yes, so Ctrl+C twice always quits.
 | Sidebar focused, a session running | Ctrl+C | `Quit? y/n` |
 | Sidebar focused, nothing running | Ctrl+C | harbour quits |
 | `Quit? y/n` | Ctrl+C | harbour quits |
+| `Unsaved changes. Quit? y/n` or `May have unsaved changes. Quit? y/n` | Ctrl+C | the question closes, harbour runs on |
 | `End? y/n` or `End and remove? y/n` | Ctrl+C | the question closes, the session runs on |
 | Pane focused | Ctrl+C | the program gets it |
 
 ## Tasks
 
 1. Ctrl+C in the sidebar quits as `C-/ q` does (`tests/app/ending.rs`).
-2. Ctrl+C answers the quit question yes, the end questions no (`tests/app/ending.rs`).
+2. Ctrl+C answers the quit question yes, the end questions no (`tests/app/ending.rs`); no to
+   the quit question with unsaved changes (`tests/app/neovim.rs`, `tests/app/editor_ending.rs`).
 3. A focused pane still gets Ctrl+C (`tests/app/ending.rs`).
 4. The log names it (`tests/app/logging.rs`), `--help` names it (`tests/cli.rs`), one
    end-to-end test through tmux (`tests/e2e/main.rs`), the fragment.
@@ -49,7 +55,7 @@ question counts as yes, so Ctrl+C twice always quits.
 
 Ctrl+C in the sidebar calls `quit()`, as `C-/ q` does, from the last match of `key_handled`,
 in #188. The answer to a question is a yes for Ctrl+C only while that question is
-`Quit? y/n`; `End? y/n` and `End and remove? y/n` still close on it as a no. A focused pane, the
+`Quit? y/n` with nothing unsaved; `End? y/n` and `End and remove? y/n` still close on it as a no. A focused pane, the
 usage popup, the pickers, the help and the changelog view take it as before, since they all come
 first. The log names it `key name="C-c"`, and `harbour --help` says what it does. The help view
 and the README are unchanged (no row to spare), so no screenshot. Tasks 2 and 3 shipped
@@ -57,4 +63,4 @@ together. Phase 40's ready, merged and released were read from GitHub into `plan
 
 ## Hurdles
 
-- none recorded
+- `review-loop` round 1 found that Ctrl+C twice quit past `Unsaved changes. Quit? y/n`, losing an editor's edits; Ctrl+C is now a yes only when nothing is unsaved, and two taps ending every session otherwise went to `docs/known-limits.md` → code
