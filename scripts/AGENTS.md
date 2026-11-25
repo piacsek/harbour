@@ -65,9 +65,13 @@ kept and fixed with `git commit --amend`: with nothing staged and commits no rem
 check is skipped only where that default path is confirmed absent (the nearest existing path
 above it is a directory it can search), so CI does not enforce it, and fails, in both modes,
 when the path is there but is not a readable file, when its absence cannot be confirmed, when
-`HARBOUR_DENYLIST` names one that is not, when the list is empty, or when `git grep` or
-`git log` cannot run. It does not read the contents of binary files, the author and committer of
-a commit, the PR body, or anything pushed without `ship.sh`.
+`HARBOUR_DENYLIST` names one that is not, when the list is empty, when a line of it is blank,
+starts or ends with whitespace (a space, a tab, a carriage return, a vertical tab or a form
+feed), or holds a byte-order mark, a no-break space or a zero-width character (it names the line
+and why: a blank line matches every line, and the others miss the term wherever the hidden
+character does not also stand beside it; other non-ASCII, an accented letter say, is accepted),
+or when `git grep` or `git log` cannot run. It does not read the contents of binary files, the
+author and committer of a commit, the PR body, or anything pushed without `ship.sh`.
 
 ## Gates, ship and install
 

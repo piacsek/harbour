@@ -44,7 +44,7 @@ fn a_listed_term_only_in_an_ignored_file_leaves_the_scrub_clean() {
 fn a_denylist_git_grep_cannot_use_fails_the_scrub() {
     let dir = tempfile::tempdir().unwrap();
     let work = scrub_sandbox(dir.path());
-    let list = denylist(dir.path(), "\n");
+    let list = denylist(dir.path(), "zz-secret\0term\n");
 
     let output = scrub(&work, Some(&list));
 
@@ -542,7 +542,7 @@ fn the_scrub_on_a_terminal_never_opens_the_pager() {
     );
 }
 
-fn scrub_sandbox(root: &Path) -> PathBuf {
+pub fn scrub_sandbox(root: &Path) -> PathBuf {
     let work = repository(root);
     link_script(&work, "scrub-check.sh");
     git(&work, &["add", "-A"]);
@@ -550,13 +550,13 @@ fn scrub_sandbox(root: &Path) -> PathBuf {
     work
 }
 
-fn denylist(root: &Path, terms: &str) -> PathBuf {
+pub fn denylist(root: &Path, terms: &str) -> PathBuf {
     let list = root.join("denylist");
     fs::write(&list, terms).unwrap();
     list
 }
 
-fn scrub(work: &Path, list: Option<&Path>) -> Output {
+pub fn scrub(work: &Path, list: Option<&Path>) -> Output {
     let mut command = Command::new(work.join("scripts/scrub-check.sh"));
     isolated(&mut command)
         .env("HOME", work.parent().unwrap().join("home"))
@@ -571,7 +571,7 @@ fn default_denylist(root: &Path) -> PathBuf {
     root.join("home/.config/harbour-dev/denylist")
 }
 
-fn scrub_outgoing(work: &Path, list: &Path) -> Output {
+pub fn scrub_outgoing(work: &Path, list: &Path) -> Output {
     isolated(&mut Command::new(work.join("scripts/scrub-check.sh")))
         .arg("--outgoing")
         .env("HOME", work.parent().unwrap().join("home"))

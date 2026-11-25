@@ -19,6 +19,7 @@ mod release_tag;
 mod release_unfinished;
 mod script_tests_skippable;
 mod scrub_check;
+mod scrub_list;
 mod ship;
 mod stable_version;
 mod sweep;

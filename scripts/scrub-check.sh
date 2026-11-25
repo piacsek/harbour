@@ -18,6 +18,21 @@ if [ ! -s "$list" ]; then
   echo "scrub-check: $list is empty" >&2
   exit 1
 fi
+untrusted="$(LC_ALL=C awk '
+  BEGIN { space = "[ \t\r\013\014]" }
+  $0 == "" { print NR " is blank" }
+  $0 ~ ("^" space) { print NR " starts with whitespace" }
+  $0 ~ (space "$") { print NR " ends with whitespace" }
+  index($0, "\357\273\277") { print NR " holds a byte-order mark" }
+  index($0, "\302\240") { print NR " holds a no-break space" }
+  index($0, "\342\200\213") || index($0, "\342\200\214") || index($0, "\342\200\215") { print NR " holds a zero-width character" }
+' "$list")"
+if [ -n "$untrusted" ]; then
+  while read -r line why; do
+    echo "scrub-check: $list:$line $why" >&2
+  done <<<"$untrusted"
+  exit 1
+fi
 found=0
 search() {
   local what="$1" status=0
