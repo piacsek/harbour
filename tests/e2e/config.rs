@@ -167,7 +167,8 @@ fn the_exact_editor_dir_from_the_file_opens_the_editor_in_claude_codes_own_folde
 
     server.send_keys(&["Enter", "C-l"]);
 
-    let screen = server.wait_for_screen("acme editor in");
+    let screen =
+        server.wait_for_screen_all(&["acme editor in rust", " editor.sh: ", "/acme-api/rust "]);
     let top = screen.lines().next().unwrap_or_default();
     assert!(screen.contains("acme editor in rust"), "{screen}");
     assert!(in_order(top, &[" editor.sh: ", "/acme-api/rust "]), "{top}");

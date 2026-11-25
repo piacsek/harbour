@@ -76,6 +76,15 @@ real binary with the border's label (`tests/e2e/config.rs`) and the help text (`
 Shipped in two tasks on draft PR #229. Phase 46's ready, merged and released were read from
 GitHub into `plans/metrics.md` (v0.41.0).
 
+Review round 1 found one should and two nits, fixed in one ship. Under `"exact"`, `harbour edit`
+could be refused: the ask judged each session by the folder last read, the open read it again
+first, so a `cd` of Claude Code inside the repository since the last read made the claim and the
+open disagree. The ask now reads each running session's folder again as the open does
+(`refresh_live`, red in `tests/app/nearest.rs`), and `docs/known-limits.md` says what that costs
+per ask. Two new tests now wait for exactly what they assert, and the `src/AGENTS.md` entry of
+`src/app/handoff.rs` says directory where root was no longer right.
+
 ## Hurdles
 
 - `tooling` `scripts/screenshots.sh` rewrote five images besides `docs/help.png` whose content did not change (a run renders them differently each time); only the help image was kept → none
+- `review-loop` round 1 found the ask and the open of `harbour edit` judging by different reads of where a session works, harmless while both walked up to the same repository root and wrong under `"exact"`; the plan's States table listed what each directory opens, not when it is read → code

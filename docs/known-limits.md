@@ -37,7 +37,11 @@ good; a finding on one still counts as must when it shows new impact.
   running Neovim and the whole request deadline (under 5 s) for one harbour has just started,
   4 a frame, so a Neovim that never answers holds the interface that long; once the command is
   sent, it may still land after `harbour edit` reported a failure (a swap prompt answered after
-  harbour gave up still switches the buffer); a state directory path too long for a
+  harbour gave up still switches the buffer); every ask and every open first reads again where
+  each running session works, as the draw thread's periodic read does (its registry file, the
+  new end of its transcript, at most 1 MiB, and a listing of the projects directory at most every
+  5 s while it has no transcript), so each `harbour edit` costs those reads once per session in every harbour it
+  asks, then again in the one it opens in; a state directory path too long for a
   Unix socket (104 bytes on macOS) means harbour never listens and `harbour edit` says none is
   running (`plans/phase-12-edit-from-outside.md`).
 - **A harbour ended by any signal but TERM, INT and HUP, SIGKILL included, or a crash, or a second TERM or INT that ends it before the clean-up, leaves its `harbour edit` socket behind** until the next

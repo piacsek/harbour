@@ -27,9 +27,7 @@ impl App {
         if verb == Verb::Ask && !neovim {
             return Reply::None;
         }
-        if verb == Verb::Open {
-            self.refresh_live();
-        }
+        self.refresh_live();
         match (verb, self.holder(file)) {
             (Verb::Ask, Some((holder, root))) => Reply::Holds(Claim {
                 depth: canonical(&root).components().count(),

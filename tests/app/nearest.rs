@@ -7,7 +7,7 @@ use crossterm::event::{KeyCode, KeyModifiers, MouseButton, MouseEventKind};
 use harbour::editor::EditorDir;
 use harbour::handoff::{Claim, Reply, Verb};
 
-use crate::directory::repository;
+use crate::directory::{cwd, folder, following_in, repository, write_transcript};
 use crate::handing::answering;
 use crate::handoff::{
     app_running, app_with, file, harbour, last_use, opened_beside, recording_neovim, soon, start_in,
@@ -102,6 +102,33 @@ fn with_the_exact_directory_a_file_beside_the_sessions_folder_is_held_by_none() 
         .hand(Verb::Ask, &file(scratch.path(), "acme-api/lib"), soon());
 
     assert_eq!(reply, Reply::None);
+}
+
+#[test]
+fn with_the_exact_directory_an_ask_judges_by_the_folder_claude_code_moved_to_since_the_last_read() {
+    let scratch = tempfile::tempdir().unwrap();
+    repository(scratch.path(), "acme-api");
+    let src = folder(scratch.path(), "acme-api/src");
+    let lib = folder(scratch.path(), "acme-api/lib");
+    let mut screen = following_in(
+        scratch.path(),
+        &[&cwd(&src)],
+        recording_neovim(scratch.path()),
+        EditorDir::Exact,
+    );
+    let shown = screen.wait_for("acme-api");
+    assert!(shown.contains("acme-api"), "{shown}");
+    write_transcript(scratch.path(), &[&cwd(&lib)]);
+
+    let in_src = screen
+        .app
+        .hand(Verb::Ask, &file(scratch.path(), "acme-api/src"), soon());
+    let in_lib = screen
+        .app
+        .hand(Verb::Ask, &file(scratch.path(), "acme-api/lib"), soon());
+
+    assert_eq!(in_src, Reply::None);
+    assert!(matches!(in_lib, Reply::Holds(_)), "{in_lib:?}");
 }
 
 #[test]

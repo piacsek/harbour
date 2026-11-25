@@ -49,7 +49,7 @@ fn with_the_exact_directory_the_editor_opens_in_the_folder_claude_code_started_i
 
     screen.key(KeyCode::Char('l'), KeyModifiers::CONTROL);
 
-    let shown = screen.wait_for("acme editor at");
+    let shown = screen.wait_for("acme editor at rust");
     assert!(shown.contains("acme editor at rust"), "{shown}");
 }
 
@@ -463,10 +463,20 @@ pub(crate) fn following(scratch: &Path, lines: &[&str]) -> Screen {
 }
 
 pub(crate) fn following_with(scratch: &Path, lines: &[&str], editor: Program) -> Screen {
+    following_in(scratch, lines, editor, EditorDir::Root)
+}
+
+pub(crate) fn following_in(
+    scratch: &Path,
+    lines: &[&str],
+    editor: Program,
+    editor_dir: EditorDir,
+) -> Screen {
     let start = repository(scratch, "acme-start");
     let mut screen = Screen::wide(
         App::new(recording_agent(scratch))
             .with_editor(editor)
+            .with_editor_dir(editor_dir)
             .with_picker(choosing(&start))
             .with_transcripts(scratch.join("projects"))
             .naming_sessions()
