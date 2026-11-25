@@ -102,7 +102,8 @@ impl App {
                 counts,
             );
         } else if self.zoomed {
-            pane_block = self.zoom_heading(Block::new(), pane.width, counts);
+            pane_block =
+                self.zoom_heading(Block::new().title_style(self.accent), pane.width, counts);
         } else if self.side_by_side {
             pane_block = self.zoom_heading(pane_block, pane.width.saturating_sub(2), counts);
         } else if let Some(tabs) = self.tabs(usize::from(pane.width.saturating_sub(2))) {
