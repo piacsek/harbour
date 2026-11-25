@@ -97,7 +97,9 @@ letter under extended keys; a config already binding `r` refused to start, so `r
 now yields as `close`'s does; renaming a card open elsewhere wrote a file another harbour owns,
 now refused as Enter is; the cursor of a line with no row; the text past 512 characters; and the
 demo's stopped card now has a given title, so `docs/details.png` shows one. A merge where both
-sides have a given title keeps the session's, a known limit.
+sides have a given title keeps the session's, a known limit. Round 2 found no must; its findings
+(a paste losing the spaces where it joins the text, Enter not checking again for a card open
+elsewhere, three nits) were left as issue #211, and the loop ended at the owner's 2-round limit.
 
 ## Hurdles
 
