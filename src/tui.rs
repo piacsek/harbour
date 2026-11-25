@@ -62,6 +62,9 @@ pub fn run(config: Config) -> io::Result<()> {
         app = app.with_nerd_font();
     }
     app = app.with_claude_icon(config.claude_icon().value);
+    if let Some(after) = config.tidy_after().value {
+        app = app.with_tidy_after(after);
+    }
     if let Some(dir) = claude_sessions() {
         app = app.with_registry(dir);
     }

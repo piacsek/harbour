@@ -14,7 +14,7 @@ fn harbour_config_names_the_file_and_every_default() {
     assert_eq!(
         stdout(&output),
         format!(
-            "file: {} (none there)\neditor = [\"nvim\"]  (default)\npicker = [\"fzf\"]  (default)\nsession_command = [\"claude\"]  (default)\nsidebar_width = a third  (default)\naccent = \"cyan\"  (default)\nnerd_font = false  (default)\nclaude_icon = \"sparkle\"  (default)\nprefix = \"C-/\"  (default)\ncolors.repository = \"blue\"  (default)\ncolors.branch = \"magenta\"  (default)\ncolors.pull_request = \"cyan\"  (default)\nkeys.zoom = \"z\"  (default)\nkeys.side = \"\\\\\"  (default)\nkeys.swap_left = \"{{\"  (default)\nkeys.swap_right = \"}}\"  (default)\nkeys.find = \"s\"  (default)\nkeys.rename = \"r\"  (default)\nkeys.new = \"n\"  (default)\nkeys.end = \"x\"  (default)\nkeys.close = \"X\"  (default)\nkeys.editor = \"e\"  (default)\nkeys.sidebar = \"h\"  (default)\nkeys.pane = \"l\"  (default)\nkeys.narrower = \"-\"  (default)\nkeys.wider = \"=\"  (default)\nkeys.usage = \"u\"  (default)\nkeys.changelog = \"c\"  (default)\nkeys.help = \"?\"  (default)\nkeys.quit = \"q\"  (default)\n",
+            "file: {} (none there)\neditor = [\"nvim\"]  (default)\npicker = [\"fzf\"]  (default)\nsession_command = [\"claude\"]  (default)\nsidebar_width = a third  (default)\naccent = \"cyan\"  (default)\nnerd_font = false  (default)\nclaude_icon = \"sparkle\"  (default)\nprefix = \"C-/\"  (default)\ntidy_after = \"6h\"  (default)\ncolors.repository = \"blue\"  (default)\ncolors.branch = \"magenta\"  (default)\ncolors.pull_request = \"cyan\"  (default)\nkeys.zoom = \"z\"  (default)\nkeys.side = \"\\\\\"  (default)\nkeys.swap_left = \"{{\"  (default)\nkeys.swap_right = \"}}\"  (default)\nkeys.find = \"s\"  (default)\nkeys.rename = \"r\"  (default)\nkeys.new = \"n\"  (default)\nkeys.end = \"x\"  (default)\nkeys.close = \"X\"  (default)\nkeys.editor = \"e\"  (default)\nkeys.sidebar = \"h\"  (default)\nkeys.pane = \"l\"  (default)\nkeys.narrower = \"-\"  (default)\nkeys.wider = \"=\"  (default)\nkeys.usage = \"u\"  (default)\nkeys.changelog = \"c\"  (default)\nkeys.help = \"?\"  (default)\nkeys.quit = \"q\"  (default)\n",
             config_path(home.path()).display()
         )
     );
@@ -26,7 +26,7 @@ fn harbour_config_shows_what_the_file_sets() {
     let home = tempfile::tempdir().unwrap();
     let path = write_config(
         home.path(),
-        "editor = [\"nvim\", \"--clean\"]\nsidebar_width = 40\naccent = \"#d7875f\"\nnerd_font = true\nclaude_icon = \"clawd\"\nprefix = \"C-]\"\n[keys]\nzoom = \"f\"\nusage = \"none\"\n",
+        "editor = [\"nvim\", \"--clean\"]\nsidebar_width = 40\naccent = \"#d7875f\"\nnerd_font = true\nclaude_icon = \"clawd\"\nprefix = \"C-]\"\ntidy_after = \"off\"\n[keys]\nzoom = \"f\"\nusage = \"none\"\n",
     );
 
     let output = config_command(home.path());
@@ -34,7 +34,7 @@ fn harbour_config_shows_what_the_file_sets() {
     assert_eq!(
         stdout(&output),
         format!(
-            "file: {}\neditor = [\"nvim\", \"--clean\"]  (file)\npicker = [\"fzf\"]  (default)\nsession_command = [\"claude\"]  (default)\nsidebar_width = 40  (file)\naccent = \"#d7875f\"  (file)\nnerd_font = true  (file)\nclaude_icon = \"clawd\"  (file)\nprefix = \"C-]\"  (file)\ncolors.repository = \"blue\"  (default)\ncolors.branch = \"magenta\"  (default)\ncolors.pull_request = \"cyan\"  (default)\nkeys.zoom = \"f\"  (file)\nkeys.side = \"\\\\\"  (default)\nkeys.swap_left = \"{{\"  (default)\nkeys.swap_right = \"}}\"  (default)\nkeys.find = \"s\"  (default)\nkeys.rename = \"r\"  (default)\nkeys.new = \"n\"  (default)\nkeys.end = \"x\"  (default)\nkeys.close = \"X\"  (default)\nkeys.editor = \"e\"  (default)\nkeys.sidebar = \"h\"  (default)\nkeys.pane = \"l\"  (default)\nkeys.narrower = \"-\"  (default)\nkeys.wider = \"=\"  (default)\nkeys.usage = \"none\"  (file)\nkeys.changelog = \"c\"  (default)\nkeys.help = \"?\"  (default)\nkeys.quit = \"q\"  (default)\n",
+            "file: {}\neditor = [\"nvim\", \"--clean\"]  (file)\npicker = [\"fzf\"]  (default)\nsession_command = [\"claude\"]  (default)\nsidebar_width = 40  (file)\naccent = \"#d7875f\"  (file)\nnerd_font = true  (file)\nclaude_icon = \"clawd\"  (file)\nprefix = \"C-]\"  (file)\ntidy_after = \"off\"  (file)\ncolors.repository = \"blue\"  (default)\ncolors.branch = \"magenta\"  (default)\ncolors.pull_request = \"cyan\"  (default)\nkeys.zoom = \"f\"  (file)\nkeys.side = \"\\\\\"  (default)\nkeys.swap_left = \"{{\"  (default)\nkeys.swap_right = \"}}\"  (default)\nkeys.find = \"s\"  (default)\nkeys.rename = \"r\"  (default)\nkeys.new = \"n\"  (default)\nkeys.end = \"x\"  (default)\nkeys.close = \"X\"  (default)\nkeys.editor = \"e\"  (default)\nkeys.sidebar = \"h\"  (default)\nkeys.pane = \"l\"  (default)\nkeys.narrower = \"-\"  (default)\nkeys.wider = \"=\"  (default)\nkeys.usage = \"none\"  (file)\nkeys.changelog = \"c\"  (default)\nkeys.help = \"?\"  (default)\nkeys.quit = \"q\"  (default)\n",
             path.display()
         )
     );
@@ -210,7 +210,7 @@ fn harbour_config_shows_each_setting_on_one_line_with_its_words_escaped() {
         "{}",
         stdout(&output)
     );
-    assert_eq!(stdout(&output).lines().count(), 30);
+    assert_eq!(stdout(&output).lines().count(), 31);
 }
 
 #[test]
@@ -263,6 +263,54 @@ fn harbour_config_says_a_prefix_variable_that_is_not_utf8_was_ignored() {
 }
 
 #[test]
+fn harbour_config_names_the_tidy_variable_it_comes_from() {
+    let home = tempfile::tempdir().unwrap();
+    write_config(home.path(), "tidy_after = \"off\"\n");
+
+    let output = Command::new(env!("CARGO_BIN_EXE_harbour"))
+        .arg("config")
+        .env("HOME", home.path())
+        .env_remove("XDG_CONFIG_HOME")
+        .env_remove("HARBOUR_EDITOR")
+        .env_remove("HARBOUR_DIR_PICKER")
+        .env_remove("HARBOUR_SESSION_COMMAND")
+        .env("HARBOUR_TIDY_AFTER", "12h")
+        .output()
+        .unwrap();
+
+    assert!(
+        stdout(&output).contains("\ntidy_after = \"12h\"  (variable HARBOUR_TIDY_AFTER)\n"),
+        "{}",
+        stdout(&output)
+    );
+}
+
+#[test]
+fn harbour_config_says_a_tidy_variable_that_is_not_utf8_was_ignored() {
+    let home = tempfile::tempdir().unwrap();
+
+    let output = Command::new(env!("CARGO_BIN_EXE_harbour"))
+        .arg("config")
+        .env("HOME", home.path())
+        .env_remove("XDG_CONFIG_HOME")
+        .env_remove("HARBOUR_EDITOR")
+        .env_remove("HARBOUR_DIR_PICKER")
+        .env_remove("HARBOUR_SESSION_COMMAND")
+        .env("HARBOUR_TIDY_AFTER", OsStr::from_bytes(b"6\xffh"))
+        .output()
+        .unwrap();
+
+    assert!(output.status.success(), "{output:?}");
+    assert!(
+        stdout(&output).contains(
+            "\ntidy_after = \"6h\"  (default; variable HARBOUR_TIDY_AFTER ignored: not UTF-8)\n"
+        ),
+        "{}",
+        stdout(&output)
+    );
+}
+
+#[test]
 fn harbour_config_shows_a_file_path_with_a_newline_escaped_on_one_line() {
     let home = tempfile::tempdir().unwrap();
     let folder = home.path().join("acme\nconfig");
@@ -285,7 +333,7 @@ fn harbour_config_shows_a_file_path_with_a_newline_escaped_on_one_line() {
         "{}",
         stdout(&output)
     );
-    assert_eq!(stdout(&output).lines().count(), 30);
+    assert_eq!(stdout(&output).lines().count(), 31);
 }
 
 fn config_command(home: &Path) -> Output {
@@ -296,6 +344,7 @@ fn config_command(home: &Path) -> Output {
         .env_remove("HARBOUR_EDITOR")
         .env_remove("HARBOUR_DIR_PICKER")
         .env_remove("HARBOUR_SESSION_COMMAND")
+        .env_remove("HARBOUR_TIDY_AFTER")
         .output()
         .unwrap()
 }

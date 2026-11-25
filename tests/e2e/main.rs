@@ -606,6 +606,8 @@ fn harbour_line(home: &Path, before: &str, env: &[(&str, &str)], args: &[&str]) 
         EDITOR.to_string(),
         "-u".to_string(),
         "CLAUDE_CONFIG_DIR".to_string(),
+        "-u".to_string(),
+        "HARBOUR_TIDY_AFTER".to_string(),
         quoted(&format!("HOME={}", home.display())),
         quoted(&format!("TMPDIR={}", scratch_tmp(home).display())),
         quoted(&format!("PATH={}", tools(home))),

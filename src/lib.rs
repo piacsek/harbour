@@ -27,6 +27,7 @@ pub mod state;
 pub mod summary;
 pub mod tabs;
 pub mod text;
+pub mod tidy;
 pub mod tmux;
 pub mod transcript;
 pub mod tui;

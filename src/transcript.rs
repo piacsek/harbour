@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::ffi::OsString;
 use std::fs::{self, File};
 use std::io::{self, Read, Seek, SeekFrom};
@@ -62,6 +62,10 @@ impl Transcript {
     }
 
     pub fn existing(projects: &Path) -> Option<HashSet<String>> {
+        Some(Transcript::changed(projects)?.into_keys().collect())
+    }
+
+    pub fn changed(projects: &Path) -> Option<HashMap<String, Option<SystemTime>>> {
         let folders = fs::read_dir(projects).ok()?;
         let ids = folders
             .flatten()
@@ -70,7 +74,10 @@ impl Transcript {
             .filter_map(|file| {
                 let name = file.file_name();
                 let id = name.to_str()?.strip_suffix(".jsonl")?;
-                (plain(id) && file.path().is_file()).then(|| id.to_string())
+                plain(id).then_some(())?;
+                let meta = fs::metadata(file.path()).ok()?;
+                meta.is_file()
+                    .then(|| (id.to_string(), meta.modified().ok()))
             })
             .collect();
         Some(ids)

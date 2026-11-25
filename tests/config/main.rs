@@ -11,6 +11,7 @@ mod keys;
 mod naming;
 mod precedence;
 mod refusals;
+mod tidy;
 
 #[test]
 fn the_file_is_under_the_config_folder_of_home() {

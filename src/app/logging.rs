@@ -184,6 +184,10 @@ impl App {
         self.logging.log.write(|| format!("tmux pane={pane}"));
     }
 
+    pub(super) fn log_tidy(&self, cards: usize) {
+        self.logging.log.write(|| format!("tidy cards={cards}"));
+    }
+
     pub(super) fn log_stop(&self, cause: &str) {
         self.logging.log.write(|| cause.to_string());
     }

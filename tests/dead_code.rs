@@ -7,6 +7,7 @@ const SEAMS: &[&str] = &[
     "retrying_every",
     "with_patience",
     "with_hangup_grace",
+    "with_tidy_every",
     "with_slow_frame",
     "sending",
     "neovim",

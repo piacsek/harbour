@@ -130,5 +130,25 @@ an `AGENTS.md` or `docs/process.md` changed.
 
 Phase 44's ready, merged and released were read from GitHub into `plans/metrics.md` (v0.39.0).
 
+### Tidying
+
+`tidy_after` (`"<n>h"` or `"off"`, `"6h"` by default, `HARBOUR_TIDY_AFTER` first) is read with
+the other settings and listed by `harbour config`; a bad value is refused naming file, line and
+key, or the variable. The app checks at the first frame, after the stopped cards are recalled,
+then every 60 s, and removes as `x` does every card `tidy::due` picks: not running (an exited
+card whose editor still runs counts as running), not selected, and ended for at least
+`tidy_after`, an exited card from when harbour saw its exit, a stopped one from its transcript's
+modification time. A check due while a question, a picker, the finder, the usage or rename popup
+or a waiting prefix is open waits for it to close. Each check that removed cards logs
+`tidy cards=<n>`. Because the selected card is never tidied, the last card of a sidebar stays.
+`src/config.rs` passed the 700-line cap, so `report` and its helpers moved to
+`src/config/report.rs`. `harbour --help` gained two lines, so `docs/help.png` was rerendered;
+`docs/details.png` came back byte-identical (the demo never tidies). Tasks 2 to 5 shipped
+together: each new `pub` item is dead code until the app and `src/tui.rs` use it.
+
 ## Hurdles
-- none recorded
+
+- `tooling` `src/config.rs` sat at 699 lines, so one setting broke `tests/source_size.rs`; `report` moved to `src/config/report.rs` → code
+- `test-seam` the variable's `"off"`, the stopped card kept while its conversation is fresh, the selected card and the three "nothing while open" tests were green on their first run (their stubs already kept cards); each was shown red by breaking the code it covers → code
+- `process` tasks 2 to 5 could not ship apart: `Config::tidy_after`, `tidy::due` and the app's seams are dead code until the app and `src/tui.rs` use them (already #97) → backlog
+- `tooling` the first ship of the feature stopped at clippy on a `u64` to `usize` cast in the new end-to-end test, which a targeted `cargo test` run does not lint, and the next at `tests/real_config.rs`: the two new `harbour config` tests did not remove the session, picker and editor variables → code
