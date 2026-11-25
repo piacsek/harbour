@@ -160,6 +160,18 @@ impl Memory {
         self.keep(&placed)
     }
 
+    pub fn title(&self, id: &str, given: Option<&str>) -> io::Result<()> {
+        if !is_session_id(id) {
+            return Err(io::ErrorKind::InvalidInput.into());
+        }
+        let mut titled = remembered(&self.file(id), id).ok_or(io::ErrorKind::NotFound)?;
+        if titled.given_title.as_deref() == given {
+            return Ok(());
+        }
+        titled.given_title = given.map(str::to_string);
+        self.keep(&titled)
+    }
+
     pub fn forget(&self, session_id: &str) {
         if !is_session_id(session_id) {
             return;

@@ -62,7 +62,7 @@ impl App {
             self.sessions.push(Entry {
                 id: 0,
                 name: remembered.title,
-                given: None,
+                given: remembered.given_title,
                 session: None,
                 started_at: SystemTime::now(),
                 used_at: SystemTime::now(),
@@ -251,7 +251,7 @@ impl App {
         let Some(memory) = &self.memory else {
             return index;
         };
-        let Some(wanted) = wanted(&self.sessions[index], index) else {
+        let Some(mut wanted) = wanted(&self.sessions[index], index) else {
             return index;
         };
         let entry = &self.sessions[index];
@@ -269,6 +269,7 @@ impl App {
             .remembered
             .clone()
             .filter(|old| *old != wanted.session_id);
+        let mut carried = None;
         if entry.remembered.as_deref() != Some(wanted.session_id.as_str()) {
             let other = self
                 .sessions
@@ -279,7 +280,7 @@ impl App {
                     leave(memory, &mut self.sessions[index]);
                     return index;
                 }
-                self.sessions.remove(other);
+                carried = self.sessions.remove(other).given;
                 if other < index {
                     index -= 1;
                 }
@@ -289,6 +290,10 @@ impl App {
                     self.selected -= 1;
                 }
             }
+        }
+        if let Some(given) = carried.filter(|_| self.sessions[index].given.is_none()) {
+            wanted.given_title = Some(given.clone());
+            self.sessions[index].given = Some(given);
         }
         let reservation = (self.sessions[index].remembered.as_deref()
             != Some(wanted.session_id.as_str()))
@@ -376,7 +381,7 @@ fn wanted(entry: &Entry, position: usize) -> Option<Remembered> {
             .title
             .clone()
             .unwrap_or_else(|| entry.name.clone()),
-        given_title: None,
+        given_title: entry.given.clone(),
         position,
     })
 }

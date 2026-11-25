@@ -16,6 +16,7 @@ mod finding_states;
 mod focus;
 mod following;
 mod frames;
+mod given_titles;
 mod handing;
 mod handoff;
 mod handoff_socket;

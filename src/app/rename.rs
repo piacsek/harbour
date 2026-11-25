@@ -105,5 +105,13 @@ impl App {
             return;
         };
         entry.given = (!title.is_empty()).then_some(title);
+        let (Some(memory), Some(id)) = (&self.memory, &entry.remembered) else {
+            return;
+        };
+        if memory.title(id, entry.given.as_deref()).is_ok()
+            && let Some(kept) = &mut entry.kept
+        {
+            kept.given_title.clone_from(&entry.given);
+        }
     }
 }

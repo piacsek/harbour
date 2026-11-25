@@ -246,7 +246,7 @@ fn started(app: App) -> Screen {
     screen
 }
 
-fn rename(screen: &mut Screen, title: &str) {
+pub(crate) fn rename(screen: &mut Screen, title: &str) {
     screen.prefixed('r');
     for _ in 0..40 {
         screen.key(KeyCode::Backspace, KeyModifiers::NONE);
