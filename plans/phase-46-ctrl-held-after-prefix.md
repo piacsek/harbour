@@ -59,4 +59,16 @@ to stay the same.
 
 ## Outcome
 
+`Keymap::after` drops Ctrl as it drops Shift, after matching the prefix again and Esc, so every
+action key and the digit jumps act the same with Ctrl held, Ctrl and Shift as Shift alone, and
+Alt still does nothing. Nothing else in `src/` changed but one `harbour --help` line. Tests:
+`tests/keymap.rs`, a new table of `after` (four rows red before the change, seven guards shown
+red by breaking the code they cover); `C-; C-z` zooming in process (`tests/app/bindings.rs`) and
+`C-/ C-1`, `C-/ C-2` jumping end to end (`tests/e2e/keys.rs`), both red against the old
+`after`; the help line in `tests/cli.rs`, red first. Shipped as one task in draft PR #225.
+Phase 45's ready, merged and released were read from GitHub into `plans/metrics.md` (v0.40.0).
+
 ## Hurdles
+
+- `test-seam` seven guard rows of `tests/keymap.rs` (Esc, Alt, Ctrl and Alt, the prefix again twice, a bare key, an unbound Ctrl key) held before the change and were green on their first run; each was shown red by breaking the code it covers, then restored → code
+- `tooling` `tests/app/prefix.rs` sits at 672 of the 700 lines `tests/source_size.rs` allows, so the in-process wiring test went into `tests/app/bindings.rs`, beside the other `C-;` test → none
