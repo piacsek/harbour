@@ -323,7 +323,7 @@ fn a_title_longer_than_a_pipe_holds_opens_the_draft_without_a_denylist() {
     let work = ship_sandbox(dir.path());
     link_dev_binary(dir.path(), &another_build(dir.path()));
     fs::write(work.join("README.md"), "changed\n").unwrap();
-    let title = format!("docs: {}", "a".repeat(200_000));
+    let title = format!("docs: {}", "a".repeat(100_000));
 
     let output = first_ship(dir.path(), &title);
 
