@@ -194,6 +194,25 @@ fn end_written_on_capital_x_loads_and_takes_it_from_close() {
 }
 
 #[test]
+fn an_action_written_on_r_loads_and_takes_it_from_rename() {
+    let home = tempfile::tempdir().unwrap();
+    write_config(home.path(), "[keys]\nzoom = \"r\"\n");
+
+    let config = read_at(home.path(), None).unwrap();
+
+    assert_eq!(config.keymap().action_on('r'), Some(Action::Zoom));
+    assert_eq!(config.keymap().key_of(Action::Rename), None);
+}
+
+#[test]
+fn rename_written_on_r_beside_another_action_on_r_is_refused() {
+    let home = tempfile::tempdir().unwrap();
+    write_config(home.path(), "[keys]\nzoom = \"r\"\nrename = \"r\"\n");
+
+    assert!(read_at(home.path(), None).is_err());
+}
+
+#[test]
 fn x_never_falls_back_to_close_when_end_is_unbound() {
     let home = tempfile::tempdir().unwrap();
     write_config(home.path(), "[keys]\nend = \"none\"\n");
@@ -407,7 +426,7 @@ fn an_unknown_action_is_refused_naming_the_actions() {
     assert_eq!(
         refusal(home.path()),
         format!(
-            "{}:3: keys.zoomed: no such action; the actions are zoom, side, swap_left, swap_right, find, new, end, close, editor, sidebar, pane, narrower, wider, usage, changelog, help, quit",
+            "{}:3: keys.zoomed: no such action; the actions are zoom, side, swap_left, swap_right, find, rename, new, end, close, editor, sidebar, pane, narrower, wider, usage, changelog, help, quit",
             path.display()
         )
     );

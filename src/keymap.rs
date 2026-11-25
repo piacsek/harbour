@@ -7,6 +7,7 @@ pub enum Action {
     SwapLeft,
     SwapRight,
     Find,
+    Rename,
     New,
     End,
     Close,
@@ -21,12 +22,13 @@ pub enum Action {
     Quit,
 }
 
-pub const ACTIONS: [(Action, &str, char); 17] = [
+pub const ACTIONS: [(Action, &str, char); 18] = [
     (Action::Zoom, "zoom", 'z'),
     (Action::Side, "side", '\\'),
     (Action::SwapLeft, "swap_left", '{'),
     (Action::SwapRight, "swap_right", '}'),
     (Action::Find, "find", 's'),
+    (Action::Rename, "rename", 'r'),
     (Action::New, "new", 'n'),
     (Action::End, "end", 'x'),
     (Action::Close, "close", 'X'),

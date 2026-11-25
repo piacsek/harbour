@@ -197,7 +197,7 @@ fn question_mark_shows_the_help_and_quit_keys_on_one_row_beside_the_narrowest_si
 }
 
 #[test]
-fn question_mark_shows_the_find_key_on_one_row_beside_the_narrowest_sidebar() {
+fn question_mark_shows_the_find_and_rename_keys_on_one_row_beside_the_narrowest_sidebar() {
     let mut screen = Screen::new(reading_agent());
     screen.resize(60, 20);
 
@@ -205,7 +205,7 @@ fn question_mark_shows_the_find_key_on_one_row_beside_the_narrowest_sidebar() {
 
     let shown = screen.draw();
     assert!(
-        shown.contains("C-/ s      jump to a session by part of its name"),
+        shown.contains(&format!("{:10} {}", KEYS[7].0, KEYS[7].1)),
         "{shown}"
     );
 }

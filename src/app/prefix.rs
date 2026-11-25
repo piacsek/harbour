@@ -149,6 +149,7 @@ impl App {
             Action::SwapLeft | Action::SwapRight => {}
             Action::Find if !self.sessions.is_empty() => self.open_finder(),
             Action::Find => {}
+            Action::Rename => self.open_rename(),
             Action::New => self.pick_or_start(),
             Action::End => self.end_or_remove(),
             Action::Close => self.close_or_remove(),

@@ -143,7 +143,8 @@ impl App {
                     &entry.place,
                     entry.elapsed(),
                     entry.transcript.as_ref().map(Transcript::facts),
-                );
+                )
+                .renamed(entry.given.as_deref());
                 if self.nerd_font {
                     card.with_icons()
                 } else {
@@ -237,6 +238,9 @@ impl App {
             .is_some_and(|at| bottom.contains(at) && !free.contains(at))
         {
             cursor.0 = None;
+        }
+        if let Some(at) = self.draw_rename(frame) {
+            cursor = (Some(at), 0);
         }
         if self.helping {
             self.draw_help(frame);

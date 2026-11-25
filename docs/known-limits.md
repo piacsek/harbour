@@ -142,4 +142,6 @@ good; a finding on one still counts as must when it shows new impact.
 - **Ctrl+C twice in the sidebar quits and ends every running session** when nothing is unsaved:
   the owner asked for Ctrl+C to answer the quit question, so a double tap meant for Claude Code
   while the sidebar has the keys quits harbour (`plans/phase-41-ctrl-c-quits.md`).
-
+- **A merge keeps one given title**: when a stopped card is merged into the session that resumed
+  its conversation and both have a title the user gave, the session's wins, on the card and in
+  that conversation's remembered file (`src/app/remember.rs`).

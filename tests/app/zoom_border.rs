@@ -201,6 +201,18 @@ impl Claude {
         Claude { config }
     }
 
+    pub(crate) fn retitle(&self, title: &str) {
+        let transcript = self
+            .config
+            .path()
+            .join(format!("projects/-home-acme/{ID}.jsonl"));
+        let mut text = fs::read_to_string(&transcript).unwrap();
+        text.push_str(&format!(
+            "{{\"type\":\"ai-title\",\"aiTitle\":\"{title}\"}}\n"
+        ));
+        fs::write(&transcript, text).unwrap();
+    }
+
     fn sessions(&self) -> PathBuf {
         self.config.path().join("sessions")
     }

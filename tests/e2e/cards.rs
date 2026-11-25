@@ -34,6 +34,24 @@ fn the_demo_shows_the_last_prompt_of_its_working_session_once_another_card_is_se
 
 #[test]
 #[ignore]
+fn the_prefix_then_r_renames_the_selected_card() {
+    let home = tempfile::tempdir().unwrap();
+    let server = Server::start("rename", 160, 26);
+    server.run(home.path(), &[], &["--demo"]);
+    server.wait_for_screen("permission prompt");
+
+    server.send_keys(&["C-/", "r"]);
+    server.wait_for_screen_all(&[" rename ", "Title: "]);
+    let erased = vec!["BSpace"; 40];
+    server.send_keys(&erased);
+    server.send_keys(&["acme deploy", "Enter"]);
+
+    let screen = server.wait_for_screen_showing_without("acme deploy", "Title: ");
+    assert!(screen.contains("acme deploy"), "{screen}");
+}
+
+#[test]
+#[ignore]
 fn a_home_directory_kept_in_git_is_not_the_repository_of_a_folder_below_it() {
     let home = tempfile::tempdir().unwrap();
     std::fs::create_dir_all(home.path().join(".git")).unwrap();
@@ -175,7 +193,7 @@ fn the_demo_shows_a_stopped_session_it_remembers() {
     server.run(home.path(), &[], &["--demo"]);
 
     let rows = [
-        "○ Tidy the acme-docs links",
+        "○ acme-docs cleanup",
         "stopped",
         "acme-docs · main",
         " sessions ● 1 ◉ 1 ○ 2 · 1 ",

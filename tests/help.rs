@@ -64,6 +64,28 @@ fn the_session_row_with_end_and_close_drops_the_session() {
 }
 
 #[test]
+fn the_find_row_names_finding_and_renaming() {
+    assert_eq!(KEYS[7].0, "C-/ s/r");
+    assert_eq!(KEYS[7].1, "jump to a session by name / rename the card");
+}
+
+#[test]
+fn the_find_row_without_rename_reads_as_before() {
+    let rows = rows(&Keymap::default().bind(Action::Rename, None));
+
+    assert_eq!(rows[7].0, "C-/ s");
+    assert_eq!(rows[7].1, "jump to a session by part of its name");
+}
+
+#[test]
+fn the_find_row_without_find_names_renaming_alone() {
+    let rows = rows(&Keymap::default().bind(Action::Find, None));
+
+    assert_eq!(rows[7].0, "C-/ r");
+    assert_eq!(rows[7].1, "rename the selected card");
+}
+
+#[test]
 fn the_longest_prefix_keeps_every_row_within_the_narrowest_help() {
     let rows = rows(&Keymap::default().with_prefix(' '));
 
