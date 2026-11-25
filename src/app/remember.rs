@@ -326,6 +326,19 @@ impl App {
         }
     }
 
+    pub(super) fn renamable(&mut self) -> bool {
+        let held = self
+            .sessions
+            .get(self.selected)
+            .filter(|entry| entry.ended())
+            .and_then(|entry| entry.remembered.as_ref())
+            .is_some_and(|id| self.held_ids().contains(id));
+        if held {
+            self.failed = Some(HELD.to_string());
+        }
+        !held
+    }
+
     pub(super) fn has_process(&self) -> bool {
         self.sessions
             .get(self.selected)

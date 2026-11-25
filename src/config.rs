@@ -533,14 +533,14 @@ impl Reader<'_> {
             .fold(Keymap::default(), |keymap, (_, _, action, bound)| {
                 keymap.bind(*action, *bound)
             });
-        if let Some(taker) = keymap.clash(Action::Close).filter(|_| {
-            !written
-                .iter()
-                .any(|(_, _, action, _)| *action == Action::Close)
-        }) {
-            keymap = keymap.bind(Action::Close, None);
+        for yielding in [Action::Close, Action::Rename] {
+            let unwritten = written.iter().all(|(_, _, action, _)| *action != yielding);
+            let Some(taker) = keymap.clash(yielding).filter(|_| unwritten) else {
+                continue;
+            };
+            keymap = keymap.bind(yielding, None);
             for (each, setting) in &mut bindings {
-                if *each == Action::Close {
+                if *each == yielding {
                     *setting = Setting {
                         value: None,
                         source: Source::Yielded(keymap::name(taker)),

@@ -5,8 +5,11 @@ use ratatui::text::{Line, Span};
 use unicode_segmentation::UnicodeSegmentation;
 
 use super::App;
+use super::key::typed;
 use crate::rename;
 use crate::text::{clean, columns};
+
+const LONGEST: usize = 512;
 
 pub(super) struct Renaming {
     text: String,
@@ -18,6 +21,9 @@ impl App {
         let Some(title) = self.title_of(self.selected) else {
             return;
         };
+        if !self.renamable() {
+            return;
+        }
         self.failed = None;
         self.renaming = Some(Renaming {
             text: title.clone(),
@@ -59,7 +65,8 @@ impl App {
                 renaming.text.truncate(kept);
             }
             KeyCode::Char(c) if (key.modifiers - KeyModifiers::SHIFT).is_empty() => {
-                renaming.text.push(c);
+                renaming.text.push(typed(key, c));
+                kept_to_longest(&mut renaming.text);
             }
             _ => {}
         }
@@ -71,6 +78,7 @@ impl App {
             return false;
         };
         renaming.text.push_str(&clean(text));
+        kept_to_longest(&mut renaming.text);
         true
     }
 
@@ -89,6 +97,9 @@ impl App {
     }
 
     pub(super) fn rename_cursor(&self, area: Rect) -> Option<Position> {
+        if area.is_empty() {
+            return None;
+        }
         let (_, at) = self.rename_line(area.width)?;
         Some(Position::new(area.x + at, area.bottom().checked_sub(1)?))
     }
@@ -113,5 +124,11 @@ impl App {
         {
             kept.given_title.clone_from(&entry.given);
         }
+    }
+}
+
+fn kept_to_longest(text: &mut String) {
+    if let Some((at, _)) = text.char_indices().nth(LONGEST) {
+        text.truncate(at);
     }
 }

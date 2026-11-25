@@ -257,7 +257,7 @@ fn plain_enter(key: KeyEvent) -> KeyEvent {
     }
 }
 
-fn typed(key: KeyEvent, c: char) -> char {
+pub(super) fn typed(key: KeyEvent, c: char) -> char {
     if key.modifiers.contains(KeyModifiers::SHIFT) {
         c.to_ascii_uppercase()
     } else {

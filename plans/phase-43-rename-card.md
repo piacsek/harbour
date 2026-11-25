@@ -92,8 +92,17 @@ help row of `find` shares with `rename`; `harbour --help` and the README say it;
 shows the line. Phase 42's ready, merged and released were read from GitHub into
 `plans/metrics.md`.
 
+Review round 1 found six cheap gaps, fixed in one ship: Shift with a letter typed the small
+letter under extended keys; a config already binding `r` refused to start, so `rename`'s default
+now yields as `close`'s does; renaming a card open elsewhere wrote a file another harbour owns,
+now refused as Enter is; the cursor of a line with no row; the text past 512 characters; and the
+demo's stopped card now has a given title, so `docs/details.png` shows one. A merge where both
+sides have a given title keeps the session's, a known limit.
+
 ## Hurdles
 
 - `tooling` the first `ship.sh` ran in the background while the next task was being written; its `git add -A` took the half-done card change into the first commit, so that commit alone fails `tests/dead_code.rs`, which the next commit fixed → none
 - `tooling` waiting on a ship with `pgrep -f "<its message>"` matched the waiting command itself and never ended; wait on the ship's pid or its log instead → none
 - `test-seam` several tests were green on their first run (Esc, an empty title, Enter unchanged, the merge, the end-to-end test); each was shown red by breaking the code it covers, and the merge test had to wait for the stopped card to go before it could fail → code
+- `review-loop` round 1 found states the plan's table missed: an upgrade whose config already binds `r`, a card open elsewhere, Shift under extended keys and a merge where both sides have a title → code
+- `tooling` a metrics-only ship failed twice on `openpty` errors in `tests/session/` while other worktrees ran their gates; it passed once the load dropped → none

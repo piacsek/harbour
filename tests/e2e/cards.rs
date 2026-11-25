@@ -193,7 +193,7 @@ fn the_demo_shows_a_stopped_session_it_remembers() {
     server.run(home.path(), &[], &["--demo"]);
 
     let rows = [
-        "○ Tidy the acme-docs links",
+        "○ acme-docs cleanup",
         "stopped",
         "acme-docs · main",
         " sessions ● 1 ◉ 1 ○ 2 · 1 ",

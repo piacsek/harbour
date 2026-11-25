@@ -2,6 +2,7 @@ use harbour::app::App;
 use harbour::memory::{Memory, Remembered};
 
 use crate::keeping::{registered, remembered_soon, titled};
+use crate::refusing::Elsewhere;
 use crate::remembering::{ID, Scratch, TITLE};
 use crate::renaming::rename;
 use crate::{Screen, script};
@@ -74,6 +75,25 @@ fn a_stopped_card_merged_into_the_session_that_resumed_it_gives_it_its_title() {
     assert!(shown.contains(GIVEN), "{shown}");
     assert!(!shown.contains(TITLE), "{shown}");
     assert_eq!(saved(&scratch.memory()).given_title.as_deref(), Some(GIVEN));
+}
+
+#[test]
+fn a_card_open_elsewhere_is_not_renamed_and_says_why() {
+    let scratch = Scratch::new();
+    scratch.remember(ID, TITLE, 0);
+    scratch.transcript(ID, r#"{"type":"user","message":{}}"#);
+    let _other = Elsewhere::open(&scratch.sessions(), ID);
+    let mut screen = scratch.watching(script("exec sleep 600"));
+    screen.wait_for("open elsewhere");
+
+    screen.prefixed('r');
+
+    let shown = screen.draw();
+    assert!(
+        shown.contains("This conversation is open elsewhere"),
+        "{shown}"
+    );
+    assert!(!shown.contains("Title:"), "{shown}");
 }
 
 fn stopped(scratch: &Scratch) -> Screen {

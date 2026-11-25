@@ -239,6 +239,39 @@ fn titled(screen: &mut Screen) {
     screen.wait_for("Fix the login");
 }
 
+#[test]
+fn shift_with_a_letter_types_its_capital() {
+    let mut screen = started(App::new(reading_agent()));
+    screen.prefixed('r');
+
+    screen.key(KeyCode::Char('a'), KeyModifiers::SHIFT);
+
+    let shown = screen.draw();
+    assert!(shown.contains("Title: acme-home 1A "), "{shown}");
+}
+
+#[test]
+fn a_terminal_too_short_for_the_line_shows_no_cursor() {
+    let mut screen = started(App::new(reading_agent()));
+    screen.prefixed('r');
+
+    screen.resize(120, 2);
+
+    assert_eq!(screen.cursor(), None);
+}
+
+#[test]
+fn the_text_stops_at_the_512_characters_a_title_keeps() {
+    let mut screen = started(App::new(reading_agent()));
+    screen.prefixed('r');
+    screen.app.paste(&"a".repeat(600));
+
+    screen.press('b');
+
+    let shown = screen.draw();
+    assert!(!shown.contains("ab"), "{shown}");
+}
+
 fn started(app: App) -> Screen {
     let mut screen = Screen::of(app);
     screen.press('n');
