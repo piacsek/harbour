@@ -21,7 +21,7 @@ pub fn real_nvim_in(name: &str, path: Option<OsString>, ci: Option<OsString>) ->
     found
 }
 
-fn is_executable(candidate: &Path) -> bool {
+pub fn is_executable(candidate: &Path) -> bool {
     use std::os::unix::fs::PermissionsExt;
     candidate
         .metadata()

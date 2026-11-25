@@ -292,12 +292,20 @@ fn an_open_that_raises_a_swap_prompt_in_a_running_neovim_is_refused_and_leaves_i
 #[test]
 #[should_panic(expected = "no nvim on PATH in CI")]
 fn a_missing_neovim_fails_the_real_neovim_tests_in_ci() {
-    real_nvim_in("acme", Some(OsString::new()), Some(OsString::from("true")));
+    let empty = tempfile::tempdir().unwrap();
+
+    real_nvim_in(
+        "acme",
+        Some(empty.path().into()),
+        Some(OsString::from("true")),
+    );
 }
 
 #[test]
 fn a_missing_neovim_skips_the_real_neovim_tests_outside_ci() {
-    let found = real_nvim_in("acme", Some(OsString::new()), None);
+    let empty = tempfile::tempdir().unwrap();
+
+    let found = real_nvim_in("acme", Some(empty.path().into()), None);
 
     assert_eq!(found, None);
 }

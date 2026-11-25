@@ -46,7 +46,7 @@ jobs:
           echo "$NVIM_SHA256  $RUNNER_TEMP/nvim.tar.gz" | sha256sum --check --strict
           tar -xzf "$RUNNER_TEMP/nvim.tar.gz" -C "$RUNNER_TEMP"
           echo "$RUNNER_TEMP/nvim-linux-x86_64/bin" >> "$GITHUB_PATH"
-          test "$("$RUNNER_TEMP/nvim-linux-x86_64/bin/nvim" --version | head -n 1)" = "NVIM $NVIM_VERSION"
+          test "$("$RUNNER_TEMP/nvim-linux-x86_64/bin/nvim" --version | sed -n 1p)" = "NVIM $NVIM_VERSION"
       - uses: taiki-e/install-action@3f74d7c16a4242f1c95561e98edc25d36adb4375 # v2.87.12
         with:
           tool: cargo-nextest@0.9.144
