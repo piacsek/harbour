@@ -79,4 +79,21 @@ their own, which the card shows in place of Claude Code's.
 
 ## Outcome
 
+The prefix then `r` (the `rename` action, configurable under `[keys]`) opens one line at the
+bottom of the sidebar, or of the pane while the sidebar is hidden, prefilled with the card's
+title and the cursor after it. Enter saves the cleaned text as the card's given title, which
+wins on the card, the zoomed headline, the side-by-side border and the session finder (all but
+the card read `title_of`); empty goes back to Claude Code's title, unchanged changes nothing, Esc
+cancels. The title is written into the remembered file at once (`Memory::title`) and with every
+later write as the optional `givenTitle`, recalled with the stopped card, and handed to the
+session a stopped card is merged into. While the line is open it takes every key, paste and mouse
+press, `harbour edit` is refused as for a question, and only `prefix key=rename` is logged. The
+help row of `find` shares with `rename`; `harbour --help` and the README say it; a `rename` shot
+shows the line. Phase 42's ready, merged and released were read from GitHub into
+`plans/metrics.md`.
+
 ## Hurdles
+
+- `tooling` the first `ship.sh` ran in the background while the next task was being written; its `git add -A` took the half-done card change into the first commit, so that commit alone fails `tests/dead_code.rs`, which the next commit fixed → none
+- `tooling` waiting on a ship with `pgrep -f "<its message>"` matched the waiting command itself and never ended; wait on the ship's pid or its log instead → none
+- `test-seam` several tests were green on their first run (Esc, an empty title, Enter unchanged, the merge, the end-to-end test); each was shown red by breaking the code it covers, and the merge test had to wait for the stopped card to go before it could fail → code
