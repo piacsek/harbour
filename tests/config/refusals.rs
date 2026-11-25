@@ -424,6 +424,34 @@ fn a_claude_icon_given_as_a_boolean_is_refused() {
     );
 }
 
+#[test]
+fn an_editor_dir_harbour_does_not_know_is_refused() {
+    let home = tempfile::tempdir().unwrap();
+    let path = write_config(home.path(), "nerd_font = true\neditor_dir = \"Root\"\n");
+
+    assert_eq!(
+        refusal(home.path()),
+        format!(
+            "{}:2: editor_dir: expected \"root\" or \"exact\"",
+            path.display()
+        )
+    );
+}
+
+#[test]
+fn an_editor_dir_given_as_a_boolean_is_refused() {
+    let home = tempfile::tempdir().unwrap();
+    let path = write_config(home.path(), "editor_dir = true\n");
+
+    assert_eq!(
+        refusal(home.path()),
+        format!(
+            "{}:1: editor_dir: expected \"root\" or \"exact\"",
+            path.display()
+        )
+    );
+}
+
 fn refusal(home: &Path) -> String {
     match read_at(home, None) {
         Ok(_) => "read without a refusal".to_string(),

@@ -26,6 +26,11 @@ impl Config {
         [
             file,
             line("editor", &listed(&editor), &self.editor.source),
+            line(
+                "editor_dir",
+                &quoted(self.editor_dir.value.name()),
+                &self.editor_dir.source,
+            ),
             self.line_of(
                 DIR_PICKER,
                 "picker",

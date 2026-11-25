@@ -26,6 +26,21 @@ const SOCKET_PREFIX: &str = "harbour-nvim";
 const SOCKET_RANDOM: usize = 6;
 const LONGEST_SOCKET_PATH: usize = 103;
 
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum EditorDir {
+    Root,
+    Exact,
+}
+
+impl EditorDir {
+    pub fn name(self) -> &'static str {
+        match self {
+            EditorDir::Root => "root",
+            EditorDir::Exact => "exact",
+        }
+    }
+}
+
 pub struct Program {
     name: String,
     command: Vec<OsString>,

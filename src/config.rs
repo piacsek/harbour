@@ -12,6 +12,7 @@ use serde::Deserialize;
 use toml::{Spanned, Value};
 
 use crate::card::Colors;
+use crate::editor::EditorDir;
 use crate::icons::ClaudeIcon;
 use crate::keymap::{self, ACTIONS, Action, Keymap};
 use crate::tui::{DIR_PICKER, EDITOR, SESSION_COMMAND};
@@ -24,6 +25,7 @@ const WIDTH: &str = "expected a whole number of columns above 0";
 const ACCENT: &str = "expected one of the 16 colour names or #rrggbb";
 const BOOLEAN: &str = "expected true or false";
 const CLAUDE_ICON: &str = "expected \"sparkle\" or \"clawd\"";
+const EDITOR_DIR: &str = "expected \"root\" or \"exact\"";
 const TIDY: &str = "expected a whole number of hours above 0, as \"6h\", or \"off\"";
 const KEYS: &str = "expected a table of action = \"key\"";
 const COLORS: &str = "expected a table of fact = \"colour\"";
@@ -64,6 +66,7 @@ impl fmt::Display for Refusal {
 pub struct Config {
     path: Option<PathBuf>,
     editor: Setting<Vec<OsString>>,
+    editor_dir: Setting<EditorDir>,
     picker: Setting<Vec<String>>,
     session_command: Setting<Vec<String>>,
     sidebar_width: Setting<Option<u16>>,
@@ -81,6 +84,7 @@ pub struct Config {
 #[serde(deny_unknown_fields)]
 struct Written {
     editor: Option<Spanned<Value>>,
+    editor_dir: Option<Spanned<Value>>,
     picker: Option<Spanned<Value>>,
     session_command: Option<Spanned<Value>>,
     sidebar_width: Option<Spanned<Value>>,
@@ -182,6 +186,9 @@ impl Config {
                 }
                 (None, None) => default(vec![OsString::from("nvim")]),
             },
+            editor_dir: reader
+                .editor_dir(written.editor_dir)?
+                .map_or_else(|| default(EditorDir::Root), from_file),
             picker: set_text(DIR_PICKER).unwrap_or_else(|| {
                 picker.map_or_else(|| default(vec!["fzf".to_string()]), from_file)
             }),
@@ -387,6 +394,17 @@ impl Reader<'_> {
             Value::String(name) if name == "sparkle" => Ok(Some(ClaudeIcon::Sparkle)),
             Value::String(name) if name == "clawd" => Ok(Some(ClaudeIcon::Clawd)),
             _ => Err(self.refusal(&value.span(), "claude_icon", CLAUDE_ICON)),
+        }
+    }
+
+    fn editor_dir(&self, value: Option<Spanned<Value>>) -> Result<Option<EditorDir>, Refusal> {
+        let Some(value) = value else {
+            return Ok(None);
+        };
+        match value.get_ref() {
+            Value::String(name) if name == "root" => Ok(Some(EditorDir::Root)),
+            Value::String(name) if name == "exact" => Ok(Some(EditorDir::Exact)),
+            _ => Err(self.refusal(&value.span(), "editor_dir", EDITOR_DIR)),
         }
     }
 
