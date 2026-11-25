@@ -139,4 +139,7 @@ good; a finding on one still counts as must when it shows new impact.
   like `keep` and `forget`, reads a file, then renames a new one over it with nothing guarding the
   gap, so a forget or a title saved by another harbour inside that sub-millisecond window is
   undone (`src/memory.rs`).
+- **Ctrl+C twice in the sidebar quits and ends every running session** when nothing is unsaved:
+  the owner asked for Ctrl+C to answer the quit question, so a double tap meant for Claude Code
+  while the sidebar has the keys quits harbour (`plans/phase-41-ctrl-c-quits.md`).
 

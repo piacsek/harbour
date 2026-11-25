@@ -371,6 +371,8 @@ n runs fzf over the directory harbour was opened in and zoxide's list;
 HARBOUR_DIR_PICKER names another picker.
 x ends a running session after asking and keeps its card, marked exited; X
 ends it the same way and removes the card. On a card that ended, both remove it.
+C-c in the sidebar quits as C-/ q does, asking while a session runs, and C-c
+again says yes when nothing is unsaved; in a pane, C-c goes to the program.
 C-/ s lists every session in fzf and Enter jumps to the one picked; with a
 picker other than fzf it says so.
 C-l opens nvim at Claude Code's repository root; HARBOUR_EDITOR names another.
