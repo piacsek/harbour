@@ -105,6 +105,11 @@ across two repositories, where the ask's read still matters (shown red by taking
 A resumed card has no test of its own: it resumes in the same `Entry::directory`. `--help`, the
 fragment and `docs/help.png` say "the folder the session started in".
 
+Review round 3, the last the loop allows, found no must or should; its test nits (the tmux test
+starting in a subfolder so `"root"` and `"exact"` differ, the shared helpers moved to
+`tests/app/main.rs`, the end-to-end test's name) were fixed in a closing ship without `src/`
+changes, and its two `src/` nits are listed in the PR body for later.
+
 ## Hurdles
 
 - `tooling` `scripts/screenshots.sh` rewrote five images besides `docs/help.png` whose content did not change (a run renders them differently each time); only the help image was kept → none

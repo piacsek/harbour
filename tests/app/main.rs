@@ -73,7 +73,7 @@ use std::time::{Duration, Instant};
 
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers, MouseEvent, MouseEventKind};
 use harbour::app::{App, FOCUSED_BORDER, UNFOCUSED_BORDER};
-use harbour::editor::Program;
+use harbour::editor::{EditorDir, Program};
 use harbour::picker::Picker;
 use harbour::tui::Frames;
 use ratatui::backend::TestBackend;
@@ -83,6 +83,8 @@ use ratatui::symbols::border;
 use ratatui::widgets::BorderType;
 use ratatui::{Terminal, TerminalOptions, Viewport};
 use tempfile::TempDir;
+
+use crate::directory::{folder, recording_agent, repository, write_transcript};
 
 #[path = "../support/borders.rs"]
 mod borders;
@@ -514,4 +516,41 @@ fn ends_with_a_pane_corner(shown: &str) -> bool {
     [FOCUSED_BORDER, UNFOCUSED_BORDER]
         .iter()
         .any(|style| top.ends_with(style.to_border_set().top_right))
+}
+
+pub(crate) fn following_in(
+    scratch: &Path,
+    lines: &[&str],
+    editor: Program,
+    editor_dir: EditorDir,
+) -> Screen {
+    let start = repository(scratch, "acme-start");
+    following_from(scratch, &start, lines, editor, editor_dir)
+}
+
+pub(crate) fn following_from(
+    scratch: &Path,
+    start: &Path,
+    lines: &[&str],
+    editor: Program,
+    editor_dir: EditorDir,
+) -> Screen {
+    let mut screen = Screen::wide(
+        App::new(recording_agent(scratch))
+            .with_editor(editor)
+            .with_editor_dir(editor_dir)
+            .with_picker(choosing(start))
+            .with_transcripts(scratch.join("projects"))
+            .naming_sessions()
+            .with_registry(folder(scratch, "sessions")),
+    );
+    screen.press('n');
+    let shown = screen.wait_for("acme agent ready");
+    assert!(shown.contains("acme agent ready"), "{shown}");
+    write_transcript(scratch, lines);
+    screen
+}
+
+pub(crate) fn choosing(directory: &Path) -> Picker {
+    Picker::Command(script(&format!("printf '%s\\n' '{}'", directory.display())))
 }

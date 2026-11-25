@@ -5,9 +5,8 @@ use std::path::{Path, PathBuf};
 use crossterm::event::{KeyCode, KeyModifiers};
 use harbour::app::App;
 use harbour::editor::{EditorDir, Program};
-use harbour::picker::Picker;
 
-use crate::{Screen, reading_agent, script};
+use crate::{Screen, choosing, following_from, following_in, reading_agent, script};
 
 #[test]
 fn the_editor_opens_at_the_root_of_the_repository_claude_code_started_in() {
@@ -458,10 +457,6 @@ fn started_in_with(directory: &Path, agent: Vec<String>, editor_dir: EditorDir) 
     screen
 }
 
-fn choosing(directory: &Path) -> Picker {
-    Picker::Command(script(&format!("printf '%s\\n' '{}'", directory.display())))
-}
-
 fn locating_editor() -> Program {
     Program::new(
         "acme-edit",
@@ -484,39 +479,6 @@ pub(crate) fn following(scratch: &Path, lines: &[&str]) -> Screen {
 
 pub(crate) fn following_with(scratch: &Path, lines: &[&str], editor: Program) -> Screen {
     following_in(scratch, lines, editor, EditorDir::Root)
-}
-
-pub(crate) fn following_in(
-    scratch: &Path,
-    lines: &[&str],
-    editor: Program,
-    editor_dir: EditorDir,
-) -> Screen {
-    let start = repository(scratch, "acme-start");
-    following_from(scratch, &start, lines, editor, editor_dir)
-}
-
-pub(crate) fn following_from(
-    scratch: &Path,
-    start: &Path,
-    lines: &[&str],
-    editor: Program,
-    editor_dir: EditorDir,
-) -> Screen {
-    let mut screen = Screen::wide(
-        App::new(recording_agent(scratch))
-            .with_editor(editor)
-            .with_editor_dir(editor_dir)
-            .with_picker(choosing(start))
-            .with_transcripts(scratch.join("projects"))
-            .naming_sessions()
-            .with_registry(folder(scratch, "sessions")),
-    );
-    screen.press('n');
-    let shown = screen.wait_for("acme agent ready");
-    assert!(shown.contains("acme agent ready"), "{shown}");
-    write_transcript(scratch, lines);
-    screen
 }
 
 pub(crate) fn recording_agent(scratch: &Path) -> Vec<String> {

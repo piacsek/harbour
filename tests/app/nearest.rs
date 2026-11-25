@@ -7,12 +7,12 @@ use crossterm::event::{KeyCode, KeyModifiers, MouseButton, MouseEventKind};
 use harbour::editor::EditorDir;
 use harbour::handoff::{Claim, Reply, Verb};
 
-use crate::directory::{cwd, folder, following_from, following_in, repository, write_transcript};
+use crate::directory::{cwd, folder, repository, write_transcript};
 use crate::handing::answering;
 use crate::handoff::{
     app_running, app_with, file, harbour, last_use, opened_beside, recording_neovim, soon, start_in,
 };
-use crate::{Screen, raw_agent};
+use crate::{Screen, following_from, following_in, raw_agent};
 
 #[test]
 fn a_session_deeper_in_the_tree_takes_the_file_over_the_selected_home_session() {

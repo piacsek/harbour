@@ -93,12 +93,14 @@ fn with_the_exact_directory_a_session_inside_a_repository_moves_harbour_to_its_o
 #[test]
 fn with_the_exact_directory_claude_code_moving_leaves_harbour_in_the_start_folder() {
     let scratch = tempfile::tempdir().unwrap();
-    let (mut screen, moves) = transcribed_in(scratch.path(), EditorDir::Exact);
-    let start = scratch.path().join("acme-start").canonicalize().unwrap();
+    let repository = repository(scratch.path(), "acme-start");
+    let app = folder(&repository, "app");
+    let (mut screen, moves) = transcribed_from(scratch.path(), &app, "app 1", EditorDir::Exact);
 
-    write_transcript(scratch.path(), &[&cwd(&folder(&start, "lib"))]);
+    write_transcript(scratch.path(), &[&cwd(&folder(&repository, "lib"))]);
 
-    assert_eq!(last_move(&mut screen, &moves), Some(start));
+    let app = app.canonicalize().unwrap();
+    assert_eq!(last_move(&mut screen, &moves), Some(app));
 }
 
 #[test]
@@ -271,11 +273,19 @@ fn opened(scratch: &Path, agent: Vec<String>, refused: Option<PathBuf>) -> (Scre
 }
 
 fn transcribed(scratch: &Path) -> (Screen, Moves) {
-    transcribed_in(scratch, EditorDir::Root)
+    let start = repository(scratch, "acme-start");
+    let (mut screen, moves) = transcribed_from(scratch, &start, "acme-start 1", EditorDir::Root);
+    let start = start.canonicalize().unwrap();
+    assert_eq!(wait_until_at(&mut screen, &moves, &start), Some(start));
+    (screen, moves)
 }
 
-fn transcribed_in(scratch: &Path, editor_dir: EditorDir) -> (Screen, Moves) {
-    let start = repository(scratch, "acme-start");
+fn transcribed_from(
+    scratch: &Path,
+    start: &Path,
+    row: &str,
+    editor_dir: EditorDir,
+) -> (Screen, Moves) {
     let (mover, moves) = recording(None);
     let app = App::new(recording_agent(scratch))
         .with_picker(next_picked(scratch))
@@ -284,11 +294,9 @@ fn transcribed_in(scratch: &Path, editor_dir: EditorDir) -> (Screen, Moves) {
         .naming_sessions()
         .with_mover(mover);
     let mut screen = Screen::of(app);
-    self::start(&mut screen, scratch, &start, "acme-start 1");
+    self::start(&mut screen, scratch, start, row);
     let shown = screen.wait_for("acme agent ready");
     assert!(shown.contains("acme agent ready"), "{shown}");
-    let start = start.canonicalize().unwrap();
-    assert_eq!(wait_until_at(&mut screen, &moves, &start), Some(start));
     (screen, moves)
 }
 

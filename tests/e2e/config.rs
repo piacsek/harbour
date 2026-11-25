@@ -145,7 +145,7 @@ fn the_editor_from_the_file_runs_with_its_arguments() {
 
 #[test]
 #[ignore]
-fn the_exact_editor_dir_from_the_file_opens_the_editor_in_claude_codes_own_folder() {
+fn the_exact_editor_dir_from_the_file_opens_the_editor_in_the_folder_the_session_started_in() {
     let home = tempfile::tempdir().unwrap();
     std::fs::create_dir_all(home.path().join("acme-api/.git")).unwrap();
     std::fs::create_dir_all(home.path().join("acme-api/rust")).unwrap();
