@@ -309,6 +309,7 @@ impl Scratch {
                 session_id: id.to_string(),
                 directory: self.checkout(),
                 title: title.to_string(),
+                given_title: None,
                 position,
             })
             .unwrap();

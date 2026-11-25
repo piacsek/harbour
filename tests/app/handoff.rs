@@ -513,6 +513,7 @@ fn remembering(scratch: &Path) -> Screen {
             session_id: ID.to_string(),
             directory: scratch.join("acme-api"),
             title: TITLE.to_string(),
+            given_title: None,
             position: 0,
         })
         .unwrap();

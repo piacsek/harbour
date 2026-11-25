@@ -375,6 +375,7 @@ fn wanted(entry: &Entry, position: usize) -> Option<Remembered> {
             .title
             .clone()
             .unwrap_or_else(|| entry.name.clone()),
+        given_title: None,
         position,
     })
 }

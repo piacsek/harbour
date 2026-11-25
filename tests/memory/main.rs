@@ -7,6 +7,7 @@ use harbour::memory::{Memory, Remembered};
 
 mod places;
 mod reserving;
+mod titles;
 
 pub(crate) const ID: &str = "0f1e2d3c-4b5a-6978-8a9b-0c1d2e3f4a5b";
 pub(crate) const OTHER_ID: &str = "9a8b7c6d-5e4f-4a3b-2c1d-0e9f8a7b6c5d";
@@ -542,6 +543,7 @@ pub(crate) fn remembered(id: &str, position: usize) -> Remembered {
         session_id: id.to_string(),
         directory: PathBuf::from("/home/acme/api"),
         title: "Fix the flaky login test".to_string(),
+        given_title: None,
         position,
     }
 }

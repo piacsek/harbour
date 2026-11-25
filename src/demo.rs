@@ -153,6 +153,7 @@ pub fn stopped(registry: &Path) -> Memory {
                 session_id: STOPPED.to_string(),
                 directory: checkout(registry, "acme-docs", "main"),
                 title: title.to_string(),
+                given_title: None,
                 position: 5,
             })
         });

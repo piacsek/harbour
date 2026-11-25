@@ -11,6 +11,7 @@ use ratatui::layout::Rect;
 use ratatui::style::{Color, Modifier};
 
 mod colours;
+mod titles;
 
 #[test]
 fn under_a_minute_reads_less_than_a_minute() {
