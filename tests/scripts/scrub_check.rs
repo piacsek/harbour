@@ -460,70 +460,6 @@ fn an_empty_denylist_fails_the_outgoing_scrub() {
 }
 
 #[test]
-fn a_denylist_line_ending_with_a_carriage_return_fails_the_scrub() {
-    let dir = tempfile::tempdir().unwrap();
-    let work = scrub_sandbox(dir.path());
-    let list = denylist(dir.path(), "zz-other-term\nzz-secret-term\r\n");
-
-    let output = scrub_outgoing(&work, &list);
-
-    assert!(!output.status.success(), "{}", stdout(&output));
-    assert!(
-        stderr(&output).contains(&trailing_character_refusal(&list, 2)),
-        "{}",
-        stderr(&output)
-    );
-}
-
-#[test]
-fn a_denylist_line_ending_with_a_space_fails_the_scrub() {
-    let dir = tempfile::tempdir().unwrap();
-    let work = scrub_sandbox(dir.path());
-    let list = denylist(dir.path(), "zz-other-term\nzz-secret-term \n");
-
-    let output = scrub(&work, Some(&list));
-
-    assert!(!output.status.success(), "{}", stdout(&output));
-    assert!(
-        stderr(&output).contains(&trailing_character_refusal(&list, 2)),
-        "{}",
-        stderr(&output)
-    );
-}
-
-#[test]
-fn a_denylist_line_ending_with_a_tab_fails_the_scrub() {
-    let dir = tempfile::tempdir().unwrap();
-    let work = scrub_sandbox(dir.path());
-    let list = denylist(dir.path(), "zz-other-term\nzz-secret-term\t\n");
-
-    let output = scrub(&work, Some(&list));
-
-    assert!(!output.status.success(), "{}", stdout(&output));
-    assert!(
-        stderr(&output).contains(&trailing_character_refusal(&list, 2)),
-        "{}",
-        stderr(&output)
-    );
-}
-
-#[test]
-fn a_blank_denylist_line_fails_the_scrub() {
-    let dir = tempfile::tempdir().unwrap();
-    let work = scrub_sandbox(dir.path());
-    let list = denylist(dir.path(), "zz-other-term\n\nzz-secret-term\n");
-
-    let output = scrub(&work, Some(&list));
-
-    assert!(!output.status.success(), "{}", stdout(&output));
-    assert!(
-        stderr(&output).contains(&format!("scrub-check: {}:2 is blank", list.display())),
-        "{}",
-        stderr(&output)
-    );
-}
-
-#[test]
 fn a_default_denylist_under_a_directory_without_search_permission_fails_the_scrub() {
     if running_as_root() {
         return;
@@ -606,7 +542,7 @@ fn the_scrub_on_a_terminal_never_opens_the_pager() {
     );
 }
 
-fn scrub_sandbox(root: &Path) -> PathBuf {
+pub fn scrub_sandbox(root: &Path) -> PathBuf {
     let work = repository(root);
     link_script(&work, "scrub-check.sh");
     git(&work, &["add", "-A"]);
@@ -614,13 +550,13 @@ fn scrub_sandbox(root: &Path) -> PathBuf {
     work
 }
 
-fn denylist(root: &Path, terms: &str) -> PathBuf {
+pub fn denylist(root: &Path, terms: &str) -> PathBuf {
     let list = root.join("denylist");
     fs::write(&list, terms).unwrap();
     list
 }
 
-fn scrub(work: &Path, list: Option<&Path>) -> Output {
+pub fn scrub(work: &Path, list: Option<&Path>) -> Output {
     let mut command = Command::new(work.join("scripts/scrub-check.sh"));
     isolated(&mut command)
         .env("HOME", work.parent().unwrap().join("home"))
@@ -631,18 +567,11 @@ fn scrub(work: &Path, list: Option<&Path>) -> Output {
     command.output().unwrap()
 }
 
-fn trailing_character_refusal(list: &Path, line: usize) -> String {
-    format!(
-        "scrub-check: {}:{line} ends with a carriage return, a space or a tab",
-        list.display()
-    )
-}
-
 fn default_denylist(root: &Path) -> PathBuf {
     root.join("home/.config/harbour-dev/denylist")
 }
 
-fn scrub_outgoing(work: &Path, list: &Path) -> Output {
+pub fn scrub_outgoing(work: &Path, list: &Path) -> Output {
     isolated(&mut Command::new(work.join("scripts/scrub-check.sh")))
         .arg("--outgoing")
         .env("HOME", work.parent().unwrap().join("home"))

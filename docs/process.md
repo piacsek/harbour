@@ -221,8 +221,8 @@ the root only when it must hold on every turn.
     Only `scrub: clean` is a clean result; a failed `gh` call is not one, and nothing is grepped
     unless both calls succeeded. The commits come from `gh api`, since `gh pr view` cuts a long
     subject in two. It does not read the PR body, and unlike the script it does not refuse an
-    empty list, a blank line or one ending with a carriage return, a space or a tab; the run of
-    `scripts/scrub-check.sh` before ready refuses such a list, so fix the list it names first. On a machine with no denylist, where `scripts/scrub-check.sh` skips, it prints
+    empty list or a line with a hidden character; the run of `scripts/scrub-check.sh` before
+    ready refuses such a list, so fix the line it names first. On a machine with no denylist, where `scripts/scrub-check.sh` skips, it prints
     `scrub: list unreadable, not clean`: that is not clean by design, and the merge waits for a
     machine that has the list.
   - **Severity by reachability.** A finding is must or should only when the user hits it while
