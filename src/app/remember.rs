@@ -89,18 +89,7 @@ impl App {
         self.clear_refusal();
     }
 
-    pub(super) fn move_card(&mut self, down: bool) {
-        let from = self.selected;
-        let to = if down { from + 1 } else { from.wrapping_sub(1) };
-        if from >= self.sessions.len() || to >= self.sessions.len() {
-            return;
-        }
-        self.sessions.swap(from, to);
-        self.selected = to;
-        self.keep_positions();
-    }
-
-    fn keep_positions(&mut self) {
+    pub(super) fn keep_positions(&mut self) {
         let Some(memory) = &self.memory else {
             return;
         };

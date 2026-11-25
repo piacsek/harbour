@@ -32,14 +32,14 @@ fn an_unselected_working_session_shows_its_last_prompt_dimmed_not_its_last_tool_
     screen.press('n');
 
     let shown = screen.wait_for("fix the login test");
-    let prompt = column_of(&shown, 2, "fix the login test");
+    let prompt = column_of(&shown, 3, "fix the login test");
 
     assert_eq!(
         below(&shown, "Fix the flaky login test"),
         "fix the login test"
     );
     assert!(!shown.contains("Run the login tests"), "{shown}");
-    assert!(screen.cell(prompt, 2).modifier.contains(Modifier::DIM));
+    assert!(screen.cell(prompt, 3).modifier.contains(Modifier::DIM));
 }
 
 #[test]
@@ -78,13 +78,13 @@ fn an_unselected_idle_session_shows_its_last_prompt_dimmed() {
     screen.press('n');
 
     let shown = screen.wait_for("split the invoice helper");
-    let prompt = column_of(&shown, 2, "split the invoice helper");
+    let prompt = column_of(&shown, 3, "split the invoice helper");
 
     assert_eq!(
         below(&shown, "Tidy the billing module"),
         "split the invoice helper"
     );
-    assert!(screen.cell(prompt, 2).modifier.contains(Modifier::DIM));
+    assert!(screen.cell(prompt, 3).modifier.contains(Modifier::DIM));
 }
 
 #[test]

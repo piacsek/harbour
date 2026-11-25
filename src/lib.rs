@@ -7,6 +7,7 @@ pub mod demo;
 pub mod editor;
 pub mod finder;
 pub mod follow;
+pub mod group;
 pub mod handoff;
 pub mod help;
 pub mod icons;

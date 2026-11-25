@@ -10,6 +10,7 @@ use ratatui::widgets::{Block, Clear, Paragraph, Wrap};
 use super::{App, FOCUSED_BORDER, HINT, Question, UNFOCUSED_BORDER, remember, user_home};
 use crate::card::{Card, Ended};
 use crate::editor::Changes;
+use crate::group::Member;
 use crate::help;
 use crate::state;
 use crate::tabs;
@@ -39,6 +40,7 @@ impl App {
         self.finish_editors();
         self.read_files();
         self.settle_exited();
+        self.regroup();
         self.serve();
         self.follow_selected();
         self.screen = frame.area();
@@ -131,11 +133,13 @@ impl App {
                 editor.session.resize(editing.height, editing.width);
             }
         }
+        let members = self.members();
         let cards: Vec<Card> = self
             .sessions
             .iter()
             .zip(notes)
-            .map(|(entry, note)| {
+            .zip(members)
+            .map(|((entry, note), member)| {
                 let card = Card::new(
                     &entry.name,
                     note,
@@ -145,6 +149,11 @@ impl App {
                     entry.transcript.as_ref().map(Transcript::facts),
                 )
                 .renamed(entry.given.as_deref());
+                let card = match member {
+                    Member::Alone => card,
+                    Member::First => card.in_group(true),
+                    Member::Later => card.in_group(false),
+                };
                 if self.nerd_font {
                     card.with_icons()
                 } else {

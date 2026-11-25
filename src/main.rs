@@ -48,6 +48,8 @@ C-k from the sidebar and Claude Code move to the pane below or above harbour,
 when there is one.
 Under tmux, a newline is Shift-Enter with extended-keys on, else Alt-Enter.
 C-/ 1 to C-/ 8 jump to that card, C-/ 9 to the last.
+Cards of one repository sit together under its name. J and K move a card
+within its group; on a group's first card they move the whole group.
 A terminal tmux does not know (Ghostty for one) also needs this line in
 tmux.conf for Shift-Enter, with its TERM outside tmux before
 the colon; then tmux source-file ~/.tmux.conf, detach and attach again:

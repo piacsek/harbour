@@ -1,8 +1,12 @@
+use std::path::Path;
+
 use crossterm::event::{KeyCode, KeyModifiers};
 use harbour::app::App;
 use harbour::keymap::{Action, Keymap};
 use harbour::memory::Remembered;
 
+use crate::directory::folder;
+use crate::grouping::{cycling, remember};
 use crate::refusing::Elsewhere;
 use crate::remembering::{ID, OTHER_ID, Scratch, TITLE};
 use crate::{Screen, directory, in_order, numbered_agent, reading_agent, region, script};
@@ -14,7 +18,7 @@ const THIRD_TITLE: &str = "Rename the acme jobs";
 #[test]
 fn shift_k_moves_the_selected_card_up_and_it_stays_selected() {
     let scratch = tempfile::tempdir().unwrap();
-    let mut screen = two_cards(Screen::new(numbered_agent(scratch.path())));
+    let mut screen = two_cards(App::new(numbered_agent(scratch.path())), scratch.path());
 
     screen.key(KeyCode::Char('K'), KeyModifiers::SHIFT);
 
@@ -26,7 +30,7 @@ fn shift_k_moves_the_selected_card_up_and_it_stays_selected() {
 #[test]
 fn shift_j_moves_the_selected_card_down_and_it_stays_selected() {
     let scratch = tempfile::tempdir().unwrap();
-    let mut screen = two_cards(Screen::new(numbered_agent(scratch.path())));
+    let mut screen = two_cards(App::new(numbered_agent(scratch.path())), scratch.path());
     screen.press('k');
     screen.wait_for("acme agent 1");
 
@@ -40,7 +44,7 @@ fn shift_j_moves_the_selected_card_down_and_it_stays_selected() {
 #[test]
 fn j_with_the_shift_flag_moves_the_card_down() {
     let scratch = tempfile::tempdir().unwrap();
-    let mut screen = two_cards(Screen::new(numbered_agent(scratch.path())));
+    let mut screen = two_cards(App::new(numbered_agent(scratch.path())), scratch.path());
     screen.press('k');
     screen.wait_for("acme agent 1");
 
@@ -54,7 +58,7 @@ fn j_with_the_shift_flag_moves_the_card_down() {
 #[test]
 fn capital_k_without_the_shift_flag_moves_the_card_up() {
     let scratch = tempfile::tempdir().unwrap();
-    let mut screen = two_cards(Screen::new(numbered_agent(scratch.path())));
+    let mut screen = two_cards(App::new(numbered_agent(scratch.path())), scratch.path());
 
     screen.press('K');
 
@@ -66,7 +70,7 @@ fn capital_k_without_the_shift_flag_moves_the_card_up() {
 #[test]
 fn shift_k_on_the_first_card_does_nothing() {
     let scratch = tempfile::tempdir().unwrap();
-    let mut screen = two_cards(Screen::new(numbered_agent(scratch.path())));
+    let mut screen = two_cards(App::new(numbered_agent(scratch.path())), scratch.path());
     screen.press('k');
     screen.wait_for("acme agent 1");
 
@@ -80,7 +84,7 @@ fn shift_k_on_the_first_card_does_nothing() {
 #[test]
 fn shift_j_on_the_last_card_does_nothing() {
     let scratch = tempfile::tempdir().unwrap();
-    let mut screen = two_cards(Screen::new(numbered_agent(scratch.path())));
+    let mut screen = two_cards(App::new(numbered_agent(scratch.path())), scratch.path());
 
     screen.key(KeyCode::Char('J'), KeyModifiers::SHIFT);
 
@@ -113,7 +117,13 @@ fn shift_k_with_the_pane_focused_reaches_the_program_and_moves_nothing() {
 
     let shown = screen.wait_for("acme agent got: K");
     let sidebar = sidebar(&shown);
-    assert!(in_order(&sidebar, &[&card(1), &card(2)]), "{sidebar}");
+    assert!(
+        in_order(
+            &sidebar,
+            &[&format!("{} 1", directory()), &format!("{} 2", directory())]
+        ),
+        "{sidebar}"
+    );
 }
 
 #[test]
@@ -121,7 +131,7 @@ fn a_binding_of_end_on_capital_k_wins_over_the_move() {
     let scratch = tempfile::tempdir().unwrap();
     let app = App::new(numbered_agent(scratch.path()))
         .with_keymap(Keymap::default().bind(Action::End, Some('K')));
-    let mut screen = two_cards(Screen::of(app));
+    let mut screen = two_cards(app, scratch.path());
 
     screen.key(KeyCode::Char('K'), KeyModifiers::SHIFT);
 
@@ -134,7 +144,7 @@ fn a_binding_of_end_on_capital_k_wins_over_the_move() {
 #[test]
 fn the_prefix_then_1_jumps_to_the_card_moved_first() {
     let scratch = tempfile::tempdir().unwrap();
-    let mut screen = two_cards(Screen::new(numbered_agent(scratch.path())));
+    let mut screen = two_cards(App::new(numbered_agent(scratch.path())), scratch.path());
     screen.key(KeyCode::Char('K'), KeyModifiers::SHIFT);
     screen.press('j');
     screen.wait_for("acme agent 1");
@@ -149,7 +159,7 @@ fn the_prefix_then_1_jumps_to_the_card_moved_first() {
 fn two_stopped_cards_swapped_come_back_in_the_new_order() {
     let scratch = Scratch::new();
     scratch.remember(ID, TITLE, 0);
-    scratch.remember(OTHER_ID, OTHER_TITLE, 1);
+    remember(&scratch, OTHER_ID, OTHER_TITLE, "acme-web", 1);
     let mut screen = stopped(&scratch);
 
     screen.key(KeyCode::Char('J'), KeyModifiers::SHIFT);
@@ -177,7 +187,7 @@ fn a_moved_card_whose_file_was_forgotten_writes_no_file_back() {
 fn a_moved_card_open_elsewhere_saves_only_its_new_position() {
     let scratch = Scratch::new();
     scratch.remember(ID, TITLE, 0);
-    scratch.remember(OTHER_ID, OTHER_TITLE, 1);
+    remember(&scratch, OTHER_ID, OTHER_TITLE, "acme-web", 1);
     scratch.transcript(ID, r#"{"type":"user","message":{}}"#);
     scratch.transcript(OTHER_ID, r#"{"type":"user","message":{}}"#);
     let _other = Elsewhere::open(&scratch.sessions(), ID);
@@ -237,7 +247,7 @@ fn a_move_saves_every_card_in_the_order_shown() {
 fn a_move_keeps_a_title_another_harbour_saved_since() {
     let scratch = Scratch::new();
     scratch.remember(ID, TITLE, 0);
-    scratch.remember(OTHER_ID, OTHER_TITLE, 1);
+    remember(&scratch, OTHER_ID, OTHER_TITLE, "acme-web", 1);
     let mut screen = stopped(&scratch);
     scratch.remember(ID, "Retitled in acme", 0);
 
@@ -248,11 +258,16 @@ fn a_move_keeps_a_title_another_harbour_saved_since() {
     assert_eq!(recalled[1].title, "Retitled in acme");
 }
 
-fn two_cards(mut screen: Screen) -> Screen {
+fn two_cards(app: App, scratch: &Path) -> Screen {
+    let one = folder(scratch, "acme-one");
+    let two = folder(scratch, "acme-two");
+    let mut screen = Screen::of(app.with_picker(cycling(scratch, &[&one, &two])));
     screen.press('n');
     screen.wait_for("acme agent 1");
+    screen.key(KeyCode::Char('h'), KeyModifiers::CONTROL);
     screen.press('n');
     screen.wait_for("acme agent 2");
+    screen.key(KeyCode::Char('h'), KeyModifiers::CONTROL);
     screen
 }
 
@@ -261,7 +276,7 @@ fn sidebar(shown: &str) -> String {
 }
 
 fn card(n: usize) -> String {
-    format!("{} {n}", directory())
+    format!("acme-{} {n}", ["one", "two"][n - 1])
 }
 
 fn selected(n: usize) -> String {

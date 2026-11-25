@@ -17,6 +17,7 @@ mod focus;
 mod following;
 mod frames;
 mod given_titles;
+mod grouping;
 mod handing;
 mod handoff;
 mod handoff_socket;

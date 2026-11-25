@@ -73,6 +73,8 @@ pub struct Card {
     parts: Vec<(Kind, String)>,
     iconed: bool,
     age: Option<String>,
+    repository: String,
+    header: bool,
 }
 
 impl Card {
@@ -141,6 +143,8 @@ impl Card {
             parts,
             iconed: false,
             age: elapsed.map(age),
+            repository: clean(&place.repository),
+            header: false,
         }
     }
 
@@ -154,6 +158,22 @@ impl Card {
     pub fn with_icons(mut self) -> Card {
         self.iconed = true;
         self
+    }
+
+    pub fn in_group(mut self, first: bool) -> Card {
+        self.parts.retain(|(kind, _)| *kind != Kind::Repository);
+        self.header = first;
+        self
+    }
+
+    fn header_line(&self, room: usize) -> Line<'static> {
+        let name = fit(&self.repository, room);
+        let mut text = name.clone();
+        if room > columns(&name) + 1 {
+            text.push(' ');
+            text.push_str(&"─".repeat(room - columns(&name) - 1));
+        }
+        Line::styled(text, Modifier::DIM)
     }
 
     fn lines(&self, width: usize, selected: bool, colors: &Colors) -> [Line<'static>; HEIGHT] {
@@ -244,12 +264,27 @@ impl Sidebar {
             return;
         }
         let height = usize::from(area.height);
-        self.scroll(cards.len(), selected, height);
+        let items = items(cards);
+        self.scroll(&items, selected, height);
         let width = usize::from(area.width.saturating_sub(2));
-        for (index, card) in cards.iter().enumerate().skip(self.offset) {
-            let top = (index - self.offset) * STEP;
+        let first = items.get(self.offset).map_or(0, |item| item.top);
+        for item in items.iter().skip(self.offset) {
+            let top = item.top - first;
             if top >= height {
                 break;
+            }
+            let index = item.card;
+            let card = &cards[index];
+            if item.header {
+                if let Some(row) = u16::try_from(top).ok().filter(|_| top + 1 < height) {
+                    buffer.set_line(
+                        area.x + 2,
+                        area.y + row,
+                        &card.header_line(width),
+                        area.width.saturating_sub(2),
+                    );
+                }
+                continue;
             }
             let chosen = index == selected;
             for (line_index, line) in card.lines(width, chosen, &self.colors).iter().enumerate() {
@@ -273,16 +308,57 @@ impl Sidebar {
         }
     }
 
-    fn scroll(&mut self, count: usize, selected: usize, height: usize) {
-        let above = height.saturating_sub(HEIGHT) / STEP;
-        self.offset = self
-            .offset
-            .min(selected)
-            .max(selected.saturating_sub(above));
-        while self.offset > 0 && (count - self.offset + 1) * STEP - 1 <= height {
+    fn scroll(&mut self, items: &[Item], selected: usize, height: usize) {
+        let Some(shown) = items
+            .iter()
+            .position(|item| item.card == selected && !item.header)
+        else {
+            self.offset = 0;
+            return;
+        };
+        let start = if shown > 0 && items[shown - 1].header {
+            shown - 1
+        } else {
+            shown
+        };
+        let bottom = items[shown].top + HEIGHT;
+        self.offset = self.offset.min(start);
+        while self.offset < shown && bottom - items[self.offset].top > height {
+            self.offset += 1;
+        }
+        let end = items.last().map_or(0, |item| item.top + HEIGHT);
+        while self.offset > 0 && end - items[self.offset - 1].top <= height {
             self.offset -= 1;
         }
     }
+}
+
+struct Item {
+    top: usize,
+    card: usize,
+    header: bool,
+}
+
+fn items(cards: &[Card]) -> Vec<Item> {
+    let mut items = Vec::new();
+    let mut top = 0;
+    for (card, shown) in cards.iter().enumerate() {
+        if shown.header {
+            items.push(Item {
+                top,
+                card,
+                header: true,
+            });
+            top += 1;
+        }
+        items.push(Item {
+            top,
+            card,
+            header: false,
+        });
+        top += STEP;
+    }
+    items
 }
 
 fn cut(segments: &[(String, Style)], whole: &str, shown: &str) -> Vec<Span<'static>> {

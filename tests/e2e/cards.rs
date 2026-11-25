@@ -188,7 +188,7 @@ fn a_conversation_comes_back_only_under_the_claude_code_configuration_it_was_mad
 #[ignore]
 fn the_demo_shows_a_stopped_session_it_remembers() {
     let home = tempfile::tempdir().unwrap();
-    let server = Server::start("demo-stopped", 160, 26);
+    let server = Server::start("demo-stopped", 160, 30);
 
     server.run(home.path(), &[], &["--demo"]);
 
@@ -226,6 +226,26 @@ fn capital_k_moves_the_selected_card_above_the_one_before_it() {
         in_order(&sidebar(&screen), &["acme-api 2", "acme-api 1"]),
         "{screen}"
     );
+}
+
+#[test]
+#[ignore]
+fn the_demo_puts_the_sessions_of_one_repository_under_its_name() {
+    let home = tempfile::tempdir().unwrap();
+    let server = Server::start("demo-groups", 160, 30);
+
+    server.run(home.path(), &[], &["--demo"]);
+
+    let rows = [
+        "acme-api ─",
+        "Fix the flaky retry test",
+        "Publish the acme-api",
+        "acme-web ─",
+    ];
+    let screen = server.wait_until("the acme-api and acme-web groups", |screen| {
+        in_order(&sidebar(screen), &rows)
+    });
+    assert!(in_order(&sidebar(&screen), &rows), "{screen}");
 }
 
 fn sidebar(screen: &str) -> String {

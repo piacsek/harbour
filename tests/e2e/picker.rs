@@ -8,7 +8,7 @@ use super::{AGENT, FAKE_FZF, PICKER, Server, tools};
 #[ignore]
 fn n_in_the_demo_without_fzf_starts_a_session_at_once() {
     let home = tempfile::tempdir().unwrap();
-    let server = Server::start("demo-no-fzf", 160, 20);
+    let server = Server::start("demo-no-fzf", 160, 26);
     server.run(home.path(), &[], &["--demo"]);
     server.wait_for_screen("acme-infra 5");
 
@@ -135,7 +135,7 @@ fn the_picker_files_live_in_a_directory_only_its_owner_can_open() {
 #[ignore]
 fn n_in_the_demo_lists_made_up_directories_in_fzf() {
     let home = tempfile::tempdir().unwrap();
-    let server = Server::start("demo-picker", 160, 20);
+    let server = Server::start("demo-picker", 160, 26);
     let path = format!("{FAKE_FZF}:{}", tools(home.path()));
     server.run(home.path(), &[("PATH", &path)], &["--demo"]);
     server.wait_for_screen("acme-infra 5");

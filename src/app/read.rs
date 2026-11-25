@@ -20,6 +20,7 @@ impl App {
                 Reading::Timed,
             );
         }
+        self.regroup();
         self.remember_all();
     }
 
@@ -64,6 +65,7 @@ impl App {
                 );
             }
         }
+        self.regroup();
         self.remember_all();
     }
 }
