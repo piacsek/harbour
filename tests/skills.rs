@@ -116,22 +116,30 @@ fn a_listing_of_the_sweep_workflows_issues_that_reads_a_body_is_caught() {
 
 #[test]
 fn the_review_skill_sends_every_prefixed_key_of_the_help() {
-    assert_eq!(missing(&review_keys()), Vec::<String>::new());
+    let missing = missing(&review_keys());
+    assert!(missing.is_empty(), "{missing:?}");
 }
 
 #[test]
 fn the_review_skill_sends_no_prefixed_key_of_the_help_without_the_prefix() {
-    assert_eq!(unprefixed(&review_keys()), Vec::<String>::new());
+    let unprefixed = unprefixed(&review_keys());
+    assert!(unprefixed.is_empty(), "{unprefixed:?}");
 }
 
 #[test]
 fn the_review_skill_ends_by_quitting_and_answering_yes() {
-    assert!(review_keys().ends_with(&[PREFIX.into(), "q".into(), "y".into()]));
+    let keys = review_keys();
+    let last = keys.len() - 1;
+    assert_eq!(keys[last - 2], PREFIX);
+    assert_eq!(keys[last - 1], "q");
+    assert_eq!(keys[last], "y");
 }
 
 #[test]
 fn a_prefixed_key_sent_without_the_prefix_is_caught() {
-    assert_eq!(unprefixed(&keys(&["q", "y"])), vec!["q"]);
+    let unprefixed = unprefixed(&keys(&["q", "y"]));
+    assert_eq!(unprefixed.len(), 1);
+    assert_eq!(unprefixed[0], "q");
 }
 
 #[test]
@@ -146,12 +154,29 @@ fn the_prefix_sent_twice_sends_the_prefix_key() {
 
 #[test]
 fn the_prefix_sent_twice_is_not_a_prefixed_key_alone() {
-    assert_eq!(unprefixed(&keys(&[PREFIX, PREFIX])), Vec::<String>::new());
+    let unprefixed = unprefixed(&keys(&[PREFIX, PREFIX]));
+    assert!(unprefixed.is_empty(), "{unprefixed:?}");
 }
 
 #[test]
 fn a_jump_is_sent_as_its_first_digit() {
     assert!(!missing(&keys(&[PREFIX, "1"])).contains(&"1".to_string()));
+}
+
+#[test]
+fn the_review_skill_sends_every_key_of_the_help_that_needs_no_prefix() {
+    let missing = missing_alone(&review_keys());
+    assert!(missing.is_empty(), "{missing:?}");
+}
+
+#[test]
+fn a_key_that_needs_no_prefix_never_sent_is_caught() {
+    assert!(missing_alone(&keys(&["j"])).contains(&"Enter".to_string()));
+}
+
+#[test]
+fn a_key_that_needs_no_prefix_sent_after_the_prefix_is_caught() {
+    assert!(missing_alone(&keys(&[PREFIX, "x"])).contains(&"x".to_string()));
 }
 
 fn issue_listings() -> Vec<&'static str> {
@@ -264,5 +289,21 @@ fn unprefixed(sent: &[String]) -> Vec<String> {
     alone
         .into_iter()
         .filter(|key| needs_the_prefix.contains(key))
+        .collect()
+}
+
+fn keys_alone() -> Vec<String> {
+    KEYS.iter()
+        .filter(|(keys, _)| !keys.starts_with("C-/ "))
+        .flat_map(|(keys, _)| keys.split([' ', '/']))
+        .map(String::from)
+        .collect()
+}
+
+fn missing_alone(sent: &[String]) -> Vec<String> {
+    let (_, alone) = after_the_prefix(sent);
+    keys_alone()
+        .into_iter()
+        .filter(|key| !alone.contains(key))
         .collect()
 }

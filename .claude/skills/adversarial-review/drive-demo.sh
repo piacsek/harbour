@@ -16,14 +16,16 @@ trap 't kill-server 2>/dev/null || true' EXIT
 t new-session -d -s demo -x "$width" -y "$height" -c "$out/home/acme-api" \
   "$run 2>$(printf '%q' "$out/stderr"); echo \$? >$(printf '%q' "$out/exit"); sleep 30"
 sleep 1.2
+early=
 for key in "$@"; do
+  [ -f "$out/exit" ] && early=1
   t send-keys -t demo "$key"
   sleep 0.25
 done
 sleep 0.5
 t capture-pane -t demo -p >"$out/screen.txt"
 if [ "$(cat "$out/exit" 2>/dev/null)" = 0 ]; then
-  echo quit
+  echo "quit${early:+ early}"
 elif [ -f "$out/exit" ]; then
   echo "died: exit $(cat "$out/exit")"
   head -n 8 "$out/stderr"
