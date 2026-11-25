@@ -40,13 +40,14 @@ prefix where the terminal reports it as an extended key. The default stays `C-/`
 `parse_prefix` takes `C-;`, from the file and from `HARBOUR_PREFIX`, and the refusal names it.
 Nothing else needed code: `src/input.rs` already read both extended forms of Ctrl+`;`,
 `is_prefix` already matched it, and `src/keys.rs` already sent the prefix pressed twice as `;`
-to a program that asked for nothing and in the extended form to one that did. Tasks 1 and 3
-and the end-to-end test were green on their first run, so each was shown red by breaking the
-code it covers, then restored. `harbour --help` says what `C-;` needs. Review round 1 found no must; its five cheap findings
-(the variable shown unquoted in the fragment, the end-to-end test pinning a literal, the help
-note too terse, the `src/help.rs` entry missing it, an app test repeating another) were fixed
-in one ship. Phase
-41's ready, merged and released were read from GitHub into `plans/metrics.md`.
+to a program that asked for nothing and in the extended form to one that did. Tasks 1 and 3 and
+the end-to-end test were green on their first run, so each was shown red by breaking the code
+it covers, then restored. `harbour --help` says what `C-;` needs. Review round 1 found no must;
+its five cheap findings (the variable shown unquoted in the fragment, the end-to-end test
+pinning a literal, the help note too terse, the `src/help.rs` entry missing it, an app test
+repeating another) were fixed in one ship. Round 2 found no must; its findings were left as
+issue #203, and the loop ended at the owner's 2-round limit. Phase 41's ready, merged and
+released were read from GitHub into `plans/metrics.md`.
 
 ## Hurdles
 
