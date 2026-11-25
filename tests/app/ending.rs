@@ -218,6 +218,31 @@ fn q_with_only_exited_sessions_quits_without_asking() {
 }
 
 #[test]
+fn ctrl_c_in_the_sidebar_with_a_running_session_asks_before_quitting() {
+    let mut screen = Screen::new(reading_agent());
+    screen.press('n');
+    screen.wait_for("acme agent ready");
+
+    screen.resize(60, 20);
+    screen.key(KeyCode::Char('c'), KeyModifiers::CONTROL);
+
+    let shown = screen.draw();
+    assert!(shown.contains("Quit? y/n"), "{shown}");
+    assert!(screen.app.running());
+}
+
+#[test]
+fn ctrl_c_in_the_sidebar_with_only_exited_sessions_quits_without_asking() {
+    let mut screen = Screen::new(script("exit 0"));
+    screen.press('n');
+    screen.wait_for("exited");
+
+    screen.key(KeyCode::Char('c'), KeyModifiers::CONTROL);
+
+    assert!(!screen.app.running());
+}
+
+#[test]
 fn y_to_the_quit_question_quits() {
     let mut screen = Screen::new(reading_agent());
     screen.press('n');

@@ -91,6 +91,7 @@ impl App {
         match acted.code {
             _ if is_ctrl(acted, 'l') => self.focus_or_resume(),
             _ if is_ctrl(acted, 'm') => self.focus_or_resume(),
+            _ if is_ctrl(key, 'c') => self.quit(),
             KeyCode::Enter => self.focus_or_resume(),
             KeyCode::Char(c) if self.keymap.action_on(c) == Some(Action::New) => {
                 self.pick_or_start()
