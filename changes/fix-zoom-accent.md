@@ -1,3 +1,3 @@
 kind: fix
 
-- A zoomed pane's top row is drawn in the accent colour, as the focused border's title is.
+- A zoomed pane's top row shows its names and headline in the accent colour, as a focused border's title does.
