@@ -42,8 +42,19 @@ question counts as yes, so Ctrl+C twice always quits.
 1. Ctrl+C in the sidebar quits as `C-/ q` does (`tests/app/ending.rs`).
 2. Ctrl+C answers the quit question yes, the end questions no (`tests/app/ending.rs`).
 3. A focused pane still gets Ctrl+C (`tests/app/ending.rs`).
-4. The log names it (`tests/app/logging.rs`), `--help` names it (`tests/cli.rs`), the fragment.
+4. The log names it (`tests/app/logging.rs`), `--help` names it (`tests/cli.rs`), one
+   end-to-end test through tmux (`tests/e2e/main.rs`), the fragment.
 
 ## Outcome
 
+Ctrl+C in the sidebar calls `quit()`, as `C-/ q` does, from the last match of `key_handled`,
+in #188. The answer to a question is a yes for Ctrl+C only while that question is
+`Quit? y/n`; `End? y/n` and `End and remove? y/n` still close on it as a no. A focused pane, the
+usage popup, the pickers, the help and the changelog view take it as before, since they all come
+first. The log names it `key name="C-c"`, and `harbour --help` says what it does. The help view
+and the README are unchanged (no row to spare), so no screenshot. Tasks 2 and 3 shipped
+together. Phase 40's ready, merged and released were read from GitHub into `plans/metrics.md`.
+
 ## Hurdles
+
+- none recorded
