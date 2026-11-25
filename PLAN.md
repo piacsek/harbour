@@ -48,7 +48,8 @@ file under `plans/`; its time and tokens are a row of [`plans/metrics.md`](plans
 | 38 | [colour the card's facts, dim the age and the cards that ended](plans/phase-38-card-colours.md) | [v0.33.0](https://github.com/piacsek/harbour/releases/tag/v0.33.0) |
 | 39 | [X ends a running session and removes its card](plans/phase-39-end-removes-card.md) | [v0.34.0](https://github.com/piacsek/harbour/releases/tag/v0.34.0) |
 | 40 | [reorder sidebar cards with J and K](plans/phase-40-reorder-cards.md) | [v0.35.0](https://github.com/piacsek/harbour/releases/tag/v0.35.0) |
-| 41 | [Ctrl+C quits harbour from the sidebar](plans/phase-41-ctrl-c-quits.md) | |
+| 41 | [Ctrl+C quits harbour from the sidebar](plans/phase-41-ctrl-c-quits.md) | [v0.36.0](https://github.com/piacsek/harbour/releases/tag/v0.36.0) |
+| 42 | [C-; as a prefix setting](plans/phase-42-ctrl-semicolon-prefix.md) | |
 
 ## Backlog
 

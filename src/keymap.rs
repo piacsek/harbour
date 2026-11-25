@@ -153,7 +153,7 @@ fn same_ctrl(prefix: char, typed: char) -> bool {
     }
 }
 
-pub const PREFIX: &str = "expected C-<letter>, C-Space, C-/, C-\\, C-], C-^ or C-_";
+pub const PREFIX: &str = "expected C-<letter>, C-Space, C-/, C-\\, C-], C-^, C-_ or C-;";
 pub const KEY: &str = "expected one printable character other than a space, or \"none\"";
 
 pub fn prefix_name(prefix: char) -> String {
@@ -178,7 +178,7 @@ pub fn parse_prefix(name: &str) -> Result<char, String> {
         'h' | 'i' | 'j' | 'k' | 'l' | 'm' => Err(format!(
             "{name:?} is taken: C-h, C-j, C-k and C-l are harbour's, C-m is Enter, C-i is Tab"
         )),
-        c if c.is_ascii_lowercase() || matches!(c, '/' | '\\' | ']' | '^' | '_') => Ok(c),
+        c if c.is_ascii_lowercase() || matches!(c, '/' | '\\' | ']' | '^' | '_' | ';') => Ok(c),
         _ => Err(PREFIX.to_string()),
     }
 }

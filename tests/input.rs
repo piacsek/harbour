@@ -141,6 +141,10 @@ fn the_xterm_form_reads_as_the_modified_key() {
         [with(KeyCode::Char('h'), KeyModifiers::CONTROL)]
     );
     assert_eq!(
+        parsed(b"\x1b[27;5;59~"),
+        [with(KeyCode::Char(';'), KeyModifiers::CONTROL)]
+    );
+    assert_eq!(
         parsed(b"\x1b[27;3;97~"),
         [with(KeyCode::Char('a'), KeyModifiers::ALT)]
     );
@@ -180,6 +184,10 @@ fn the_csi_u_form_reads_as_the_modified_key() {
     assert_eq!(
         parsed(b"\x1b[104;5u"),
         [with(KeyCode::Char('h'), KeyModifiers::CONTROL)]
+    );
+    assert_eq!(
+        parsed(b"\x1b[59;5u"),
+        [with(KeyCode::Char(';'), KeyModifiers::CONTROL)]
     );
 }
 
