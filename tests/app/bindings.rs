@@ -6,7 +6,7 @@ use crossterm::event::{KeyCode, KeyModifiers};
 use harbour::app::App;
 use harbour::keymap::{Action, Keymap};
 
-use crate::zoom::corners;
+use crate::zoom::{corners, raw_reader};
 use crate::{Screen, script};
 
 #[test]
@@ -63,6 +63,22 @@ fn a_configured_prefix_starts_the_sequence() {
 
     let shown = screen.wait_for("acme agent 1 got: hi");
     assert_eq!(corners(&shown), 0, "{shown}");
+}
+
+#[test]
+fn ctrl_semicolon_twice_sends_claude_code_a_semicolon() {
+    let app = App::new(raw_reader(2)).with_keymap(Keymap::default().with_prefix(';'));
+    let mut screen = Screen::of(app);
+    screen.press('n');
+    screen.wait_for("acme agent ready");
+    screen.key(KeyCode::Enter, KeyModifiers::NONE);
+
+    screen.key(KeyCode::Char(';'), KeyModifiers::CONTROL);
+    screen.key(KeyCode::Char(';'), KeyModifiers::CONTROL);
+    screen.press('z');
+
+    let shown = screen.wait_for("acme agent read:");
+    assert!(shown.contains("acme agent read: 3b 7a"), "{shown}");
 }
 
 #[test]

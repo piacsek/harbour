@@ -1,6 +1,7 @@
 use std::path::{Path, PathBuf};
 
 use harbour::icons::ClaudeIcon;
+use harbour::keymap;
 use harbour::tabs;
 use harbour::tui::{DIR_PICKER, SESSION_COMMAND};
 
@@ -289,6 +290,21 @@ fn the_bindings_from_the_file_start_a_session_and_name_the_prefix() {
     server.send_keys(&["C-]", "w"]);
 
     server.wait_for_screen("C-] w does nothing; C-] ? lists the keys");
+}
+
+#[test]
+#[ignore]
+fn a_ctrl_semicolon_prefix_from_the_file_opens_on_the_xterm_form_of_ctrl_semicolon() {
+    let home = tempfile::tempdir().unwrap();
+    write_config(home.path(), "prefix = \"C-;\"\n");
+    let server = Server::start("config-ctrl-semicolon", 200, 20);
+    server.run(home.path(), &[(SESSION_COMMAND, AGENT)], &[]);
+    server.wait_for_screen("No session yet");
+
+    server.send_bytes("\x1b[27;5;59~");
+    server.send_keys(&["w"]);
+
+    server.wait_for_screen(&format!("{} w does nothing", keymap::prefix_name(';')));
 }
 
 #[test]
