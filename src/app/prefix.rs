@@ -6,7 +6,7 @@ use ratatui::text::{Line, Span};
 use unicode_width::UnicodeWidthStr;
 
 use super::App;
-use crate::keymap::{Action, After, key_name, name};
+use crate::keymap::{Action, After, key_name, name, typed};
 
 const REPEAT: Duration = Duration::from_millis(500);
 
@@ -128,9 +128,9 @@ impl App {
         } else {
             Action::Narrower
         };
-        if !(key.modifiers - KeyModifiers::SHIFT).is_empty()
+        if !(key.modifiers - KeyModifiers::SHIFT - KeyModifiers::CONTROL).is_empty()
             || at.elapsed() > REPEAT
-            || self.keymap.action_on(c) != Some(action)
+            || self.keymap.action_on(typed(key, c)) != Some(action)
         {
             return false;
         }

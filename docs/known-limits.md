@@ -145,3 +145,7 @@ good; a finding on one still counts as must when it shows new impact.
 - **A merge keeps one given title**: when a stopped card is merged into the session that resumed
   its conversation and both have a title the user gave, the session's wins, on the card and in
   that conversation's remembered file (`src/app/remember.rs`).
+- **Ctrl held after the prefix on a key that needs Shift works only where the terminal reports
+  the shifted character**: `?`, `{` and `}` with Ctrl held reach harbour as that character only
+  in some terminals and layouts, and with the default prefix, Ctrl-Shift-/ in the csi-u form
+  matches the prefix and sends it to the program (`plans/phase-46-ctrl-held-after-prefix.md`).

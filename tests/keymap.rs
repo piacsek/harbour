@@ -25,6 +25,27 @@ fn ctrl_and_shift_held_after_the_prefix_act_as_shift() {
 }
 
 #[test]
+fn ctrl_and_shift_held_on_a_lower_case_letter_act_as_its_capital() {
+    assert_eq!(
+        after('x', KeyModifiers::CONTROL | KeyModifiers::SHIFT),
+        After::Act(Action::Close)
+    );
+}
+
+#[test]
+fn shift_held_on_a_lower_case_letter_acts_as_its_capital() {
+    assert_eq!(after('x', KeyModifiers::SHIFT), After::Act(Action::Close));
+}
+
+#[test]
+fn ctrl_c_after_the_prefix_shows_the_changelog() {
+    assert_eq!(
+        after('c', KeyModifiers::CONTROL),
+        After::Act(Action::Changelog)
+    );
+}
+
+#[test]
 fn a_configured_key_with_ctrl_held_runs_its_action() {
     let keymap = Keymap::default().bind(Action::Zoom, Some('f'));
 

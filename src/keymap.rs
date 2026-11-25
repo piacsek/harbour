@@ -132,7 +132,8 @@ impl Keymap {
         if let Some(digit @ 1..=9) = c.to_digit(10) {
             return After::Jump(usize::try_from(digit).unwrap_or(9));
         }
-        self.action_on(c).map_or(After::Unknown, After::Act)
+        self.action_on(typed(key, c))
+            .map_or(After::Unknown, After::Act)
     }
 
     pub fn action_on(&self, c: char) -> Option<Action> {
@@ -145,6 +146,14 @@ impl Keymap {
                 })
             })
             .map(|(action, _)| *action)
+    }
+}
+
+pub fn typed(key: KeyEvent, c: char) -> char {
+    if key.modifiers.contains(KeyModifiers::SHIFT) {
+        c.to_ascii_uppercase()
+    } else {
+        c
     }
 }
 

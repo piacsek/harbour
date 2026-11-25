@@ -47,6 +47,17 @@ fn the_prefix_then_shifted_equals_widens_it_on_a_layout_where_equals_needs_shift
 }
 
 #[test]
+fn ctrl_equals_after_the_prefix_then_ctrl_equals_again_soon_widens_it_twice() {
+    let mut screen = started(30);
+
+    screen.key(KeyCode::Char('/'), KeyModifiers::CONTROL);
+    screen.key(KeyCode::Char('='), KeyModifiers::CONTROL);
+    screen.key(KeyCode::Char('='), KeyModifiers::CONTROL);
+
+    assert_eq!(pane_corner(&screen.draw()), 34);
+}
+
+#[test]
 fn the_prefix_then_equals_from_the_claude_code_pane_widens_the_sidebar_and_keeps_the_pane_focused()
 {
     let mut screen = Screen::at(

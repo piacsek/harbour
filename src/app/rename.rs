@@ -6,8 +6,8 @@ use ratatui::text::{Line, Span};
 use ratatui::widgets::Clear;
 use unicode_segmentation::UnicodeSegmentation;
 
-use super::key::typed;
 use super::{App, draw};
+use crate::keymap::typed;
 use crate::rename;
 use crate::text::{clean, columns};
 

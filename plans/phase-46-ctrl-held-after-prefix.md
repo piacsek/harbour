@@ -27,10 +27,17 @@ does without it, for every action and the digit jumps, as in tmux.
   `key_name`'s naming (`C-; C-w does nothing`); `harbour --help` gains one line; the help view,
   the README and the screenshots do not change; the keys a terminal sends as another key are not
   special-cased.
-- The builder's: `after` drops Ctrl as it drops Shift, so nothing else in `src/` changes. The
-  width keys' repeat stays bare only: `C-/ C-=` widens once, and the repeat within 500 ms is `=`
-  alone, as after `C-/ =`. The help line reads `Ctrl may stay held for the key after the prefix:
-  C-/ C-z acts as C-/ z.`, under the line of the jumps.
+- The builder's: `after` drops Ctrl as it drops Shift. The help line reads `Ctrl may stay held
+  for the key after the prefix: C-/ C-z acts as C-/ z;` and `a digit with Ctrl held needs a
+  terminal that reports extended keys.`, under the line of the jumps.
+- From review round 1: a letter with Shift held after the prefix is its capital whatever case
+  the terminal reports (`typed`, moved from `src/app/key.rs` to `src/keymap.rs`), so
+  `C-/ C-S-x` closes as `C-/ X` does; the width keys' repeat takes Ctrl held too, so
+  `C-/ C-= C-=` widens twice; Ctrl+C after the prefix shows the changelog, as `c` does; the
+  digits with Ctrl held need extended keys (a legacy terminal sends C-2 as NUL, C-3 as Esc, C-4
+  as C-\ and C-7 as C-_, which are not special-cased), so the help line and the fragment say so;
+  a key whose character needs Shift on the user's layout is a known limit
+  (`docs/known-limits.md`).
 
 ## States
 
@@ -38,8 +45,11 @@ does without it, for every action and the digit jumps, as in tmux.
 | --- | --- | --- |
 | a bound key, bare or with Shift | its action | its action |
 | a bound key with Ctrl, or Ctrl and Shift | `does nothing` | its action, as without Ctrl |
+| a lower-case letter with Shift (csi-u form), Ctrl or not | the lower-case action | the capital's action |
+| C-c | `does nothing` | the changelog, as `c` |
+| C-= or C-- again within 500 ms of a width key | sent to the program | widens or narrows again |
 | a digit 1 to 9 with Ctrl (extended keys on) | `does nothing` | the jump |
-| C-2 with extended keys off (NUL) | `does nothing` | `does nothing` (another key) |
+| C-2, C-3, C-4, C-7 with extended keys off (NUL, Esc, C-\, C-_) | nothing, a cancel, nothing, the prefix sent on | nothing, a cancel, `side`, the prefix sent on |
 | C-m, C-i, C-h with extended keys off | Enter, Tab, Backspace: `does nothing` | the same |
 | C-[ | Esc: cancels | cancels |
 | an unbound key with Ctrl | `C-/ C-w does nothing` | the same |
@@ -68,7 +78,17 @@ red by breaking the code they cover); `C-; C-z` zooming in process (`tests/app/b
 `after`; the help line in `tests/cli.rs`, red first. Shipped as one task in draft PR #225.
 Phase 45's ready, merged and released were read from GitHub into `plans/metrics.md` (v0.40.0).
 
+Review round 1 found one must and two shoulds, fixed in one ship. Ctrl-Shift-x in the csi-u
+form arrives as `x` with Shift and ran `end`, not `close`: `after` now reads the key through
+`typed`, moved to `src/keymap.rs` from `src/app/key.rs` and shared with the sidebar and the
+rename popup, so a letter with Shift is its capital with or without Ctrl (red rows in
+`tests/keymap.rs`). The width keys' repeat takes Ctrl held too (red in
+`tests/app/width_keys.rs`). The help line and the fragment now say a digit with Ctrl held needs
+extended keys. A `tests/keymap.rs` row pins Ctrl+C after the prefix as the changelog (a guard,
+shown red by breaking `after`), and `docs/known-limits.md` gained the keys that need Shift.
+
 ## Hurdles
 
 - `test-seam` seven guard rows of `tests/keymap.rs` (Esc, Alt, Ctrl and Alt, the prefix again twice, a bare key, an unbound Ctrl key) held before the change and were green on their first run; each was shown red by breaking the code it covers, then restored → code
 - `tooling` `tests/app/prefix.rs` sits at 672 of the 700 lines `tests/source_size.rs` allows, so the in-process wiring test went into `tests/app/bindings.rs`, beside the other `C-;` test → none
+- `review-loop` round 1 found states the plan's table missed: a lower-case letter reported with Shift (csi-u), the width keys' repeat with Ctrl held, and the digits a legacy terminal sends as other keys (C-3 Esc, C-4 C-\, C-7 C-_) → code
