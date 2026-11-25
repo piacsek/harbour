@@ -42,14 +42,22 @@ asks for it, as its own step.
    bytes; check the exit code and which stream each output lands on. Debug panics on overflow that
    release wraps silently, so a debug panic points at a release bug. Then drive the interface at
    sizes from tiny to huge with `drive-demo.sh`, which runs `harbour --demo` in a scratch tmux
-   server, sends the keys, prints `alive` or `died` with stderr, and leaves the screen in
+   server, sends the keys, prints `quit` when harbour exits 0 after the last key (`quit early` before
+   it), `died: exit <code>` with stderr when it exits otherwise, or `alive`, and leaves the screen in
    `screen.txt`:
 
    ```bash
-   for size in "1 1" "2 2" "3 3" "30 1" "200 3" "300 80"; do .claude/skills/adversarial-review/drive-demo.sh target/debug/harbour $size j k x n "?" a Enter C-h x y q y; done
+   keys=(j k J K C-_ '?' Escape C-_ c Escape C-_ u Escape C-_ z C-_ z C-_ '\' C-_ '}' C-_ '{' C-_ '\' C-_ - C-_ = C-_ l C-_ h C-_ e C-_ h C-_ 1 a C-_ h Enter a C-h C-l C-h C-_ s Escape C-_ r Escape C-_ C-_ n Escape C-c n x y X y C-_ q y)
+   for size in "1 1" "2 2" "3 3" "30 1" "200 3" "300 80"; do .claude/skills/adversarial-review/drive-demo.sh target/debug/harbour $size "${keys[@]}"; done
    ```
 
-   Run it under bash: zsh does not split `$size`. A panic in stderr is a bug.
+   `C-_` is how tmux names the `C-/` prefix. The keys open each view once (help, changelog, usage,
+   zoom, side by side and its swaps, the widths, the focus keys, the editor, a jump, the finder, the
+   rename popup, the picker), type into a focused session and come back with `C-h`, move a card
+   with `J` and `K`, answer no to Ctrl+C's quit question, end a session with `x` and `X`, then quit
+   with the prefix, `q` and `y`; every size should print `quit`. The sequence follows `KEYS` of `src/help.rs`:
+   whoever adds a key there adds it here, after `C-_` when it needs the prefix (`tests/skills.rs`
+   fails otherwise). Run it under bash: zsh does not split `$size`. A panic in stderr is a bug.
 5. **Attack the process.** Look for:
    - claims in the `AGENTS.md` files that the code contradicts
    - rules the code breaks
