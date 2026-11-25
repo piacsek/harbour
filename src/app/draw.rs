@@ -24,7 +24,7 @@ impl App {
                 .sessions
                 .get(self.selected)
                 .map(|entry| entry.seen.as_path());
-            follow.to(seen, &self.home, user_home().as_deref());
+            follow.to(seen, &self.home, user_home().as_deref(), self.editor_dir);
         }
     }
 

@@ -277,8 +277,8 @@ pub fn socket_base(temporary: &Path) -> PathBuf {
     }
 }
 
-pub fn root(directory: &Path, home: Option<&Path>) -> PathBuf {
-    if !directory.is_dir() {
+pub fn directory(directory: &Path, home: Option<&Path>, editor_dir: EditorDir) -> PathBuf {
+    if editor_dir == EditorDir::Exact || !directory.is_dir() {
         return directory.to_path_buf();
     }
     repo::root(directory, home)

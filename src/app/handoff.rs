@@ -94,12 +94,14 @@ impl App {
             self.transcripts.as_deref(),
             Reading::Now,
         );
-        editor::root(&entry.seen, user_home().as_deref())
+        editor::directory(&entry.seen, user_home().as_deref(), self.editor_dir)
     }
 
     fn holder(&self, file: &Path) -> Option<(usize, PathBuf)> {
         let home = user_home();
-        let root = |index: usize| editor::root(&self.sessions[index].seen, home.as_deref());
+        let root = |index: usize| {
+            editor::directory(&self.sessions[index].seen, home.as_deref(), self.editor_dir)
+        };
         let holds = |index: &usize| {
             self.sessions[*index].session.is_some() && file.starts_with(canonical(&root(*index)))
         };

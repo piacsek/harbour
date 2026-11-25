@@ -51,6 +51,7 @@ pub fn run(config: Config) -> io::Result<()> {
     let mut app = App::new(config.session_command().value.clone())
         .with_picker(dir_picker(&config))
         .with_editor(Program::command(config.editor().value.clone()))
+        .with_editor_dir(config.editor_dir().value)
         .with_accent(config.accent().value)
         .with_colors(config.colors())
         .with_keymap(config.keymap())

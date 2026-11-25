@@ -354,9 +354,10 @@ C-/ ? shows the keys and what the dots mean, C-/ c the changelog, and C-/ C-/
 sends C-/ to the program. Most terminals send C-/ as C-_, the same key.
 Settings come from $XDG_CONFIG_HOME/harbour/config.toml, else
 ~/.config/harbour/config.toml, read at start: editor, picker and
-session_command (each a list: the program, then its arguments), sidebar_width
-(columns), accent (a colour name or #rrggbb), nerd_font (true draws Nerd
-Font icons) and claude_icon (the glyph before claude with nerd_font on:
+session_command (each a list: the program, then its arguments), editor_dir
+(\"root\" or \"exact\", see C-l), sidebar_width (columns), accent (a colour name
+or #rrggbb), nerd_font (true draws Nerd Font icons) and claude_icon (the glyph
+before claude with nerd_font on:
 \"sparkle\", the default, or \"clawd\", U+100000, which only a font of your own
 draws; in Ghostty, map it with font-codepoint-map = U+100000=<font family>).
 HARBOUR_EDITOR, HARBOUR_DIR_PICKER, HARBOUR_SESSION_COMMAND and HARBOUR_PREFIX
@@ -379,7 +380,8 @@ C-/ s lists every session in fzf and Enter jumps to the one picked; with a
 picker other than fzf it says so.
 C-/ r renames the selected card: type a title in the popup that opens, Enter
 saves it, Esc cancels, and an empty title brings back Claude Code's.
-C-l opens nvim at Claude Code's repository root; HARBOUR_EDITOR names another.
+C-l opens nvim at Claude Code's repository root, or with editor_dir = \"exact\"
+in the folder it works in; HARBOUR_EDITOR names another.
 C-Backspace acts as C-h. In Neovim, C-h goes back only from the leftmost window,
 in normal mode.
 With vim-tmux-navigator, add harbour to the processes it sends C-h, C-j, C-k
@@ -417,7 +419,8 @@ it saw and decided, never what was typed, pasted or printed: one file a run
 under its state folder, removed after 7 days. log prints the newest one's path:
   tail -f \"$(harbour log)\"
 edit <file> opens the file in the Neovim editor of the harbour session whose
-repository or worktree holds it, selects that session and shows the editor.
+repository or worktree holds it (its folder, with editor_dir = \"exact\"),
+selects that session and shows the editor.
 It exits 0 when harbour took the file, 3 when no harbour runs or answers, no
 session holds the file or the Neovim harbour started did not answer in time or
 exited (open it yourself), 2 when harbour or Neovim refused it or harbour went

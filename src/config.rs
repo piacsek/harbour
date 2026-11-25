@@ -229,6 +229,10 @@ impl Config {
         &self.editor
     }
 
+    pub fn editor_dir(&self) -> &Setting<EditorDir> {
+        &self.editor_dir
+    }
+
     pub fn picker(&self) -> &Setting<Vec<String>> {
         &self.picker
     }

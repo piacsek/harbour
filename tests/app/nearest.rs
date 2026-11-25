@@ -4,12 +4,13 @@ use std::thread::sleep;
 use std::time::Duration;
 
 use crossterm::event::{KeyCode, KeyModifiers, MouseButton, MouseEventKind};
+use harbour::editor::EditorDir;
 use harbour::handoff::{Claim, Reply, Verb};
 
 use crate::directory::repository;
 use crate::handing::answering;
 use crate::handoff::{
-    app_running, file, harbour, last_use, opened_beside, recording_neovim, soon, start_in,
+    app_running, app_with, file, harbour, last_use, opened_beside, recording_neovim, soon, start_in,
 };
 use crate::{Screen, raw_agent};
 
@@ -69,6 +70,38 @@ fn an_ask_answers_with_how_deep_the_holders_root_lies() {
     };
     assert_eq!(depth, root.components().count());
     assert!(selected);
+}
+
+#[test]
+fn with_the_exact_directory_an_ask_answers_with_how_deep_the_sessions_own_folder_lies() {
+    let scratch = tempfile::tempdir().unwrap();
+    let mut screen = exactly(scratch.path());
+    repository(scratch.path(), "acme-api");
+    start_at(&mut screen, scratch.path(), "acme-api/src", 1);
+    let src = scratch.path().canonicalize().unwrap().join("acme-api/src");
+
+    let reply = screen
+        .app
+        .hand(Verb::Ask, &file(scratch.path(), "acme-api/src"), soon());
+
+    let Reply::Holds(Claim { depth, .. }) = reply else {
+        panic!("not held: {reply:?}");
+    };
+    assert_eq!(depth, src.components().count());
+}
+
+#[test]
+fn with_the_exact_directory_a_file_beside_the_sessions_folder_is_held_by_none() {
+    let scratch = tempfile::tempdir().unwrap();
+    let mut screen = exactly(scratch.path());
+    repository(scratch.path(), "acme-api");
+    start_at(&mut screen, scratch.path(), "acme-api/src", 1);
+
+    let reply = screen
+        .app
+        .hand(Verb::Ask, &file(scratch.path(), "acme-api/lib"), soon());
+
+    assert_eq!(reply, Reply::None);
 }
 
 #[test]
@@ -169,4 +202,8 @@ fn start_at(screen: &mut Screen, scratch: &Path, folder: &str, number: usize) {
         crossterm::event::KeyCode::Char('h'),
         crossterm::event::KeyModifiers::CONTROL,
     );
+}
+
+fn exactly(scratch: &Path) -> Screen {
+    Screen::of(app_with(scratch, recording_neovim(scratch)).with_editor_dir(EditorDir::Exact))
 }

@@ -55,9 +55,27 @@ today, so the narrowest sidebar and a CJK directory behave as for any other dire
 1. `editor_dir` read, refused and reported by `src/config.rs` (`tests/config/`).
 2. `editor::directory` takes the setting (`tests/editor.rs`), and the app passes it to every
    caller: C-l in a subfolder (`tests/app/directory.rs`), the folder tmux follows
-   (`tests/app/moving.rs`), `harbour edit` routing (`tests/app/handoff.rs`), end to end through
+   (`tests/app/moving.rs`), `harbour edit` routing (`tests/app/nearest.rs`), end to end through
    the file (`tests/e2e/config.rs`); `harbour --help`, the `AGENTS.md` lines, the fragment.
 
 ## Outcome
 
+`editor_dir` (`"root"` by default, or `"exact"`) is read from the file only, refused naming the
+line and the key for any other value, and listed by `harbour config` after `editor`.
+`editor::root` became `editor::directory`, which takes the setting and returns the directory
+itself under `"exact"`; `fresh_root` and `holder` in `src/app/handoff.rs` and `Follow::to` pass
+the app's `editor_dir` (`App::with_editor_dir`, set by `src/tui.rs`), so C-l, side by side, the
+jumps, `harbour edit` routing and the folder tmux follows all use the same directory, and the
+pane border's label names it. `harbour --help` names the setting on its settings lines, the C-l
+line and the `edit <file>` line, and `docs/help.png` was rerendered; `docs/details.png` did not
+change. Tests, each red first: the refusals and both `harbour config` listings
+(`tests/config/`), three rows of `editor::directory` (`tests/editor.rs`, two of them guards shown
+red by breaking the code), C-l in a subfolder (`tests/app/directory.rs`), the folder tmux follows
+(`tests/app/moving.rs`), `harbour edit` routing (`tests/app/nearest.rs`), the setting through the
+real binary with the border's label (`tests/e2e/config.rs`) and the help text (`tests/cli.rs`).
+Shipped in two tasks on draft PR #229. Phase 46's ready, merged and released were read from
+GitHub into `plans/metrics.md` (v0.41.0).
+
 ## Hurdles
+
+- `tooling` `scripts/screenshots.sh` rewrote five images besides `docs/help.png` whose content did not change (a run renders them differently each time); only the help image was kept → none

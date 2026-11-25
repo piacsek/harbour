@@ -7,6 +7,7 @@ use std::time::{Duration, Instant};
 
 use crossterm::event::{KeyCode, KeyModifiers};
 use harbour::app::App;
+use harbour::editor::EditorDir;
 use harbour::follow::Mover;
 use harbour::picker::Picker;
 
@@ -65,6 +66,28 @@ fn a_session_inside_a_repository_moves_harbour_to_its_root() {
 
     let root = api.canonicalize().unwrap();
     assert_eq!(wait_until_at(&mut screen, &moves, &root), Some(root));
+}
+
+#[test]
+fn with_the_exact_directory_a_session_inside_a_repository_moves_harbour_to_its_own_folder() {
+    let scratch = tempfile::tempdir().unwrap();
+    let api = repository(scratch.path(), "acme-api");
+    let (mover, moves) = recording(None);
+    let app = App::new(reading_agent())
+        .with_picker(next_picked(scratch.path()))
+        .with_editor_dir(EditorDir::Exact)
+        .with_mover(mover);
+    let mut screen = Screen::of(app);
+
+    start(
+        &mut screen,
+        scratch.path(),
+        &folder(&api, "src/deep"),
+        "deep 1",
+    );
+
+    let deep = api.join("src/deep").canonicalize().unwrap();
+    assert_eq!(wait_until_at(&mut screen, &moves, &deep), Some(deep));
 }
 
 #[test]

@@ -32,7 +32,7 @@ use logging::Input;
 
 use crate::card::{Colors, Sidebar};
 use crate::demo;
-use crate::editor::{Changes, Editor, Program};
+use crate::editor::{Changes, Editor, EditorDir, Program};
 use crate::follow::{self, Follow, Mover};
 use crate::handoff::Listener;
 use crate::icons::ClaudeIcon;
@@ -58,6 +58,7 @@ pub struct App {
     home: PathBuf,
     picker: Option<Picker>,
     editor: Option<Program>,
+    editor_dir: EditorDir,
     picking: Option<Pick>,
     finding: Option<Vec<find::Who>>,
     picking_area: Rect,
@@ -201,6 +202,7 @@ impl App {
             home,
             picker: None,
             editor: None,
+            editor_dir: EditorDir::Root,
             picking: None,
             finding: None,
             picking_area: Rect::default(),
@@ -294,6 +296,11 @@ impl App {
 
     pub fn with_claude_icon(mut self, icon: ClaudeIcon) -> App {
         self.claude_icon = icon;
+        self
+    }
+
+    pub fn with_editor_dir(mut self, editor_dir: EditorDir) -> App {
+        self.editor_dir = editor_dir;
         self
     }
 
