@@ -276,7 +276,7 @@ impl Sidebar {
             let index = item.card;
             let card = &cards[index];
             if item.header {
-                if let Ok(row) = u16::try_from(top) {
+                if let Some(row) = u16::try_from(top).ok().filter(|_| top + 1 < height) {
                     buffer.set_line(
                         area.x + 2,
                         area.y + row,

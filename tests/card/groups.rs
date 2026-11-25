@@ -169,6 +169,15 @@ fn a_sidebar_too_short_for_the_header_keeps_the_selected_card_whole() {
     assert_eq!(rows[0], "▌ ○ acme-api 1              3m");
 }
 
+#[test]
+fn a_header_with_no_room_for_its_first_card_below_it_is_not_drawn() {
+    let cards = [other(), idle().in_group(true), idle().in_group(false)];
+
+    let rows = drawn(&cards, 0, 30, 5);
+
+    assert_eq!(rows[4], "");
+}
+
 fn drawn(cards: &[Card], selected: usize, width: u16, height: u16) -> Vec<String> {
     let buffer = buffer(cards, selected, width, height);
     (0..height).map(|y| row(&buffer, y, width)).collect()

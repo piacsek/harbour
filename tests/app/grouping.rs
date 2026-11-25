@@ -7,6 +7,7 @@ use harbour::memory::Remembered;
 use harbour::picker::Picker;
 
 use crate::directory::{cwd, folder, recording_agent, repository, write_transcript};
+use crate::keeping::{registered, remembered_soon, titled};
 use crate::remembering::{ID, OTHER_ID, Scratch, TITLE};
 use crate::{Screen, in_order, numbered_agent, region, script};
 
@@ -150,6 +151,28 @@ fn a_session_that_moves_to_another_repository_joins_that_repositorys_group() {
     });
     let sidebar = sidebar(&shown);
     assert!(sidebar.contains("▌ · acme-three 3"), "{sidebar}");
+}
+
+#[test]
+fn a_session_that_moves_to_another_repository_just_before_quit_is_saved_in_its_group() {
+    let scratch = Scratch::new();
+    remember(&scratch, ID, TITLE, "acme-api", 0);
+    remember(&scratch, OTHER_ID, OTHER_TITLE, "acme-web", 1);
+    scratch.transcript(ID, r#"{"type":"user","message":{}}"#);
+    scratch.transcript(OTHER_ID, r#"{"type":"user","message":{}}"#);
+    scratch.transcript(THIRD_ID, &titled(THIRD_TITLE));
+    let mut screen = scratch.watching(registered(&scratch.sessions(), THIRD_ID));
+    screen.wait_for_all(&[TITLE, OTHER_TITLE]);
+    screen.press('n');
+    remembered_soon(&mut screen, &scratch.memory(), THIRD_ID, THIRD_TITLE);
+
+    scratch.transcript(THIRD_ID, &cwd(&scratch.checkout()));
+    screen.app.stop("acme test");
+
+    let recalled = scratch.memory().recall();
+    assert_eq!(recalled[0].session_id, ID);
+    assert_eq!(recalled[1].session_id, THIRD_ID);
+    assert_eq!(recalled[2].session_id, OTHER_ID);
 }
 
 fn api_web_api(scratch: &Path) -> Screen {
