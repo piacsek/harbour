@@ -6,6 +6,7 @@ use harbour::tui::{EDITOR, SESSION_COMMAND};
 use tempfile::TempDir;
 
 use super::edit::{handed, source_file};
+use super::nvim_on_path::{is_executable, real_nvim};
 use super::{AGENT, Server, focused_on, in_order, tools, vertical};
 
 const CLEAN_NVIM: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/nvim/nvim");
@@ -238,6 +239,7 @@ fn ctrl_i_and_tab_are_two_keys_in_neovim_with_extended_keys_on() {
 struct Neovim {
     server: Server,
     home: TempDir,
+    real: PathBuf,
 }
 
 impl Neovim {
@@ -257,15 +259,10 @@ impl Neovim {
     }
 
     fn beside_claude(name: &str, options: &[&[&str]]) -> Option<Neovim> {
-        let Some(real) = nvim_on_path() else {
-            eprintln!(
-                "skipping {name}: no nvim on PATH, so the real-Neovim test has nothing to run"
-            );
-            return None;
-        };
+        let real = real_nvim(name)?;
         let home = tempfile::tempdir().unwrap();
         let bin = PathBuf::from(tools(home.path()));
-        std::os::unix::fs::symlink(real, bin.join("real-nvim")).unwrap();
+        std::os::unix::fs::symlink(&real, bin.join("real-nvim")).unwrap();
         let xdg = |name: &str| home.path().join("xdg").join(name).display().to_string();
         let (config, data, state, cache) = (xdg("config"), xdg("data"), xdg("state"), xdg("cache"));
         let sockets = home.path().join("tmux");
@@ -295,7 +292,7 @@ impl Neovim {
         server.send_keys(&["Enter"]);
         let focused = server.wait_until("focus on claude", |screen| focused_on(screen, "claude"));
         assert!(focused_on(&focused, "claude"), "{focused}");
-        Some(Neovim { server, home })
+        Some(Neovim { server, home, real })
     }
 
     fn assert_in_neovim(&self) {
@@ -379,22 +376,11 @@ impl Drop for Neovim {
     }
 }
 
-fn nvim_on_path() -> Option<PathBuf> {
-    on_path("nvim")
-}
-
 pub(super) fn on_path(program: &str) -> Option<PathBuf> {
     let path = std::env::var_os("PATH")?;
     std::env::split_paths(&path)
         .map(|directory| directory.join(program))
         .find(|candidate| is_executable(candidate))
-}
-
-fn is_executable(candidate: &Path) -> bool {
-    use std::os::unix::fs::PermissionsExt;
-    candidate
-        .metadata()
-        .is_ok_and(|metadata| metadata.is_file() && metadata.permissions().mode() & 0o111 != 0)
 }
 
 fn appeared(file: &Path) -> bool {
@@ -414,7 +400,7 @@ fn left_unsaved(neovim: &Neovim, file: &Path) {
         "preserved-{}",
         file.file_name().unwrap().to_string_lossy()
     ));
-    let mut other = Command::new(nvim_on_path().unwrap())
+    let mut other = Command::new(&neovim.real)
         .args(["--headless", "--clean", "-c", "normal! oacme unsaved"])
         .args(["-c", "preserve", "-c"])
         .arg(format!("call writefile([], '{}')", preserved.display()))

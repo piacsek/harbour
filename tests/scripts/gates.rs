@@ -74,6 +74,39 @@ fn gates_with_tmux_say_nothing_about_skipping_the_e2e_tests() {
 }
 
 #[test]
+fn gates_without_nvim_say_the_real_neovim_tests_skipped() {
+    let dir = tempfile::tempdir().unwrap();
+    gates_sandbox(dir.path());
+
+    let output = gates(dir.path());
+
+    assert!(output.status.success(), "{}", stderr(&output));
+    assert!(
+        stderr(&output).contains(
+            "==> skipping the real-Neovim tests: nvim is not installed (brew install neovim); CI runs them\n"
+        ),
+        "{}",
+        stderr(&output)
+    );
+}
+
+#[test]
+fn gates_with_nvim_say_nothing_about_skipping_the_real_neovim_tests() {
+    let dir = tempfile::tempdir().unwrap();
+    let bin = gates_sandbox(dir.path());
+    symlink(which("true"), bin.join("nvim")).unwrap();
+
+    let output = gates(dir.path());
+
+    assert!(output.status.success(), "{}", stderr(&output));
+    assert!(
+        !stderr(&output).contains("skipping the real-Neovim tests"),
+        "{}",
+        stderr(&output)
+    );
+}
+
+#[test]
 fn gates_on_a_branch_the_script_tests_do_not_read_run_every_other_test_target() {
     let dir = tempfile::tempdir().unwrap();
     let bin = gates_repository(dir.path());

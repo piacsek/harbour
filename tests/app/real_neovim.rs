@@ -1,3 +1,4 @@
+use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
@@ -8,6 +9,7 @@ use harbour::nvim::{self, Mode};
 use tempfile::TempDir;
 
 use crate::deadline;
+use crate::nvim_on_path::{real_nvim, real_nvim_in};
 
 const CLEAN_NVIM: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/nvim/nvim");
 const WAITING: &str = "refused: Neovim is waiting for a key; answer it and try again";
@@ -287,18 +289,34 @@ fn an_open_that_raises_a_swap_prompt_in_a_running_neovim_is_refused_and_leaves_i
     assert_eq!(after.map(|mode| mode.mode).as_deref(), Some("r?"));
 }
 
+#[test]
+#[should_panic(expected = "no nvim on PATH in CI")]
+fn a_missing_neovim_fails_the_real_neovim_tests_in_ci() {
+    let empty = tempfile::tempdir().unwrap();
+
+    real_nvim_in(
+        "acme",
+        Some(empty.path().into()),
+        Some(OsString::from("true")),
+    );
+}
+
+#[test]
+fn a_missing_neovim_skips_the_real_neovim_tests_outside_ci() {
+    let empty = tempfile::tempdir().unwrap();
+
+    let found = real_nvim_in("acme", Some(empty.path().into()), None);
+
+    assert_eq!(found, None);
+}
+
 struct Scratch {
     home: TempDir,
 }
 
 impl Scratch {
     fn new(name: &str) -> Option<Scratch> {
-        let Some(real) = nvim_on_path() else {
-            eprintln!(
-                "skipping {name}: no nvim on PATH, so the real-Neovim test has nothing to run"
-            );
-            return None;
-        };
+        let real = real_nvim(name)?;
         let home = tempfile::tempdir().unwrap();
         for folder in ["bin", "tmp", "work"] {
             std::fs::create_dir_all(home.path().join(folder)).unwrap();
@@ -505,20 +523,6 @@ fn ctrl_h() -> Vec<u8> {
         KeyEvent::new(KeyCode::Char('h'), KeyModifiers::CONTROL),
         false,
     )
-}
-
-fn nvim_on_path() -> Option<PathBuf> {
-    let path = std::env::var_os("PATH")?;
-    std::env::split_paths(&path)
-        .map(|directory| directory.join("nvim"))
-        .find(|candidate| is_executable(candidate))
-}
-
-fn is_executable(candidate: &Path) -> bool {
-    use std::os::unix::fs::PermissionsExt;
-    candidate
-        .metadata()
-        .is_ok_and(|metadata| metadata.is_file() && metadata.permissions().mode() & 0o111 != 0)
 }
 
 fn appeared(file: &Path) -> bool {
