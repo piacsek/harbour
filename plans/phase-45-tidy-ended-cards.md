@@ -33,8 +33,8 @@ for a while by itself, as `x` would, after 6 hours by default.
   takes the same text, an empty one counts as unset as for the other variables, one that is not
   UTF-8 is ignored and `harbour config` says so, as for `HARBOUR_PREFIX`. A bad variable is
   refused by its name.
-- A stopped card's age is its transcript's modification time, read in one listing of the
-  projects folder at each check; a card whose transcript is not found (or no projects folder) is
+- A stopped card's age is its transcript's modification time, read by a stat of that card's
+  own transcript at each check, its path found once and kept; a card whose transcript is not found (or no projects folder) is
   never tidied. The remembered file's own time is not used (see above).
 - The cards due are picked by a pure function, `tidy::due` in `src/tidy.rs`: a card that is not
   running, not the selected one, with an age of at least `tidy_after`.
@@ -154,6 +154,9 @@ the order on screen. A stopped card's age stats its own transcript, its path fou
 kept, instead of listing every transcript each minute (the simpler of the two ways the review
 offered). The picker and the usage popup got their own "nothing while open" tests, and the
 `tidy::due` order test asserts one index a line.
+Round 2 found no must or should; of its two nits, the Decided bullet that still described one
+listing of the projects folder was fixed here, and the tests' environment one went to #223. The
+loop ended there.
 
 ## Hurdles
 
