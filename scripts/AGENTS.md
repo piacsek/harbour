@@ -10,7 +10,7 @@ scripts/gates.sh              the quality gates, one run at a time across the wo
 scripts/gates-lock.sh         sourced, not run: the gates lock `gates.sh` takes, and `ship.sh` holds across its gates and its dev install
 scripts/scrub-check.sh        denylist grep over what a commit would take (see "The scrub check")
 scripts/dev-install.sh        release build symlinked as ~/.local/bin/harbour-dev
-scripts/ship.sh               gates + dev-install (unless skippable) + stage + scrub + commit (none when nothing is staged and commits are unpushed) + scrub of the outgoing commits and branch name + push, aborts on any failure; the first push of a branch opens the draft PR (commit subject as title, the template as body)
+scripts/ship.sh               gates + dev-install (unless skippable) + stage + scrub + commit (none when nothing is staged and commits are unpushed) + scrub of the outgoing commits and branch name (and, with no pull request yet, of the title) + push, aborts on any failure; the first push of a branch opens the draft PR (the first line of its message as title, the template as body)
 scripts/dev-install-skippable.sh  exit 0 with the reason when `ship.sh` may leave `harbour-dev` alone, else 1 with what needs the install
 scripts/script-tests-skippable.sh exit 0 with the reason when `gates.sh` may leave out the `scripts` test target, else 1 with the first path that needs it
 scripts/docs-only.sh          exit 0 with the reason when `gates.sh` may leave out every test but the ones that read Markdown, else 1 with the first path that needs them
@@ -51,27 +51,31 @@ No employer data, ever: no org or repo names, PR numbers or titles, logins, host
 or kube-context names, ticket prefixes. Tests and examples use invented `acme/*` data; plans and
 docs use `<owner>/<repo>` placeholders. `scripts/scrub-check.sh` matches the local denylist at
 `~/.config/harbour-dev/denylist` (or the file `HARBOUR_DENYLIST` names) against what
-`ship.sh` publishes, three times: as the first gate and again between `git add -A` and
+`ship.sh` publishes, four times: as the first gate and again between `git add -A` and
 `git commit`, it reads the contents and the paths of the index and of the working tree's
 tracked and untracked files that are not ignored; between `git commit` and `git push`,
 `--outgoing` reads the branch name and, for every commit no remote has yet, its message, the
 paths it adds or keeps and the lines it adds (a symlink's target and a merge's conflict
 resolution included), never a removed line or a deleted path, so a branch can remove a term
-`main` still holds. Each match says which of the four it was in and names its commit. A refused
+`main` still holds; then, when the branch has no pull request yet, `--title` reads the title
+`ship.sh` would open it under, the first line of its message, on stdin. Each outgoing match says
+which of the four it was in and names its commit; a title match says `title`. A refused
 push leaves the commit local: `git reset --soft HEAD~1`, fix what is named (`git branch -m` for
 the branch name), ship again; an earlier commit has to be rewritten by hand. A refused merge is
 kept and fixed with `git commit --amend`: with nothing staged and commits no remote has,
-`ship.sh` pushes them without a new commit. The list is kept outside the repo on purpose; the
-check is skipped only where that default path is confirmed absent (the nearest existing path
-above it is a directory it can search), so CI does not enforce it, and fails, in both modes,
-when the path is there but is not a readable file, when its absence cannot be confirmed, when
-`HARBOUR_DENYLIST` names one that is not, when the list is empty, when a line of it is blank,
-starts or ends with whitespace (a space, a tab, a carriage return, a vertical tab or a form
-feed), or holds a byte-order mark, a no-break space or a zero-width character (it names the line
-and why: a blank line matches every line, and the others miss the term wherever the hidden
-character does not also stand beside it; other non-ASCII, an accented letter say, is accepted),
-or when `git grep` or `git log` cannot run. It does not read the contents of binary files, the
-author and committer of a commit, the PR body, or anything pushed without `ship.sh`.
+`ship.sh` pushes them without a new commit, under the title of the message it is given. A refused
+title pushes nothing and opens no pull request: ship again with another message. The list is kept
+outside the repo on purpose; the check is skipped only where that default path is confirmed
+absent (the nearest existing path above it is a directory it can search), so CI does not enforce
+it, and fails, in every mode, when the path is there but is not a readable file, when its absence
+cannot be confirmed, when `HARBOUR_DENYLIST` names one that is not, when the list is empty, when
+a line of it is blank, starts or ends with whitespace (a space, a tab, a carriage return, a
+vertical tab or a form feed), or holds a byte-order mark, a no-break space or a zero-width
+character (it names the line and why: a blank line matches every line, and the others miss the
+term wherever the hidden character does not also stand beside it; other non-ASCII, an accented
+letter say, is accepted), or when `git grep` or `git log` cannot run. It does not read the
+contents of binary files, the author and committer of a commit, the PR body, or anything pushed
+without `ship.sh`.
 
 ## Gates, ship and install
 
