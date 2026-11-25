@@ -44,7 +44,7 @@ fn a_listed_term_only_in_an_ignored_file_leaves_the_scrub_clean() {
 fn a_denylist_git_grep_cannot_use_fails_the_scrub() {
     let dir = tempfile::tempdir().unwrap();
     let work = scrub_sandbox(dir.path());
-    let list = denylist(dir.path(), "\n");
+    let list = denylist(dir.path(), "zz-secret\0term\n");
 
     let output = scrub(&work, Some(&list));
 
@@ -460,6 +460,70 @@ fn an_empty_denylist_fails_the_outgoing_scrub() {
 }
 
 #[test]
+fn a_denylist_line_ending_with_a_carriage_return_fails_the_scrub() {
+    let dir = tempfile::tempdir().unwrap();
+    let work = scrub_sandbox(dir.path());
+    let list = denylist(dir.path(), "zz-other-term\nzz-secret-term\r\n");
+
+    let output = scrub_outgoing(&work, &list);
+
+    assert!(!output.status.success(), "{}", stdout(&output));
+    assert!(
+        stderr(&output).contains(&trailing_character_refusal(&list, 2)),
+        "{}",
+        stderr(&output)
+    );
+}
+
+#[test]
+fn a_denylist_line_ending_with_a_space_fails_the_scrub() {
+    let dir = tempfile::tempdir().unwrap();
+    let work = scrub_sandbox(dir.path());
+    let list = denylist(dir.path(), "zz-other-term\nzz-secret-term \n");
+
+    let output = scrub(&work, Some(&list));
+
+    assert!(!output.status.success(), "{}", stdout(&output));
+    assert!(
+        stderr(&output).contains(&trailing_character_refusal(&list, 2)),
+        "{}",
+        stderr(&output)
+    );
+}
+
+#[test]
+fn a_denylist_line_ending_with_a_tab_fails_the_scrub() {
+    let dir = tempfile::tempdir().unwrap();
+    let work = scrub_sandbox(dir.path());
+    let list = denylist(dir.path(), "zz-other-term\nzz-secret-term\t\n");
+
+    let output = scrub(&work, Some(&list));
+
+    assert!(!output.status.success(), "{}", stdout(&output));
+    assert!(
+        stderr(&output).contains(&trailing_character_refusal(&list, 2)),
+        "{}",
+        stderr(&output)
+    );
+}
+
+#[test]
+fn a_blank_denylist_line_fails_the_scrub() {
+    let dir = tempfile::tempdir().unwrap();
+    let work = scrub_sandbox(dir.path());
+    let list = denylist(dir.path(), "zz-other-term\n\nzz-secret-term\n");
+
+    let output = scrub(&work, Some(&list));
+
+    assert!(!output.status.success(), "{}", stdout(&output));
+    assert!(
+        stderr(&output).contains(&format!("scrub-check: {}:2 is blank", list.display())),
+        "{}",
+        stderr(&output)
+    );
+}
+
+#[test]
 fn a_default_denylist_under_a_directory_without_search_permission_fails_the_scrub() {
     if running_as_root() {
         return;
@@ -565,6 +629,13 @@ fn scrub(work: &Path, list: Option<&Path>) -> Output {
         command.env("HARBOUR_DENYLIST", list);
     }
     command.output().unwrap()
+}
+
+fn trailing_character_refusal(list: &Path, line: usize) -> String {
+    format!(
+        "scrub-check: {}:{line} ends with a carriage return, a space or a tab",
+        list.display()
+    )
 }
 
 fn default_denylist(root: &Path) -> PathBuf {

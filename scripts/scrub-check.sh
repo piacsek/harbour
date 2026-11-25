@@ -18,6 +18,14 @@ if [ ! -s "$list" ]; then
   echo "scrub-check: $list is empty" >&2
   exit 1
 fi
+untrusted="$(awk -v list="$list" '
+  /[\r \t]$/ { print "scrub-check: " list ":" NR " ends with a carriage return, a space or a tab" }
+  /^$/ { print "scrub-check: " list ":" NR " is blank" }
+' "$list")"
+if [ -n "$untrusted" ]; then
+  echo "$untrusted" >&2
+  exit 1
+fi
 found=0
 search() {
   local what="$1" status=0
