@@ -61,6 +61,12 @@ first. The log names it `key name="C-c"`, and `harbour --help` says what it does
 and the README are unchanged (no row to spare), so no screenshot. Tasks 2 and 3 shipped
 together. Phase 40's ready, merged and released were read from GitHub into `plans/metrics.md`.
 
+Round 1 of review made Ctrl+C a no to the quit question while an editor may have unsaved
+changes. Round 2 found no must; its findings (held-key autorepeat, Ctrl+C from a quit question
+opened in a pane, the Ctrl-Shift-c claim, a pre-existing modifier gap) were left as issue #199,
+and the loop ended at the owner's 2-round limit.
+
 ## Hurdles
 
 - `review-loop` round 1 found that Ctrl+C twice quit past `Unsaved changes. Quit? y/n`, losing an editor's edits; Ctrl+C is now a yes only when nothing is unsaved, and two taps ending every session otherwise went to `docs/known-limits.md` → code
+- `review-loop` round 2 found smaller gaps around the new key (held-key autorepeat, a quit question opened from a pane, the Ctrl-Shift-c claim, a pre-existing modifier gap); the owner's 2-round limit sent them to issue #199 → backlog
