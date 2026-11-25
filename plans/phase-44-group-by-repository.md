@@ -87,7 +87,14 @@ and a group's first card moves the whole group past the next lone card or group.
 scrolls by items, showing a group's header with its first card when the height allows.
 `harbour --help` says it in two lines. The demo already had two groups (`acme-api`,
 `acme-web`); `docs/details.png` and the other shots that show the demo's sidebar were rerendered.
-Phase 43's ready, merged and released, its third review round and its builder's last notice
+Review round 1 found no must; two fixes landed in one ship: a group header could sit alone on the
+sidebar's last row, now left out when its first card has no room below it, and a session that
+moved repository just before a write (at quit, or before the frame's regroup) was saved at its
+old position, now regrouped before every write. Its other findings (two unrelated repositories
+sharing a name group together; the scroll can shift a row when a header appears above the view)
+went to #216. Round 2 found no must; its findings (a moved session drags its new group up to its
+own place, writes in the draw path, the order of rows an end-to-end test checks) went to #216
+too, and the loop ended at the owner's 2-round limit. Phase 43's ready, merged and released, its third review round and its builder's last notice
 were written into `plans/metrics.md`.
 
 ## Hurdles
