@@ -11,6 +11,7 @@ use ratatui::layout::Rect;
 use ratatui::style::{Color, Modifier};
 
 mod colours;
+mod groups;
 mod titles;
 
 #[test]

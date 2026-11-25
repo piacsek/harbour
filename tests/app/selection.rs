@@ -79,7 +79,7 @@ fn the_selected_session_has_a_cyan_bar_on_its_left_edge() {
     screen.press('k');
     screen.wait_for("acme agent 1");
 
-    assert_eq!(screen.cell(1, 1).symbol(), "▌");
-    assert_eq!(screen.cell(1, 1).fg, Color::Cyan);
-    assert_eq!(screen.cell(1, 5).symbol(), " ");
+    assert_eq!(screen.cell(1, 2).symbol(), "▌");
+    assert_eq!(screen.cell(1, 2).fg, Color::Cyan);
+    assert_eq!(screen.cell(1, 6).symbol(), " ");
 }

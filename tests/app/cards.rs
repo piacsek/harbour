@@ -23,12 +23,12 @@ fn the_selected_card_has_the_cyan_bar_on_all_three_lines() {
     screen.press('k');
     screen.wait_for("acme agent 1");
 
-    assert_eq!(screen.cell(1, 1).symbol(), "▌");
     assert_eq!(screen.cell(1, 2).symbol(), "▌");
     assert_eq!(screen.cell(1, 3).symbol(), "▌");
-    assert_eq!(screen.cell(1, 3).fg, Color::Cyan);
-    assert_eq!(screen.cell(1, 4).symbol(), " ");
+    assert_eq!(screen.cell(1, 4).symbol(), "▌");
+    assert_eq!(screen.cell(1, 4).fg, Color::Cyan);
     assert_eq!(screen.cell(1, 5).symbol(), " ");
+    assert_eq!(screen.cell(1, 6).symbol(), " ");
 }
 
 #[test]
@@ -43,11 +43,11 @@ fn a_blank_line_separates_one_card_from_the_next() {
 
     let lines: Vec<&str> = shown.lines().collect();
     assert!(
-        lines[1].contains(&format!("· {} 1", directory())),
+        lines[2].contains(&format!("· {} 1", directory())),
         "{shown}"
     );
     assert!(
-        lines[5].contains(&format!("· {} 2", directory())),
+        lines[6].contains(&format!("· {} 2", directory())),
         "{shown}"
     );
     assert_eq!(below(&shown, &format!("· {} 1", directory())), "");
@@ -109,7 +109,7 @@ fn the_sidebar_scrolls_back_when_the_selection_moves_up() {
     let shown = screen.wait_for("acme agent 1");
     let lines: Vec<&str> = shown.lines().collect();
     assert!(
-        lines[1].contains(&format!("▌ · {} 1", directory())),
+        lines[2].contains(&format!("▌ · {} 1", directory())),
         "{shown}"
     );
 }
@@ -144,7 +144,7 @@ fn a_taller_terminal_shows_the_cards_scrolled_away_again() {
 
     let shown = screen.draw();
     assert!(
-        top_card(&shown).contains(&format!("· {} 1", directory())),
+        crate::inside(shown.lines().nth(2).unwrap()).contains(&format!("· {} 1", directory())),
         "{shown}"
     );
 }

@@ -10,6 +10,7 @@ use ratatui::widgets::BorderType;
 mod changelog;
 mod draw;
 mod find;
+mod group;
 mod handoff;
 mod jump;
 mod key;
@@ -632,6 +633,7 @@ impl App {
                     reservation: None,
                 });
                 self.selected = self.sessions.len() - 1;
+                self.regroup();
             }
             Err(error) => {
                 self.failed = Some(refusal(command.first().map_or("", String::as_str), &error))

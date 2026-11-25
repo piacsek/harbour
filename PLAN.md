@@ -50,7 +50,8 @@ file under `plans/`; its time and tokens are a row of [`plans/metrics.md`](plans
 | 40 | [reorder sidebar cards with J and K](plans/phase-40-reorder-cards.md) | [v0.35.0](https://github.com/piacsek/harbour/releases/tag/v0.35.0) |
 | 41 | [Ctrl+C quits harbour from the sidebar](plans/phase-41-ctrl-c-quits.md) | [v0.36.0](https://github.com/piacsek/harbour/releases/tag/v0.36.0) |
 | 42 | [C-; as a prefix setting](plans/phase-42-ctrl-semicolon-prefix.md) | [v0.37.0](https://github.com/piacsek/harbour/releases/tag/v0.37.0) |
-| 43 | [rename a card with the prefix then r](plans/phase-43-rename-card.md) | |
+| 43 | [rename a card with the prefix then r](plans/phase-43-rename-card.md) | [v0.38.0](https://github.com/piacsek/harbour/releases/tag/v0.38.0) |
+| 44 | [group the cards of one repository](plans/phase-44-group-by-repository.md) | |
 
 ## Backlog
 
