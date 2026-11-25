@@ -32,15 +32,24 @@ if ! scripts/scrub-check.sh --outgoing; then
   fi
   exit 1
 fi
+title="${message%%$'\n'*}"
+opening=
+if ! gh pr view "$branch" --json number >/dev/null 2>&1; then
+  opening=1
+  if ! printf '%s\n' "$title" | scripts/scrub-check.sh --title; then
+    echo "ship: nothing was pushed and no pull request opened; ship again with a message whose first line holds none of what is named above" >&2
+    exit 1
+  fi
+fi
 git push -q -u origin "$branch"
 git --no-pager log --oneline -1
-if ! gh pr view "$branch" --json number >/dev/null 2>&1; then
+if [ -n "$opening" ]; then
   template=.github/pull_request_template.md
   if [ -f "$template" ]; then
     body=(--body-file "$template")
   else
     body=(--body "")
   fi
-  gh pr create --draft --assignee @me --title "${message%%$'\n'*}" "${body[@]}" >/dev/null
+  gh pr create --draft --assignee @me --title "$title" "${body[@]}" >/dev/null
   echo "opened draft PR for $branch"
 fi

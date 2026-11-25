@@ -75,6 +75,8 @@ if [ "${1:-}" = --outgoing ]; then
     search "the outgoing check" matches "$label added line" "$(printf '%s\n' "$diff" | added_lines)"
   done
   search "the outgoing check" matches "branch name" "$(git rev-parse --abbrev-ref HEAD)"
+elif [ "${1:-}" = --title ]; then
+  search "the title check" matches "title" "$(cat)"
 else
   search "git grep --untracked" git --no-pager grep --untracked -niIF -f "$list"
   search "git grep --cached" git --no-pager grep --cached -niIF -f "$list"

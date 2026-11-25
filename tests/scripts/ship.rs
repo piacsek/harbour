@@ -272,6 +272,52 @@ fn after_a_refused_merge_message_an_amended_merge_ships() {
 }
 
 #[test]
+fn shipping_an_amended_merge_with_the_refused_message_opens_no_pull_request() {
+    let dir = tempfile::tempdir().unwrap();
+    let work = ship_sandbox(dir.path());
+    link_dev_binary(dir.path(), &another_build(dir.path()));
+    denylist(dir.path(), "acme-secret-term\n");
+    merging_main(&work);
+    first_ship(dir.path(), "Merge the acme-secret-term fix");
+    git(&work, &["commit", "-q", "--amend", "-m", "Merge main"]);
+    fs::remove_file(dir.path().join("calls.log")).unwrap();
+
+    let output = first_ship(dir.path(), "Merge the acme-secret-term fix");
+
+    assert!(!output.status.success(), "{}", stderr(&output));
+    assert_eq!(calls(dir.path()).len(), 3);
+    assert_eq!(calls(dir.path())[0], "cargo fmt");
+    assert_eq!(calls(dir.path())[1], "gates.sh ");
+    assert_eq!(calls(dir.path())[2], "gh pr view topic --json number");
+    assert!(
+        stdout(&output).contains("scrub-check: title: "),
+        "{}",
+        stdout(&output)
+    );
+    assert!(!pushed(dir.path()));
+}
+
+#[test]
+fn unpushed_commits_with_nothing_staged_open_the_draft_under_the_message() {
+    let dir = tempfile::tempdir().unwrap();
+    let work = ship_sandbox(dir.path());
+    link_dev_binary(dir.path(), &another_build(dir.path()));
+    denylist(dir.path(), "acme-secret-term\n");
+    fs::write(work.join("README.md"), "changed\n").unwrap();
+    git(&work, &["add", "-A"]);
+    git(&work, &["commit", "-qm", "docs: readme"]);
+
+    let output = first_ship(dir.path(), "docs: say what the readme does");
+
+    assert!(output.status.success(), "{}", stderr(&output));
+    assert_eq!(calls(dir.path()).len(), 4);
+    assert_eq!(
+        calls(dir.path())[3],
+        "gh pr create --draft --assignee @me --title docs: say what the readme does --body "
+    );
+}
+
+#[test]
 fn ship_pushes_nothing_from_a_branch_named_after_a_listed_term() {
     let dir = tempfile::tempdir().unwrap();
     let work = ship_sandbox(dir.path());
