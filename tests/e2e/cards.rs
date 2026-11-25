@@ -1,6 +1,7 @@
 use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime};
 
+use harbour::memory::{Memory, Remembered};
 use harbour::tui::SESSION_COMMAND;
 
 use super::{AGENT, Server, in_order};
@@ -186,6 +187,37 @@ fn a_conversation_comes_back_only_under_the_claude_code_configuration_it_was_mad
 
 #[test]
 #[ignore]
+fn a_stopped_card_left_alone_longer_than_the_tidy_variable_is_gone_at_start() {
+    let home = tempfile::tempdir().unwrap();
+    let config = tempfile::tempdir().unwrap();
+    let config_dir = config.path().display().to_string();
+    let memory = stopped_pair(home.path(), config.path());
+    let kept = Server::start("tidy-default", 160, 20);
+    kept.run(
+        home.path(),
+        &[("CLAUDE_CONFIG_DIR", config_dir.as_str())],
+        &[],
+    );
+    let both = kept.wait_for_screen_all(&["The first one", "The second one"]);
+    assert!(both.contains("The second one"), "{both}");
+
+    let tidied = Server::start("tidy-hour", 160, 20);
+    tidied.run(
+        home.path(),
+        &[
+            ("CLAUDE_CONFIG_DIR", config_dir.as_str()),
+            ("HARBOUR_TIDY_AFTER", "1h"),
+        ],
+        &[],
+    );
+
+    let shown = tidied.wait_for_screen("The first one");
+    assert!(!shown.contains("The second one"), "{shown}");
+    assert_eq!(memory.recall().len(), 1);
+}
+
+#[test]
+#[ignore]
 fn the_demo_shows_a_stopped_session_it_remembers() {
     let home = tempfile::tempdir().unwrap();
     let server = Server::start("demo-stopped", 160, 30);
@@ -282,4 +314,45 @@ fn remembered_files(dir: &Path) -> Vec<PathBuf> {
             }
         })
         .collect()
+}
+
+fn stopped_pair(home: &Path, config: &Path) -> Memory {
+    let projects = config.join("projects");
+    let folder = projects.join("-home-acme-api");
+    std::fs::create_dir_all(&folder).unwrap();
+    let memory = Memory::of(&home.join(".local/state/harbour/sessions"), &projects);
+    let cards = [
+        (
+            "0f1e2d3c-4b5a-6978-8a9b-0c1d2e3f4a5b",
+            "The first one",
+            0,
+            0,
+        ),
+        (
+            "9a8b7c6d-5e4f-4a3b-2c1d-0e9f8a7b6c5d",
+            "The second one",
+            2,
+            1,
+        ),
+    ];
+    for (id, title, hours, position) in cards {
+        let transcript = folder.join(format!("{id}.jsonl"));
+        std::fs::write(&transcript, "{\"type\":\"user\"}\n").unwrap();
+        std::fs::File::options()
+            .write(true)
+            .open(&transcript)
+            .unwrap()
+            .set_modified(SystemTime::now() - Duration::from_secs(hours * 60 * 60))
+            .unwrap();
+        memory
+            .keep(&Remembered {
+                session_id: id.to_string(),
+                directory: home.join("acme-api"),
+                title: title.to_string(),
+                given_title: None,
+                position,
+            })
+            .unwrap();
+    }
+    memory
 }

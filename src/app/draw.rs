@@ -41,6 +41,7 @@ impl App {
         self.read_files();
         self.settle_exited();
         self.regroup();
+        self.tidy();
         self.serve();
         self.follow_selected();
         self.screen = frame.area();

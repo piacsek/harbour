@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::io;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant, SystemTime};
@@ -22,6 +23,7 @@ mod remember;
 mod rename;
 mod side;
 mod split;
+mod tidy;
 mod usage;
 mod zoom;
 
@@ -104,6 +106,11 @@ pub struct App {
     renaming: Option<rename::Renaming>,
     logging: logging::Logging,
     hangup_grace: Duration,
+    tidy_after: Option<Duration>,
+    tidy_every: Duration,
+    tidied_at: Option<Instant>,
+    tidy_clock: Box<dyn Fn() -> SystemTime>,
+    transcript_paths: HashMap<String, PathBuf>,
 }
 
 #[derive(Clone, Copy, PartialEq)]
@@ -122,6 +129,7 @@ struct Entry {
     record: Option<Record>,
     place: Place,
     exited_at: Option<Instant>,
+    exited_wall: Option<SystemTime>,
     transcript: Option<Transcript>,
     editors: Vec<Editor>,
     editor: Option<usize>,
@@ -241,6 +249,11 @@ impl App {
             renaming: None,
             logging: logging::Logging::default(),
             hangup_grace: session::HANGUP_GRACE,
+            tidy_after: None,
+            tidy_every: tidy::TIDY_EVERY,
+            tidied_at: None,
+            tidy_clock: Box::new(SystemTime::now),
+            transcript_paths: HashMap::new(),
         }
     }
 
@@ -620,6 +633,7 @@ impl App {
                     record: None,
                     place: repo::place(directory, user_home().as_deref()),
                     exited_at: None,
+                    exited_wall: None,
                     transcript,
                     editors: Vec::new(),
                     editor: None,

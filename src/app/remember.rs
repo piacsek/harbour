@@ -69,6 +69,7 @@ impl App {
                 record: None,
                 place: repo::place(&remembered.directory, user_home().as_deref()),
                 exited_at: None,
+                exited_wall: None,
                 transcript: None,
                 editors: Vec::new(),
                 editor: None,
@@ -183,6 +184,7 @@ impl App {
                 entry.used_at = started_at;
                 entry.record = None;
                 entry.exited_at = None;
+                entry.exited_wall = None;
                 entry.transcript = transcript;
                 entry.seen = entry.directory.clone();
                 entry.followed = false;
@@ -303,6 +305,10 @@ impl App {
     }
 
     pub(super) fn forget(&self, entry: &Entry) {
+        self.forget_unless(entry, &self.held_ids());
+    }
+
+    pub(super) fn forget_unless(&self, entry: &Entry, held: &HashSet<String>) {
         let Some((memory, id)) = self.memory.as_ref().zip(entry.remembered.as_ref()) else {
             return;
         };
@@ -310,7 +316,7 @@ impl App {
             .sessions
             .iter()
             .any(|other| other.remembered.as_ref() == Some(id));
-        if !shared && !self.held_ids().contains(id) {
+        if !shared && !held.contains(id) {
             memory.forget(id);
         }
     }
@@ -350,7 +356,7 @@ impl App {
             .is_none_or(|projects| Transcript::exists(projects, id))
     }
 
-    fn held_ids(&self) -> HashSet<String> {
+    pub(super) fn held_ids(&self) -> HashSet<String> {
         let mut held = self
             .registry
             .as_deref()

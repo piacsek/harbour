@@ -81,6 +81,10 @@ impl App {
         true
     }
 
+    pub(super) fn prefix_waiting(&self) -> bool {
+        self.prefixing.waiting
+    }
+
     pub(super) fn waiting_mark(&self) -> Option<Span<'static>> {
         self.prefixing.waiting.then(|| {
             Span::styled(

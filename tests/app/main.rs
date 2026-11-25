@@ -55,6 +55,7 @@ mod side_swap;
 mod status;
 mod stopping;
 mod switching;
+mod tidying;
 mod transcripts;
 mod usage;
 mod usage_bars;

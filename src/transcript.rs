@@ -76,6 +76,10 @@ impl Transcript {
         Some(ids)
     }
 
+    pub fn located(projects: &Path, session_id: &str) -> Option<PathBuf> {
+        Transcript::new(projects, session_id).found()
+    }
+
     pub fn exists(projects: &Path, session_id: &str) -> bool {
         Transcript::new(projects, session_id).found().is_some()
     }
