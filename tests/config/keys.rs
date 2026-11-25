@@ -44,6 +44,25 @@ fn ctrl_space_is_a_prefix() {
 }
 
 #[test]
+fn ctrl_semicolon_is_a_prefix() {
+    let home = tempfile::tempdir().unwrap();
+    write_config(home.path(), "prefix = \"C-;\"\n");
+
+    let config = read_at(home.path(), None).unwrap();
+
+    assert_eq!(config.keymap().prefix_name(), "C-;");
+}
+
+#[test]
+fn the_prefix_variable_takes_ctrl_semicolon() {
+    let home = tempfile::tempdir().unwrap();
+
+    let config = read_with(home.path(), &[("HARBOUR_PREFIX", "C-;")]);
+
+    assert_eq!(config.keymap().prefix_name(), "C-;");
+}
+
+#[test]
 fn the_prefix_variable_outranks_the_file() {
     let home = tempfile::tempdir().unwrap();
     write_config(home.path(), "prefix = \"C-]\"\n");
@@ -408,7 +427,7 @@ fn keys_that_are_not_a_table_are_refused() {
     );
 }
 
-const PREFIX: &str = "expected C-<letter>, C-Space, C-/, C-\\, C-], C-^ or C-_";
+const PREFIX: &str = "expected C-<letter>, C-Space, C-/, C-\\, C-], C-^, C-_ or C-;";
 const KEY: &str = "expected one printable character other than a space, or \"none\"";
 
 fn refusal(home: &Path) -> String {

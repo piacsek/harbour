@@ -388,6 +388,7 @@ A terminal tmux does not know (Ghostty for one) also needs this line in
 tmux.conf for Shift-Enter, with its TERM outside tmux before
 the colon; then tmux source-file ~/.tmux.conf, detach and attach again:
   set -as terminal-features 'xterm-ghostty:extkeys'
+A C-; prefix needs extended keys: under tmux, extended-keys on and extkeys.
 C-/ z zooms the selected session to the whole screen, and back.
 C-/ - and C-/ = make the sidebar 2 columns narrower or wider, from 15 columns to
 half the terminal, until harbour quits.
