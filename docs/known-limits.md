@@ -150,5 +150,8 @@ good; a finding on one still counts as must when it shows new impact.
   in some terminals and layouts, and with the default prefix, Ctrl-Shift-/ in the csi-u form
   matches the prefix and sends it to the program; without extended keys a Ctrl key whose control
   byte is another key's acts as that key (C-- and C-7 as C-_ send the default prefix on, C-4 as
-  C-\ toggles side by side, C-2 is C-Space, C-3 is Esc and cancels)
-  (`plans/phase-46-ctrl-held-after-prefix.md`).
+  C-\ toggles side by side, C-2 is C-Space, C-3 is Esc and cancels, C-5, C-6 and C-8 are C-],
+  C-^ and Backspace, and Ctrl-Shift with a letter is Ctrl with it, so `C-/ C-S-x` ends rather than
+  closes); after a width key pressed with Ctrl held, the same Ctrl key within 500 ms repeats it
+  instead of reaching the program, which matters only when `wider` or `narrower` is a letter that
+  is also a Ctrl shortcut (`plans/phase-46-ctrl-held-after-prefix.md`).

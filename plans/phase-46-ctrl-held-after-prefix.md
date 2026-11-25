@@ -49,7 +49,7 @@ does without it, for every action and the digit jumps, as in tmux.
 | --- | --- | --- |
 | a bound key, bare or with Shift | its action | its action |
 | a bound key with Ctrl, or Ctrl and Shift | `does nothing` | its action, as without Ctrl |
-| a lower-case letter with Shift (csi-u form), Ctrl or not | the lower-case action | the capital's action |
+| a lower-case letter with Shift (csi-u form, extended keys on), Ctrl or not | the lower-case action | the capital's action |
 | C-c | `does nothing` | the changelog, as `c` |
 | C-= or C-- again within 500 ms of `C-/ C-=` or `C-/ C--` | sent to the program | widens or narrows again |
 | C-= or C-- within 500 ms of `C-/ =` or `C-/ -` | sent to the program | goes on as before (no repeat) |
@@ -57,7 +57,7 @@ does without it, for every action and the digit jumps, as in tmux.
 | a digit 1 to 9 with Ctrl (extended keys on) | `does nothing` | the jump |
 | C-2, C-3, C-4, C-7 with extended keys off (NUL, Esc, C-\, C-_) | nothing, a cancel, nothing, the prefix sent on | nothing, a cancel, `side`, the prefix sent on |
 | C-m, C-i, C-h with extended keys off | Enter, Tab, Backspace: `does nothing` | the same |
-| C-[ | Esc: cancels | cancels |
+| C-[ | cancels without extended keys (Esc); does nothing with them | the same |
 | an unbound key with Ctrl | `C-/ C-w does nothing` | the same |
 | the prefix again | sends the prefix | sends the prefix |
 | Alt, or Ctrl and Alt, with any key | `does nothing` | `does nothing` |
@@ -99,9 +99,14 @@ prefix. The repeat now remembers whether the width key had Ctrl held and repeats
 the same Ctrl state (red in `tests/app/width_keys.rs`: that case, and `C-/ =` then `C-=`). The
 known limit gained the legacy keys a Ctrl key arrives as.
 
+Review round 3, the last the loop allows, found no must or should; its nits (more legacy keys
+and the Ctrl repeat in the known limit, two rows of the States table) were fixed in a closing
+docs-only ship, read by the orchestrator.
+
 ## Hurdles
 
 - `test-seam` seven guard rows of `tests/keymap.rs` (Esc, Alt, Ctrl and Alt, the prefix again twice, a bare key, an unbound Ctrl key) held before the change and were green on their first run; each was shown red by breaking the code it covers, then restored → code
 - `tooling` `tests/app/prefix.rs` sits at 672 of the 700 lines `tests/source_size.rs` allows, so the in-process wiring test went into `tests/app/bindings.rs`, beside the other `C-;` test → none
 - `review-loop` round 1 found states the plan's table missed: a lower-case letter reported with Shift (csi-u), the width keys' repeat with Ctrl held, and the digits a legacy terminal sends as other keys (C-3 Esc, C-4 C-\, C-7 C-_) → code
 - `review-loop` round 2 found another hole in the width repeat, the mechanism round 1 changed: dropping Ctrl let it swallow a Ctrl-letter prefix and C-h or C-l after a bare resize; redesigned to repeat only a key with the width key's own Ctrl state → code
+- `design` the States table's legacy rows were written from memory and two were wrong or too broad (C-[ with extended keys, Shift on a lower-case letter outside csi-u); round 3 corrected them → none
