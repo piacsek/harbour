@@ -179,6 +179,8 @@ With tmux installed, `gates.sh` then runs the `#[ignore]` end-to-end tests last,
 their own: `cargo test --test e2e -- --include-ignored --test-threads=2`. At one thread per core
 they lost a timing race in 6 runs of 10 beside other load on the build machine; at 2 threads
 they passed every run (`tests/AGENTS.md`).
+Without `nvim` on `PATH` it prints `==> skipping the real-Neovim tests: nvim is not installed
+(brew install neovim); CI runs them`, since those tests then pass without running.
 `tests/scripts/` runs the scripts themselves in a scratch directory and a scratch git
 repository, with `cargo`, `gh` and the scripts they call replaced by symlinks to
 `tests/fixtures/record-call.sh`, which appends its name and argv to `$CALLS_LOG` and exits 1 for

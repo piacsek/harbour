@@ -6,6 +6,7 @@ use harbour::tui::{EDITOR, SESSION_COMMAND};
 use tempfile::TempDir;
 
 use super::edit::{handed, source_file};
+use super::nvim_on_path::real_nvim;
 use super::{AGENT, Server, focused_on, in_order, tools, vertical};
 
 const CLEAN_NVIM: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/nvim/nvim");
@@ -257,12 +258,7 @@ impl Neovim {
     }
 
     fn beside_claude(name: &str, options: &[&[&str]]) -> Option<Neovim> {
-        let Some(real) = nvim_on_path() else {
-            eprintln!(
-                "skipping {name}: no nvim on PATH, so the real-Neovim test has nothing to run"
-            );
-            return None;
-        };
+        let real = real_nvim(name)?;
         let home = tempfile::tempdir().unwrap();
         let bin = PathBuf::from(tools(home.path()));
         std::os::unix::fs::symlink(real, bin.join("real-nvim")).unwrap();
@@ -379,10 +375,6 @@ impl Drop for Neovim {
     }
 }
 
-fn nvim_on_path() -> Option<PathBuf> {
-    on_path("nvim")
-}
-
 pub(super) fn on_path(program: &str) -> Option<PathBuf> {
     let path = std::env::var_os("PATH")?;
     std::env::split_paths(&path)
@@ -414,7 +406,7 @@ fn left_unsaved(neovim: &Neovim, file: &Path) {
         "preserved-{}",
         file.file_name().unwrap().to_string_lossy()
     ));
-    let mut other = Command::new(nvim_on_path().unwrap())
+    let mut other = Command::new(on_path("nvim").unwrap())
         .args(["--headless", "--clean", "-c", "normal! oacme unsaved"])
         .args(["-c", "preserve", "-c"])
         .arg(format!("call writefile([], '{}')", preserved.display()))

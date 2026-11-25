@@ -162,8 +162,10 @@ after the Clawd glyph: `tests/tabs.rs`, `tests/app/side_border.rs`, `tests/e2e/c
   that launches it; `tests/real_config.rs` names a launch that does neither. A test of a setting
   writes the file under its scratch `HOME`; in-process tests call `Config::read` with the variables they give it.
 - **A real Neovim runs only clean, in `tests/app/real_neovim.rs` and `tests/e2e/neovim.rs`.**
-  Each test looks for `nvim` on the `PATH` the tests run with; without one it prints why and
-  passes, so CI, which has no Neovim, runs them as no-ops. With one, it links it as `real-nvim`
+  Each test looks for `nvim` on the `PATH` the tests run with through `real_nvim` of
+  `tests/support/nvim_on_path.rs`; without one it prints why and passes, and `gates.sh` says so,
+  but with `CI` set it fails: the `shard` legs of `ci.yml` install a pinned Neovim, and a step
+  that stops doing so turns the tests red, not into no-ops. With one, it links it as `real-nvim`
   on a scratch `PATH` (the one deliberate way that `PATH` finds it) and runs
   `tests/fixtures/nvim/nvim`, a wrapper named `nvim` (so harbour gives it `--listen`) that runs
   `real-nvim --clean`: no configuration or plugin is read, and with `HOME`, `TMPDIR` and
@@ -327,7 +329,7 @@ after the Clawd glyph: `tests/tabs.rs`, `tests/app/side_border.rs`, `tests/e2e/c
   hands the app a recording mover.
 - **`extended-keys-format` needs tmux 3.5.** The tests of `tests/e2e/keys.rs` set it (and
   `extended-keys`, which `always` needs from 3.2) on the scratch server before harbour starts;
-  when tmux refuses an option they print why and pass, as the Neovim tests do without `nvim`,
+  when tmux refuses an option they print why and pass, as the Neovim tests do without `nvim` outside CI,
   so an older tmux runs them as no-ops instead of failing the gates. `Server::server_option`
   says whether tmux took it; the real-Neovim tests under `extended-keys on` skip the same way.
 

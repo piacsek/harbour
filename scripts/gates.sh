@@ -47,4 +47,7 @@ if [ "$separate" = e2e ]; then
 else
   echo "==> skipping the ignored e2e tests: tmux is not installed (brew install tmux); CI runs them" >&2
 fi
+if ! command -v nvim >/dev/null; then
+  echo "==> skipping the real-Neovim tests: nvim is not installed (brew install neovim); CI runs them" >&2
+fi
 echo "gates passed"
