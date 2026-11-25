@@ -22,6 +22,8 @@ mod log;
 mod moving;
 mod navigating;
 mod neovim;
+#[path = "../support/nvim_on_path.rs"]
+mod nvim_on_path;
 mod picker;
 mod signals;
 mod waits;

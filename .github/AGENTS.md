@@ -41,7 +41,11 @@ speed-up, when its pipeline went from about 3 min 20 s to 37 s:
   runs the `app` target, the biggest by far, and `rest` runs `cargo fmt --check`, clippy
   `-D warnings` and every other test, the tmux e2e tests included (tmux installed for
   `tests/e2e/`), each with one `cargo nextest run --locked --run-ignored all`, nextest installed
-  by `taiki-e/install-action` at a pinned version. One matrix job keeps one `toolchain:` line, and each leg keeps a cache of its own (`key: ${{ matrix.name }}`).
+  by `taiki-e/install-action` at a pinned version. Both legs install Neovim for the real-Neovim
+  tests of `tests/app/` and `tests/e2e/`: the Linux x86_64 tarball of the release phase 12
+  verified, not the runner's older package, checked against the SHA-256 the step names (GitHub's
+  digest of that release asset; Neovim publishes no checksum file). With `CI` set, those tests
+  fail without `nvim` instead of passing as no-ops. One matrix job keeps one `toolchain:` line, and each leg keeps a cache of its own (`key: ${{ matrix.name }}`).
   `check` (`needs: shard`, `if: ${{ !cancelled() }}`) passes only when both legs succeeded, so
   the ruleset keeps requiring one name, and a cancelled run leaves it cancelled, not red. `cargo test` ran the 44 test binaries one after another,
   186 s of the 226 s `check` took in November 2026; one nextest pool of every binary still took

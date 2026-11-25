@@ -85,6 +85,8 @@ use tempfile::TempDir;
 
 #[path = "../support/borders.rs"]
 mod borders;
+#[path = "../support/nvim_on_path.rs"]
+mod nvim_on_path;
 #[path = "../support/timing.rs"]
 mod timing;
 use borders::BORDERS;
