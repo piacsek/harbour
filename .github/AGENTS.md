@@ -273,9 +273,10 @@ speed-up, when its pipeline went from about 3 min 20 s to 37 s:
   newer release), nor repair a run cancelled between `publish` and `tap`. It still runs one at a
   time (`concurrency: tap`, `cancel-in-progress: false`), so two writes never race. It pushes
   with the `TAP_TOKEN` secret of the `homebrew-tap` environment, whose deployment branches are
-  limited to `main`, so a run on any other branch is refused the token; both its checkouts pin
-  `ref: main`, so a run dispatched from another branch still runs `main`'s scripts in the job
-  holding it. The owner sets the secret before the first release run (see Owner steps): without
+  limited to `main`: that branch policy is the guard, refusing the job to a run on any other
+  branch before a step runs (a dispatched run takes its YAML from its own branch, so a pin in the
+  YAML could not be one). Both its checkouts pin `ref: main`, which keeps the job on `main`'s
+  current scripts, a rerun of an old run included. The owner sets the secret before the first release run (see Owner steps): without
   it, `tap` fails in every run that has a formula to write, and nothing else in the run depends
   on it.
 - **The `stable-build` and `stable` jobs of `release.yml` reconcile too.** They move the `stable`
@@ -507,14 +508,8 @@ and `Cargo.lock` and by `CHANGELOG.md`.
 `Formula/harbour.rb` in `github.com/piacsek/homebrew-tap` names an older version (or the file is
 missing) does the job regenerate it with `scripts/homebrew-formula.sh <version>` and push it with
 the `TAP_TOKEN` secret of the `homebrew-tap` environment (a fine-grained token with contents:write
-on the tap; the environment's deployment branches are limited to `main`). The owner sets it with:
-
-```bash
-gh secret set TAP_TOKEN --env homebrew-tap --repo <owner>/<repo>
-```
-
-The formula depends on nothing and its
-`test` block checks only `harbour --version` and the usage on an unknown argument, all the binary
+on the tap; the environment's deployment branches are limited to `main`; how the owner sets
+both up is under Owner steps). The formula depends on nothing and its `test` block checks only `harbour --version` and the usage on an unknown argument, all the binary
 does so far (`tests/scripts/homebrew_formula.rs`). The formula never goes backwards: a run
 cancelled between `publish` and `tap` is repaired by the next run, and an old `tap` job run again
 finds a formula already at or past its release and writes nothing. Asset names carry no version so
@@ -573,8 +568,26 @@ Steps only the owner takes, by hand, outside this repository:
 - Before merging the pull request that adds `release.yml`: set `TAP_TOKEN` (see the `tap` job
   above). That merge starts the first release run, and without the secret its `tap` job fails
   (a rerun once the secret is set writes `Formula/harbour.rb`). The secret lives in the
-  `homebrew-tap` environment, limited to `main`, never at the repository level. After moving it
-  there, delete the repository-level `TAP_TOKEN` once one release run has updated the tap
+  `homebrew-tap` environment, limited to `main`, never at the repository level. Create the
+  environment with deployment limited to chosen branches:
+
+  ```bash
+  gh api -X PUT repos/<owner>/<repo>/environments/homebrew-tap -F 'deployment_branch_policy[protected_branches]=false' -F 'deployment_branch_policy[custom_branch_policies]=true'
+  ```
+
+  Allow `main` only:
+
+  ```bash
+  gh api -X POST repos/<owner>/<repo>/environments/homebrew-tap/deployment-branch-policies -f name=main -f type=branch
+  ```
+
+  Then set the secret in it, pasting the token when asked:
+
+  ```bash
+  gh secret set TAP_TOKEN --env homebrew-tap --repo <owner>/<repo>
+  ```
+
+  After moving it there, delete the repository-level `TAP_TOKEN` once one release run has updated the tap
   through the environment; deleting it earlier fails the `tap` job of a release in between.
 - After that merge: rerun `tui_repo harbour`, which adds `version` to the ruleset's required
   checks (`check` and `audit` are required from the start) and changes nothing else that is

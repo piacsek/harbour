@@ -23,13 +23,18 @@ fn the_job_reading_the_tap_token_checks_something_out() {
 }
 
 #[test]
-fn every_checkout_of_the_job_reading_the_tap_token_pins_a_ref() {
-    assert_eq!(unpinned(&checkouts(&tap_job())), Vec::<String>::new());
+fn every_checkout_of_the_job_reading_the_tap_token_pins_main() {
+    let off_main = off_main(&checkouts(&tap_job()));
+
+    assert!(off_main.is_empty(), "{off_main:?}");
 }
 
 #[test]
 fn no_workflow_but_release_names_the_tap_token() {
-    assert_eq!(workflows_naming_the_tap_token(), vec!["release.yml"]);
+    let names = workflows_naming_the_tap_token();
+
+    assert_eq!(names.len(), 1, "{names:?}");
+    assert_eq!(names[0], "release.yml");
 }
 
 fn tap_job() -> String {
@@ -57,14 +62,10 @@ fn checkouts(job: &str) -> Vec<String> {
         .collect()
 }
 
-fn unpinned(steps: &[String]) -> Vec<String> {
+fn off_main(steps: &[String]) -> Vec<String> {
     steps
         .iter()
-        .filter(|step| {
-            !step
-                .lines()
-                .any(|line| line.trim_start().starts_with("ref: "))
-        })
+        .filter(|step| !step.lines().any(|line| line.trim() == "ref: main"))
         .cloned()
         .collect()
 }
