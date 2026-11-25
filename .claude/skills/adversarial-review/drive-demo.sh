@@ -22,7 +22,9 @@ for key in "$@"; do
 done
 sleep 0.5
 t capture-pane -t demo -p >"$out/screen.txt"
-if [ -f "$out/exit" ]; then
+if [ "$(cat "$out/exit" 2>/dev/null)" = 0 ]; then
+  echo quit
+elif [ -f "$out/exit" ]; then
   echo "died: exit $(cat "$out/exit")"
   head -n 8 "$out/stderr"
 else

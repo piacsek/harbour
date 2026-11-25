@@ -1,3 +1,9 @@
+use harbour::help::KEYS;
+
+const REVIEW: &str = include_str!("../.claude/skills/adversarial-review/SKILL.md");
+
+const PREFIX: &str = "C-_";
+
 const ORCHESTRATE: &str =
     include_str!("../.claude/skills/orchestrate-issue-execution-autonomously/SKILL.md");
 
@@ -108,6 +114,46 @@ fn a_listing_of_the_sweep_workflows_issues_that_reads_a_body_is_caught() {
     assert_eq!(reading_a_strangers_text(line), vec![line]);
 }
 
+#[test]
+fn the_review_skill_sends_every_prefixed_key_of_the_help() {
+    assert_eq!(missing(&review_keys()), Vec::<String>::new());
+}
+
+#[test]
+fn the_review_skill_sends_no_prefixed_key_of_the_help_without_the_prefix() {
+    assert_eq!(unprefixed(&review_keys()), Vec::<String>::new());
+}
+
+#[test]
+fn the_review_skill_ends_by_quitting_and_answering_yes() {
+    assert!(review_keys().ends_with(&[PREFIX.into(), "q".into(), "y".into()]));
+}
+
+#[test]
+fn a_prefixed_key_sent_without_the_prefix_is_caught() {
+    assert_eq!(unprefixed(&keys(&["q", "y"])), vec!["q"]);
+}
+
+#[test]
+fn a_prefixed_key_never_sent_is_caught() {
+    assert!(missing(&keys(&[PREFIX, "q"])).contains(&"?".to_string()));
+}
+
+#[test]
+fn the_prefix_sent_twice_sends_the_prefix_key() {
+    assert!(!missing(&keys(&[PREFIX, PREFIX])).contains(&PREFIX.to_string()));
+}
+
+#[test]
+fn the_prefix_sent_twice_is_not_a_prefixed_key_alone() {
+    assert_eq!(unprefixed(&keys(&[PREFIX, PREFIX])), Vec::<String>::new());
+}
+
+#[test]
+fn a_jump_is_sent_as_its_first_digit() {
+    assert!(!missing(&keys(&[PREFIX, "1"])).contains(&"1".to_string()));
+}
+
 fn issue_listings() -> Vec<&'static str> {
     ORCHESTRATE
         .lines()
@@ -152,4 +198,71 @@ fn after<'a>(line: &'a str, flag: &str) -> Option<&'a str> {
     let mut words = line.split_whitespace();
     words.find(|word| *word == flag)?;
     words.next()
+}
+
+fn review_keys() -> Vec<String> {
+    let line = REVIEW
+        .lines()
+        .find(|line| line.trim_start().starts_with("keys=("))
+        .expect("the review skill's keys=( line");
+    let inside = line
+        .trim()
+        .trim_start_matches("keys=(")
+        .trim_end_matches(')');
+    inside
+        .split_whitespace()
+        .map(|key| key.trim_matches(['\'', '"']).to_string())
+        .collect()
+}
+
+fn keys(sent: &[&str]) -> Vec<String> {
+    sent.iter().map(|key| key.to_string()).collect()
+}
+
+fn prefixed_keys() -> Vec<String> {
+    KEYS.iter()
+        .filter_map(|(keys, _)| keys.strip_prefix("C-/ "))
+        .flat_map(|keys| {
+            if keys == "C-/" {
+                return vec![PREFIX.to_string()];
+            }
+            keys.split([' ', '/'])
+                .flat_map(|word| match word.split_once("..") {
+                    Some((first, _)) => vec![first.to_string()],
+                    None => word.chars().map(String::from).collect(),
+                })
+                .collect()
+        })
+        .collect()
+}
+
+fn after_the_prefix(sent: &[String]) -> (Vec<String>, Vec<String>) {
+    let mut prefixed = Vec::new();
+    let mut alone = Vec::new();
+    let mut sent = sent.iter();
+    while let Some(key) = sent.next() {
+        if key == PREFIX {
+            prefixed.extend(sent.next().cloned());
+        } else {
+            alone.push(key.clone());
+        }
+    }
+    (prefixed, alone)
+}
+
+fn missing(sent: &[String]) -> Vec<String> {
+    let (prefixed, _) = after_the_prefix(sent);
+    prefixed_keys()
+        .into_iter()
+        .filter(|key| !prefixed.contains(key))
+        .collect()
+}
+
+fn unprefixed(sent: &[String]) -> Vec<String> {
+    let (_, alone) = after_the_prefix(sent);
+    let needs_the_prefix = prefixed_keys();
+    alone
+        .into_iter()
+        .filter(|key| needs_the_prefix.contains(key))
+        .collect()
 }
