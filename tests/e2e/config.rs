@@ -1,6 +1,7 @@
 use std::path::{Path, PathBuf};
 
 use harbour::icons::ClaudeIcon;
+use harbour::keymap;
 use harbour::tabs;
 use harbour::tui::{DIR_PICKER, SESSION_COMMAND};
 
@@ -303,7 +304,7 @@ fn a_ctrl_semicolon_prefix_from_the_file_opens_on_the_xterm_form_of_ctrl_semicol
     server.send_bytes("\x1b[27;5;59~");
     server.send_keys(&["w"]);
 
-    server.wait_for_screen("C-; w does nothing; C-; ? lists the keys");
+    server.wait_for_screen(&format!("{} w does nothing", keymap::prefix_name(';')));
 }
 
 #[test]

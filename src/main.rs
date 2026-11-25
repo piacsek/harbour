@@ -50,7 +50,10 @@ A terminal tmux does not know (Ghostty for one) also needs this line in
 tmux.conf for Shift-Enter, with its TERM outside tmux before
 the colon; then tmux source-file ~/.tmux.conf, detach and attach again:
   set -as terminal-features 'xterm-ghostty:extkeys'
-A C-; prefix needs extended keys: under tmux, extended-keys on and extkeys.
+A C-; prefix needs a terminal that reports extended keys (xterm's
+modifyOtherKeys), else C-; arrives as a plain ; and the prefix never opens.
+Under tmux, it also needs extended-keys on, and the extkeys line above for a
+terminal tmux does not know.
 C-/ z zooms the selected session to the whole screen, and back.
 C-/ - and C-/ = make the sidebar 2 columns narrower or wider, from 15 columns to
 half the terminal, until harbour quits.

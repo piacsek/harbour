@@ -21,8 +21,9 @@ prefix where the terminal reports it as an extended key. The default stays `C-/`
 
 - The orchestrator's: the default stays `C-/`; `C-;` is only a value the setting accepts.
 - The refusal lists it last: `expected C-<letter>, C-Space, C-/, C-\, C-], C-^, C-_ or C-;`.
-- `harbour --help` gets one line under the tmux `extkeys` note: a `C-;` prefix needs extended
-  keys (under tmux, `extended-keys on` and `extkeys`).
+- `harbour --help` gets a note under the tmux `extkeys` line: a `C-;` prefix needs a terminal
+  that reports extended keys, else Ctrl+`;` arrives as a plain `;`; under tmux,
+  `extended-keys on`, and `extkeys` for a terminal tmux does not know.
 - No screenshot: nothing changes with the default settings.
 
 ## Tasks
@@ -30,8 +31,7 @@ prefix where the terminal reports it as an extended key. The default stays `C-/`
 1. Prove `src/input.rs` reads both extended forms of Ctrl+`;` (`tests/input.rs`).
 2. `parse_prefix` accepts `C-;` from the file and the variable, named `C-;`, and the refusal
    lists it (`tests/config/keys.rs`).
-3. The prefix set to `;` opens on Ctrl+`;`, and twice sends the program a `;`
-   (`tests/app/bindings.rs`).
+3. The prefix set to `;` pressed twice sends the program a `;` (`tests/app/bindings.rs`).
 4. `harbour --help` says what it needs (`tests/cli.rs`), one end-to-end test sending the xterm
    form through tmux (`tests/e2e/config.rs`), the fragment.
 
@@ -42,9 +42,13 @@ Nothing else needed code: `src/input.rs` already read both extended forms of Ctr
 `is_prefix` already matched it, and `src/keys.rs` already sent the prefix pressed twice as `;`
 to a program that asked for nothing and in the extended form to one that did. Tasks 1 and 3
 and the end-to-end test were green on their first run, so each was shown red by breaking the
-code it covers, then restored. `harbour --help` carries one line on what `C-;` needs. Phase
+code it covers, then restored. `harbour --help` says what `C-;` needs. Review round 1 found no must; its five cheap findings
+(the variable shown unquoted in the fragment, the end-to-end test pinning a literal, the help
+note too terse, the `src/help.rs` entry missing it, an app test repeating another) were fixed
+in one ship. Phase
 41's ready, merged and released were read from GitHub into `plans/metrics.md`.
 
 ## Hurdles
 
 - `test-seam` the prefix-twice test first read one byte, which Ctrl+`;` alone also sends, so it passed with the prefix broken; it now reads the next key too → code
+- `review-loop` round 1 found five cheap gaps, among them `HARBOUR_PREFIX=C-;` shown unquoted, which a shell cuts at `;`, and an end-to-end test pinning a literal; all fixed in one ship → code
