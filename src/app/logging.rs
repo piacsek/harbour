@@ -381,7 +381,9 @@ fn named_entry(entry: &Entry) -> String {
 
 fn named(key: KeyEvent, keymap: &Keymap) -> String {
     let name = match key.code {
-        KeyCode::Char(c) if key.modifiers == KeyModifiers::CONTROL && matches!(c, 'h' | 'l') => {
+        KeyCode::Char(c)
+            if key.modifiers == KeyModifiers::CONTROL && matches!(c, 'c' | 'h' | 'l') =>
+        {
             format!("C-{c}")
         }
         KeyCode::Char(c)

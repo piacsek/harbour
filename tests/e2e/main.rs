@@ -297,6 +297,25 @@ fn harbour_status_prints_nothing_once_harbour_quits() {
 
 #[test]
 #[ignore]
+fn ctrl_c_twice_in_the_sidebar_quits_with_a_session_running() {
+    let home = tempfile::tempdir().unwrap();
+    let server = Server::start("ctrl-c-quit", 160, 20);
+    server.run(home.path(), &[(SESSION_COMMAND, AGENT)], &[]);
+    server.wait_for_screen("press n to start one");
+    server.send_keys(&["n"]);
+    server.wait_for_screen("acme agent in");
+
+    server.send_keys(&["C-c"]);
+    let asked = server.wait_for_screen("Quit? y/n");
+    assert!(asked.contains("Quit? y/n"), "{asked}");
+    server.send_keys(&["C-c"]);
+
+    let quit = server.wait_for_screen("harbour exited 0");
+    assert!(quit.contains("harbour exited 0"), "{quit}");
+}
+
+#[test]
+#[ignore]
 fn the_demo_shows_a_made_up_session_in_each_state() {
     let home = tempfile::tempdir().unwrap();
     let git = home.path().join("acme-api").join(".git");

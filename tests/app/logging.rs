@@ -308,6 +308,19 @@ fn a_key_harbour_acts_on_after_a_paste_is_logged_by_name() {
 }
 
 #[test]
+fn ctrl_c_in_the_sidebar_is_logged_by_name() {
+    let (app, lines) = logged(App::new(reading_agent()));
+    let mut screen = Screen::of(app);
+    screen.press('n');
+    screen.wait_for("acme agent ready");
+    read(&lines);
+
+    screen.key(KeyCode::Char('c'), KeyModifiers::CONTROL);
+
+    only(&read(&lines), r#" key name="C-c""#);
+}
+
+#[test]
 fn a_paste_logs_the_bytes_sent_with_its_bracketed_paste_marks() {
     let agent = script("printf '\\033[?2004h'; echo 'acme agent ready'; exec cat");
     let (app, lines) = logged(App::new(agent));

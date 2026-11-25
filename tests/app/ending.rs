@@ -218,6 +218,88 @@ fn q_with_only_exited_sessions_quits_without_asking() {
 }
 
 #[test]
+fn ctrl_c_in_the_sidebar_with_a_running_session_asks_before_quitting() {
+    let mut screen = Screen::new(reading_agent());
+    screen.press('n');
+    screen.wait_for("acme agent ready");
+
+    screen.resize(60, 20);
+    screen.key(KeyCode::Char('c'), KeyModifiers::CONTROL);
+
+    let shown = screen.draw();
+    assert!(shown.contains("Quit? y/n"), "{shown}");
+    assert!(screen.app.running());
+}
+
+#[test]
+fn ctrl_c_in_the_sidebar_with_only_exited_sessions_quits_without_asking() {
+    let mut screen = Screen::new(script("exit 0"));
+    screen.press('n');
+    screen.wait_for("exited");
+
+    screen.key(KeyCode::Char('c'), KeyModifiers::CONTROL);
+
+    assert!(!screen.app.running());
+}
+
+#[test]
+fn ctrl_c_to_the_quit_question_quits() {
+    let mut screen = Screen::new(reading_agent());
+    screen.press('n');
+    screen.wait_for("acme agent ready");
+    screen.key(KeyCode::Char('c'), KeyModifiers::CONTROL);
+
+    screen.key(KeyCode::Char('c'), KeyModifiers::CONTROL);
+
+    assert!(!screen.app.running());
+}
+
+#[test]
+fn ctrl_c_to_the_end_question_keeps_the_session_running() {
+    let mut screen = Screen::new(reading_agent());
+    screen.press('n');
+    screen.wait_for("acme agent ready");
+    screen.press('x');
+
+    screen.key(KeyCode::Char('c'), KeyModifiers::CONTROL);
+
+    let shown = screen.draw();
+    assert!(!shown.contains("y/n"), "{shown}");
+    assert!(!shown.contains("exited"), "{shown}");
+    assert!(screen.app.running());
+}
+
+#[test]
+fn ctrl_c_to_the_end_and_remove_question_keeps_the_card() {
+    let mut screen = Screen::new(reading_agent());
+    screen.press('n');
+    screen.wait_for("acme agent ready");
+    screen.press('X');
+
+    screen.key(KeyCode::Char('c'), KeyModifiers::CONTROL);
+
+    let shown = screen.draw();
+    assert!(!shown.contains("y/n"), "{shown}");
+    assert!(shown.contains(&format!("· {} 1", directory())), "{shown}");
+}
+
+#[test]
+fn ctrl_c_with_the_pane_focused_goes_to_the_session() {
+    let mut screen = Screen::new(raw_agent("", 2));
+    screen.press('n');
+    screen.wait_for("acme agent ready");
+    screen.key(KeyCode::Enter, KeyModifiers::NONE);
+
+    screen.key(KeyCode::Char('c'), KeyModifiers::CONTROL);
+    screen.press('w');
+
+    let shown = screen.wait_for("acme agent read:w");
+    assert!(shown.contains("acme agent read:w"), "{shown}");
+    assert!(!shown.contains("y/n"), "{shown}");
+    assert!(screen.app.running());
+}
+
+#[test]
 fn y_to_the_quit_question_quits() {
     let mut screen = Screen::new(reading_agent());
     screen.press('n');
