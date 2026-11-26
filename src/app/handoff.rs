@@ -27,9 +27,7 @@ impl App {
         if verb == Verb::Ask && !neovim {
             return Reply::None;
         }
-        if verb == Verb::Open {
-            self.refresh_live();
-        }
+        self.refresh_live();
         match (verb, self.holder(file)) {
             (Verb::Ask, Some((holder, root))) => Reply::Holds(Claim {
                 depth: canonical(&root).components().count(),
@@ -94,12 +92,25 @@ impl App {
             self.transcripts.as_deref(),
             Reading::Now,
         );
-        editor::root(&entry.seen, user_home().as_deref())
+        editor::directory(
+            &entry.seen,
+            &entry.directory,
+            user_home().as_deref(),
+            self.editor_dir,
+        )
     }
 
     fn holder(&self, file: &Path) -> Option<(usize, PathBuf)> {
         let home = user_home();
-        let root = |index: usize| editor::root(&self.sessions[index].seen, home.as_deref());
+        let root = |index: usize| {
+            let entry = &self.sessions[index];
+            editor::directory(
+                &entry.seen,
+                &entry.directory,
+                home.as_deref(),
+                self.editor_dir,
+            )
+        };
         let holds = |index: &usize| {
             self.sessions[*index].session.is_some() && file.starts_with(canonical(&root(*index)))
         };

@@ -7,6 +7,7 @@ use std::time::{Duration, Instant};
 
 use crossterm::event::{KeyCode, KeyModifiers};
 use harbour::app::App;
+use harbour::editor::EditorDir;
 use harbour::follow::Mover;
 use harbour::picker::Picker;
 
@@ -65,6 +66,41 @@ fn a_session_inside_a_repository_moves_harbour_to_its_root() {
 
     let root = api.canonicalize().unwrap();
     assert_eq!(wait_until_at(&mut screen, &moves, &root), Some(root));
+}
+
+#[test]
+fn with_the_exact_directory_a_session_inside_a_repository_moves_harbour_to_its_own_folder() {
+    let scratch = tempfile::tempdir().unwrap();
+    let api = repository(scratch.path(), "acme-api");
+    let (mover, moves) = recording(None);
+    let app = App::new(reading_agent())
+        .with_picker(next_picked(scratch.path()))
+        .with_editor_dir(EditorDir::Exact)
+        .with_mover(mover);
+    let mut screen = Screen::of(app);
+
+    start(
+        &mut screen,
+        scratch.path(),
+        &folder(&api, "src/deep"),
+        "deep 1",
+    );
+
+    let deep = api.join("src/deep").canonicalize().unwrap();
+    assert_eq!(wait_until_at(&mut screen, &moves, &deep), Some(deep));
+}
+
+#[test]
+fn with_the_exact_directory_claude_code_moving_leaves_harbour_in_the_start_folder() {
+    let scratch = tempfile::tempdir().unwrap();
+    let repository = repository(scratch.path(), "acme-start");
+    let app = folder(&repository, "app");
+    let (mut screen, moves) = transcribed_from(scratch.path(), &app, "app 1", EditorDir::Exact);
+
+    write_transcript(scratch.path(), &[&cwd(&folder(&repository, "lib"))]);
+
+    let app = app.canonicalize().unwrap();
+    assert_eq!(last_move(&mut screen, &moves), Some(app));
 }
 
 #[test]
@@ -238,18 +274,29 @@ fn opened(scratch: &Path, agent: Vec<String>, refused: Option<PathBuf>) -> (Scre
 
 fn transcribed(scratch: &Path) -> (Screen, Moves) {
     let start = repository(scratch, "acme-start");
+    let (mut screen, moves) = transcribed_from(scratch, &start, "acme-start 1", EditorDir::Root);
+    let start = start.canonicalize().unwrap();
+    assert_eq!(wait_until_at(&mut screen, &moves, &start), Some(start));
+    (screen, moves)
+}
+
+fn transcribed_from(
+    scratch: &Path,
+    start: &Path,
+    row: &str,
+    editor_dir: EditorDir,
+) -> (Screen, Moves) {
     let (mover, moves) = recording(None);
     let app = App::new(recording_agent(scratch))
         .with_picker(next_picked(scratch))
+        .with_editor_dir(editor_dir)
         .with_transcripts(scratch.join("projects"))
         .naming_sessions()
         .with_mover(mover);
     let mut screen = Screen::of(app);
-    self::start(&mut screen, scratch, &start, "acme-start 1");
+    self::start(&mut screen, scratch, start, row);
     let shown = screen.wait_for("acme agent ready");
     assert!(shown.contains("acme agent ready"), "{shown}");
-    let start = start.canonicalize().unwrap();
-    assert_eq!(wait_until_at(&mut screen, &moves, &start), Some(start));
     (screen, moves)
 }
 

@@ -4,14 +4,15 @@ use std::thread::sleep;
 use std::time::Duration;
 
 use crossterm::event::{KeyCode, KeyModifiers, MouseButton, MouseEventKind};
+use harbour::editor::EditorDir;
 use harbour::handoff::{Claim, Reply, Verb};
 
-use crate::directory::repository;
+use crate::directory::{cwd, folder, repository, write_transcript};
 use crate::handing::answering;
 use crate::handoff::{
-    app_running, file, harbour, last_use, opened_beside, recording_neovim, soon, start_in,
+    app_running, app_with, file, harbour, last_use, opened_beside, recording_neovim, soon, start_in,
 };
-use crate::{Screen, raw_agent};
+use crate::{Screen, following_from, following_in, raw_agent};
 
 #[test]
 fn a_session_deeper_in_the_tree_takes_the_file_over_the_selected_home_session() {
@@ -69,6 +70,85 @@ fn an_ask_answers_with_how_deep_the_holders_root_lies() {
     };
     assert_eq!(depth, root.components().count());
     assert!(selected);
+}
+
+#[test]
+fn with_the_exact_directory_an_ask_answers_with_how_deep_the_sessions_own_folder_lies() {
+    let scratch = tempfile::tempdir().unwrap();
+    let mut screen = exactly(scratch.path());
+    repository(scratch.path(), "acme-api");
+    start_at(&mut screen, scratch.path(), "acme-api/src", 1);
+    let src = scratch.path().canonicalize().unwrap().join("acme-api/src");
+
+    let reply = screen
+        .app
+        .hand(Verb::Ask, &file(scratch.path(), "acme-api/src"), soon());
+
+    let Reply::Holds(Claim { depth, .. }) = reply else {
+        panic!("not held: {reply:?}");
+    };
+    assert_eq!(depth, src.components().count());
+}
+
+#[test]
+fn with_the_exact_directory_a_file_beside_the_sessions_folder_is_held_by_none() {
+    let scratch = tempfile::tempdir().unwrap();
+    let mut screen = exactly(scratch.path());
+    repository(scratch.path(), "acme-api");
+    start_at(&mut screen, scratch.path(), "acme-api/src", 1);
+
+    let reply = screen
+        .app
+        .hand(Verb::Ask, &file(scratch.path(), "acme-api/lib"), soon());
+
+    assert_eq!(reply, Reply::None);
+}
+
+#[test]
+fn an_ask_judges_by_the_repository_claude_code_moved_to_since_the_last_read() {
+    let scratch = tempfile::tempdir().unwrap();
+    let api = repository(scratch.path(), "acme-api");
+    let web = repository(scratch.path(), "acme-web");
+    let mut screen = following_in(
+        scratch.path(),
+        &[&cwd(&api)],
+        recording_neovim(scratch.path()),
+        EditorDir::Root,
+    );
+    let shown = screen.wait_for("acme-api");
+    assert!(shown.contains("acme-api"), "{shown}");
+    write_transcript(scratch.path(), &[&cwd(&web)]);
+
+    let in_api = screen
+        .app
+        .hand(Verb::Ask, &file(scratch.path(), "acme-api"), soon());
+    let in_web = screen
+        .app
+        .hand(Verb::Ask, &file(scratch.path(), "acme-web"), soon());
+
+    assert_eq!(in_api, Reply::None);
+    assert!(matches!(in_web, Reply::Holds(_)), "{in_web:?}");
+}
+
+#[test]
+fn with_the_exact_directory_an_ask_holds_the_start_folder_after_claude_code_moves() {
+    let scratch = tempfile::tempdir().unwrap();
+    repository(scratch.path(), "acme-api");
+    let rust = folder(scratch.path(), "acme-api/rust");
+    let tests = folder(scratch.path(), "acme-api/rust/tests");
+    let mut screen = following_from(
+        scratch.path(),
+        &rust,
+        &[&cwd(&tests)],
+        recording_neovim(scratch.path()),
+        EditorDir::Exact,
+    );
+
+    let reply = screen
+        .app
+        .hand(Verb::Ask, &file(scratch.path(), "acme-api/rust"), soon());
+
+    assert!(matches!(reply, Reply::Holds(_)), "{reply:?}");
 }
 
 #[test]
@@ -169,4 +249,8 @@ fn start_at(screen: &mut Screen, scratch: &Path, folder: &str, number: usize) {
         crossterm::event::KeyCode::Char('h'),
         crossterm::event::KeyModifiers::CONTROL,
     );
+}
+
+fn exactly(scratch: &Path) -> Screen {
+    Screen::of(app_with(scratch, recording_neovim(scratch)).with_editor_dir(EditorDir::Exact))
 }

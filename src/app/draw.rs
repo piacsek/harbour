@@ -20,11 +20,11 @@ use crate::transcript::Transcript;
 impl App {
     fn follow_selected(&mut self) {
         if let Some(follow) = &mut self.follow {
-            let seen = self
+            let session = self
                 .sessions
                 .get(self.selected)
-                .map(|entry| entry.seen.as_path());
-            follow.to(seen, &self.home, user_home().as_deref());
+                .map(|entry| (entry.seen.as_path(), entry.directory.as_path()));
+            follow.to(session, &self.home, user_home().as_deref(), self.editor_dir);
         }
     }
 

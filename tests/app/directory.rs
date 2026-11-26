@@ -4,10 +4,9 @@ use std::path::{Path, PathBuf};
 
 use crossterm::event::{KeyCode, KeyModifiers};
 use harbour::app::App;
-use harbour::editor::Program;
-use harbour::picker::Picker;
+use harbour::editor::{EditorDir, Program};
 
-use crate::{Screen, reading_agent, script};
+use crate::{Screen, choosing, following_from, following_in, reading_agent, script};
 
 #[test]
 fn the_editor_opens_at_the_root_of_the_repository_claude_code_started_in() {
@@ -38,6 +37,39 @@ fn a_worktree_root_is_found_by_its_git_file() {
 
     let shown = screen.wait_for("acme editor at");
     assert!(shown.contains("acme editor at acme-wt"), "{shown}");
+}
+
+#[test]
+fn with_the_exact_directory_the_editor_opens_in_the_folder_claude_code_started_in() {
+    let scratch = tempfile::tempdir().unwrap();
+    let start = folder(scratch.path(), "acme-notes/rust");
+    fs::create_dir(scratch.path().join("acme-notes/.git")).unwrap();
+    let mut screen = started_in_with(&start, reading_agent(), EditorDir::Exact);
+
+    screen.key(KeyCode::Char('l'), KeyModifiers::CONTROL);
+
+    let shown = screen.wait_for("acme editor at rust");
+    assert!(shown.contains("acme editor at rust"), "{shown}");
+}
+
+#[test]
+fn with_the_exact_directory_the_editor_stays_in_the_start_folder_after_claude_code_moves() {
+    let scratch = tempfile::tempdir().unwrap();
+    repository(scratch.path(), "acme-api");
+    let rust = folder(scratch.path(), "acme-api/rust");
+    let tests = folder(scratch.path(), "acme-api/rust/tests");
+    let mut screen = following_from(
+        scratch.path(),
+        &rust,
+        &[&cwd(&tests)],
+        locating_editor(),
+        EditorDir::Exact,
+    );
+
+    screen.key(KeyCode::Char('l'), KeyModifiers::CONTROL);
+
+    let shown = screen.wait_for("acme editor at rust");
+    assert!(shown.contains("acme editor at rust"), "{shown}");
 }
 
 #[test]
@@ -410,18 +442,19 @@ fn e_in_the_sidebar_comes_back_round_to_the_first_editor() {
 }
 
 fn started_in(directory: &Path, agent: Vec<String>) -> Screen {
+    started_in_with(directory, agent, EditorDir::Root)
+}
+
+fn started_in_with(directory: &Path, agent: Vec<String>, editor_dir: EditorDir) -> Screen {
     let mut screen = Screen::wide(
         App::new(agent)
             .with_editor(locating_editor())
+            .with_editor_dir(editor_dir)
             .with_picker(choosing(directory)),
     );
     screen.press('n');
     screen.wait_for("acme agent ready");
     screen
-}
-
-fn choosing(directory: &Path) -> Picker {
-    Picker::Command(script(&format!("printf '%s\\n' '{}'", directory.display())))
 }
 
 fn locating_editor() -> Program {
@@ -445,20 +478,7 @@ pub(crate) fn following(scratch: &Path, lines: &[&str]) -> Screen {
 }
 
 pub(crate) fn following_with(scratch: &Path, lines: &[&str], editor: Program) -> Screen {
-    let start = repository(scratch, "acme-start");
-    let mut screen = Screen::wide(
-        App::new(recording_agent(scratch))
-            .with_editor(editor)
-            .with_picker(choosing(&start))
-            .with_transcripts(scratch.join("projects"))
-            .naming_sessions()
-            .with_registry(folder(scratch, "sessions")),
-    );
-    screen.press('n');
-    let shown = screen.wait_for("acme agent ready");
-    assert!(shown.contains("acme agent ready"), "{shown}");
-    write_transcript(scratch, lines);
-    screen
+    following_in(scratch, lines, editor, EditorDir::Root)
 }
 
 pub(crate) fn recording_agent(scratch: &Path) -> Vec<String> {

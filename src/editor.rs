@@ -26,6 +26,21 @@ const SOCKET_PREFIX: &str = "harbour-nvim";
 const SOCKET_RANDOM: usize = 6;
 const LONGEST_SOCKET_PATH: usize = 103;
 
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum EditorDir {
+    Root,
+    Exact,
+}
+
+impl EditorDir {
+    pub fn name(self) -> &'static str {
+        match self {
+            EditorDir::Root => "root",
+            EditorDir::Exact => "exact",
+        }
+    }
+}
+
 pub struct Program {
     name: String,
     command: Vec<OsString>,
@@ -262,7 +277,15 @@ pub fn socket_base(temporary: &Path) -> PathBuf {
     }
 }
 
-pub fn root(directory: &Path, home: Option<&Path>) -> PathBuf {
+pub fn directory(
+    directory: &Path,
+    started: &Path,
+    home: Option<&Path>,
+    editor_dir: EditorDir,
+) -> PathBuf {
+    if editor_dir == EditorDir::Exact {
+        return started.to_path_buf();
+    }
     if !directory.is_dir() {
         return directory.to_path_buf();
     }
