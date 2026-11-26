@@ -67,4 +67,18 @@ Widths are the room `info` gets. `R` is `icons::REPOSITORY`, `B` `icons::BRANCH`
 
 ## Outcome
 
+Card line 3's fact drawing moved unchanged into `src/facts.rs` (`Colors`, `Kind`, `fitted`),
+which the card and `zoom::info` now share; the card tests stayed green untouched. `Headline`
+holds `repository` and `branch` in place of `place`, and `Headline::place` keeps the session
+finder's `repository · branch` column. `info` takes the `Colors` and the icons flag: the
+repository and branch in their `[colors]`, ` · ` dimmed or the glyphs with `nerd_font`, the `…`
+of a cut in the colour of the fact it cuts, the time dimmed, the title in the accent, the dot in
+its state colour; fitting is unchanged. The app keeps its own `Colors` beside the sidebar's and
+passes them and `nerd_font` to the zoomed top row and both side-by-side borders.
+`docs/zoom.png`, `docs/side-by-side.png` and `docs/side-swapped.png` were rerendered. The
+fragment is `kind: feat`, as phase 38's card colours were. One review round, with no must or
+should finding.
+
 ## Hurdles
+
+- `process` the first builder run was cut off by a session restart before it made any change, then resumed from the start → none
