@@ -160,3 +160,9 @@ good; a finding on one still counts as must when it shows new impact.
   closes); after a width key pressed with Ctrl held, the same Ctrl key within 500 ms repeats it
   instead of reaching the program, which matters only when `wider` or `narrower` is a letter that
   is also a Ctrl shortcut (`plans/phase-46-ctrl-held-after-prefix.md`).
+- **A card's task count is not remembered across a restart, and a task finished during a clearing can drop out of it**:
+  a harbour started after Claude Code cleared a session's finished task list shows no task fact
+  for that session until a new list starts; a task that completes and is deleted between two
+  reads (500 ms apart) while other task files are still there counts as a deleted task and leaves
+  the total, so a list cleared in that instant can show `2/2` for three tasks
+  (`plans/phase-50-task-count-edges.md`).
