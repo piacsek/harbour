@@ -27,6 +27,8 @@ pub enum Kind {
     Branch,
     PullRequest,
     Subagents,
+    Tasks,
+    TasksDone,
 }
 
 impl Kind {
@@ -36,6 +38,8 @@ impl Kind {
             Kind::Branch => icons::BRANCH,
             Kind::PullRequest => icons::PULL_REQUEST,
             Kind::Subagents => icons::SUBAGENTS,
+            Kind::Tasks => icons::TASKS_OPEN,
+            Kind::TasksDone => icons::TASKS_DONE,
         }
     }
 
@@ -44,7 +48,8 @@ impl Kind {
             Kind::Repository => Style::default().fg(colors.repository),
             Kind::Branch => Style::default().fg(colors.branch),
             Kind::PullRequest => Style::default().fg(colors.pull_request),
-            Kind::Subagents => Style::default().add_modifier(Modifier::DIM),
+            Kind::Subagents | Kind::Tasks => Style::default().add_modifier(Modifier::DIM),
+            Kind::TasksDone => Style::default().fg(Color::Green),
         }
     }
 }
@@ -80,6 +85,7 @@ fn segments(parts: &[(Kind, String)], iconed: bool, colors: &Colors) -> Vec<(Str
             (true, _) => format!("{} {text}", kind.glyph()),
             (false, Kind::Subagents) if text == "1" => "1 subagent".to_string(),
             (false, Kind::Subagents) => format!("{text} subagents"),
+            (false, Kind::Tasks | Kind::TasksDone) => format!("tasks {text}"),
             (false, _) => text.clone(),
         };
         segments.push((shown, kind.style(colors)));

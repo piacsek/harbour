@@ -5,7 +5,9 @@ use std::time::{Duration, SystemTime};
 
 use harbour::transcript::{Facts, Transcript};
 
-const ID: &str = "0f1e2d3c-4b5a-6978-8a9b-0c1d2e3f4a5b";
+mod tasks;
+
+pub(crate) const ID: &str = "0f1e2d3c-4b5a-6978-8a9b-0c1d2e3f4a5b";
 
 #[test]
 fn no_transcript_yet_knows_nothing() {
@@ -379,13 +381,13 @@ fn a_subagent_file_older_than_the_session_or_not_an_object_is_not_counted() {
     assert_eq!(transcript.facts().subagents, 1);
 }
 
-fn transcript_file(projects: &Path, folder: &str) -> PathBuf {
+pub(crate) fn transcript_file(projects: &Path, folder: &str) -> PathBuf {
     let folder = projects.join(folder);
     fs::create_dir_all(&folder).unwrap();
     folder.join(format!("{ID}.jsonl"))
 }
 
-fn append(file: &Path, line: &str) {
+pub(crate) fn append(file: &Path, line: &str) {
     write_raw(file, &format!("{line}\n"));
 }
 

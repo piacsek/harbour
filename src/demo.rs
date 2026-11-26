@@ -98,6 +98,15 @@ pub fn working(registry: &Path) -> Vec<String> {
                 r#"{"type":"last-prompt","lastPrompt":"fix the flaky retry test in acme/api"}"#,
             ],
             subagents: 2,
+            tasks: &[
+                "completed",
+                "completed",
+                "completed",
+                "in_progress",
+                "pending",
+                "pending",
+                "pending",
+            ],
         },
         WORKING,
     )
@@ -114,6 +123,7 @@ pub fn blocked(registry: &Path) -> Vec<String> {
             minutes: 1,
             transcript: &[r#"{"type":"ai-title","aiTitle":"Publish the acme-api crate"}"#],
             subagents: 0,
+            tasks: &[],
         },
         BLOCKED,
     )
@@ -134,6 +144,7 @@ pub fn idle(registry: &Path) -> Vec<String> {
                 r#"{"type":"pr-link","prNumber":131}"#,
             ],
             subagents: 0,
+            tasks: &["completed", "completed", "completed", "completed"],
         },
         IDLE,
     )
@@ -188,6 +199,7 @@ struct Card {
     minutes: u64,
     transcript: &'static [&'static str],
     subagents: usize,
+    tasks: &'static [&'static str],
 }
 
 fn carded(registry: &Path, card: Card, text: &str) -> Vec<String> {
@@ -200,6 +212,7 @@ fn carded(registry: &Path, card: Card, text: &str) -> Vec<String> {
         minutes,
         transcript,
         subagents,
+        tasks,
     } = card;
     let user = serde_json::json!({
         "type": "user",
@@ -213,9 +226,16 @@ fn carded(registry: &Path, card: Card, text: &str) -> Vec<String> {
         .map(|line| format!("'{}'", line.replace('\'', r"'\''")))
         .collect::<Vec<_>>()
         .join(" ");
-    let mut setup = format!(
+    let mut setup = String::new();
+    for (number, status) in tasks.iter().enumerate() {
+        setup.push_str(&format!(
+            "mkdir -p '{dir}'/tasks/{id}\nprintf '%s' '{{\"id\":\"{task}\",\"status\":\"{status}\"}}' > '{dir}'/tasks/{id}/{task}.json\n",
+            task = number + 1
+        ));
+    }
+    setup.push_str(&format!(
         "mkdir -p '{dir}'/projects/demo/{id}/subagents\nprintf '%s\\n' {lines} > '{dir}'/projects/demo/{id}.jsonl\n"
-    );
+    ));
     for agent in 1..=subagents {
         setup.push_str(&format!(
             "printf '%s' '{{\"agentType\":\"Explore\"}}' > '{dir}'/projects/demo/{id}/subagents/agent-{agent}.meta.json\n"

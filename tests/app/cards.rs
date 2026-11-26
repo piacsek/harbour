@@ -12,7 +12,7 @@ use ratatui::style::{Color, Modifier};
 use crate::{Screen, below, column_of, directory, numbered_agent, script};
 
 #[test]
-fn the_selected_card_has_the_cyan_bar_on_all_three_lines() {
+fn the_selected_card_has_the_cyan_bar_on_all_four_lines() {
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = Screen::new(numbered_agent(scratch.path()));
     screen.press('n');
@@ -26,9 +26,10 @@ fn the_selected_card_has_the_cyan_bar_on_all_three_lines() {
     assert_eq!(screen.cell(1, 2).symbol(), "▌");
     assert_eq!(screen.cell(1, 3).symbol(), "▌");
     assert_eq!(screen.cell(1, 4).symbol(), "▌");
-    assert_eq!(screen.cell(1, 4).fg, Color::Cyan);
-    assert_eq!(screen.cell(1, 5).symbol(), " ");
+    assert_eq!(screen.cell(1, 5).symbol(), "▌");
+    assert_eq!(screen.cell(1, 5).fg, Color::Cyan);
     assert_eq!(screen.cell(1, 6).symbol(), " ");
+    assert_eq!(screen.cell(1, 7).symbol(), " ");
 }
 
 #[test]
@@ -47,7 +48,7 @@ fn a_blank_line_separates_one_card_from_the_next() {
         "{shown}"
     );
     assert!(
-        lines[6].contains(&format!("· {} 2", directory())),
+        lines[7].contains(&format!("· {} 2", directory())),
         "{shown}"
     );
     assert_eq!(below(&shown, &format!("· {} 1", directory())), "");
@@ -140,7 +141,7 @@ fn a_taller_terminal_shows_the_cards_scrolled_away_again() {
     }
     let width = screen.terminal.backend().buffer().area.width;
 
-    screen.resize(width, 30);
+    screen.resize(width, 33);
 
     let shown = screen.draw();
     assert!(

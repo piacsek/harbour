@@ -11,7 +11,7 @@ use crate::transcript::Facts;
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
 
-const HEIGHT: usize = 3;
+const HEIGHT: usize = 4;
 const STEP: usize = HEIGHT + 1;
 const INDENT: &str = "  ";
 
@@ -26,6 +26,7 @@ pub struct Card {
     doing: Option<(String, Style)>,
     moves: bool,
     parts: Vec<(Kind, String)>,
+    activity: Vec<(Kind, String)>,
     iconed: bool,
     age: Option<String>,
     repository: String,
@@ -75,9 +76,6 @@ impl Card {
                 .or_else(|| place.branch.clone()),
         };
         let number = facts.and_then(|facts| facts.pull_request);
-        let count = facts
-            .filter(|_| state != State::Exited)
-            .map_or(0, |facts| facts.subagents);
         let parts = [
             Some((Kind::Repository, clean(&shown.repository))),
             shown
@@ -85,17 +83,37 @@ impl Card {
                 .as_ref()
                 .map(|branch| (Kind::Branch, clean(branch))),
             number.map(|number| (Kind::PullRequest, format!("#{number}"))),
-            (count > 0).then(|| (Kind::Subagents, count.to_string())),
         ]
         .into_iter()
         .flatten()
         .collect();
+        let activity = facts
+            .filter(|_| state != State::Exited)
+            .map(|facts| {
+                let tasks = facts.tasks.map(|tasks| {
+                    let kind = if tasks.done == tasks.total {
+                        Kind::TasksDone
+                    } else {
+                        Kind::Tasks
+                    };
+                    (kind, format!("{}/{}", tasks.done, tasks.total))
+                });
+                [
+                    (facts.subagents > 0).then(|| (Kind::Subagents, facts.subagents.to_string())),
+                    tasks,
+                ]
+                .into_iter()
+                .flatten()
+                .collect()
+            })
+            .unwrap_or_default();
         Card {
             state,
             title: fact(|facts| facts.title.as_ref()).unwrap_or_else(|| clean(title)),
             doing,
             moves: matches!(state, State::Working | State::Idle),
             parts,
+            activity,
             iconed: false,
             age: elapsed.map(age),
             repository: clean(&place.repository),
@@ -143,7 +161,9 @@ impl Card {
         };
         let mut third = vec![Span::from(INDENT)];
         third.extend(facts::fitted(&self.parts, self.iconed, colors, room));
-        [first, second, Line::from(third)]
+        let mut fourth = vec![Span::from(INDENT)];
+        fourth.extend(facts::fitted(&self.activity, self.iconed, colors, room));
+        [first, second, Line::from(third), Line::from(fourth)]
     }
 
     fn first_line(&self, width: usize) -> Line<'static> {

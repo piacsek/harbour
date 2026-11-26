@@ -1,6 +1,7 @@
 use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime};
 
+use harbour::facts::{self, Colors, Kind};
 use harbour::memory::{Memory, Remembered};
 use harbour::tui::SESSION_COMMAND;
 
@@ -220,7 +221,7 @@ fn a_stopped_card_left_alone_longer_than_the_tidy_variable_is_gone_at_start() {
 #[ignore]
 fn the_demo_shows_a_stopped_session_it_remembers() {
     let home = tempfile::tempdir().unwrap();
-    let server = Server::start("demo-stopped", 160, 30);
+    let server = Server::start("demo-stopped", 160, 36);
 
     server.run(home.path(), &[], &["--demo"]);
 
@@ -355,4 +356,15 @@ fn stopped_pair(home: &Path, config: &Path) -> Memory {
             .unwrap();
     }
     memory
+}
+
+pub(crate) fn activity(parts: &[(Kind, &str)]) -> String {
+    let parts: Vec<(Kind, String)> = parts
+        .iter()
+        .map(|(kind, text)| (*kind, text.to_string()))
+        .collect();
+    facts::fitted(&parts, false, &Colors::default(), 80)
+        .iter()
+        .map(|span| span.content.as_ref())
+        .collect()
 }

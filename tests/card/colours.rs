@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use harbour::card::{Card, Ended};
-use harbour::icons::{BRANCH, PULL_REQUEST, REPOSITORY, SUBAGENTS};
+use harbour::icons::{BRANCH, PULL_REQUEST, REPOSITORY};
 use harbour::registry::Status;
 use harbour::repo::Place;
 use harbour::transcript::Facts;
@@ -28,17 +28,6 @@ fn the_pull_request_is_cyan() {
     let buffer = alone(card(Status::Busy, None, &all_facts()), 60);
 
     assert_eq!(at(&buffer, 2, "#40").fg, Color::Cyan);
-}
-
-#[test]
-fn the_subagents_are_dimmed() {
-    let buffer = alone(card(Status::Busy, None, &all_facts()), 60);
-
-    assert!(
-        at(&buffer, 2, "2 subagents")
-            .modifier
-            .contains(Modifier::DIM)
-    );
 }
 
 #[test]
@@ -97,7 +86,6 @@ fn with_icons_each_glyph_takes_its_facts_colour() {
     assert_eq!(at(&buffer, 2, REPOSITORY).fg, Color::Blue);
     assert_eq!(at(&buffer, 2, BRANCH).fg, Color::Magenta);
     assert_eq!(at(&buffer, 2, PULL_REQUEST).fg, Color::Cyan);
-    assert!(at(&buffer, 2, SUBAGENTS).modifier.contains(Modifier::DIM));
 }
 
 #[test]
@@ -179,19 +167,19 @@ fn an_unselected_exited_card_is_dimmed_on_every_row() {
     let (_, buffer) = sidebar(&[idle(), exited()], 0, 40);
 
     assert!(
-        at(&buffer, 4, "acme-api 1")
+        at(&buffer, 5, "acme-api 1")
             .modifier
             .contains(Modifier::DIM)
     );
-    assert!(at(&buffer, 5, "exited 1").modifier.contains(Modifier::DIM));
-    assert!(at(&buffer, 6, "acme-api").modifier.contains(Modifier::DIM));
+    assert!(at(&buffer, 6, "exited 1").modifier.contains(Modifier::DIM));
+    assert!(at(&buffer, 7, "acme-api").modifier.contains(Modifier::DIM));
 }
 
 #[test]
 fn an_unselected_exited_card_keeps_its_red_exit_under_the_dim() {
     let (_, buffer) = sidebar(&[idle(), exited()], 0, 40);
 
-    assert_eq!(at(&buffer, 5, "exited 1").fg, Color::Red);
+    assert_eq!(at(&buffer, 6, "exited 1").fg, Color::Red);
 }
 
 #[test]
@@ -199,7 +187,7 @@ fn an_unselected_stopped_card_is_dimmed() {
     let (_, buffer) = sidebar(&[idle(), stopped()], 0, 40);
 
     assert!(
-        at(&buffer, 4, "acme-api 1")
+        at(&buffer, 5, "acme-api 1")
             .modifier
             .contains(Modifier::DIM)
     );
@@ -210,7 +198,7 @@ fn a_selected_exited_card_is_not_dimmed() {
     let (_, buffer) = sidebar(&[idle(), exited()], 1, 40);
 
     assert!(
-        !at(&buffer, 4, "acme-api 1")
+        !at(&buffer, 5, "acme-api 1")
             .modifier
             .contains(Modifier::DIM)
     );
@@ -221,7 +209,7 @@ fn a_running_card_is_not_dimmed() {
     let (_, buffer) = sidebar(&[exited(), idle()], 0, 40);
 
     assert!(
-        !at(&buffer, 4, "acme-api 1")
+        !at(&buffer, 5, "acme-api 1")
             .modifier
             .contains(Modifier::DIM)
     );

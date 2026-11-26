@@ -91,10 +91,11 @@ good; a finding on one still counts as must when it shows new impact.
   `flake-ok`**: a Nix, nixpkgs or `cache.nixos.org` outage then holds them until the ruleset is
   disabled; requiring it is the owner's step by hand (`.github/AGENTS.md`, the flake build, has
   the command that shows whether it is required).
-- **The session registry, each session's git files and the new end of its transcript are read,
-  and the counts for `harbour status` written, on the draw thread**: a Claude config directory,
-  a repository or a state directory on slow storage (a network home) delays keys by the time
-  those reads take (a few small files and at most 1 MiB of transcript per session), at most
+- **The session registry, each session's git files, the new end of its transcript and its task
+  files are read, and the counts for `harbour status` written, on the draw thread**: a Claude
+  config directory, a repository or a state directory on slow storage (a network home) delays
+  keys by the time those reads take (a few small files, at most 1 MiB of transcript and at most
+  256 task files of at most 64 KiB per session), at most
   every 500 ms, by one listing of the projects directory per session still without its
   transcript at most every 5 s, by the time a write takes,
   only when a count changed, and by two file checks or one fresh publication (with its sweep of
@@ -137,7 +138,7 @@ good; a finding on one still counts as must when it shows new impact.
   names is the merge (`.github/AGENTS.md`, "What the attestation proves").
 - **The border's and the cards' icons are counted as one column each**: a terminal set to draw
   ambiguous-width characters double-wide pushes the pane's top border out of place with
-  `nerd_font` on, and the zoomed top row's names a column into its counts (`src/tabs.rs`), and a card's third line can reach the sidebar's border
+  `nerd_font` on, and the zoomed top row's names a column into its counts (`src/tabs.rs`), and a card's third or fourth line can reach the sidebar's border
   (`src/card.rs`).
 - **A card move can undo another harbour's change made in the same instant**: `Memory::place`,
   like `keep` and `forget`, reads a file, then renames a new one over it with nothing guarding the
