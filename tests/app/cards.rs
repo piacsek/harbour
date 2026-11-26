@@ -5,7 +5,7 @@ use std::time::Duration;
 
 use crossterm::event::{KeyCode, KeyModifiers};
 use harbour::app::App;
-use harbour::card::Colors;
+use harbour::facts::Colors;
 use harbour::picker::Picker;
 use ratatui::style::{Color, Modifier};
 

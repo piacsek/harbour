@@ -123,11 +123,16 @@ fn listed(rows: &[Row]) -> String {
 }
 
 fn headline(title: &str, place: &str, age: Option<&str>) -> Row {
+    let (repository, branch) = match place.split_once(" · ") {
+        Some((repository, branch)) => (repository, Some(branch)),
+        None => (place, None),
+    };
     Row {
         headline: Headline {
             state: State::Idle,
             title: title.to_string(),
-            place: place.to_string(),
+            repository: repository.to_string(),
+            branch: branch.map(String::from),
             age: age.map(String::from),
         },
         stopped: false,

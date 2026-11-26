@@ -22,7 +22,7 @@ pub struct Row {
 pub fn lines(rows: &[Row]) -> Vec<u8> {
     let headlines: Vec<&Headline> = rows.iter().map(|row| &row.headline).collect();
     let titles: Vec<String> = headlines.iter().map(|line| clean(&line.title)).collect();
-    let places: Vec<String> = headlines.iter().map(|line| clean(&line.place)).collect();
+    let places: Vec<String> = headlines.iter().map(|line| clean(&line.place())).collect();
     let ages: Vec<&str> = rows.iter().map(age).collect();
     let widest = |texts: &[String]| texts.iter().map(|text| columns(text)).max().unwrap_or(0);
     let aged = ages.iter().map(|age| columns(age)).max().unwrap_or(0);

@@ -30,9 +30,10 @@ mod zoom;
 use draw::exit_note;
 use logging::Input;
 
-use crate::card::{Colors, Sidebar};
+use crate::card::Sidebar;
 use crate::demo;
 use crate::editor::{Changes, Editor, EditorDir, Program};
+use crate::facts::Colors;
 use crate::follow::{self, Follow, Mover};
 use crate::handoff::Listener;
 use crate::icons::ClaudeIcon;
@@ -73,6 +74,7 @@ pub struct App {
     beside: Rect,
     sidebar: Rect,
     cards: Sidebar,
+    colors: Colors,
     accent: Color,
     nerd_font: bool,
     claude_icon: ClaudeIcon,
@@ -217,6 +219,7 @@ impl App {
             beside: Rect::default(),
             sidebar: Rect::default(),
             cards: Sidebar::default(),
+            colors: Colors::default(),
             accent: Color::Cyan,
             nerd_font: false,
             claude_icon: ClaudeIcon::Sparkle,
@@ -286,6 +289,7 @@ impl App {
 
     pub fn with_colors(mut self, colors: Colors) -> App {
         self.cards = Sidebar::with_colors(colors);
+        self.colors = colors;
         self
     }
 

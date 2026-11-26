@@ -190,7 +190,14 @@ impl App {
         let named_room = right_room.saturating_sub(counted.width());
         let claude_left = claude_title(self.shown_claude_icon(), left_room - kept, claude_style);
         let mut spans = headline
-            .map(|headline| info(&headline, left_room - claude_left.width()))
+            .map(|headline| {
+                info(
+                    &headline,
+                    left_room - claude_left.width(),
+                    &self.colors,
+                    self.nerd_font,
+                )
+            })
             .unwrap_or_default();
         let (left_name, right_name) = if self.swapped {
             let used = Line::from(spans.clone()).width();
