@@ -42,6 +42,19 @@ pub struct Transcript {
     facts: Facts,
     since: SystemTime,
     done: HashSet<OsString>,
+    list: Option<List>,
+}
+
+struct List {
+    largest: usize,
+    last: Tasks,
+    cleared: bool,
+}
+
+enum Listing {
+    Missing,
+    Partial,
+    Whole(Tasks),
 }
 
 impl Transcript {
@@ -57,6 +70,7 @@ impl Transcript {
             facts: Facts::default(),
             since: SystemTime::UNIX_EPOCH,
             done: HashSet::new(),
+            list: None,
         }
     }
 
@@ -106,7 +120,7 @@ impl Transcript {
     }
 
     pub fn read(&mut self) {
-        self.facts.tasks = self.tasks();
+        self.read_tasks();
         let Some(path) = self.found() else {
             return;
         };
@@ -174,17 +188,40 @@ impl Transcript {
         self.path.clone()
     }
 
-    fn tasks(&self) -> Option<Tasks> {
-        let config = self.projects.parent()?;
-        if !plain(&self.session_id) {
-            return None;
-        }
-        match tasks(&config.join("tasks").join(&self.session_id))? {
-            Tasks { total: 0, .. } => self.facts.tasks.map(|seen| Tasks {
-                done: seen.total,
-                total: seen.total,
-            }),
-            counted => Some(counted),
+    fn read_tasks(&mut self) {
+        let listing = match self.projects.parent() {
+            Some(config) if plain(&self.session_id) => {
+                listing(&config.join("tasks").join(&self.session_id))
+            }
+            _ => Listing::Missing,
+        };
+        match listing {
+            Listing::Missing => {
+                self.list = None;
+                self.facts.tasks = None;
+            }
+            Listing::Partial => {}
+            Listing::Whole(Tasks { total: 0, .. }) => {
+                self.facts.tasks = self.list.as_mut().and_then(|list| {
+                    list.cleared = true;
+                    (list.last.total - list.last.done <= 1).then_some(Tasks {
+                        done: list.largest,
+                        total: list.largest,
+                    })
+                });
+            }
+            Listing::Whole(tasks) => {
+                let largest = match &self.list {
+                    Some(list) if !list.cleared => list.largest.max(tasks.total),
+                    _ => tasks.total,
+                };
+                self.list = Some(List {
+                    largest,
+                    last: tasks,
+                    cleared: false,
+                });
+                self.facts.tasks = Some(tasks);
+            }
         }
     }
 
@@ -303,23 +340,25 @@ fn shown(text: &str) -> String {
     text[..end].to_string()
 }
 
-fn tasks(folder: &Path) -> Option<Tasks> {
+fn listing(folder: &Path) -> Listing {
+    let Ok(entries) = fs::read_dir(folder) else {
+        return Listing::Missing;
+    };
     let mut tasks = Tasks { done: 0, total: 0 };
-    let files = fs::read_dir(folder)
-        .ok()?
+    let files = entries
         .flatten()
         .filter(|entry| entry.file_name().to_string_lossy().ends_with(".json"))
         .take(TASK_FILES);
     for entry in files {
         let Some(status) = task_status(&entry.path()) else {
-            continue;
+            return Listing::Partial;
         };
         tasks.total += 1;
         if status == "completed" {
             tasks.done += 1;
         }
     }
-    Some(tasks)
+    Listing::Whole(tasks)
 }
 
 fn task_status(path: &Path) -> Option<String> {

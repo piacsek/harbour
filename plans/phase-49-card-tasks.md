@@ -30,10 +30,15 @@ tasks are done, `3/7`. Line 3 keeps only the repository, branch and pull request
   icons `2 subagents · tasks 3/7`; no task fact on an ended card; cut from its end like line 3.
 - The orchestrator's: green is the fixed `Color::Green`, no new `[colors]` key.
 - The builder's: without icons, the whole `tasks 7/7` is green when all are done, since each
-  fact is drawn in one colour; a task file that cannot be read or parsed as an object is left out
-  of both counts; at most 256 task files of at most 64 KiB each are read a time. In review: Claude Code deletes a list's task files once every task is completed (65 of 80
-  folders on the owner's machine were in that state, none held an all-completed list), so the
-  orchestrator decided a list whose files are all gone shows as done with the last total seen.
+  fact is drawn in one colour; at most 256 task files of at most 64 KiB each are read a time.
+- The orchestrator's, in review: Claude Code deletes a list's task files once every task is
+  completed (65 of 80 folders on the owner's machine were in that state, none held an
+  all-completed list). After two rounds of patches to inferring a cleared list, the rule is:
+  a read counts only when it read and parsed every task file it listed, else the previous fact
+  stays; while files are there, the largest total since the list began is kept (a list begins
+  when files appear in an empty or missing folder); a folder emptied after a list shows that
+  largest total all done, green, only when the last whole read had at most one task open, else
+  no task fact.
 
 ## States
 
@@ -43,13 +48,15 @@ Reading the tasks folder, `T` = `<config dir>/tasks/<session id>/`:
 | --- | --- |
 | `T` missing | no task fact |
 | `T` empty, or only `.lock` and `.highwatermark`, and no task seen before | no task fact |
-| every task file gone after a read saw some (Claude Code clears them once all are completed) | every task done: the last total seen, `7/7`, green |
+| every task file gone after a whole read with at most one task open (Claude Code clears them once all are completed) | every task done: the largest total of the list, `7/7`, green |
+| every task file gone after a whole read with two or more open (`1/3`, the agent deleted the open ones) | no task fact |
+| a read halfway through the clearing (`3/3` of a list of 7), then none left | `7/7`, the largest total of the list |
 | a new task file after that | the live count again |
 | `T` unreadable (permissions) | no task fact |
-| a task file malformed, not an object, unreadable or over 64 KiB | that file left out of both counts |
+| a task file malformed, not an object, unreadable or over 64 KiB, or caught mid-rewrite | the previous read's fact stays; on a first read, no task fact |
+| a listed file that vanishes before it is opened | the previous read's fact stays |
 | a task file without `status`, or an unknown one | counted in the total, not done |
 | a file appears or vanishes between two reads | the count follows at the next read, 500 ms later |
-| a file vanishes between the listing and its open | left out of that read's counts |
 | `T` removed while the session runs | the task fact goes at the next read |
 | the transcript lost (renamed or removed) | the tasks are still read, since they need only the session id |
 | harbour restarted with `T` already cleared | nothing remembered: no task fact |
@@ -76,7 +83,7 @@ Drawing line 4, `S` = the subagent glyph, `O` the open-tasks glyph, `D` the done
 
 ## Tasks
 
-1. `Transcript` counts the session's tasks: `Facts::tasks` (`tests/transcript.rs` red first).
+1. `Transcript` counts the session's tasks: `Facts::tasks` (`tests/transcript/tasks.rs` red first).
 2. Cards grow to 4 lines; line 4 holds the subagents (moved from line 3, the new glyph) and the
    tasks (`tests/card/` red first); scroll and group tests follow the height.
 3. The demo shows a card with open tasks and one with all done; screenshots, the `AGENTS.md`
@@ -87,10 +94,11 @@ Drawing line 4, `S` = the subagent glyph, `O` the open-tasks glyph, `D` the done
 `Transcript::read` counts the session's tasks beside its subagents, from the projects folder's
 sibling `tasks/<session id>/`, so `CLAUDE_CONFIG_DIR` needed no new wiring: `Facts::tasks` is
 `Some(Tasks { done, total })` once a `*.json` task file is there, done the `completed` ones,
-total every JSON object, at most 256 files of at most 64 KiB, read afresh each time, before the
-transcript is looked for, since they need only the session id. Claude Code deletes a list's files
-once every task is completed, so a folder left without a task file after a read that saw some
-shows every task done with the last total seen (review round 1). Every card
+total every JSON object, at most 256 files of at most 64 KiB, before the transcript is looked
+for, since they need only the session id. A read counts only when every listed file was read and
+parsed, else the previous fact stays. Claude Code deletes a list's files once every task is
+completed, so an emptied folder shows the list's largest total all done when the last whole read
+had at most one task open, else no task fact (review rounds 1 and 2). Every card
 has 4 lines; line 4 holds the subagents (moved from line 3) and the tasks through the same
 `facts::fitted` as line 3, so it is cut from its end the same way, blank on an ended card. The
 subagent glyph is now `md-family_tree`; the tasks use `md-clipboard_check_outline` while open,
@@ -105,4 +113,5 @@ known limit of the draw thread's reads names the task files. Fragment `kind: fea
 ## Hurdles
 
 - `review-loop` round 1 found the all-done state never shows, since Claude Code deletes a finished list's files; the last total seen is now kept as done → code
+- `design` two review rounds on the cleared-list inference → redesigned as whole reads plus the largest total → code
 - `design` taller cards no longer fit the demo's 26-row shots and two e2e demo screens; every demo shot and those tests grew to fit → code
