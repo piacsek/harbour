@@ -1,4 +1,5 @@
 use std::fs;
+use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime};
 
@@ -89,7 +90,7 @@ fn a_first_read_with_a_file_that_is_not_an_object_has_no_task_fact() {
         "1.json",
         r#"{"id":"1","status":"completed"}"#,
     );
-    task(config.path(), "2.json", "[1, 2]");
+    fresh(&task(config.path(), "2.json", "[1, 2]"));
     let mut transcript = Transcript::new(&projects, ID);
 
     transcript.read();
@@ -173,6 +174,60 @@ fn a_task_list_whose_files_are_all_cleared_shows_every_task_done() {
 }
 
 #[test]
+fn a_new_list_written_as_the_old_one_is_cleared_starts_from_its_own_count() {
+    let config = tempfile::tempdir().unwrap();
+    let projects = config.path().join("projects");
+    let file = transcript_file(&projects, "-home-acme-api");
+    append(&file, r#"{"type":"ai-title","aiTitle":"Many steps"}"#);
+    let files: Vec<PathBuf> = (1..=7)
+        .map(|number| {
+            task(
+                config.path(),
+                &format!("{number}.json"),
+                r#"{"status":"completed"}"#,
+            )
+        })
+        .collect();
+    let mut transcript = Transcript::new(&projects, ID);
+    transcript.read();
+
+    for gone in &files {
+        fs::remove_file(gone).unwrap();
+    }
+    task(config.path(), "8.json", r#"{"status":"pending"}"#);
+    transcript.read();
+
+    assert_eq!(transcript.facts().tasks, Some(Tasks { done: 0, total: 1 }));
+}
+
+#[test]
+fn a_tasks_folder_that_cannot_be_read_keeps_the_previous_count() {
+    let config = tempfile::tempdir().unwrap();
+    let projects = config.path().join("projects");
+    let file = transcript_file(&projects, "-home-acme-api");
+    append(&file, r#"{"type":"ai-title","aiTitle":"Many steps"}"#);
+    task(
+        config.path(),
+        "1.json",
+        r#"{"id":"1","status":"completed"}"#,
+    );
+    task(config.path(), "2.json", r#"{"id":"2","status":"pending"}"#);
+    let mut transcript = Transcript::new(&projects, ID);
+    transcript.read();
+    let folder = config.path().join("tasks").join(ID);
+    fs::set_permissions(&folder, fs::Permissions::from_mode(0o000)).unwrap();
+    if fs::read_dir(&folder).is_ok() {
+        fs::set_permissions(&folder, fs::Permissions::from_mode(0o755)).unwrap();
+        return;
+    }
+
+    transcript.read();
+    fs::set_permissions(&folder, fs::Permissions::from_mode(0o755)).unwrap();
+
+    assert_eq!(transcript.facts().tasks, Some(Tasks { done: 1, total: 2 }));
+}
+
+#[test]
 fn a_new_task_after_a_cleared_list_shows_the_live_count() {
     let config = tempfile::tempdir().unwrap();
     let projects = config.path().join("projects");
@@ -228,7 +283,7 @@ fn a_task_file_over_64_kib_keeps_the_previous_count() {
     transcript.read();
 
     let padded = format!(r#"{{"status":"completed"{}}}"#, " ".repeat(64 * 1024));
-    task(config.path(), "2.json", &padded);
+    fresh(&task(config.path(), "2.json", &padded));
     task(config.path(), "3.json", r#"{"id":"3","status":"pending"}"#);
     transcript.read();
 
@@ -339,7 +394,7 @@ fn a_task_file_caught_mid_rewrite_keeps_the_previous_count() {
     let mut transcript = Transcript::new(&projects, ID);
     transcript.read();
 
-    task(config.path(), "2.json", r#"{"id":"2","sta"#);
+    fresh(&task(config.path(), "2.json", r#"{"id":"2","sta"#));
     transcript.read();
 
     assert_eq!(transcript.facts().tasks, Some(Tasks { done: 1, total: 2 }));
@@ -418,12 +473,7 @@ fn a_broken_task_file_dated_in_the_future_counts_as_open() {
     let file = transcript_file(&projects, "-home-acme-api");
     append(&file, r#"{"type":"ai-title","aiTitle":"Many steps"}"#);
     let broken = task(config.path(), "1.json", r#"{"id":"1","sta"#);
-    fs::File::options()
-        .write(true)
-        .open(broken)
-        .unwrap()
-        .set_modified(SystemTime::now() + Duration::from_secs(60))
-        .unwrap();
+    modified(&broken, SystemTime::now() + Duration::from_secs(60));
     let mut transcript = Transcript::new(&projects, ID);
 
     transcript.read();
@@ -467,10 +517,18 @@ fn task(config: &Path, name: &str, text: &str) -> PathBuf {
 }
 
 fn aged(file: &Path, seconds: u64) {
+    modified(file, SystemTime::now() - Duration::from_secs(seconds));
+}
+
+fn fresh(file: &Path) {
+    modified(file, SystemTime::now());
+}
+
+fn modified(file: &Path, time: SystemTime) {
     fs::File::options()
         .write(true)
         .open(file)
         .unwrap()
-        .set_modified(SystemTime::now() - Duration::from_secs(seconds))
+        .set_modified(time)
         .unwrap();
 }

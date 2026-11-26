@@ -52,6 +52,17 @@ struct List {
     done: BTreeSet<u64>,
 }
 
+impl List {
+    fn replaced_by(&self, present: &BTreeMap<u64, bool>) -> bool {
+        let Some(&first) = present.keys().next() else {
+            return false;
+        };
+        self.seen
+            .last_key_value()
+            .is_none_or(|(&last, _)| first > last)
+    }
+}
+
 enum Listing {
     Missing,
     Partial,
@@ -206,8 +217,8 @@ impl Transcript {
             Listing::Whole(present) => present,
         };
         let list = self.list.get_or_insert_with(List::default);
-        if list.seen.is_empty() && !present.is_empty() {
-            list.done.clear();
+        if list.replaced_by(&present) {
+            *list = List::default();
         }
         let emptied = present.is_empty();
         for (id, completed) in &list.seen {
@@ -340,8 +351,10 @@ fn shown(text: &str) -> String {
 }
 
 fn listing(folder: &Path) -> Listing {
-    let Ok(entries) = fs::read_dir(folder) else {
-        return Listing::Missing;
+    let entries = match fs::read_dir(folder) {
+        Ok(entries) => entries,
+        Err(error) if error.kind() == io::ErrorKind::NotFound => return Listing::Missing,
+        Err(_) => return Listing::Partial,
     };
     let mut files = BTreeMap::new();
     for entry in entries {
@@ -354,13 +367,16 @@ fn listing(folder: &Path) -> Listing {
         match entry.file_type() {
             Ok(kind) if kind.is_file() => {
                 files.insert(id, entry.path());
+                if files.len() > TASK_FILES {
+                    files.pop_last();
+                }
             }
             Ok(_) => {}
             Err(_) => return Listing::Partial,
         }
     }
     let mut present = BTreeMap::new();
-    for (id, path) in files.into_iter().take(TASK_FILES) {
+    for (id, path) in files {
         let completed = match task_completed(&path) {
             Some(completed) => completed,
             None if being_written(&path) => return Listing::Partial,

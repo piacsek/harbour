@@ -12,6 +12,11 @@ removes the class of finding. It opens with the sweep of phases 46 to 49.
   `.highwatermark` (phase 49, read on the owner's machine). The demo writes `1.json` to `7.json`.
 - **Claude Code deletes a list's task files once every task is completed** (phase 49, review
   round 1: 65 of 80 folders on the owner's machine were empty, none held an all-completed list).
+- **Claude Code never reuses a task id** (the orchestrator, on the owner's machine, in review
+  round 1): `.highwatermark` holds the highest id it ever deleted and new ids continue above it.
+  One folder had `.highwatermark` 4 and files 5 to 8 after a list of 1 to 4 was cleared; another
+  `.highwatermark` 35 with 32 to 34 and 36 to 57, after a single task was deleted. Deleting one
+  task while others remain does happen.
 - **`DirEntry::file_type` does not follow a symlink**, so a symlink named `1.json` is not a
   regular file; `File::set_modified` lets a test age a file.
 
@@ -38,8 +43,15 @@ The builder's:
   file dated in the future also counts as open once that distance is 2 s or more, never freezing.
 - A file whose modification time cannot be read (it vanished between the listing and the open)
   counts as under 2 s old: the read is partial, and the next read sees it gone.
-- An id that vanished as done and comes back is not handled: Claude Code never reuses an id
-  (`.highwatermark`).
+- An id that vanished as done and comes back is not handled: Claude Code never reuses an id.
+
+The orchestrator's, in review round 1:
+
+- A read where every id seen before is gone and every present id is above the largest one seen
+  starts a new list, so a list written while the old one is cleared counts from zero.
+- A tasks folder that fails to list for any reason but "not found" (permissions, too many open
+  files) is a partial read, so one failed listing does not drop the list.
+- The listing keeps at most the 256 lowest ids while it walks the folder.
 
 ## States
 
@@ -58,11 +70,15 @@ every 500 ms. "Test" names the test of `tests/transcript/tasks.rs` that pins it.
 | 7 tasks, 2 deleted while open, 5 completed, then cleared (#233) | `5/5`, not `7/7` | `open_tasks_deleted_before_the_list_is_cleared_leave_its_total` |
 | a read in the middle of clearing 7 completed tasks (3 left), then none | `7/7`, then `7/7`, never `3/3` | `a_list_read_halfway_through_its_clearing_shows_every_task_done` |
 | a task file after an emptied folder | a new list, the live count | `a_new_task_after_a_cleared_list_shows_the_live_count` |
+| 1 to 7 completed, then between two reads all deleted and `8.json` written | a new list, `0/1`, not `7/8` | `a_new_list_written_as_the_old_one_is_cleared_starts_from_its_own_count` |
+| an id reused after it vanished | never: Claude Code keeps a high-water mark | none |
+| every open task deleted between two reads and the folder emptied | every task done, green | none: a known limit, since two tasks completed between reads (#233) is the likelier case |
 | `T` removed while the session runs | no task fact at the next read | `a_tasks_folder_removed_while_the_session_runs_drops_the_task_fact` |
+| `T` unreadable (permissions, too many open files) | the previous fact stays; none on a first read | `a_tasks_folder_that_cannot_be_read_keeps_the_previous_count` |
 | the transcript lost | the tasks still read | `the_tasks_are_still_read_while_the_transcript_is_lost` |
 | a stray `notes.json` beside the tasks (#233) | not counted | `a_file_not_named_by_a_number_is_not_a_task` |
 | a directory named `1.json` (#233) | not counted, the count is not frozen | `a_directory_named_like_a_task_is_not_a_task` |
-| a task file mid-rewrite, under 2 s old | the previous fact stays | `a_task_file_caught_mid_rewrite_keeps_the_previous_count` |
+| a task file mid-rewrite, under 2 s old (the tests set its time to now) | the previous fact stays | `a_task_file_caught_mid_rewrite_keeps_the_previous_count` |
 | a task file over 64 KiB, under 2 s old | the previous fact stays | `a_task_file_over_64_kib_keeps_the_previous_count` |
 | a task file over 64 KiB, 2 s old or more (#233) | counted as open | `a_task_file_over_64_kib_for_two_seconds_counts_as_open` |
 | a task file that is not an object, under 2 s old, on a first read | no task fact | `a_first_read_with_a_file_that_is_not_an_object_has_no_task_fact` |
@@ -125,6 +141,16 @@ or changed: eight red first, and the future-dated one, green on its first run, s
 breaking the age check, then restored; the 256-file test became the sorted one, and the dangling-symlink
 test was deleted, since the regular-file rule now skips that symlink. `docs/known-limits.md`
 gained the restart and the half-cleared race. Fragment `kind: fix`.
+
+Review round 1 found one should, one fix the pull request made worse and three smaller ones,
+fixed in one ship. A list written in the same read window as the old one is cleared took on the
+old list's done ids (`7/8`): `List::replaced_by` now starts a new list when every present id is
+above the largest seen (red: `7/8` against `0/1`). A tasks folder that cannot be listed for any
+reason but "not found" is a partial read, not a missing folder (red: no task fact against
+`1/2`, with the folder at mode 000; the test returns early where the mode does not stop the
+listing, as under root). The listing trims its map to the 256 lowest ids as it walks the folder.
+The tests of a broken file under 2 s old set its time to now. The reused-id finding was dropped
+on the high-water-mark fact; deleting every open task before the folder empties is a known limit.
 
 ## Hurdles
 
