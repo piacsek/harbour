@@ -5,6 +5,7 @@ use std::time::{Duration, SystemTime};
 
 use harbour::transcript::{Tasks, Transcript};
 
+use crate::timing::deadline;
 use crate::{ID, append, transcript_file};
 
 #[test]
@@ -91,7 +92,7 @@ fn a_first_read_with_a_file_that_is_not_an_object_has_no_task_fact() {
         r#"{"id":"1","status":"completed"}"#,
     );
     fresh(&task(config.path(), "2.json", "[1, 2]"));
-    let mut transcript = Transcript::new(&projects, ID);
+    let mut transcript = Transcript::new(&projects, ID).with_writing(5 * deadline());
 
     transcript.read();
 
@@ -218,6 +219,7 @@ fn a_tasks_folder_that_cannot_be_read_keeps_the_previous_count() {
     fs::set_permissions(&folder, fs::Permissions::from_mode(0o000)).unwrap();
     if fs::read_dir(&folder).is_ok() {
         fs::set_permissions(&folder, fs::Permissions::from_mode(0o755)).unwrap();
+        eprintln!("skipped: mode 000 does not stop this process listing the tasks folder");
         return;
     }
 
@@ -225,6 +227,94 @@ fn a_tasks_folder_that_cannot_be_read_keeps_the_previous_count() {
     fs::set_permissions(&folder, fs::Permissions::from_mode(0o755)).unwrap();
 
     assert_eq!(transcript.facts().tasks, Some(Tasks { done: 1, total: 2 }));
+}
+
+#[test]
+fn an_old_task_file_that_cannot_be_opened_keeps_the_previous_count() {
+    let config = tempfile::tempdir().unwrap();
+    let projects = config.path().join("projects");
+    let file = transcript_file(&projects, "-home-acme-api");
+    append(&file, r#"{"type":"ai-title","aiTitle":"Many steps"}"#);
+    task(
+        config.path(),
+        "1.json",
+        r#"{"id":"1","status":"completed"}"#,
+    );
+    let locked = task(
+        config.path(),
+        "2.json",
+        r#"{"id":"2","status":"completed"}"#,
+    );
+    aged(&locked, 2);
+    let mut transcript = Transcript::new(&projects, ID);
+    transcript.read();
+    fs::set_permissions(&locked, fs::Permissions::from_mode(0o000)).unwrap();
+    if fs::File::open(&locked).is_ok() {
+        fs::set_permissions(&locked, fs::Permissions::from_mode(0o644)).unwrap();
+        eprintln!("skipped: mode 000 does not stop this process opening a task file");
+        return;
+    }
+
+    transcript.read();
+    fs::set_permissions(&locked, fs::Permissions::from_mode(0o644)).unwrap();
+
+    assert_eq!(transcript.facts().tasks, Some(Tasks { done: 2, total: 2 }));
+}
+
+#[test]
+fn ids_past_the_256_kept_still_tell_a_list_from_a_new_one() {
+    let config = tempfile::tempdir().unwrap();
+    let projects = config.path().join("projects");
+    let file = transcript_file(&projects, "-home-acme-api");
+    append(&file, r#"{"type":"ai-title","aiTitle":"Many steps"}"#);
+    let files: Vec<PathBuf> = (1..=300)
+        .map(|number| {
+            task(
+                config.path(),
+                &format!("{number}.json"),
+                r#"{"status":"completed"}"#,
+            )
+        })
+        .collect();
+    let mut transcript = Transcript::new(&projects, ID);
+    transcript.read();
+
+    for gone in &files[..256] {
+        fs::remove_file(gone).unwrap();
+    }
+    transcript.read();
+
+    assert_eq!(
+        transcript.facts().tasks,
+        Some(Tasks {
+            done: 300,
+            total: 300
+        })
+    );
+}
+
+#[test]
+fn a_higher_id_after_the_last_open_task_is_deleted_starts_a_new_list() {
+    let config = tempfile::tempdir().unwrap();
+    let projects = config.path().join("projects");
+    let file = transcript_file(&projects, "-home-acme-api");
+    append(&file, r#"{"type":"ai-title","aiTitle":"Many steps"}"#);
+    let open = task(config.path(), "1.json", r#"{"status":"pending"}"#);
+    let second = task(config.path(), "2.json", r#"{"status":"completed"}"#);
+    let third = task(config.path(), "3.json", r#"{"status":"completed"}"#);
+    let mut transcript = Transcript::new(&projects, ID);
+    transcript.read();
+    fs::remove_file(second).unwrap();
+    fs::remove_file(third).unwrap();
+    transcript.read();
+    let before = transcript.facts().tasks;
+
+    fs::remove_file(open).unwrap();
+    task(config.path(), "4.json", r#"{"status":"pending"}"#);
+    transcript.read();
+
+    assert_eq!(before, Some(Tasks { done: 2, total: 3 }));
+    assert_eq!(transcript.facts().tasks, Some(Tasks { done: 0, total: 1 }));
 }
 
 #[test]
@@ -279,7 +369,7 @@ fn a_task_file_over_64_kib_keeps_the_previous_count() {
     let file = transcript_file(&projects, "-home-acme-api");
     append(&file, r#"{"type":"ai-title","aiTitle":"Many steps"}"#);
     task(config.path(), "1.json", r#"{"id":"1","status":"pending"}"#);
-    let mut transcript = Transcript::new(&projects, ID);
+    let mut transcript = Transcript::new(&projects, ID).with_writing(5 * deadline());
     transcript.read();
 
     let padded = format!(r#"{{"status":"completed"{}}}"#, " ".repeat(64 * 1024));
@@ -391,7 +481,7 @@ fn a_task_file_caught_mid_rewrite_keeps_the_previous_count() {
         r#"{"id":"1","status":"completed"}"#,
     );
     task(config.path(), "2.json", r#"{"id":"2","status":"pending"}"#);
-    let mut transcript = Transcript::new(&projects, ID);
+    let mut transcript = Transcript::new(&projects, ID).with_writing(5 * deadline());
     transcript.read();
 
     fresh(&task(config.path(), "2.json", r#"{"id":"2","sta"#));

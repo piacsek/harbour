@@ -53,6 +53,15 @@ The orchestrator's, in review round 1:
   files) is a partial read, so one failed listing does not drop the list.
 - The listing keeps at most the 256 lowest ids while it walks the folder.
 
+The orchestrator's, in review round 2:
+
+- A new list is told by the largest id the list ever listed (present, vanished as done, and past
+  the 256 kept), not by the largest of the last read's 256.
+- Only a content failure (not JSON, not an object, over 64 KiB) counts as open after the window;
+  an error opening or reading a task file is a partial read, like the folder's listing.
+- The write window is a seam, `Transcript::with_writing`, 2 s by default; the tests of a file
+  under the window give it `5 * deadline()`.
+
 ## States
 
 `T` = `<config dir>/tasks/<session id>/`. Every row reads `T` on the draw thread's read, at most
@@ -72,7 +81,10 @@ every 500 ms. "Test" names the test of `tests/transcript/tasks.rs` that pins it.
 | a task file after an emptied folder | a new list, the live count | `a_new_task_after_a_cleared_list_shows_the_live_count` |
 | 1 to 7 completed, then between two reads all deleted and `8.json` written | a new list, `0/1`, not `7/8` | `a_new_list_written_as_the_old_one_is_cleared_starts_from_its_own_count` |
 | an id reused after it vanished | never: Claude Code keeps a high-water mark | none |
-| every open task deleted between two reads and the folder emptied | every task done, green | none: a known limit, since two tasks completed between reads (#233) is the likelier case |
+| 300 tasks completed, the lowest 256 deleted in one read window | still one list, `300/300` | `ids_past_the_256_kept_still_tell_a_list_from_a_new_one` |
+| one open task and two done ones vanished, then the open one deleted and `4.json` written in one read window | a new list, `0/1`: 4 is above every id listed | `a_higher_id_after_the_last_open_task_is_deleted_starts_a_new_list` |
+| an old task file that cannot be opened (mode 000) | the previous fact stays | `an_old_task_file_that_cannot_be_opened_keeps_the_previous_count` |
+| a list abandoned by deleting its last open tasks, one at a time or at once, leaving the folder empty | every task done, green | none: a known limit, since two tasks completed between reads (#233) is the likelier case |
 | `T` removed while the session runs | no task fact at the next read | `a_tasks_folder_removed_while_the_session_runs_drops_the_task_fact` |
 | `T` unreadable (permissions, too many open files) | the previous fact stays; none on a first read | `a_tasks_folder_that_cannot_be_read_keeps_the_previous_count` |
 | the transcript lost | the tasks still read | `the_tasks_are_still_read_while_the_transcript_is_lost` |
@@ -151,6 +163,18 @@ reason but "not found" is a partial read, not a missing folder (red: no task fac
 listing, as under root). The listing trims its map to the 256 lowest ids as it walks the folder.
 The tests of a broken file under 2 s old set its time to now. The reused-id finding was dropped
 on the high-water-mark fact; deleting every open task before the folder empties is a known limit.
+
+Review round 2 found three fixes, made in one ship. `List` keeps `largest`, the largest id it
+ever listed, past the 256 kept, and `replaced_by` compares against it (red: `44/44` against
+`300/300` when the lowest 256 of 300 completed tasks vanish in one window). The round's own
+example (an open task deleted and `4.json` written while 2 and 3 are done) still starts a new
+list under that rule, since 4 is above every id listed; it is pinned as `0/1`, green on its first
+run, shown red (`2/3`) by never replacing a list, then restored. An error opening or reading a
+task file is now a partial read; only a content failure counts as open after the window (red:
+`1/2` against `2/2` with an old file at mode 000). The write window became the seam
+`with_writing`, on `SEAMS`, and the three tests of a file under it give it `5 * deadline()` (red:
+the method did not exist). Both mode-000 tests print why when they skip. The known limit names a
+list abandoned by deleting its last open tasks.
 
 ## Hurdles
 

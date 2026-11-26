@@ -165,6 +165,7 @@ good; a finding on one still counts as must when it shows new impact.
   a harbour started after Claude Code cleared a session's finished task list shows no task fact
   for that session until a new list starts; a task that completes and is deleted between two
   reads (500 ms apart) while other task files are still there counts as a deleted task and leaves
-  the total, so a list cleared in that instant can show `2/2` for three tasks; and every open
-  task deleted between two reads with the folder emptied shows all done, green
+  the total, so a list cleared in that instant can show `2/2` for three tasks; and a list
+  abandoned by deleting its last open tasks (Claude Code removes a deleted task's file), one at a
+  time or all at once, leaves an emptied folder that shows every task done, green
   (`plans/phase-50-task-count-edges.md`).
