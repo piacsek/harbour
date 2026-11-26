@@ -220,7 +220,7 @@ fn a_stopped_card_left_alone_longer_than_the_tidy_variable_is_gone_at_start() {
 #[ignore]
 fn the_demo_shows_a_stopped_session_it_remembers() {
     let home = tempfile::tempdir().unwrap();
-    let server = Server::start("demo-stopped", 160, 30);
+    let server = Server::start("demo-stopped", 160, 36);
 
     server.run(home.path(), &[], &["--demo"]);
 

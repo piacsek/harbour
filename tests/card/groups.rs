@@ -13,7 +13,7 @@ use crate::{idle, row};
 
 #[test]
 fn a_group_draws_its_repository_and_a_rule_above_its_first_card() {
-    let rows = drawn(&[idle().in_group(true), idle().in_group(false)], 1, 30, 9);
+    let rows = drawn(&[idle().in_group(true), idle().in_group(false)], 1, 30, 11);
 
     assert_eq!(rows[0], format!("  acme-api {}", "─".repeat(19)));
     assert_eq!(rows[1], "  ○ acme-api 1              3m");
@@ -21,26 +21,26 @@ fn a_group_draws_its_repository_and_a_rule_above_its_first_card() {
 
 #[test]
 fn the_cards_of_a_group_keep_a_blank_line_between_them() {
-    let rows = drawn(&[idle().in_group(true), idle().in_group(false)], 1, 30, 9);
+    let rows = drawn(&[idle().in_group(true), idle().in_group(false)], 1, 30, 11);
 
-    assert_eq!(rows[4], "");
-    assert_eq!(rows[5], "▌ ○ acme-api 1              3m");
+    assert_eq!(rows[5], "");
+    assert_eq!(rows[6], "▌ ○ acme-api 1              3m");
 }
 
 #[test]
 fn a_card_after_a_group_starts_after_the_blank_line() {
     let cards = [idle().in_group(true), idle().in_group(false), other()];
 
-    let rows = drawn(&cards, 2, 30, 13);
+    let rows = drawn(&cards, 2, 30, 15);
 
-    assert_eq!(rows[8], "");
-    assert_eq!(rows[9], "▌ ○ acme-web 1              3m");
-    assert_eq!(rows[11], "▌   acme-web");
+    assert_eq!(rows[10], "");
+    assert_eq!(rows[11], "▌ ○ acme-web 1              3m");
+    assert_eq!(rows[13], "▌   acme-web");
 }
 
 #[test]
 fn the_header_is_dimmed() {
-    let buffer = buffer(&[idle().in_group(true), idle().in_group(false)], 1, 30, 9);
+    let buffer = buffer(&[idle().in_group(true), idle().in_group(false)], 1, 30, 11);
 
     assert!(buffer[(2, 0)].modifier.contains(Modifier::DIM));
     assert!(buffer[(12, 0)].modifier.contains(Modifier::DIM));
@@ -48,7 +48,7 @@ fn the_header_is_dimmed() {
 
 #[test]
 fn the_header_is_never_drawn_as_selected() {
-    let buffer = buffer(&[idle().in_group(true), idle().in_group(false)], 0, 30, 9);
+    let buffer = buffer(&[idle().in_group(true), idle().in_group(false)], 0, 30, 11);
 
     assert_eq!(
         row(&buffer, 0, 30),
@@ -61,16 +61,16 @@ fn the_header_is_never_drawn_as_selected() {
 fn a_card_in_a_group_drops_the_repository_from_its_third_line() {
     let cards = [branched("fix-login").in_group(true), idle().in_group(false)];
 
-    let rows = drawn(&cards, 1, 30, 9);
+    let rows = drawn(&cards, 1, 30, 11);
 
     assert_eq!(rows[3], "    fix-login");
 }
 
 #[test]
 fn a_card_in_a_group_with_no_branch_has_an_empty_third_line() {
-    let rows = drawn(&[idle().in_group(true), idle().in_group(false)], 0, 30, 9);
+    let rows = drawn(&[idle().in_group(true), idle().in_group(false)], 0, 30, 11);
 
-    assert_eq!(rows[7], "");
+    assert_eq!(rows[8], "");
 }
 
 #[test]
@@ -80,7 +80,7 @@ fn with_icons_a_card_in_a_group_keeps_its_branch_glyph_and_no_repository_glyph()
         idle().in_group(false),
     ];
 
-    let rows = drawn(&cards, 1, 30, 9);
+    let rows = drawn(&cards, 1, 30, 11);
 
     assert_eq!(rows[3], format!("    {BRANCH} fix-login"));
 }
@@ -92,7 +92,7 @@ fn at_the_narrowest_sidebar_a_long_name_is_cut_and_shows_no_rule() {
         idle().in_group(false),
     ];
 
-    let rows = drawn(&cards, 1, 13, 9);
+    let rows = drawn(&cards, 1, 13, 11);
 
     assert_eq!(rows[0], "  acme-platf…");
 }
@@ -101,14 +101,14 @@ fn at_the_narrowest_sidebar_a_long_name_is_cut_and_shows_no_rule() {
 fn at_the_narrowest_sidebar_a_name_that_leaves_no_column_after_its_space_shows_no_rule() {
     let cards = [named("acme-infra").in_group(true), idle().in_group(false)];
 
-    let rows = drawn(&cards, 1, 13, 9);
+    let rows = drawn(&cards, 1, 13, 11);
 
     assert_eq!(rows[0], "  acme-infra");
 }
 
 #[test]
 fn at_the_narrowest_sidebar_a_short_name_keeps_the_rule_to_the_edge() {
-    let rows = drawn(&[idle().in_group(true), idle().in_group(false)], 1, 13, 9);
+    let rows = drawn(&[idle().in_group(true), idle().in_group(false)], 1, 13, 11);
 
     assert_eq!(rows[0], "  acme-api ──");
 }
@@ -120,7 +120,7 @@ fn a_cjk_name_at_the_narrowest_sidebar_is_cut_between_wide_characters() {
         idle().in_group(false),
     ];
 
-    let rows = drawn(&cards, 1, 13, 9);
+    let rows = drawn(&cards, 1, 13, 11);
 
     assert_eq!(rows[0], "  東京リポジ…");
 }
@@ -129,7 +129,7 @@ fn a_cjk_name_at_the_narrowest_sidebar_is_cut_between_wide_characters() {
 fn a_short_cjk_name_keeps_the_rule_to_the_edge_by_columns() {
     let cards = [named("東京リポ").in_group(true), idle().in_group(false)];
 
-    let rows = drawn(&cards, 1, 13, 9);
+    let rows = drawn(&cards, 1, 13, 11);
 
     assert_eq!(rows[0], "  東京リポ ──");
 }
@@ -138,9 +138,9 @@ fn a_short_cjk_name_keeps_the_rule_to_the_edge_by_columns() {
 fn scrolling_up_to_a_groups_first_card_shows_its_header() {
     let cards = [other(), idle().in_group(true), idle().in_group(false)];
     let mut sidebar = Sidebar::default();
-    scrolled(&mut sidebar, &cards, 2, 4);
+    scrolled(&mut sidebar, &cards, 2, 5);
 
-    let rows = scrolled(&mut sidebar, &cards, 1, 4);
+    let rows = scrolled(&mut sidebar, &cards, 1, 5);
 
     assert_eq!(rows[0], format!("  acme-api {}", "─".repeat(19)));
     assert_eq!(rows[1], "▌ ○ acme-api 1              3m");
@@ -150,9 +150,9 @@ fn scrolling_up_to_a_groups_first_card_shows_its_header() {
 fn scrolling_down_to_a_groups_first_card_shows_its_header() {
     let cards = [other(), idle().in_group(true), idle().in_group(false)];
     let mut sidebar = Sidebar::default();
-    scrolled(&mut sidebar, &cards, 0, 4);
+    scrolled(&mut sidebar, &cards, 0, 5);
 
-    let rows = scrolled(&mut sidebar, &cards, 1, 4);
+    let rows = scrolled(&mut sidebar, &cards, 1, 5);
 
     assert_eq!(rows[0], format!("  acme-api {}", "─".repeat(19)));
     assert_eq!(rows[1], "▌ ○ acme-api 1              3m");
@@ -162,9 +162,9 @@ fn scrolling_down_to_a_groups_first_card_shows_its_header() {
 fn a_sidebar_too_short_for_the_header_keeps_the_selected_card_whole() {
     let cards = [other(), idle().in_group(true), idle().in_group(false)];
     let mut sidebar = Sidebar::default();
-    scrolled(&mut sidebar, &cards, 2, 3);
+    scrolled(&mut sidebar, &cards, 2, 4);
 
-    let rows = scrolled(&mut sidebar, &cards, 1, 3);
+    let rows = scrolled(&mut sidebar, &cards, 1, 4);
 
     assert_eq!(rows[0], "▌ ○ acme-api 1              3m");
 }
@@ -173,9 +173,9 @@ fn a_sidebar_too_short_for_the_header_keeps_the_selected_card_whole() {
 fn a_header_with_no_room_for_its_first_card_below_it_is_not_drawn() {
     let cards = [other(), idle().in_group(true), idle().in_group(false)];
 
-    let rows = drawn(&cards, 0, 30, 5);
+    let rows = drawn(&cards, 0, 30, 6);
 
-    assert_eq!(rows[4], "");
+    assert_eq!(rows[5], "");
 }
 
 fn drawn(cards: &[Card], selected: usize, width: u16, height: u16) -> Vec<String> {

@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use harbour::card::{Card, Ended, Sidebar, age};
-use harbour::icons::{BRANCH, PULL_REQUEST, REPOSITORY, SUBAGENTS};
+use harbour::icons::{BRANCH, PULL_REQUEST, REPOSITORY};
 use harbour::registry::{Record, Status};
 use harbour::repo::Place;
 use harbour::text::columns;
@@ -10,6 +10,7 @@ use ratatui::buffer::{Buffer, Cell};
 use ratatui::layout::Rect;
 use ratatui::style::{Color, Modifier};
 
+mod activity;
 mod colours;
 mod groups;
 mod titles;
@@ -137,8 +138,8 @@ fn a_card_below_starts_on_the_same_row_whichever_card_above_is_selected() {
     let (above, _) = sidebar(&[working("fix the retry"), idle()], 0, 40);
     let (below, _) = sidebar(&[working("fix the retry"), idle()], 1, 40);
 
-    assert_eq!(above[4], "  ○ acme-api 1                        3m");
-    assert_eq!(below[4], "▌ ○ acme-api 1                        3m");
+    assert_eq!(above[5], "  ○ acme-api 1                        3m");
+    assert_eq!(below[5], "▌ ○ acme-api 1                        3m");
 }
 
 #[test]
@@ -179,36 +180,12 @@ fn with_icons_the_pull_request_gets_its_glyph_instead_of_a_dot() {
 }
 
 #[test]
-fn with_icons_the_subagents_show_as_a_glyph_and_their_count() {
-    let line = third(card(Status::Busy, None, &subagents(2)).with_icons(), 40);
-
-    assert_eq!(line, format!("    {REPOSITORY} acme-api {SUBAGENTS} 2"));
-}
-
-#[test]
-fn with_icons_one_subagent_shows_as_a_glyph_and_one() {
-    let line = third(card(Status::Busy, None, &subagents(1)).with_icons(), 40);
-
-    assert_eq!(line, format!("    {REPOSITORY} acme-api {SUBAGENTS} 1"));
-}
-
-#[test]
-fn with_icons_all_four_facts_show_each_behind_its_glyph() {
-    let line = third(every_fact(&place()), 40);
-
-    assert_eq!(
-        line,
-        format!("    {REPOSITORY} acme-api {BRANCH} fix-retry {PULL_REQUEST} #40 {SUBAGENTS} 2")
-    );
-}
-
-#[test]
 fn with_icons_a_glyph_never_shows_without_a_column_of_its_text() {
-    let line = third(every_fact(&place()), 35);
+    let line = third(every_fact(&place()), 30);
 
     assert_eq!(
         line,
-        format!("    {REPOSITORY} acme-api {BRANCH} fix-retry {PULL_REQUEST} #40 …")
+        format!("    {REPOSITORY} acme-api {BRANCH} fix-retry …")
     );
 }
 
@@ -241,38 +218,6 @@ fn with_icons_a_cjk_repository_at_the_narrowest_sidebar_drops_a_branch_glyph_wit
     let line = third(every_fact(&place), 20);
 
     assert_eq!(line, format!("    {REPOSITORY} 日本語-acme …"));
-}
-
-#[test]
-fn with_icons_an_exited_card_shows_no_subagents() {
-    let card = Card::new(
-        "acme-api 1",
-        Some(Ended::Exited(" 1".to_string())),
-        None,
-        &place(),
-        Some(Duration::from_secs(180)),
-        Some(&subagents(2)),
-    );
-
-    let line = third(card.with_icons(), 40);
-
-    assert_eq!(line, format!("    {REPOSITORY} acme-api"));
-}
-
-#[test]
-fn with_icons_a_stopped_card_shows_no_subagents() {
-    let card = Card::new(
-        "acme-api 1",
-        Some(Ended::Stopped("directory gone")),
-        None,
-        &place(),
-        None,
-        Some(&subagents(2)),
-    );
-
-    let line = third(card.with_icons(), 40);
-
-    assert_eq!(line, format!("    {REPOSITORY} acme-api"));
 }
 
 fn drawn(facts: &Facts, width: u16) -> Vec<String> {
@@ -313,10 +258,10 @@ fn row(buffer: &Buffer, y: u16, width: u16) -> String {
 }
 
 fn sidebar(cards: &[Card], selected: usize, width: u16) -> (Vec<String>, Buffer) {
-    let area = Rect::new(0, 0, width, 7);
+    let area = Rect::new(0, 0, width, 9);
     let mut buffer = Buffer::empty(area);
     Sidebar::default().draw(cards, selected, Color::Cyan, area, &mut buffer);
-    let rows = (0..7).map(|y| row(&buffer, y, width)).collect();
+    let rows = (0..9).map(|y| row(&buffer, y, width)).collect();
     (rows, buffer)
 }
 
@@ -404,13 +349,6 @@ fn third(card: Card, width: u16) -> String {
     let mut buffer = Buffer::empty(area);
     Sidebar::default().draw(&[card], 1, Color::Cyan, area, &mut buffer);
     row(&buffer, 2, width)
-}
-
-fn subagents(count: usize) -> Facts {
-    Facts {
-        subagents: count,
-        ..Facts::default()
-    }
 }
 
 fn every_fact(place: &Place) -> Card {

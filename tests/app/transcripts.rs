@@ -285,7 +285,7 @@ fn an_exited_session_keeps_its_title() {
 }
 
 #[test]
-fn the_third_line_counts_the_subagents_still_running() {
+fn the_fourth_line_counts_the_subagents_still_running() {
     let claude = Claude::new();
     let repository = claude.repository("acme-api", "main");
     claude.transcript(
@@ -298,13 +298,37 @@ fn the_third_line_counts_the_subagents_still_running() {
     claude.subagent(ID, "agent-a1", r#"{"agentType":"Explore"}"#);
     let mut screen = claude.screen("busy", ID);
     screen.press('n');
-    let before = screen.wait_for("acme-api · main · 1 subagent");
-    assert!(before.contains("acme-api · main · 1 subagent"), "{before}");
+    let before = screen.wait_for("1 subagent");
+    assert_eq!(below(&before, "acme-api · main"), "1 subagent", "{before}");
 
     claude.subagent(ID, "agent-a2", r#"{"agentType":"Plan"}"#);
 
-    let shown = screen.wait_for("acme-api · main · 2 subagents");
-    assert!(shown.contains("acme-api · main · 2 subagents"), "{shown}");
+    let shown = screen.wait_for("2 subagents");
+    assert_eq!(below(&shown, "acme-api · main"), "2 subagents", "{shown}");
+}
+
+#[test]
+fn the_fourth_line_counts_the_tasks_done_in_the_claude_config() {
+    let claude = Claude::new();
+    let repository = claude.repository("acme-api", "main");
+    claude.transcript(
+        ID,
+        &format!(
+            r#"{{"type":"user","cwd":"{}","message":{{}}}}"#,
+            repository.display()
+        ),
+    );
+    claude.task(ID, "1.json", r#"{"id":"1","status":"completed"}"#);
+    claude.task(ID, "2.json", r#"{"id":"2","status":"pending"}"#);
+    let mut screen = claude.screen("busy", ID);
+    screen.press('n');
+    let before = screen.wait_for("tasks 1/2");
+    assert_eq!(below(&before, "acme-api · main"), "tasks 1/2", "{before}");
+
+    claude.task(ID, "2.json", r#"{"id":"2","status":"completed"}"#);
+
+    let shown = screen.wait_for("tasks 2/2");
+    assert_eq!(below(&shown, "acme-api · main"), "tasks 2/2", "{shown}");
 }
 
 #[test]
@@ -355,6 +379,12 @@ impl Claude {
             .unwrap()
             .write_all(format!("{line}\n").as_bytes())
             .unwrap();
+    }
+
+    fn task(&self, id: &str, name: &str, text: &str) {
+        let folder = self.config.path().join(format!("tasks/{id}"));
+        fs::create_dir_all(&folder).unwrap();
+        fs::write(folder.join(name), text).unwrap();
     }
 
     fn subagent(&self, id: &str, name: &str, meta: &str) {

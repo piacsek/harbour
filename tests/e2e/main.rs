@@ -323,14 +323,15 @@ fn the_demo_shows_a_made_up_session_in_each_state() {
     let git = home.path().join("acme-api").join(".git");
     std::fs::create_dir_all(&git).unwrap();
     std::fs::write(git.join("HEAD"), "ref: refs/heads/acme-local-branch\n").unwrap();
-    let server = Server::start("demo", 160, 26);
+    let server = Server::start("demo", 160, 34);
 
     server.run(home.path(), &[], &["--demo"]);
 
     let rows = [
         " sessions ● 1 ◉ 1 ○ 2 · 1 ",
         "● Fix the flaky retry test",
-        "fix-retry · #128 · 2 subagents",
+        "fix-retry · #128",
+        "2 subagents",
         "◉ Publish the acme-api crate",
         "permission prompt",
         "○ Bump acme-web to the new client",
@@ -358,6 +359,7 @@ fn the_demo_shows_a_made_up_session_in_each_state() {
     assert!(screen.contains(rows[11]), "{screen}");
     assert!(screen.contains(rows[12]), "{screen}");
     assert!(screen.contains(rows[13]), "{screen}");
+    assert!(screen.contains(rows[14]), "{screen}");
     assert!(!screen.contains("acme-local-branch"), "{screen}");
 }
 
