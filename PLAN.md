@@ -54,7 +54,8 @@ file under `plans/`; its time and tokens are a row of [`plans/metrics.md`](plans
 | 44 | [group the cards of one repository](plans/phase-44-group-by-repository.md) | [v0.39.0](https://github.com/piacsek/harbour/releases/tag/v0.39.0) |
 | 45 | [old ended cards tidy themselves away](plans/phase-45-tidy-ended-cards.md), with the sweep of phases 41 to 44 | [v0.40.0](https://github.com/piacsek/harbour/releases/tag/v0.40.0) |
 | 46 | [Ctrl may stay held for the key after the prefix](plans/phase-46-ctrl-held-after-prefix.md) | [v0.41.0](https://github.com/piacsek/harbour/releases/tag/v0.41.0) |
-| 47 | [choose where the editor opens](plans/phase-47-editor-dir.md) | |
+| 47 | [choose where the editor opens](plans/phase-47-editor-dir.md) | [v0.42.0](https://github.com/piacsek/harbour/releases/tag/v0.42.0) |
+| 48 | [the zoomed top row shows the repository and branch in their card colours](plans/phase-48-zoom-fact-colours.md) | |
 
 ## Backlog
 

@@ -1,13 +1,36 @@
+use ratatui::style::Modifier;
 use ratatui::text::Span;
 
+use crate::facts::{self, Colors, Kind};
 use crate::state::State;
 use crate::text::{columns, fit};
 
 pub struct Headline {
     pub state: State,
     pub title: String,
-    pub place: String,
+    pub repository: String,
+    pub branch: Option<String>,
     pub age: Option<String>,
+}
+
+impl Headline {
+    pub fn place(&self) -> String {
+        match &self.branch {
+            Some(branch) => format!("{} · {branch}", self.repository),
+            None => self.repository.clone(),
+        }
+    }
+
+    fn parts(&self) -> Vec<(Kind, String)> {
+        [
+            Some((Kind::Repository, self.repository.clone())),
+            self.branch.clone().map(|branch| (Kind::Branch, branch)),
+        ]
+        .into_iter()
+        .flatten()
+        .filter(|(_, text)| !text.is_empty())
+        .collect()
+    }
 }
 
 pub fn guaranteed(headline: &Headline) -> usize {
@@ -15,33 +38,42 @@ pub fn guaranteed(headline: &Headline) -> usize {
     4 + columns(&headline.title).min(16) + aged
 }
 
-pub fn info(headline: &Headline, room: usize) -> Vec<Span<'static>> {
+pub fn info(headline: &Headline, room: usize, colors: &Colors, icons: bool) -> Vec<Span<'static>> {
     if room < 3 {
         return Vec::new();
     }
-    let dot = Span::styled(headline.state.glyph(), headline.state.style());
+    let mut spans = vec![
+        Span::from(" "),
+        Span::styled(headline.state.glyph(), headline.state.style()),
+        Span::from(" "),
+    ];
     let body_room = room.saturating_sub(4);
     if body_room == 0 {
-        return vec![Span::from(" "), dot, Span::from(" ")];
+        return spans;
     }
-    let body = match &headline.age {
+    match &headline.age {
         Some(age) if body_room > columns(age) + 2 => {
-            let named = named(headline, body_room - columns(age) - 2);
-            format!("{named}  {age}")
+            spans.extend(named(headline, body_room - columns(age) - 2, colors, icons));
+            spans.push(Span::from("  "));
+            spans.push(Span::styled(age.clone(), Modifier::DIM));
         }
-        _ => named(headline, body_room),
-    };
-    vec![Span::from(" "), dot, Span::from(format!(" {body} "))]
+        _ => spans.extend(named(headline, body_room, colors, icons)),
+    }
+    spans.push(Span::from(" "));
+    spans
 }
 
-fn named(headline: &Headline, room: usize) -> String {
+fn named(headline: &Headline, room: usize, colors: &Colors, icons: bool) -> Vec<Span<'static>> {
+    let parts = headline.parts();
     if headline.title.is_empty() {
-        return fit(&headline.place, room);
+        return facts::fitted(&parts, icons, colors, room);
     }
     let title = fit(&headline.title, room);
     let left = room.saturating_sub(columns(&title) + 2);
-    if title != headline.title || left < 2 || headline.place.is_empty() {
-        return title;
+    if title != headline.title || left < 2 || parts.is_empty() {
+        return vec![Span::from(title)];
     }
-    format!("{title}  {}", fit(&headline.place, left))
+    let mut spans = vec![Span::from(format!("{title}  "))];
+    spans.extend(facts::fitted(&parts, icons, colors, left));
+    spans
 }

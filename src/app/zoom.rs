@@ -3,7 +3,6 @@ use ratatui::widgets::Block;
 
 use super::App;
 use crate::card::age;
-use crate::repo::Place;
 use crate::state::{self, Counts, State};
 use crate::text::clean;
 use crate::transcript::Transcript;
@@ -55,7 +54,14 @@ impl App {
             .map_or(0, |headline| guaranteed(headline).min(left));
         let names = self.tabs(left - kept).unwrap_or_default();
         let mut spans = headline
-            .map(|headline| info(&headline, left.saturating_sub(names.width())))
+            .map(|headline| {
+                info(
+                    &headline,
+                    left.saturating_sub(names.width()),
+                    &self.colors,
+                    self.nerd_font,
+                )
+            })
             .unwrap_or_default();
         spans.extend(names.spans);
         block
@@ -67,16 +73,16 @@ impl App {
         let entry = self.sessions.get(index)?;
         let facts = entry.transcript.as_ref().map(Transcript::facts);
         let title = self.title_of(index)?;
-        let place = Place {
-            repository: entry.place.repository.clone(),
-            branch: facts
-                .and_then(|facts| facts.branch.clone())
-                .or_else(|| entry.place.branch.clone()),
-        };
+        let branch = facts
+            .and_then(|facts| facts.branch.as_deref())
+            .or(entry.place.branch.as_deref())
+            .map(clean)
+            .filter(|branch| !branch.is_empty());
         Some(Headline {
             state: State::of(entry.ended(), entry.record.as_ref()),
             title,
-            place: clean(&place.to_string()),
+            repository: clean(&entry.place.repository),
+            branch,
             age: entry.elapsed().map(age),
         })
     }

@@ -5,6 +5,7 @@ pub mod config;
 pub mod cursor;
 pub mod demo;
 pub mod editor;
+pub mod facts;
 pub mod finder;
 pub mod follow;
 pub mod group;

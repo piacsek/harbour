@@ -11,8 +11,8 @@ use ratatui::style::Color;
 use serde::Deserialize;
 use toml::{Spanned, Value};
 
-use crate::card::Colors;
 use crate::editor::EditorDir;
+use crate::facts::Colors;
 use crate::icons::ClaudeIcon;
 use crate::keymap::{self, ACTIONS, Action, Keymap};
 use crate::tui::{DIR_PICKER, EDITOR, SESSION_COMMAND};

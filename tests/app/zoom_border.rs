@@ -4,6 +4,8 @@ use std::path::{Path, PathBuf};
 use crossterm::event::{KeyCode, KeyModifiers};
 use harbour::app::App;
 use harbour::editor::Program;
+use harbour::facts::Colors;
+use harbour::icons::{BRANCH, REPOSITORY};
 use harbour::state::State;
 use ratatui::style::Color;
 
@@ -188,6 +190,32 @@ fn the_zoomed_top_row_keeps_the_state_dot_in_its_own_colour() {
     let shown = screen.draw();
     let dot = screen.cell(column_of(&shown, 0, "●"), 0);
     assert_eq!(Some(dot.fg), State::Working.style().fg, "{shown}");
+}
+
+#[test]
+fn the_zoomed_top_row_draws_the_repository_and_branch_in_their_configured_colours() {
+    let claude = Claude::new("Fix the login");
+    let colors = Colors {
+        repository: Color::Green,
+        branch: Color::Yellow,
+        ..Colors::default()
+    };
+    let app = claude.app().with_colors(colors).with_nerd_font();
+    let mut screen = Screen::of(app);
+    started(&mut screen);
+
+    zoom(&mut screen);
+
+    let shown = screen.draw();
+    let top = top(&shown);
+    assert!(
+        in_order(&top, &[REPOSITORY, "acme-api", BRANCH, "main"]),
+        "{top}"
+    );
+    let repository = screen.cell(column_of(&shown, 0, REPOSITORY), 0);
+    assert_eq!(repository.fg, Color::Green, "{shown}");
+    let branch = screen.cell(column_of(&shown, 0, BRANCH), 0);
+    assert_eq!(branch.fg, Color::Yellow, "{shown}");
 }
 
 fn zoom(screen: &mut Screen) {
