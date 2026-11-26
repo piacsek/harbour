@@ -176,6 +176,12 @@ task file is now a partial read; only a content failure counts as open after the
 the method did not exist). Both mode-000 tests print why when they skip. The known limit names a
 list abandoned by deleting its last open tasks.
 
+Review round 3, the last the loop allows, found no must. Its findings (a list started in the
+same read window inheriting the old list's done ids, the mode-000 tests skipping under root) went
+to #237; the drift past 256 tasks, a tasks path that is not a folder and ids with leading zeros
+were dropped as unreachable with Claude Code.
+
 ## Hurdles
 
 - `tooling` restoring `src/transcript.rs` with `mv` from a copy older than the last build left cargo thinking the library fresh, so the restored code ran the broken build and a test failed after the restore; a `touch` fixed it → none
+- `review-loop` the task-list inference drew findings in all three rounds again, after phase 49's three; round 3's went to #237 → backlog
