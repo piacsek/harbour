@@ -110,8 +110,12 @@ files before its transcript so a reader that waits for the transcript sees them;
 grew from 26 to 32 rows so every card still shows, and the `icons` shot gained a task list. The
 known limit of the draw thread's reads names the task files. Fragment `kind: feat`.
 
+The review loop ended at the 3-round limit with no must left. Round 3's findings, all edge
+states of the cleared-list and partial-read rule, went to #233.
+
 ## Hurdles
 
 - `review-loop` round 1 found the all-done state never shows, since Claude Code deletes a finished list's files; the last total seen is now kept as done → code
 - `design` two review rounds on the cleared-list inference → redesigned as whole reads plus the largest total → code
 - `design` taller cards no longer fit the demo's 26-row shots and two e2e demo screens; every demo shot and those tests grew to fit → code
+- `review-loop` the cleared-list inference drew findings in all three rounds; round 3's went to #233 → backlog
