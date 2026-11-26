@@ -31,7 +31,9 @@ tasks are done, `3/7`. Line 3 keeps only the repository, branch and pull request
 - The orchestrator's: green is the fixed `Color::Green`, no new `[colors]` key.
 - The builder's: without icons, the whole `tasks 7/7` is green when all are done, since each
   fact is drawn in one colour; a task file that cannot be read or parsed as an object is left out
-  of both counts; at most 256 task files of at most 64 KiB each are read a time.
+  of both counts; at most 256 task files of at most 64 KiB each are read a time. In review: Claude Code deletes a list's task files once every task is completed (65 of 80
+  folders on the owner's machine were in that state, none held an all-completed list), so the
+  orchestrator decided a list whose files are all gone shows as done with the last total seen.
 
 ## States
 
@@ -40,13 +42,17 @@ Reading the tasks folder, `T` = `<config dir>/tasks/<session id>/`:
 | State | The user sees |
 | --- | --- |
 | `T` missing | no task fact |
-| `T` empty, or only `.lock` and `.highwatermark` | no task fact |
+| `T` empty, or only `.lock` and `.highwatermark`, and no task seen before | no task fact |
+| every task file gone after a read saw some (Claude Code clears them once all are completed) | every task done: the last total seen, `7/7`, green |
+| a new task file after that | the live count again |
 | `T` unreadable (permissions) | no task fact |
 | a task file malformed, not an object, unreadable or over 64 KiB | that file left out of both counts |
 | a task file without `status`, or an unknown one | counted in the total, not done |
 | a file appears or vanishes between two reads | the count follows at the next read, 500 ms later |
 | a file vanishes between the listing and its open | left out of that read's counts |
 | `T` removed while the session runs | the task fact goes at the next read |
+| the transcript lost (renamed or removed) | the tasks are still read, since they need only the session id |
+| harbour restarted with `T` already cleared | nothing remembered: no task fact |
 | more than 256 `.json` files | the first 256 listed are counted |
 | `CLAUDE_CONFIG_DIR` set | `T` under it, as the transcript is |
 | the session exited or stopped | no task fact, no subagents: line 4 blank |
@@ -81,7 +87,10 @@ Drawing line 4, `S` = the subagent glyph, `O` the open-tasks glyph, `D` the done
 `Transcript::read` counts the session's tasks beside its subagents, from the projects folder's
 sibling `tasks/<session id>/`, so `CLAUDE_CONFIG_DIR` needed no new wiring: `Facts::tasks` is
 `Some(Tasks { done, total })` once a `*.json` task file is there, done the `completed` ones,
-total every JSON object, at most 256 files of at most 64 KiB, read afresh each time. Every card
+total every JSON object, at most 256 files of at most 64 KiB, read afresh each time, before the
+transcript is looked for, since they need only the session id. Claude Code deletes a list's files
+once every task is completed, so a folder left without a task file after a read that saw some
+shows every task done with the last total seen (review round 1). Every card
 has 4 lines; line 4 holds the subagents (moved from line 3) and the tasks through the same
 `facts::fitted` as line 3, so it is cut from its end the same way, blank on an ended card. The
 subagent glyph is now `md-family_tree`; the tasks use `md-clipboard_check_outline` while open,
@@ -95,4 +104,5 @@ known limit of the draw thread's reads names the task files. Fragment `kind: fea
 
 ## Hurdles
 
+- `review-loop` round 1 found the all-done state never shows, since Claude Code deletes a finished list's files; the last total seen is now kept as done → code
 - `design` taller cards no longer fit the demo's 26-row shots and two e2e demo screens; every demo shot and those tests grew to fit → code

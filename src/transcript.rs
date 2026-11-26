@@ -106,14 +106,11 @@ impl Transcript {
     }
 
     pub fn read(&mut self) {
+        self.facts.tasks = self.tasks();
         let Some(path) = self.found() else {
             return;
         };
         self.facts.subagents = self.running(&path.with_extension("").join("subagents"));
-        self.facts.tasks = self
-            .projects
-            .parent()
-            .and_then(|config| tasks(&config.join("tasks").join(&self.session_id)));
         let Ok(mut file) = File::open(&path) else {
             self.lost();
             return;
@@ -175,6 +172,20 @@ impl Transcript {
             .map(|folder| folder.path().join(&name))
             .find(|path| path.is_file());
         self.path.clone()
+    }
+
+    fn tasks(&self) -> Option<Tasks> {
+        let config = self.projects.parent()?;
+        if !plain(&self.session_id) {
+            return None;
+        }
+        match tasks(&config.join("tasks").join(&self.session_id))? {
+            Tasks { total: 0, .. } => self.facts.tasks.map(|seen| Tasks {
+                done: seen.total,
+                total: seen.total,
+            }),
+            counted => Some(counted),
+        }
     }
 
     fn running(&mut self, folder: &Path) -> usize {
@@ -308,7 +319,7 @@ fn tasks(folder: &Path) -> Option<Tasks> {
             tasks.done += 1;
         }
     }
-    (tasks.total > 0).then_some(tasks)
+    Some(tasks)
 }
 
 fn task_status(path: &Path) -> Option<String> {

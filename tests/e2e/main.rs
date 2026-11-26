@@ -4,6 +4,7 @@ use std::process::Command;
 use std::thread::sleep;
 use std::time::{Duration, Instant};
 
+use harbour::facts::Kind;
 use harbour::tui::{DIR_PICKER, EDITOR, SESSION_COMMAND};
 
 use borders::{
@@ -12,6 +13,8 @@ use borders::{
 
 mod borders;
 mod cards;
+
+use cards::activity;
 mod config;
 mod cursor;
 mod edit;
@@ -327,12 +330,14 @@ fn the_demo_shows_a_made_up_session_in_each_state() {
 
     server.run(home.path(), &[], &["--demo"]);
 
+    let working = activity(&[(Kind::Subagents, "2"), (Kind::Tasks, "3/7")]);
+    let finished = activity(&[(Kind::TasksDone, "4/4")]);
     let rows = [
         " sessions ● 1 ◉ 1 ○ 2 · 1 ",
         "● Fix the flaky retry test",
         "fix-retry · #128",
-        "2 subagents · tasks 3/7",
-        "tasks 4/4",
+        working.as_str(),
+        finished.as_str(),
         "◉ Publish the acme-api crate",
         "permission prompt",
         "○ Bump acme-web to the new client",

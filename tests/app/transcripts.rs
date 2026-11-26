@@ -7,6 +7,7 @@ use std::time::Duration;
 use crossterm::event::{KeyCode, KeyModifiers};
 use harbour::app::App;
 use harbour::editor::Program;
+use harbour::facts::{self, Colors, Kind};
 use ratatui::style::Modifier;
 
 use crate::status::showing;
@@ -298,13 +299,15 @@ fn the_fourth_line_counts_the_subagents_still_running() {
     claude.subagent(ID, "agent-a1", r#"{"agentType":"Explore"}"#);
     let mut screen = claude.screen("busy", ID);
     screen.press('n');
-    let before = screen.wait_for("1 subagent");
-    assert_eq!(below(&before, "acme-api · main"), "1 subagent", "{before}");
+    let one = activity(&[(Kind::Subagents, "1")]);
+    let before = screen.wait_for(&one);
+    assert_eq!(below(&before, "acme-api · main"), one, "{before}");
 
     claude.subagent(ID, "agent-a2", r#"{"agentType":"Plan"}"#);
 
-    let shown = screen.wait_for("2 subagents");
-    assert_eq!(below(&shown, "acme-api · main"), "2 subagents", "{shown}");
+    let two = activity(&[(Kind::Subagents, "2")]);
+    let shown = screen.wait_for(&two);
+    assert_eq!(below(&shown, "acme-api · main"), two, "{shown}");
 }
 
 #[test]
@@ -322,13 +325,15 @@ fn the_fourth_line_counts_the_tasks_done_in_the_claude_config() {
     claude.task(ID, "2.json", r#"{"id":"2","status":"pending"}"#);
     let mut screen = claude.screen("busy", ID);
     screen.press('n');
-    let before = screen.wait_for("tasks 1/2");
-    assert_eq!(below(&before, "acme-api · main"), "tasks 1/2", "{before}");
+    let open = activity(&[(Kind::Tasks, "1/2")]);
+    let before = screen.wait_for(&open);
+    assert_eq!(below(&before, "acme-api · main"), open, "{before}");
 
     claude.task(ID, "2.json", r#"{"id":"2","status":"completed"}"#);
 
-    let shown = screen.wait_for("tasks 2/2");
-    assert_eq!(below(&shown, "acme-api · main"), "tasks 2/2", "{shown}");
+    let done = activity(&[(Kind::TasksDone, "2/2")]);
+    let shown = screen.wait_for(&done);
+    assert_eq!(below(&shown, "acme-api · main"), done, "{shown}");
 }
 
 #[test]
@@ -460,4 +465,15 @@ fn tool(input: &str) -> String {
 
 fn blocked() -> String {
     format!(r#"{{"status":"waiting","waitingFor":"permission prompt","sessionId":"{ID}"}}"#)
+}
+
+fn activity(parts: &[(Kind, &str)]) -> String {
+    let parts: Vec<(Kind, String)> = parts
+        .iter()
+        .map(|(kind, text)| (*kind, text.to_string()))
+        .collect();
+    facts::fitted(&parts, false, &Colors::default(), 80)
+        .iter()
+        .map(|span| span.content.as_ref())
+        .collect()
 }

@@ -501,6 +501,120 @@ fn a_tasks_folder_removed_while_the_session_runs_drops_the_task_fact() {
     assert_eq!(transcript.facts().tasks, None);
 }
 
+#[test]
+fn a_task_list_whose_files_are_all_cleared_shows_every_task_done() {
+    let config = tempfile::tempdir().unwrap();
+    let projects = config.path().join("projects");
+    let file = transcript_file(&projects, "-home-acme-api");
+    append(&file, r#"{"type":"ai-title","aiTitle":"Many steps"}"#);
+    task(config.path(), ".lock", "");
+    let first = task(
+        config.path(),
+        "1.json",
+        r#"{"id":"1","status":"completed"}"#,
+    );
+    let second = task(
+        config.path(),
+        "2.json",
+        r#"{"id":"2","status":"in_progress"}"#,
+    );
+    let mut transcript = Transcript::new(&projects, ID);
+    transcript.read();
+
+    fs::remove_file(first).unwrap();
+    fs::remove_file(second).unwrap();
+    transcript.read();
+
+    assert_eq!(transcript.facts().tasks, Some(Tasks { done: 2, total: 2 }));
+}
+
+#[test]
+fn a_new_task_after_a_cleared_list_shows_the_live_count() {
+    let config = tempfile::tempdir().unwrap();
+    let projects = config.path().join("projects");
+    let file = transcript_file(&projects, "-home-acme-api");
+    append(&file, r#"{"type":"ai-title","aiTitle":"Many steps"}"#);
+    let first = task(
+        config.path(),
+        "1.json",
+        r#"{"id":"1","status":"completed"}"#,
+    );
+    let mut transcript = Transcript::new(&projects, ID);
+    transcript.read();
+    fs::remove_file(first).unwrap();
+    transcript.read();
+
+    task(config.path(), "2.json", r#"{"id":"2","status":"pending"}"#);
+    transcript.read();
+
+    assert_eq!(transcript.facts().tasks, Some(Tasks { done: 0, total: 1 }));
+}
+
+#[test]
+fn the_tasks_are_still_read_while_the_transcript_is_lost() {
+    let config = tempfile::tempdir().unwrap();
+    let projects = config.path().join("projects");
+    let file = transcript_file(&projects, "-home-acme-api");
+    append(&file, r#"{"type":"ai-title","aiTitle":"Many steps"}"#);
+    task(config.path(), "1.json", r#"{"id":"1","status":"pending"}"#);
+    let mut transcript = Transcript::new(&projects, ID);
+    transcript.read();
+    fs::remove_file(&file).unwrap();
+    transcript.read();
+
+    task(
+        config.path(),
+        "1.json",
+        r#"{"id":"1","status":"completed"}"#,
+    );
+    task(config.path(), "2.json", r#"{"id":"2","status":"pending"}"#);
+    transcript.read();
+
+    assert_eq!(transcript.facts().tasks, Some(Tasks { done: 1, total: 2 }));
+}
+
+#[test]
+fn at_most_256_task_files_are_counted() {
+    let config = tempfile::tempdir().unwrap();
+    let projects = config.path().join("projects");
+    let file = transcript_file(&projects, "-home-acme-api");
+    append(&file, r#"{"type":"ai-title","aiTitle":"Many steps"}"#);
+    for number in 1..=257 {
+        task(
+            config.path(),
+            &format!("{number}.json"),
+            r#"{"status":"pending"}"#,
+        );
+    }
+    let mut transcript = Transcript::new(&projects, ID);
+
+    transcript.read();
+
+    assert_eq!(
+        transcript.facts().tasks,
+        Some(Tasks {
+            done: 0,
+            total: 256
+        })
+    );
+}
+
+#[test]
+fn a_task_file_over_64_kib_is_left_out() {
+    let config = tempfile::tempdir().unwrap();
+    let projects = config.path().join("projects");
+    let file = transcript_file(&projects, "-home-acme-api");
+    append(&file, r#"{"type":"ai-title","aiTitle":"Many steps"}"#);
+    let padded = format!(r#"{{"status":"completed"{}}}"#, " ".repeat(64 * 1024));
+    task(config.path(), "1.json", &padded);
+    task(config.path(), "2.json", r#"{"id":"2","status":"pending"}"#);
+    let mut transcript = Transcript::new(&projects, ID);
+
+    transcript.read();
+
+    assert_eq!(transcript.facts().tasks, Some(Tasks { done: 0, total: 1 }));
+}
+
 fn transcript_file(projects: &Path, folder: &str) -> PathBuf {
     let folder = projects.join(folder);
     fs::create_dir_all(&folder).unwrap();
