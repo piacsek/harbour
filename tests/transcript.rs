@@ -3,7 +3,7 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime};
 
-use harbour::transcript::{Facts, Transcript};
+use harbour::transcript::{Facts, Tasks, Transcript};
 
 const ID: &str = "0f1e2d3c-4b5a-6978-8a9b-0c1d2e3f4a5b";
 
@@ -379,6 +379,128 @@ fn a_subagent_file_older_than_the_session_or_not_an_object_is_not_counted() {
     assert_eq!(transcript.facts().subagents, 1);
 }
 
+#[test]
+fn the_tasks_done_and_their_total_are_counted() {
+    let config = tempfile::tempdir().unwrap();
+    let projects = config.path().join("projects");
+    let file = transcript_file(&projects, "-home-acme-api");
+    append(&file, r#"{"type":"ai-title","aiTitle":"Many steps"}"#);
+    task(
+        config.path(),
+        "1.json",
+        r#"{"id":"1","status":"completed"}"#,
+    );
+    task(
+        config.path(),
+        "2.json",
+        r#"{"id":"2","status":"in_progress"}"#,
+    );
+    task(config.path(), "3.json", r#"{"id":"3","status":"pending"}"#);
+    task(config.path(), ".lock", "");
+    task(config.path(), ".highwatermark", "3");
+    let mut transcript = Transcript::new(&projects, ID);
+
+    transcript.read();
+
+    assert_eq!(transcript.facts().tasks, Some(Tasks { done: 1, total: 3 }));
+}
+
+#[test]
+fn no_tasks_folder_is_no_task_fact() {
+    let config = tempfile::tempdir().unwrap();
+    let projects = config.path().join("projects");
+    let file = transcript_file(&projects, "-home-acme-api");
+    append(&file, r#"{"type":"ai-title","aiTitle":"Many steps"}"#);
+    let mut transcript = Transcript::new(&projects, ID);
+
+    transcript.read();
+
+    assert_eq!(transcript.facts().tasks, None);
+}
+
+#[test]
+fn a_tasks_folder_without_a_task_file_is_no_task_fact() {
+    let config = tempfile::tempdir().unwrap();
+    let projects = config.path().join("projects");
+    let file = transcript_file(&projects, "-home-acme-api");
+    append(&file, r#"{"type":"ai-title","aiTitle":"Many steps"}"#);
+    task(config.path(), ".lock", "");
+    let mut transcript = Transcript::new(&projects, ID);
+
+    transcript.read();
+
+    assert_eq!(transcript.facts().tasks, None);
+}
+
+#[test]
+fn a_task_file_that_is_not_an_object_is_left_out_and_one_without_a_status_is_open() {
+    let config = tempfile::tempdir().unwrap();
+    let projects = config.path().join("projects");
+    let file = transcript_file(&projects, "-home-acme-api");
+    append(&file, r#"{"type":"ai-title","aiTitle":"Many steps"}"#);
+    task(
+        config.path(),
+        "1.json",
+        r#"{"id":"1","status":"completed"}"#,
+    );
+    task(config.path(), "2.json", "not json");
+    task(config.path(), "3.json", "[1, 2]");
+    task(config.path(), "4.json", r#"{"id":"4"}"#);
+    let mut transcript = Transcript::new(&projects, ID);
+
+    transcript.read();
+
+    assert_eq!(transcript.facts().tasks, Some(Tasks { done: 1, total: 2 }));
+}
+
+#[test]
+fn a_task_that_completes_or_vanishes_is_followed_at_the_next_read() {
+    let config = tempfile::tempdir().unwrap();
+    let projects = config.path().join("projects");
+    let file = transcript_file(&projects, "-home-acme-api");
+    append(&file, r#"{"type":"ai-title","aiTitle":"Many steps"}"#);
+    task(
+        config.path(),
+        "1.json",
+        r#"{"id":"1","status":"in_progress"}"#,
+    );
+    let gone = task(config.path(), "2.json", r#"{"id":"2","status":"pending"}"#);
+    let mut transcript = Transcript::new(&projects, ID);
+    transcript.read();
+    let before = transcript.facts().tasks;
+
+    task(
+        config.path(),
+        "1.json",
+        r#"{"id":"1","status":"completed"}"#,
+    );
+    fs::remove_file(gone).unwrap();
+    transcript.read();
+
+    assert_eq!(before, Some(Tasks { done: 0, total: 2 }));
+    assert_eq!(transcript.facts().tasks, Some(Tasks { done: 1, total: 1 }));
+}
+
+#[test]
+fn a_tasks_folder_removed_while_the_session_runs_drops_the_task_fact() {
+    let config = tempfile::tempdir().unwrap();
+    let projects = config.path().join("projects");
+    let file = transcript_file(&projects, "-home-acme-api");
+    append(&file, r#"{"type":"ai-title","aiTitle":"Many steps"}"#);
+    task(
+        config.path(),
+        "1.json",
+        r#"{"id":"1","status":"completed"}"#,
+    );
+    let mut transcript = Transcript::new(&projects, ID);
+    transcript.read();
+
+    fs::remove_dir_all(config.path().join("tasks")).unwrap();
+    transcript.read();
+
+    assert_eq!(transcript.facts().tasks, None);
+}
+
 fn transcript_file(projects: &Path, folder: &str) -> PathBuf {
     let folder = projects.join(folder);
     fs::create_dir_all(&folder).unwrap();
@@ -410,5 +532,13 @@ fn subagent(transcript: &Path, name: &str, meta: &str) -> PathBuf {
     fs::create_dir_all(&folder).unwrap();
     let file = folder.join(format!("{name}.meta.json"));
     fs::write(&file, meta).unwrap();
+    file
+}
+
+fn task(config: &Path, name: &str, text: &str) -> PathBuf {
+    let folder = config.join("tasks").join(ID);
+    fs::create_dir_all(&folder).unwrap();
+    let file = folder.join(name);
+    fs::write(&file, text).unwrap();
     file
 }

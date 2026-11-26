@@ -12,6 +12,7 @@ const SEARCH_EVERY: Duration = Duration::from_secs(5);
 const META: u64 = 64 * 1024;
 const CLOCK_SLACK: Duration = Duration::from_secs(2);
 const SHOWN: usize = 4096;
+const TASK_FILES: usize = 256;
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Facts {
@@ -21,6 +22,13 @@ pub struct Facts {
     pub directory: Option<PathBuf>,
     pub pull_request: Option<u64>,
     pub subagents: usize,
+    pub tasks: Option<Tasks>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Tasks {
+    pub done: usize,
+    pub total: usize,
 }
 
 pub struct Transcript {
@@ -102,6 +110,10 @@ impl Transcript {
             return;
         };
         self.facts.subagents = self.running(&path.with_extension("").join("subagents"));
+        self.facts.tasks = self
+            .projects
+            .parent()
+            .and_then(|config| tasks(&config.join("tasks").join(&self.session_id)));
         let Ok(mut file) = File::open(&path) else {
             self.lost();
             return;
@@ -278,6 +290,44 @@ fn shown(text: &str) -> String {
         end -= 1;
     }
     text[..end].to_string()
+}
+
+fn tasks(folder: &Path) -> Option<Tasks> {
+    let mut tasks = Tasks { done: 0, total: 0 };
+    let files = fs::read_dir(folder)
+        .ok()?
+        .flatten()
+        .filter(|entry| entry.file_name().to_string_lossy().ends_with(".json"))
+        .take(TASK_FILES);
+    for entry in files {
+        let Some(status) = task_status(&entry.path()) else {
+            continue;
+        };
+        tasks.total += 1;
+        if status == "completed" {
+            tasks.done += 1;
+        }
+    }
+    (tasks.total > 0).then_some(tasks)
+}
+
+fn task_status(path: &Path) -> Option<String> {
+    let mut bytes = Vec::new();
+    File::open(path)
+        .ok()?
+        .take(META)
+        .read_to_end(&mut bytes)
+        .ok()?;
+    match serde_json::from_slice(&bytes).ok()? {
+        Value::Object(fields) => Some(
+            fields
+                .get("status")
+                .and_then(Value::as_str)
+                .unwrap_or_default()
+                .to_string(),
+        ),
+        _ => None,
+    }
 }
 
 enum Meta {
