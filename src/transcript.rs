@@ -1,5 +1,5 @@
-use std::collections::HashSet;
-use std::ffi::OsString;
+use std::collections::{BTreeMap, BTreeSet, HashSet};
+use std::ffi::{OsStr, OsString};
 use std::fs::{self, File};
 use std::io::{self, Read, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
@@ -13,6 +13,7 @@ const META: u64 = 64 * 1024;
 const CLOCK_SLACK: Duration = Duration::from_secs(2);
 const SHOWN: usize = 4096;
 const TASK_FILES: usize = 256;
+const WRITING: Duration = Duration::from_secs(2);
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Facts {
@@ -43,18 +44,29 @@ pub struct Transcript {
     since: SystemTime,
     done: HashSet<OsString>,
     list: Option<List>,
+    writing: Duration,
 }
 
+#[derive(Default)]
 struct List {
-    largest: usize,
-    last: Tasks,
-    cleared: bool,
+    seen: BTreeMap<u64, bool>,
+    done: BTreeSet<u64>,
+    largest: Option<u64>,
+}
+
+impl List {
+    fn replaced_by(&self, present: &BTreeMap<u64, bool>) -> bool {
+        let Some(&first) = present.keys().next() else {
+            return false;
+        };
+        self.largest.is_none_or(|largest| first > largest)
+    }
 }
 
 enum Listing {
     Missing,
     Partial,
-    Whole(Tasks),
+    Whole(BTreeMap<u64, bool>, Option<u64>),
 }
 
 impl Transcript {
@@ -71,11 +83,17 @@ impl Transcript {
             since: SystemTime::UNIX_EPOCH,
             done: HashSet::new(),
             list: None,
+            writing: WRITING,
         }
     }
 
     pub fn since(mut self, started: SystemTime) -> Transcript {
         self.since = started;
+        self
+    }
+
+    pub fn with_writing(mut self, window: Duration) -> Transcript {
+        self.writing = window;
         self
     }
 
@@ -191,38 +209,37 @@ impl Transcript {
     fn read_tasks(&mut self) {
         let listing = match self.projects.parent() {
             Some(config) if plain(&self.session_id) => {
-                listing(&config.join("tasks").join(&self.session_id))
+                listing(&config.join("tasks").join(&self.session_id), self.writing)
             }
             _ => Listing::Missing,
         };
-        match listing {
+        let (present, largest) = match listing {
             Listing::Missing => {
                 self.list = None;
                 self.facts.tasks = None;
+                return;
             }
-            Listing::Partial => {}
-            Listing::Whole(Tasks { total: 0, .. }) => {
-                self.facts.tasks = self.list.as_mut().and_then(|list| {
-                    list.cleared = true;
-                    (list.last.total - list.last.done <= 1).then_some(Tasks {
-                        done: list.largest,
-                        total: list.largest,
-                    })
-                });
-            }
-            Listing::Whole(tasks) => {
-                let largest = match &self.list {
-                    Some(list) if !list.cleared => list.largest.max(tasks.total),
-                    _ => tasks.total,
-                };
-                self.list = Some(List {
-                    largest,
-                    last: tasks,
-                    cleared: false,
-                });
-                self.facts.tasks = Some(tasks);
+            Listing::Partial => return,
+            Listing::Whole(present, largest) => (present, largest),
+        };
+        let list = self.list.get_or_insert_with(List::default);
+        if list.replaced_by(&present) {
+            *list = List::default();
+        }
+        list.largest = list.largest.max(largest);
+        let emptied = present.is_empty();
+        for (id, completed) in &list.seen {
+            if !present.contains_key(id) && (*completed || emptied) {
+                list.done.insert(*id);
             }
         }
+        list.seen = present;
+        let completed = list.seen.values().filter(|completed| **completed).count();
+        let total = list.seen.len() + list.done.len();
+        self.facts.tasks = (total > 0).then_some(Tasks {
+            done: completed + list.done.len(),
+            total,
+        });
     }
 
     fn running(&mut self, folder: &Path) -> usize {
@@ -340,44 +357,75 @@ fn shown(text: &str) -> String {
     text[..end].to_string()
 }
 
-fn listing(folder: &Path) -> Listing {
-    let Ok(entries) = fs::read_dir(folder) else {
-        return Listing::Missing;
+fn listing(folder: &Path, writing: Duration) -> Listing {
+    let entries = match fs::read_dir(folder) {
+        Ok(entries) => entries,
+        Err(error) if error.kind() == io::ErrorKind::NotFound => return Listing::Missing,
+        Err(_) => return Listing::Partial,
     };
-    let mut tasks = Tasks { done: 0, total: 0 };
-    let files = entries
-        .flatten()
-        .filter(|entry| entry.file_name().to_string_lossy().ends_with(".json"))
-        .take(TASK_FILES);
-    for entry in files {
-        let Some(status) = task_status(&entry.path()) else {
+    let mut files = BTreeMap::new();
+    let mut largest = None;
+    for entry in entries {
+        let Ok(entry) = entry else {
             return Listing::Partial;
         };
-        tasks.total += 1;
-        if status == "completed" {
-            tasks.done += 1;
+        let Some(id) = task_id(&entry.file_name()) else {
+            continue;
+        };
+        match entry.file_type() {
+            Ok(kind) if kind.is_file() => {
+                largest = largest.max(Some(id));
+                files.insert(id, entry.path());
+                if files.len() > TASK_FILES {
+                    files.pop_last();
+                }
+            }
+            Ok(_) => {}
+            Err(_) => return Listing::Partial,
         }
     }
-    Listing::Whole(tasks)
+    let mut present = BTreeMap::new();
+    for (id, path) in files {
+        let completed = match task_completed(&path) {
+            Err(_) => return Listing::Partial,
+            Ok(Some(completed)) => completed,
+            Ok(None) if being_written(&path, writing) => return Listing::Partial,
+            Ok(None) => false,
+        };
+        present.insert(id, completed);
+    }
+    Listing::Whole(present, largest)
 }
 
-fn task_status(path: &Path) -> Option<String> {
-    let mut bytes = Vec::new();
-    File::open(path)
-        .ok()?
-        .take(META)
-        .read_to_end(&mut bytes)
-        .ok()?;
-    match serde_json::from_slice(&bytes).ok()? {
-        Value::Object(fields) => Some(
-            fields
-                .get("status")
-                .and_then(Value::as_str)
-                .unwrap_or_default()
-                .to_string(),
-        ),
-        _ => None,
+fn task_id(name: &OsStr) -> Option<u64> {
+    let digits = name.to_str()?.strip_suffix(".json")?;
+    if digits.is_empty() || !digits.bytes().all(|byte| byte.is_ascii_digit()) {
+        return None;
     }
+    digits.parse().ok()
+}
+
+fn being_written(path: &Path, writing: Duration) -> bool {
+    let Ok(modified) = fs::metadata(path).and_then(|meta| meta.modified()) else {
+        return true;
+    };
+    let now = SystemTime::now();
+    let age = now
+        .duration_since(modified)
+        .or_else(|_| modified.duration_since(now))
+        .unwrap_or_default();
+    age < writing
+}
+
+fn task_completed(path: &Path) -> io::Result<Option<bool>> {
+    let mut bytes = Vec::new();
+    File::open(path)?.take(META).read_to_end(&mut bytes)?;
+    Ok(match serde_json::from_slice(&bytes) {
+        Ok(Value::Object(fields)) => {
+            Some(fields.get("status").and_then(Value::as_str) == Some("completed"))
+        }
+        _ => None,
+    })
 }
 
 enum Meta {

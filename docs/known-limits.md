@@ -95,7 +95,8 @@ good; a finding on one still counts as must when it shows new impact.
   files are read, and the counts for `harbour status` written, on the draw thread**: a Claude
   config directory, a repository or a state directory on slow storage (a network home) delays
   keys by the time those reads take (a few small files, at most 1 MiB of transcript and at most
-  256 task files of at most 64 KiB per session), at most
+  256 task files of at most 64 KiB per session, after a walk of the whole tasks folder to find
+  the lowest ids), at most
   every 500 ms, by one listing of the projects directory per session still without its
   transcript at most every 5 s, by the time a write takes,
   only when a count changed, and by two file checks or one fresh publication (with its sweep of
@@ -160,3 +161,11 @@ good; a finding on one still counts as must when it shows new impact.
   closes); after a width key pressed with Ctrl held, the same Ctrl key within 500 ms repeats it
   instead of reaching the program, which matters only when `wider` or `narrower` is a letter that
   is also a Ctrl shortcut (`plans/phase-46-ctrl-held-after-prefix.md`).
+- **A card's task count is not remembered across a restart, and a task finished during a clearing can drop out of it**:
+  a harbour started after Claude Code cleared a session's finished task list shows no task fact
+  for that session until a new list starts; a task that completes and is deleted between two
+  reads (500 ms apart) while other task files are still there counts as a deleted task and leaves
+  the total, so a list cleared in that instant can show `2/2` for three tasks; and a list
+  abandoned by deleting its last open tasks (Claude Code removes a deleted task's file), one at a
+  time or all at once, leaves an emptied folder that shows every task done, green
+  (`plans/phase-50-task-count-edges.md`).

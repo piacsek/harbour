@@ -6,6 +6,8 @@ use std::time::{Duration, SystemTime};
 use harbour::transcript::{Facts, Transcript};
 
 mod tasks;
+#[path = "../support/timing.rs"]
+mod timing;
 
 pub(crate) const ID: &str = "0f1e2d3c-4b5a-6978-8a9b-0c1d2e3f4a5b";
 
