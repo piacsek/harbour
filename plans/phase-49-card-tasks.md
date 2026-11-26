@@ -78,4 +78,21 @@ Drawing line 4, `S` = the subagent glyph, `O` the open-tasks glyph, `D` the done
 
 ## Outcome
 
+`Transcript::read` counts the session's tasks beside its subagents, from the projects folder's
+sibling `tasks/<session id>/`, so `CLAUDE_CONFIG_DIR` needed no new wiring: `Facts::tasks` is
+`Some(Tasks { done, total })` once a `*.json` task file is there, done the `completed` ones,
+total every JSON object, at most 256 files of at most 64 KiB, read afresh each time. Every card
+has 4 lines; line 4 holds the subagents (moved from line 3) and the tasks through the same
+`facts::fitted` as line 3, so it is cut from its end the same way, blank on an ended card. The
+subagent glyph is now `md-family_tree`; the tasks use `md-clipboard_check_outline` while open,
+dimmed, and `md-clipboard_check` with the count in green once all are done (the whole
+`tasks 7/7` green without icons). The scroll, the headers and every test of the cards' rows
+follow the height through `HEIGHT`; the sidebar has no click-to-select, so no hit-testing
+changed. The demo writes 3 of 7 tasks for the working card and 4 of 4 for the idle one, its task
+files before its transcript so a reader that waits for the transcript sees them; the demo shots
+grew from 26 to 32 rows so every card still shows, and the `icons` shot gained a task list. The
+known limit of the draw thread's reads names the task files. Fragment `kind: feat`.
+
 ## Hurdles
+
+- `design` taller cards no longer fit the demo's 26-row shots and two e2e demo screens; every demo shot and those tests grew to fit → code

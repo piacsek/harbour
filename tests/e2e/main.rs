@@ -331,7 +331,8 @@ fn the_demo_shows_a_made_up_session_in_each_state() {
         " sessions ● 1 ◉ 1 ○ 2 · 1 ",
         "● Fix the flaky retry test",
         "fix-retry · #128",
-        "2 subagents",
+        "2 subagents · tasks 3/7",
+        "tasks 4/4",
         "◉ Publish the acme-api crate",
         "permission prompt",
         "○ Bump acme-web to the new client",
@@ -360,6 +361,7 @@ fn the_demo_shows_a_made_up_session_in_each_state() {
     assert!(screen.contains(rows[12]), "{screen}");
     assert!(screen.contains(rows[13]), "{screen}");
     assert!(screen.contains(rows[14]), "{screen}");
+    assert!(screen.contains(rows[15]), "{screen}");
     assert!(!screen.contains("acme-local-branch"), "{screen}");
 }
 

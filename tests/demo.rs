@@ -6,6 +6,7 @@ use std::thread::sleep;
 use std::time::Duration;
 
 use harbour::demo::{self, Registry};
+use harbour::transcript::{Tasks, Transcript};
 
 #[test]
 fn the_demo_registry_is_created_in_its_parent_and_removed_when_dropped() {
@@ -85,6 +86,34 @@ fn the_demos_stopped_session_has_a_title_of_its_own() {
         recalled[0].given_title.as_deref(),
         Some("acme-docs cleanup")
     );
+}
+
+#[test]
+fn the_demo_shows_a_session_with_open_tasks_and_one_with_every_task_done() {
+    let scratch = tempfile::tempdir().unwrap();
+    let registry = Registry::create_in(scratch.path()).unwrap();
+    let root = registry.path();
+
+    let working = tasks_of(
+        root,
+        &demo::working(root),
+        "6f0c2a9e-31d4-4b7a-9e58-0d2c7f41a3b6",
+    );
+    let idle = tasks_of(
+        root,
+        &demo::idle(root),
+        "1d9f4c62-8e07-4a3b-b5c1-f2a6e8d03c97",
+    );
+
+    assert_eq!(working, Some(Tasks { done: 3, total: 7 }));
+    assert_eq!(idle, Some(Tasks { done: 4, total: 4 }));
+}
+
+fn tasks_of(registry: &Path, command: &[String], id: &str) -> Option<Tasks> {
+    transcript_cwd(registry, command, id);
+    let mut transcript = Transcript::new(&registry.join("projects"), id);
+    transcript.read();
+    transcript.facts().tasks
 }
 
 fn transcript_cwd(registry: &Path, command: &[String], id: &str) -> PathBuf {
