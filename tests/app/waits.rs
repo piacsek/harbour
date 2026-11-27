@@ -23,11 +23,15 @@ fn a_screen_of_a_test_that_needs_a_terminal_holds_a_pty_slot() {
 #[test]
 fn a_wait_for_text_that_never_shows_fails_naming_it_and_showing_the_screen() {
     let mut screen = Screen::new(reading_agent());
+    let started = Instant::now();
 
     let failure = failure(|| {
-        screen.wait_for("acme never shown");
+        screen.wait_for_within("acme never shown", deadline());
     });
 
+    let elapsed = started.elapsed();
+    assert!(elapsed >= deadline(), "{elapsed:?}");
+    assert!(elapsed < 2 * deadline(), "{elapsed:?}");
     assert!(failure.contains(r#"for ["acme never shown"]"#), "{failure}");
     assert!(failure.contains("No session yet"), "{failure}");
 }
