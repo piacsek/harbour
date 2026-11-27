@@ -1,7 +1,7 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use harbour::repo::place;
+use harbour::repo::{common, identity, place};
 
 #[test]
 fn a_folder_outside_any_repository_shows_its_name() {
@@ -244,6 +244,29 @@ fn a_repository_at_a_home_directory_reached_through_a_link_does_not_count() {
     std::os::unix::fs::symlink(&home, &linked).unwrap();
 
     assert_eq!(place(&notes, Some(&linked)).to_string(), "acme-notes");
+}
+
+#[test]
+fn the_common_git_folder_of_a_worktree_reached_through_a_link_follows_its_relative_paths() {
+    let scratch = tempfile::tempdir().unwrap();
+    let real = folder(scratch.path(), "real");
+    let app = repository(&real, "acme-app", "ref: refs/heads/main\n");
+    let git_dir = folder(&app, ".git/worktrees/acme-app-feature");
+    fs::write(git_dir.join("commondir"), "../..\n").unwrap();
+    let feature = folder(&real, "acme-app-feature");
+    fs::write(
+        feature.join(".git"),
+        "gitdir: ../acme-app/.git/worktrees/acme-app-feature\n",
+    )
+    .unwrap();
+    let elsewhere = folder(scratch.path(), "elsewhere");
+    let link = elsewhere.join("acme-link");
+    std::os::unix::fs::symlink(&feature, &link).unwrap();
+
+    let common = common(&link).unwrap();
+
+    assert_eq!(identity(&common), identity(&app.join(".git")));
+    assert!(identity(&common).is_some());
 }
 
 fn folder(parent: &Path, name: &str) -> PathBuf {

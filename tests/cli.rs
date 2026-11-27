@@ -383,9 +383,10 @@ picker other than fzf it says so.
 C-/ r renames the selected card: type a title in the popup that opens, Enter
 saves it, Esc cancels, and an empty title brings back Claude Code's.
 C-l opens nvim at Claude Code's repository root, or with editor_dir = \"exact\"
-in the folder the session started in; with \"mirror\", in that folder of the
-checkout Claude Code is in now (a git worktree, say), else at that checkout's
-root. HARBOUR_EDITOR names another.
+in the folder the session started in; with \"mirror\" there too, unless Claude
+Code is in another checkout of the same repository (a git worktree, say): then
+in that folder of it, or at its root when it lacks the folder. HARBOUR_EDITOR
+names another.
 C-Backspace acts as C-h. In Neovim, C-h goes back only from the leftmost window,
 in normal mode.
 With vim-tmux-navigator, add harbour to the processes it sends C-h, C-j, C-k

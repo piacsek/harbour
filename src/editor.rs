@@ -294,10 +294,13 @@ pub fn directory(
     editor_dir: EditorDir,
 ) -> PathBuf {
     match editor_dir {
-        EditorDir::Exact => return started.to_path_buf(),
-        EditorDir::Mirror => return mirrored(directory, started, home),
-        EditorDir::Root => {}
+        EditorDir::Exact => started.to_path_buf(),
+        EditorDir::Mirror => mirrored(directory, started, home),
+        EditorDir::Root => rooted(directory, home),
     }
+}
+
+fn rooted(directory: &Path, home: Option<&Path>) -> PathBuf {
     if !directory.is_dir() {
         return directory.to_path_buf();
     }
@@ -307,6 +310,9 @@ pub fn directory(
 }
 
 fn mirrored(directory: &Path, started: &Path, home: Option<&Path>) -> PathBuf {
+    if !started.is_dir() {
+        return rooted(directory, home);
+    }
     if !directory.is_dir() {
         return started.to_path_buf();
     }
@@ -316,6 +322,7 @@ fn mirrored(directory: &Path, started: &Path, home: Option<&Path>) -> PathBuf {
         return started.to_path_buf();
     };
     if repo::identity(start_root) == repo::identity(seen_root)
+        || !seen_root.join(".git").exists()
         || !same_repository(start_root, seen_root)
     {
         return started.to_path_buf();

@@ -316,6 +316,62 @@ fn the_mirrored_directory_is_the_start_folder_when_claude_code_left_a_submodule_
     );
 }
 
+#[test]
+fn the_mirrored_directory_of_a_start_in_a_removed_nested_worktree_is_claude_codes_checkout_root() {
+    let scratch = tempfile::tempdir().unwrap();
+    let app = checkout(scratch.path(), "acme-app");
+    let feature = worktree(&app, &app, ".claude/worktrees/acme-feature");
+    let started = feature.join("rust");
+    fs::create_dir_all(&started).unwrap();
+    fs::create_dir_all(app.join("docs")).unwrap();
+    fs::remove_dir_all(&feature).unwrap();
+
+    assert_eq!(
+        directory(&app.join("docs"), &started, None, EditorDir::Mirror),
+        app
+    );
+}
+
+#[test]
+fn the_mirrored_directory_of_a_start_in_a_removed_sibling_worktree_is_claude_codes_checkout_root() {
+    let scratch = tempfile::tempdir().unwrap();
+    let app = checkout(scratch.path(), "acme-app");
+    let feature = worktree(scratch.path(), &app, "acme-app-feature");
+    let started = feature.join("rust");
+    fs::create_dir_all(&started).unwrap();
+    fs::create_dir_all(app.join("docs")).unwrap();
+    fs::remove_dir_all(&feature).unwrap();
+
+    assert_eq!(
+        directory(&app.join("docs"), &started, None, EditorDir::Mirror),
+        app
+    );
+}
+
+#[test]
+fn the_mirrored_directory_is_the_start_folder_when_claude_code_is_in_a_bare_repository() {
+    let scratch = tempfile::tempdir().unwrap();
+    let bare = scratch.path().join("acme-app.git");
+    fs::create_dir_all(bare.join("objects")).unwrap();
+    fs::create_dir_all(bare.join("refs")).unwrap();
+    fs::write(bare.join("HEAD"), "ref: refs/heads/main\n").unwrap();
+    let git_dir = bare.join("worktrees/acme-app-feature");
+    fs::create_dir_all(&git_dir).unwrap();
+    fs::write(git_dir.join("commondir"), "../..\n").unwrap();
+    let feature = scratch.path().join("acme-app-feature");
+    fs::create_dir_all(feature.join("rust")).unwrap();
+    fs::write(
+        feature.join(".git"),
+        format!("gitdir: {}\n", git_dir.display()),
+    )
+    .unwrap();
+
+    assert_eq!(
+        directory(&bare, &feature.join("rust"), None, EditorDir::Mirror),
+        feature.join("rust")
+    );
+}
+
 fn checkout(scratch: &Path, name: &str) -> PathBuf {
     let checkout = scratch.join(name);
     fs::create_dir_all(checkout.join(".git")).unwrap();

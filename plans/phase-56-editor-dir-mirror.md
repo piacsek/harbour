@@ -29,10 +29,12 @@ Claude Code is in now. `root` and `exact` keep their behaviour; the default stay
 
 | Seen directory now | Start's checkout root | Seen checkout root | The editor opens in |
 | --- | --- | --- | --- |
+| any | the start directory is gone (a removed worktree, say) | any | as `root`: the seen directory's checkout root, else the seen directory |
 | gone (not a directory) | any | any | the start directory, as `exact` |
 | a directory | none (outside a repository) | any | the start directory |
 | a directory | any | none (outside a repository) | the start directory |
 | a directory | a root | the same root, by device and inode (a symlinked path too) | the start directory |
+| a directory | a root | a bare repository (no `.git` entry) | the start directory |
 | a directory | a root | another repository's root (another git common dir: an unrelated repository, one nested in the checkout, a submodule or its superproject) | the start directory |
 | a directory | a root | another checkout of the same repository (the same git common dir, by device and inode), which holds the start's subfolder | `<seen root>/<subfolder>` |
 | a directory | a root | another checkout of the same repository, without that subfolder | the seen root |
@@ -42,7 +44,7 @@ What reads from outside harbour, and what the user sees when it changes:
 
 | Read | Missing | Changed in between | Shared |
 | --- | --- | --- | --- |
-| the start directory | the start directory is returned, as `exact` does | read again at every call | n/a |
+| the start directory | as `root` for the seen directory, so a removed worktree never leaves the editor in a deleted folder | read again at every call | n/a |
 | the seen directory (transcript `cwd`) | the start directory | read again at every call, so C-l and `#{pane_current_path}` follow | n/a |
 | the checkouts' git files | no root: the start directory | read again at every call | two harbours read, never write |
 
@@ -78,6 +80,14 @@ The plan draws no text, so no width table is needed.
   `.git` file's `gitdir` and its `commondir` lead, `repo::common`) is the same folder by device
   and inode, so a move into an unrelated repository, a nested one or a submodule, or from a
   submodule up into its superproject, opens where the session started, as `exact`.
+- A start directory that is gone gives what `root` gives for the seen directory (review round 2):
+  a session started in a worktree that was removed since would otherwise open a deleted folder.
+- A bare repository as Claude Code's checkout root gives the start directory (review round 2):
+  it has no files to mirror into.
+- `repo::common` resolves a relative `commondir` from the canonical git folder (review round 2),
+  so a worktree reached through a symlinked path still finds its repository.
+- The end-to-end test points its agent's registry `cwd` at a linked worktree
+  (`tests/fixtures/moved-agent.sh`), so it fails if `mirror` read as `exact`.
 - A session started at a checkout root opens the other checkout's root itself, never that root
   with a trailing `/`, which the pane border would draw (review round 1).
 - `repo::identity` became public so `editor.rs` compares roots the way `repo.rs` compares the
@@ -86,8 +96,8 @@ The plan draws no text, so no width table is needed.
   ran their related tests, `cargo fmt`, `cargo clippy --all-targets -- -D warnings` and
   `scripts/scrub-check.sh` (both modes) before each commit, without the full gates or the dev
   install.
-- `docs/help.png`, the shot of `harbour --help`, was rerendered in review round 1; no other
-  image changed.
+- `docs/help.png`, the shot of `harbour --help`, was rerendered in review rounds 1 and 2; no
+  other image changed.
 
 ## Hurdles
 
