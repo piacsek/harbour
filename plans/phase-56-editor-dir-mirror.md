@@ -85,7 +85,12 @@ The plan draws no text, so no width table is needed.
 - A bare repository as Claude Code's checkout root gives the start directory (review round 2):
   it has no files to mirror into.
 - `repo::common` resolves a relative `commondir` from the canonical git folder (review round 2),
-  so a worktree reached through a symlinked path still finds its repository.
+  so a worktree reached through a symlinked path still finds its repository. Only `common`
+  canonicalizes: a card's repository name keeps reading the path as written, so a worktree whose
+  `gitdir` goes through a symlinked repository still groups under the linked name
+  (review round 3).
+- `harbour --help` also says that once the start folder is gone, `mirror` opens at Claude Code's
+  repository root (review round 3).
 - The end-to-end test points its agent's registry `cwd` at a linked worktree
   (`tests/fixtures/moved-agent.sh`), so it fails if `mirror` read as `exact`.
 - A session started at a checkout root opens the other checkout's root itself, never that root
@@ -96,7 +101,7 @@ The plan draws no text, so no width table is needed.
   ran their related tests, `cargo fmt`, `cargo clippy --all-targets -- -D warnings` and
   `scripts/scrub-check.sh` (both modes) before each commit, without the full gates or the dev
   install.
-- `docs/help.png`, the shot of `harbour --help`, was rerendered in review rounds 1 and 2; no
+- `docs/help.png`, the shot of `harbour --help`, was rerendered in review rounds 1 to 3; no
   other image changed.
 
 ## Hurdles

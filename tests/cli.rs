@@ -385,8 +385,8 @@ saves it, Esc cancels, and an empty title brings back Claude Code's.
 C-l opens nvim at Claude Code's repository root, or with editor_dir = \"exact\"
 in the folder the session started in; with \"mirror\" there too, unless Claude
 Code is in another checkout of the same repository (a git worktree, say): then
-in that folder of it, or at its root when it lacks the folder. HARBOUR_EDITOR
-names another.
+in that folder of it, or at its root when it lacks the folder, and at Claude
+Code's repository root once that folder is gone. HARBOUR_EDITOR names another.
 C-Backspace acts as C-h. In Neovim, C-h goes back only from the leftmost window,
 in normal mode.
 With vim-tmux-navigator, add harbour to the processes it sends C-h, C-j, C-k

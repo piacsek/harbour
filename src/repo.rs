@@ -79,6 +79,7 @@ pub fn common(root: &Path) -> Option<PathBuf> {
     }
     if dot_git.is_file() {
         let git_dir = git_dir(root, &dot_git)?;
+        let git_dir = fs::canonicalize(&git_dir).unwrap_or(git_dir);
         return Some(common_of(&git_dir).unwrap_or(git_dir));
     }
     Some(root.to_path_buf())
@@ -94,7 +95,6 @@ fn git_dir(folder: &Path, dot_git: &Path) -> Option<PathBuf> {
 
 fn common_of(git_dir: &Path) -> Option<PathBuf> {
     let common = small(&git_dir.join("commondir"))?;
-    let git_dir = fs::canonicalize(git_dir).unwrap_or_else(|_| git_dir.to_path_buf());
     Some(normalized(&git_dir.join(path_of(common.trim_ascii()))))
 }
 
