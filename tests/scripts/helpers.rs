@@ -174,6 +174,7 @@ pub fn recording_pager(root: &Path, paged: &Path) -> PathBuf {
 }
 
 pub fn on_a_terminal(mut command: portable_pty::CommandBuilder) {
+    crate::pty_slots::hold(30 * crate::timing::deadline());
     command.env("GIT_CONFIG_GLOBAL", "/dev/null");
     command.env("GIT_CONFIG_NOSYSTEM", "1");
     command.env_remove("GIT_DIR");

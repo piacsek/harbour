@@ -28,7 +28,11 @@ mod neovim;
 #[path = "../support/nvim_on_path.rs"]
 mod nvim_on_path;
 mod picker;
+#[path = "../support/pty_slots.rs"]
+mod pty_slots;
 mod signals;
+#[path = "../support/timing.rs"]
+mod timing;
 mod waits;
 
 const AGENT: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/agent.sh");
@@ -397,6 +401,7 @@ struct Server {
 
 impl Server {
     fn start(name: &str, width: u16, height: u16) -> Self {
+        pty_slots::hold(30 * timing::deadline());
         let server = Self {
             socket: format!("harbour-e2e-{name}-{}", std::process::id()),
             home: RefCell::new(None),
