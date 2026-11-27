@@ -33,9 +33,10 @@ Claude Code is in now. `root` and `exact` keep their behaviour; the default stay
 | a directory | none (outside a repository) | any | the start directory |
 | a directory | any | none (outside a repository) | the start directory |
 | a directory | a root | the same root, by device and inode (a symlinked path too) | the start directory |
-| a directory | a root | another root, which holds the start's subfolder | `<seen root>/<subfolder>` |
-| a directory | a root | another root, without that subfolder | the seen root |
-| a directory | a root, the start itself (no subfolder) | another root | the seen root |
+| a directory | a root | another repository's root (another git common dir: an unrelated repository, one nested in the checkout, a submodule or its superproject) | the start directory |
+| a directory | a root | another checkout of the same repository (the same git common dir, by device and inode), which holds the start's subfolder | `<seen root>/<subfolder>` |
+| a directory | a root | another checkout of the same repository, without that subfolder | the seen root |
+| a directory | a root, the start itself (no subfolder) | another checkout of the same repository | the seen root, without a trailing `/` |
 
 What reads from outside harbour, and what the user sees when it changes:
 
@@ -72,14 +73,21 @@ The plan draws no text, so no width table is needed.
   start's own checkout `mirror` behaves as `exact`, a symlinked path included.
 - Another checkout without the subfolder gives its root: the nearest folder of that checkout
   that surely exists.
+- Another repository gives the start directory (review round 1): `mirror` follows Claude Code
+  only between checkouts of one repository, the roots whose git common dir (`.git`, or where a
+  `.git` file's `gitdir` and its `commondir` lead, `repo::common`) is the same folder by device
+  and inode, so a move into an unrelated repository, a nested one or a submodule, or from a
+  submodule up into its superproject, opens where the session started, as `exact`.
+- A session started at a checkout root opens the other checkout's root itself, never that root
+  with a trailing `/`, which the pane border would draw (review round 1).
 - `repo::identity` became public so `editor.rs` compares roots the way `repo.rs` compares the
   home directory, rather than holding a second copy.
 - After task 1 the orchestrator, at the owner's word, switched this run from `scripts/ship.sh` to plain git: tasks 2 and 3
   ran their related tests, `cargo fmt`, `cargo clippy --all-targets -- -D warnings` and
   `scripts/scrub-check.sh` (both modes) before each commit, without the full gates or the dev
   install.
-- `docs/help.png`, the shot of `harbour --help`, was not rerendered on the branch: the help
-  text changed, so `scripts/screenshots.sh` is due before `gh pr ready`.
+- `docs/help.png`, the shot of `harbour --help`, was rerendered in review round 1; no other
+  image changed.
 
 ## Hurdles
 

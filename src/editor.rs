@@ -315,15 +315,22 @@ fn mirrored(directory: &Path, started: &Path, home: Option<&Path>) -> PathBuf {
     else {
         return started.to_path_buf();
     };
-    if repo::identity(start_root) == repo::identity(seen_root) {
+    if repo::identity(start_root) == repo::identity(seen_root)
+        || !same_repository(start_root, seen_root)
+    {
         return started.to_path_buf();
     }
-    started
-        .strip_prefix(start_root)
-        .map(|below| seen_root.join(below))
-        .ok()
-        .filter(|mirror| mirror.is_dir())
-        .unwrap_or_else(|| seen_root.to_path_buf())
+    match started.strip_prefix(start_root) {
+        Ok(below) if !below.as_os_str().is_empty() && seen_root.join(below).is_dir() => {
+            seen_root.join(below)
+        }
+        _ => seen_root.to_path_buf(),
+    }
+}
+
+fn same_repository(one: &Path, other: &Path) -> bool {
+    let identity = |root| repo::common(root).and_then(|common| repo::identity(&common));
+    identity(one).is_some_and(|common| identity(other) == Some(common))
 }
 
 fn label(directory: &Path) -> String {

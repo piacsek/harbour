@@ -80,6 +80,7 @@ fn mirrored_the_editor_opens_the_start_subfolder_in_the_worktree_claude_code_mov
     repository(scratch.path(), "acme-app");
     let rust = folder(scratch.path(), "acme-app/rust");
     let git_dir = folder(scratch.path(), "acme-app/.git/worktrees/acme-app-feature");
+    fs::write(git_dir.join("commondir"), "../..\n").unwrap();
     let feature = folder(scratch.path(), "acme-app-feature/rust");
     fs::write(
         scratch.path().join("acme-app-feature/.git"),

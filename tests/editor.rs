@@ -257,6 +257,65 @@ fn the_mirrored_directory_is_the_start_folder_when_the_session_started_outside_a
     assert_eq!(directory(&feature, &plain, None, EditorDir::Mirror), plain);
 }
 
+#[test]
+fn the_mirrored_directory_of_a_session_started_at_a_root_is_the_worktree_root_itself() {
+    let scratch = tempfile::tempdir().unwrap();
+    let app = checkout(scratch.path(), "acme-app");
+    let feature = worktree(scratch.path(), &app, "acme-app-feature");
+
+    assert_eq!(
+        directory(&feature, &app, None, EditorDir::Mirror).as_os_str(),
+        feature.as_os_str()
+    );
+}
+
+#[test]
+fn the_mirrored_directory_is_the_start_folder_when_claude_code_moved_into_another_repository() {
+    let scratch = tempfile::tempdir().unwrap();
+    let app = checkout(scratch.path(), "acme-app");
+    let lib = checkout(scratch.path(), "acme-lib");
+    fs::create_dir_all(app.join("src")).unwrap();
+    fs::create_dir_all(lib.join("src")).unwrap();
+
+    assert_eq!(
+        directory(&lib, &app.join("src"), None, EditorDir::Mirror),
+        app.join("src")
+    );
+}
+
+#[test]
+fn the_mirrored_directory_is_the_start_folder_when_claude_code_moved_into_a_repository_nested_in_its_checkout()
+ {
+    let scratch = tempfile::tempdir().unwrap();
+    let app = checkout(scratch.path(), "acme-app");
+    let nested = checkout(&app, "vendor/acme-nested");
+    fs::create_dir_all(app.join("src")).unwrap();
+    fs::create_dir_all(nested.join("src")).unwrap();
+
+    assert_eq!(
+        directory(&nested, &app.join("src"), None, EditorDir::Mirror),
+        app.join("src")
+    );
+}
+
+#[test]
+fn the_mirrored_directory_is_the_start_folder_when_claude_code_left_a_submodule_for_its_superproject()
+ {
+    let scratch = tempfile::tempdir().unwrap();
+    let app = checkout(scratch.path(), "acme-app");
+    let module = app.join(".git/modules/acme-sub");
+    fs::create_dir_all(&module).unwrap();
+    let sub = app.join("vendor/acme-sub");
+    fs::create_dir_all(sub.join("src")).unwrap();
+    fs::create_dir_all(app.join("src")).unwrap();
+    fs::write(sub.join(".git"), format!("gitdir: {}\n", module.display())).unwrap();
+
+    assert_eq!(
+        directory(&app, &sub.join("src"), None, EditorDir::Mirror),
+        sub.join("src")
+    );
+}
+
 fn checkout(scratch: &Path, name: &str) -> PathBuf {
     let checkout = scratch.join(name);
     fs::create_dir_all(checkout.join(".git")).unwrap();
@@ -266,6 +325,7 @@ fn checkout(scratch: &Path, name: &str) -> PathBuf {
 fn worktree(scratch: &Path, main: &Path, name: &str) -> PathBuf {
     let git_dir = main.join(".git/worktrees").join(name);
     fs::create_dir_all(&git_dir).unwrap();
+    fs::write(git_dir.join("commondir"), "../..\n").unwrap();
     let worktree = scratch.join(name);
     fs::create_dir_all(&worktree).unwrap();
     fs::write(
