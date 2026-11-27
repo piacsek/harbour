@@ -198,6 +198,7 @@ impl App {
     }
 
     pub(super) fn log_changes(&mut self) {
+        self.note_selection();
         self.log_lives();
         let entry = self.sessions.get(self.selected);
         let selected = entry.map(selection);

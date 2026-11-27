@@ -4,6 +4,7 @@ use std::time::SystemTime;
 use ratatui::style::Stylize;
 use ratatui::text::Line;
 
+use super::previous::{NO_PREVIOUS, PREVIOUS_ENDED};
 use super::{App, Entry, refusal, user_home};
 use crate::memory::{Memory, Remembered};
 use crate::registry;
@@ -110,7 +111,7 @@ impl App {
         if self
             .failed
             .as_deref()
-            .is_some_and(|failed| failed == GONE || failed == HELD)
+            .is_some_and(|failed| [GONE, HELD, NO_PREVIOUS, PREVIOUS_ENDED].contains(&failed))
         {
             self.failed = None;
         }

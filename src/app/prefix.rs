@@ -48,9 +48,7 @@ impl App {
             After::Act(action) if closed == Some(action) => {}
             After::Act(action) => self.act(action),
             After::Jump(position) => self.jump_to(position),
-            After::Prefix => {
-                self.forward(self.keymap.prefix_key());
-            }
+            After::Prefix => self.switch_to_previous(),
             After::Cancel => {}
             After::Unknown => {
                 let prefix = self.keymap.prefix_name();

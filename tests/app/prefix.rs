@@ -594,7 +594,7 @@ fn the_prefix_sent_on_is_logged_as_its_byte_count() {
     let mut screen = focused_app(app);
 
     screen.key(KeyCode::Char('/'), KeyModifiers::CONTROL);
-    screen.key(KeyCode::Char('/'), KeyModifiers::CONTROL);
+    screen.press('p');
 
     let lines = read(&lines);
     assert_eq!(count(&lines, " input to=session session=1 bytes=1"), 1);
