@@ -87,4 +87,18 @@ selected now.
 
 ## Outcome
 
+- Shipped in #248 as a `feat`: the prefix twice selects the card selected before and focuses it
+  as a jump does; the prefix then `p` (`send_prefix`, rebindable) sends the prefix key on.
+- The previous card is noted in `log_changes`, matched by its running id, else its conversation
+  id; a card that left is never the previous one. `No previous session` and
+  `The previous session has ended` go on the message line, cleared by a new selection.
+- The help keeps 14 rows: `C-/ C-/ p`, "the previous session / send C-/ to the program", 57
+  columns, the widest the narrowest help fits. `docs/keys.png` and `docs/help.png` rerendered.
+- Every test of the table's app states is in `tests/app/previous.rs`; two end-to-end tests send
+  C-/ C-/ through tmux with extended keys on and off.
+
 ## Hurdles
+
+- `test-seam` `picker::a_slow_list_holds_up_neither_harbour_nor_the_picker` failed twice under
+  the gates' load (the picker's session started before the wait saw `acme picker read x`) and
+  passed alone eight times in a row → backlog
