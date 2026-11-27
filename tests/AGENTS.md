@@ -307,7 +307,8 @@ after the Clawd glyph: `tests/tabs.rs`, `tests/app/side_border.rs`, `tests/e2e/c
   inherited the fd and `exec` failed with `ExecutableFileBusy` ("Text file busy"); it never
   showed on macOS. `tests/scripts/` takes no mutex: its shims are symlinks to tracked scripts
   under `tests/fixtures/` (an `ln` that fails is `tests/fixtures/failing-ln.sh`, driven by
-  `LN_FAILS`, `LN_FAILS_ONCE` and `REAL_LN`), and the scripts under test are symlinked into the
+  `LN_FAILS`, `LN_FAILS_ONCE` and `REAL_LN`; a `sleep` that writes its arguments to `SLEEPS_LOG`
+  is `tests/fixtures/recording-sleep.sh`, which runs `REAL_SLEEP`), and the scripts under test are symlinked into the
   scratch directory, except `a_grep_that_cannot_run_fails_the_filter` in `flake_inputs.rs`,
   which still writes its `grep` and runs it without one. A new test that does write an executable takes a mutex
   shared by every such test for its whole body. Treat a green PR run as no proof against this
