@@ -20,9 +20,10 @@ pub enum Action {
     Changelog,
     Help,
     Quit,
+    SendPrefix,
 }
 
-pub const ACTIONS: [(Action, &str, char); 18] = [
+pub const ACTIONS: [(Action, &str, char); 19] = [
     (Action::Zoom, "zoom", 'z'),
     (Action::Side, "side", '\\'),
     (Action::SwapLeft, "swap_left", '{'),
@@ -41,6 +42,7 @@ pub const ACTIONS: [(Action, &str, char); 18] = [
     (Action::Changelog, "changelog", 'c'),
     (Action::Help, "help", '?'),
     (Action::Quit, "quit", 'q'),
+    (Action::SendPrefix, "send_prefix", 'p'),
 ];
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

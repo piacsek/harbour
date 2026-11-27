@@ -66,7 +66,7 @@ fn a_configured_prefix_starts_the_sequence() {
 }
 
 #[test]
-fn ctrl_semicolon_twice_sends_claude_code_a_semicolon() {
+fn ctrl_semicolon_then_p_sends_claude_code_a_semicolon() {
     let app = App::new(raw_reader(2)).with_keymap(Keymap::default().with_prefix(';'));
     let mut screen = Screen::of(app);
     screen.press('n');
@@ -74,7 +74,7 @@ fn ctrl_semicolon_twice_sends_claude_code_a_semicolon() {
     screen.key(KeyCode::Enter, KeyModifiers::NONE);
 
     screen.key(KeyCode::Char(';'), KeyModifiers::CONTROL);
-    screen.key(KeyCode::Char(';'), KeyModifiers::CONTROL);
+    screen.press('p');
     screen.press('z');
 
     let shown = screen.wait_for("acme agent read:");

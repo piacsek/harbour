@@ -169,6 +169,9 @@ impl App {
             Action::Changelog => self.show_changelog(),
             Action::Help => self.helping = true,
             Action::Quit => self.quit(),
+            Action::SendPrefix => {
+                self.forward(self.keymap.prefix_key());
+            }
         }
     }
 }
