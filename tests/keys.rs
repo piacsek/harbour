@@ -369,6 +369,29 @@ fn a_program_that_asked_for_kitty_disambiguation_gets_the_kitty_bytes() {
     assert_eq!(cursor(Keyboard::Kitty), b"\x1bOA");
 }
 
+#[test]
+fn ctrl_and_z_is_never_sent_so_a_program_cannot_suspend_itself() {
+    assert_eq!(encode(ctrl('z'), false), b"");
+    assert_eq!(legacy(ctrl('z')), b"");
+    assert_eq!(legacy(ctrl('Z')), b"");
+    assert_eq!(legacy(ctrl_shift('z')), b"");
+    assert_eq!(legacy(ctrl_alt('z')), b"");
+    assert_eq!(xterm_one(ctrl('z')), b"");
+    assert_eq!(xterm_one(ctrl_alt('z')), b"");
+    assert_eq!(xterm_two(ctrl('z')), b"");
+    assert_eq!(xterm_two(ctrl_shift('z')), b"");
+    assert_eq!(kitty(ctrl('z')), b"");
+    assert_eq!(kitty(ctrl('Z')), b"");
+    assert_eq!(kitty(ctrl_alt('z')), b"");
+}
+
+#[test]
+fn z_without_ctrl_is_still_sent() {
+    assert_eq!(legacy(plain('z')), b"z");
+    assert_eq!(legacy(alt('z')), b"\x1bz");
+    assert_eq!(kitty(alt('z')), b"\x1b[122;3u");
+}
+
 fn key(code: KeyCode) -> KeyEvent {
     KeyEvent::new(code, KeyModifiers::NONE)
 }

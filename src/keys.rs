@@ -10,6 +10,9 @@ pub enum Keyboard {
 }
 
 pub fn encode_as(key: KeyEvent, application_cursor: bool, keyboard: Keyboard) -> Vec<u8> {
+    if suspends(key) {
+        return Vec::new();
+    }
     match keyboard {
         Keyboard::Legacy => encode(key, application_cursor),
         Keyboard::XtermOne => xterm(key, application_cursor, false),
@@ -101,7 +104,14 @@ fn control_byte(c: char) -> Option<u8> {
     }
 }
 
+fn suspends(key: KeyEvent) -> bool {
+    key.modifiers.contains(KeyModifiers::CONTROL) && matches!(key.code, KeyCode::Char('z' | 'Z'))
+}
+
 pub fn encode(key: KeyEvent, application_cursor: bool) -> Vec<u8> {
+    if suspends(key) {
+        return Vec::new();
+    }
     let modifier = modifier_parameter(key.modifiers);
     let cursor = |letter: char| {
         if modifier > 1 {
