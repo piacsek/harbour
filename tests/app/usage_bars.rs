@@ -196,6 +196,19 @@ fn t_while_loading_is_logged_as_the_popups_own_event_and_not_as_a_key() {
 }
 
 #[test]
+fn ctrl_z_in_the_usage_popup_logs_no_input() {
+    let (app, lines) = logged(app().with_usage(report("exec sleep 600")));
+    let mut screen = Screen::of(app);
+    screen.prefixed('u');
+
+    screen.key(KeyCode::Char('z'), KeyModifiers::CONTROL);
+    screen.draw();
+
+    let lines = read(&lines);
+    assert_eq!(count(&lines, " input to=usage"), 0);
+}
+
+#[test]
 fn t_on_a_report_that_does_not_parse_changes_nothing() {
     let failing = script("echo 'acme usage: not logged in'; exit 3");
     let mut screen = Screen::of(app().with_usage(failing));

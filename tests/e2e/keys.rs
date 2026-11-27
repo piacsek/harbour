@@ -532,6 +532,19 @@ fn alt_opening_brace_reaches_the_session_as_escape_brace_with_extended_keys_off(
     assert!(screen.contains("read:^{"), "{screen}");
 }
 
+#[test]
+#[ignore]
+fn ctrl_z_never_reaches_the_session() {
+    let Some((_home, server)) = focused_raw_agent("ctrl-z", "on", "xterm") else {
+        return;
+    };
+
+    server.send_keys(&["C-z", "x"]);
+
+    let screen = server.wait_for_screen("read:x");
+    assert!(screen.contains("read:x"), "{screen}");
+}
+
 fn two_raw_agents(name: &str, format: &str) -> Option<(TempDir, Server)> {
     let (home, server) = raw_harbour(name, "on", format, "")?;
     server.send_keys(&["n"]);
