@@ -36,7 +36,8 @@ thread_local! {
 pub struct Session {
     parser: Arc<Mutex<Parser>>,
     writer: Sender<Vec<u8>>,
-    link: Link,
+    master: Option<Box<dyn MasterPty + Send>>,
+    child: Box<dyn Child + Send + Sync>,
     exit: Option<ExitStatus>,
     drained: Arc<AtomicBool>,
 }
@@ -48,17 +49,12 @@ pub enum Transport {
     Pipes,
 }
 
-enum Link {
-    Pty {
-        master: Box<dyn MasterPty + Send>,
-        child: Box<dyn Child + Send + Sync>,
-    },
-    Pipes {
-        child: std::process::Child,
-    },
-}
-
-type Opened = (Link, Box<dyn Read + Send>, Box<dyn Write + Send>);
+type Opened = (
+    Option<Box<dyn MasterPty + Send>>,
+    Box<dyn Child + Send + Sync>,
+    Box<dyn Read + Send>,
+    Box<dyn Write + Send>,
+);
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Role {
@@ -102,7 +98,7 @@ impl Session {
             ));
         }
         let (rows, cols) = safe_size(rows, cols);
-        let (link, mut reader, writer) = match transport {
+        let (master, child, mut reader, writer) = match transport {
             Transport::Pty => open_pty(command, directory, rows, cols, role)?,
             Transport::Pipes => open_pipes(command, directory, role)?,
         };
@@ -149,7 +145,8 @@ impl Session {
         Ok(Session {
             parser,
             writer,
-            link,
+            master,
+            child,
             exit: None,
             drained,
         })
@@ -175,7 +172,7 @@ impl Session {
     }
 
     fn resize_pty(&self, rows: u16, cols: u16) {
-        if let Link::Pty { master, .. } = &self.link {
+        if let Some(master) = &self.master {
             let _ = master.resize(PtySize {
                 rows,
                 cols,
@@ -187,13 +184,13 @@ impl Session {
 
     pub fn exit(&mut self) -> Option<&ExitStatus> {
         if self.exit.is_none() {
-            self.exit = self.link.try_wait();
+            self.exit = self.child.try_wait().ok().flatten();
         }
         self.exit.as_ref()
     }
 
     pub fn pid(&self) -> Option<u32> {
-        self.link.pid()
+        self.child.process_id()
     }
 
     pub fn end(&mut self) {
@@ -204,8 +201,8 @@ impl Session {
         if self.exit().is_some() {
             return None;
         }
-        self.link
-            .pid()
+        self.child
+            .process_id()
             .and_then(|pid| i32::try_from(pid).ok())
             .map(Pid::from_raw)
     }
@@ -306,30 +303,7 @@ pub fn end_all<'a>(sessions: impl IntoIterator<Item = &'a mut Session>, grace: D
     for (session, group) in &mut running {
         let _ = killpg(*group, Signal::SIGKILL);
         if session.exit.is_none() {
-            session.exit = session.link.wait();
-        }
-    }
-}
-
-impl Link {
-    fn try_wait(&mut self) -> Option<ExitStatus> {
-        match self {
-            Link::Pty { child, .. } => child.try_wait().ok().flatten(),
-            Link::Pipes { child } => child.try_wait().ok().flatten().map(ExitStatus::from),
-        }
-    }
-
-    fn wait(&mut self) -> Option<ExitStatus> {
-        match self {
-            Link::Pty { child, .. } => child.wait().ok(),
-            Link::Pipes { child } => child.wait().ok().map(ExitStatus::from),
-        }
-    }
-
-    fn pid(&self) -> Option<u32> {
-        match self {
-            Link::Pty { child, .. } => child.process_id(),
-            Link::Pipes { child } => Some(child.id()),
+            session.exit = session.child.wait().ok();
         }
     }
 }
@@ -366,14 +340,7 @@ fn open_pty<S: AsRef<OsStr>>(
     drop(pty.slave);
     let reader = pty.master.try_clone_reader().map_err(io::Error::other)?;
     let writer = pty.master.take_writer().map_err(io::Error::other)?;
-    Ok((
-        Link::Pty {
-            master: pty.master,
-            child,
-        },
-        reader,
-        writer,
-    ))
+    Ok((Some(pty.master), child, reader, writer))
 }
 
 fn open_pipes<S: AsRef<OsStr>>(command: &[S], directory: &Path, role: Role) -> io::Result<Opened> {
@@ -403,7 +370,8 @@ fn open_pipes<S: AsRef<OsStr>>(command: &[S], directory: &Path, role: Role) -> i
         .take()
         .ok_or_else(|| io::Error::other("no input"))?;
     Ok((
-        Link::Pipes { child },
+        None,
+        Box::new(child),
         Box::new(NewLines::from(reader)),
         Box::new(input),
     ))
