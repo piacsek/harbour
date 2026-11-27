@@ -369,15 +369,6 @@ fn inside(line: &str) -> String {
         .collect()
 }
 
-fn failure(wait: impl FnOnce()) -> String {
-    let unwound = std::panic::catch_unwind(std::panic::AssertUnwindSafe(wait))
-        .expect_err("the wait returned without failing");
-    unwound
-        .downcast_ref::<String>()
-        .cloned()
-        .unwrap_or_default()
-}
-
 fn sidebar_title(shown: &str) -> String {
     let top = shown.lines().next().unwrap_or_default();
     let inside = top.trim_start_matches(top_left);
