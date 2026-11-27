@@ -12,6 +12,7 @@ use ratatui::widgets::Widget;
 use vt100::{MouseProtocolEncoding, MouseProtocolMode};
 
 mod keyboard;
+mod pipes;
 mod slots;
 mod synchronized;
 
