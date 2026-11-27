@@ -148,7 +148,7 @@ fn no_card_is_removed_while_the_picker_is_open() {
     let picker = script(&format!(
         "n=$(($(cat '{count}' 2>/dev/null || echo 0) + 1)); echo $n > '{count}'; \
          if [ \"$n\" -lt 3 ]; then echo '{home}'; exit 0; fi; \
-         echo 'acme picker waiting' >&2; read -r line; exit 1",
+         echo 'acme picker waiting' >&2; read -r line; sleep 0.5; exit 1",
         count = count.display(),
         home = crate::home().display()
     ));
@@ -158,7 +158,12 @@ fn no_card_is_removed_while_the_picker_is_open() {
             screen.press('n');
             screen.wait_for("acme picker waiting");
         },
-        |screen| screen.key(KeyCode::Enter, KeyModifiers::NONE),
+        |screen| {
+            screen.key(KeyCode::Enter, KeyModifiers::NONE);
+            screen.wait_until("the picker closed", |shown| {
+                !shown.contains("acme picker waiting")
+            });
+        },
     );
 }
 
