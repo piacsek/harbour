@@ -71,13 +71,17 @@ inherited() {
 
 lock_gates() {
   [ -z "${CI:-}" ] || return 0
-  local bound="${HARBOUR_GATES_WAIT:-1800}" common told='' asked='' retried='' held
+  local bound="${HARBOUR_GATES_WAIT:-1800}" poll="${HARBOUR_GATES_POLL:-1}" common told='' asked='' retried='' held
   case "$bound" in
     *[!0-9]* | ??????????*)
       echo "gates: HARBOUR_GATES_WAIT must be a whole number of seconds, not $bound" >&2
       exit 1
       ;;
   esac
+  if ! [[ "$poll" =~ ^[0-9]+(\.[0-9]+)?$ && "$poll" =~ [1-9] ]]; then
+    echo "gates: HARBOUR_GATES_POLL must be a positive number of seconds, not $poll" >&2
+    exit 1
+  fi
   if ! common="$(git rev-parse --git-common-dir 2>/dev/null)"; then
     echo "==> no gates lock: not in a git repository" >&2
     return 0
@@ -107,7 +111,7 @@ lock_gates() {
         echo "gates: gave up after $bound s: could not create the lock link '$lock'" >&2
         exit 1
       fi
-      sleep 1
+      sleep "$poll"
       continue
     fi
     held="$(holder "$lock")"
@@ -123,7 +127,7 @@ lock_gates() {
       echo "gates: gave up after $bound s waiting for $(described "$held")$(clearing "$held")" >&2
       exit 1
     fi
-    sleep 1
+    sleep "$poll"
   done
   export HARBOUR_GATES_HELD="$mine"
 }
