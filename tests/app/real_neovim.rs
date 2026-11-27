@@ -20,6 +20,15 @@ const CTRL_W: &str = "\x17";
 const LEAVE_TERMINAL: &str = "\x1c\x0e";
 
 #[test]
+fn a_real_neovim_holds_a_pty_slot() {
+    let Some(_neovim) = Neovim::start("slot") else {
+        return;
+    };
+
+    assert!(crate::pty_slots::holding());
+}
+
+#[test]
 fn normal_mode_in_the_leftmost_window_lets_ctrl_h_go_to_claude_code() {
     let Some(neovim) = Neovim::start("leftmost") else {
         return;
@@ -394,6 +403,7 @@ impl Scratch {
         }
         command.push(CLEAN_NVIM.into());
         let program = Program::neovim("nvim", command).with_patience(5 * deadline());
+        crate::hold_a_pty_slot();
         let editor = Editor::start(
             &program,
             &self.path().join("work"),

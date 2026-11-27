@@ -1,6 +1,6 @@
 use std::cell::RefCell;
 use std::fs::{self, File, OpenOptions};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::thread;
 use std::time::{Duration, Instant};
 
@@ -8,8 +8,18 @@ thread_local! {
     static HELD: RefCell<Option<File>> = const { RefCell::new(None) };
 }
 
+const SLOTS: usize = 8;
+
+pub fn folder() -> PathBuf {
+    PathBuf::from(format!("/tmp/harbour-pty-slots-{}", nix::unistd::getuid()))
+}
+
+pub fn hold(patience: Duration) {
+    hold_in(&folder(), SLOTS, patience);
+}
+
 pub fn hold_in(folder: &Path, count: usize, patience: Duration) {
-    if HELD.with(|held| held.borrow().is_some()) {
+    if holding() {
         return;
     }
     fs::create_dir_all(folder).unwrap();
@@ -40,4 +50,8 @@ fn open_slot(folder: &Path, n: usize) -> File {
         .write(true)
         .open(folder.join(format!("{n}.lock")))
         .unwrap()
+}
+
+pub fn holding() -> bool {
+    HELD.with(|held| held.borrow().is_some())
 }

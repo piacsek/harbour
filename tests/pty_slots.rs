@@ -93,6 +93,26 @@ fn a_wait_for_a_slot_gives_up_naming_the_folder() {
     assert!(elapsed < 2 * deadline());
 }
 
+#[test]
+fn hold_takes_a_slot_from_the_shared_folder() {
+    let held = thread::spawn(|| {
+        pty_slots::hold(5 * deadline());
+        pty_slots::holding()
+    })
+    .join()
+    .unwrap();
+    assert!(held);
+}
+
+#[test]
+fn the_shared_folder_is_the_same_whatever_tmpdir_says() {
+    let uid = nix::unistd::getuid();
+    assert_eq!(
+        pty_slots::folder(),
+        PathBuf::from(format!("/tmp/harbour-pty-slots-{uid}"))
+    );
+}
+
 fn locked(folder: &Path, count: usize) -> usize {
     (0..count)
         .filter(|n| match File::open(folder.join(format!("{n}.lock"))) {
