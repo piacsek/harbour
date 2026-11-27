@@ -13,7 +13,7 @@ use crate::finding::FINDER;
 use crate::handoff::soon;
 use crate::keeping::titled;
 use crate::remembering::{ID, OTHER_ID, Scratch, TITLE};
-use crate::{Screen, focused_title, home, pane_corner, script};
+use crate::{Screen, focused_title, home, pane_corner, raw_reader, script};
 
 const GONE: &str = "That session is gone";
 const NTH_FINDER: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/nth-finder/fzf");
@@ -478,14 +478,6 @@ fn resuming_agent() -> Vec<String> {
         "echo \"acme agent $0 $1 in $(basename \"$PWD\")\"; \
          while :; do read -r line || continue; echo \"acme agent got: $line\"; done",
     )
-}
-
-fn raw_reader(length: usize) -> Vec<String> {
-    script(&format!(
-        "stty raw -echo; echo 'acme agent ready' >&2; \
-         dd bs=1 count={length} 2>/dev/null | od -An -tx1 | tr -s ' \\n' '  ' | \
-         sed 's/^/acme agent read:/' >&2; exec sleep 600"
-    ))
 }
 
 const LIVE: &str = "acme agent live";

@@ -376,6 +376,7 @@ A card that has not run for tidy_after (\"6h\" by default, or \"off\";
 HARBOUR_TIDY_AFTER outranks the file) is removed the same way.
 C-c in the sidebar quits as C-/ q does, asking while a session runs, and C-c
 again says yes when nothing is unsaved; in a pane, C-c goes to the program.
+C-z is never sent to a session's programs, so none can suspend itself.
 C-/ s lists every session in fzf and Enter jumps to the one picked; with a
 picker other than fzf it says so.
 C-/ r renames the selected card: type a title in the popup that opens, Enter

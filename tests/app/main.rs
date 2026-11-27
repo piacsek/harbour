@@ -262,6 +262,14 @@ fn script(text: &str) -> Vec<String> {
     vec!["/bin/sh".into(), "-c".into(), text.into()]
 }
 
+fn raw_reader(length: usize) -> Vec<String> {
+    script(&format!(
+        "stty raw -echo; echo 'acme agent ready' >&2; \
+         dd bs=1 count={length} 2>/dev/null | od -An -tx1 | tr -s ' \\n' '  ' | \
+         sed 's/^/acme agent read:/' >&2; exec sleep 600"
+    ))
+}
+
 fn reading_agent() -> Vec<String> {
     let script = "echo 'acme agent ready'; \
                   while read -r line; do echo \"acme agent got: $line\"; done; exec sleep 600";

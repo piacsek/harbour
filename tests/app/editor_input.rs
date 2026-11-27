@@ -4,8 +4,7 @@ use harbour::editor::Program;
 use harbour::picker::Picker;
 
 use crate::editor::{editor_open, reading_editor};
-use crate::zoom::raw_reader;
-use crate::{Screen, home, raw_agent, reading_agent, script};
+use crate::{Screen, home, raw_agent, raw_reader, reading_agent, script};
 
 #[test]
 fn a_paste_reaches_the_shown_editor_and_not_claude_code() {

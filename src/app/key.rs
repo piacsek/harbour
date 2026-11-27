@@ -27,8 +27,10 @@ impl App {
         if let Some(pick) = &self.picking {
             let session = pick.session();
             let bytes = beside(session, key);
-            session.send(&bytes);
-            self.log_input(Input::Picker, bytes.len());
+            if !bytes.is_empty() {
+                session.send(&bytes);
+                self.log_input(Input::Picker, bytes.len());
+            }
             return;
         }
         if self.prefix_closes_view(key) {
@@ -129,6 +131,9 @@ impl App {
         } else {
             keys::encode(key, session.application_cursor())
         };
+        if bytes.is_empty() {
+            return true;
+        }
         session.send(&bytes);
         self.log_input(Input::Shown, bytes.len());
         self.touch();

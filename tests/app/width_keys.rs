@@ -3,10 +3,9 @@ use harbour::app::App;
 use harbour::keymap::{Action, Keymap};
 
 use crate::usage_states::place;
-use crate::zoom::raw_reader;
 use crate::{
-    Screen, focused, home, numbered_agent, pane_corner, reading_agent, script, sized_agent,
-    unfocused,
+    Screen, focused, home, numbered_agent, pane_corner, raw_reader, reading_agent, script,
+    sized_agent, unfocused,
 };
 
 #[test]

@@ -9,9 +9,10 @@ use harbour::picker::Picker;
 
 use crate::finding::FINDER;
 use crate::remembering::{ID, Scratch, TITLE};
-use crate::zoom::{corners, raw_reader};
+use crate::zoom::corners;
 use crate::{
-    Screen, ends_with_a_pane_corner, pane_corner, region, script, settled, starts_focused,
+    Screen, ends_with_a_pane_corner, pane_corner, raw_reader, region, script, settled,
+    starts_focused,
 };
 
 #[test]
