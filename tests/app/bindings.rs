@@ -6,8 +6,8 @@ use crossterm::event::{KeyCode, KeyModifiers};
 use harbour::app::App;
 use harbour::keymap::{Action, Keymap};
 
-use crate::zoom::{corners, raw_reader};
-use crate::{Screen, script};
+use crate::zoom::corners;
+use crate::{Screen, raw_reader, script};
 
 #[test]
 fn a_bound_key_after_the_prefix_runs_its_action() {

@@ -296,6 +296,31 @@ fn keys_typed_into_an_editor_are_logged_with_the_editor() {
 }
 
 #[test]
+fn ctrl_z_in_a_session_logs_no_input() {
+    let (app, lines) = logged(App::new(reading_agent()));
+    let mut screen = focused(app);
+
+    screen.key(KeyCode::Char('z'), KeyModifiers::CONTROL);
+
+    let lines = read(&lines);
+    assert_eq!(count(&lines, " input "), 0);
+}
+
+#[test]
+fn ctrl_z_in_the_picker_logs_no_input() {
+    let picker = Picker::Command(script("echo 'acme picker' >&2; read -r line"));
+    let (app, lines) = logged(App::new(reading_agent()).with_picker(picker));
+    let mut screen = Screen::of(app);
+    screen.press('n');
+    screen.wait_for("acme picker");
+
+    screen.key(KeyCode::Char('z'), KeyModifiers::CONTROL);
+
+    let lines = read(&lines);
+    assert_eq!(count(&lines, " input "), 0);
+}
+
+#[test]
 fn a_key_harbour_acts_on_after_a_paste_is_logged_by_name() {
     let (app, lines) = logged(App::new(reading_agent()));
     let mut screen = focused(app);

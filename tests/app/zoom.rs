@@ -9,7 +9,7 @@ use harbour::handoff::Verb;
 use crate::handing::answering;
 use crate::handoff::{file, harbour, soon, start_in};
 use crate::remembering::{ID, Scratch, TITLE};
-use crate::{Screen, numbered_agent, pane_corner, raw_agent, script, settled};
+use crate::{Screen, numbered_agent, pane_corner, raw_agent, raw_reader, script, settled};
 
 #[test]
 fn the_prefix_then_z_from_the_sidebar_shows_the_selected_pane_alone_and_focuses_it() {
@@ -352,14 +352,6 @@ fn lined_agent(scratch: &Path) -> Vec<String> {
          echo \"acme agent $n\"; \
          while read -r line; do echo \"acme agent $n got: $line\"; done; exec sleep 600",
         count = count.display()
-    ))
-}
-
-pub(crate) fn raw_reader(length: usize) -> Vec<String> {
-    script(&format!(
-        "stty raw -echo; echo 'acme agent ready' >&2; \
-         dd bs=1 count={length} 2>/dev/null | od -An -tx1 | tr -s ' \\n' '  ' | \
-         sed 's/^/acme agent read:/' >&2; exec sleep 600"
     ))
 }
 

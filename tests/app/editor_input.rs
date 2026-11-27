@@ -4,7 +4,7 @@ use harbour::editor::Program;
 use harbour::picker::Picker;
 
 use crate::editor::{editor_open, reading_editor};
-use crate::{Screen, home, raw_agent, reading_agent, script};
+use crate::{Screen, home, raw_agent, raw_reader, reading_agent, script};
 
 #[test]
 fn a_paste_reaches_the_shown_editor_and_not_claude_code() {
@@ -154,6 +154,31 @@ fn ctrl_enter_reaches_the_picker_as_enter() {
 
     let shown = screen.wait_for("acme picker read: 0d");
     assert!(shown.contains("acme picker read: 0d"), "{shown}");
+}
+
+#[test]
+fn ctrl_z_never_reaches_the_editor() {
+    let mut screen = opened(reading_agent(), hex_editor(), "acme editor ready");
+
+    screen.key(KeyCode::Char('z'), KeyModifiers::CONTROL);
+    screen.press('a');
+
+    let shown = screen.wait_for("acme editor read:");
+    assert!(shown.contains("acme editor read: 61"), "{shown}");
+}
+
+#[test]
+fn ctrl_z_never_reaches_claude_code() {
+    let mut screen = Screen::of(App::new(raw_reader(1)));
+    screen.press('n');
+    screen.wait_for("acme agent ready");
+    screen.key(KeyCode::Enter, KeyModifiers::NONE);
+
+    screen.key(KeyCode::Char('z'), KeyModifiers::CONTROL);
+    screen.press('a');
+
+    let shown = screen.wait_for("acme agent read:");
+    assert!(shown.contains("acme agent read: 61"), "{shown}");
 }
 
 fn opened(agent: Vec<String>, editor: Program, ready: &str) -> Screen {

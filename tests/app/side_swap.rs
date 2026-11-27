@@ -1,8 +1,7 @@
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
 use crate::side::{editing, side};
-use crate::zoom::raw_reader;
-use crate::{Screen, pane_corner, region};
+use crate::{Screen, pane_corner, raw_reader, region};
 
 #[test]
 fn the_prefix_then_closing_brace_puts_claude_code_on_the_right_and_its_editor_on_the_left() {

@@ -13,8 +13,10 @@ use crate::finding::FINDER;
 use crate::logging::{count, logged, only, read};
 use crate::side::{agent, editor};
 use crate::usage_states::app;
-use crate::zoom::{corners, editing_session, raw_reader};
-use crate::{Screen, focused_title, home, numbered_agent, pane_corner, region, script, settled};
+use crate::zoom::{corners, editing_session};
+use crate::{
+    Screen, focused_title, home, numbered_agent, pane_corner, raw_reader, region, script, settled,
+};
 
 #[test]
 fn the_prefix_then_z_from_the_sidebar_zooms_the_selected_session() {

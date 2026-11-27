@@ -7,7 +7,7 @@ use harbour::editor::Program;
 use harbour::picker::Picker;
 
 use crate::remembering::{ID, OTHER_ID, Scratch, TITLE};
-use crate::{Screen, focused_title, script};
+use crate::{Screen, focused_title, raw_reader, script};
 
 #[test]
 fn the_prefix_then_two_from_the_sidebar_selects_the_second_card_and_focuses_its_pane() {
@@ -363,14 +363,6 @@ fn resuming_agent() -> Vec<String> {
         "echo \"acme agent $0 $1 in $(basename \"$PWD\")\"; \
          while :; do read -r line || continue; echo \"acme agent got: $line\"; done",
     )
-}
-
-fn raw_reader(length: usize) -> Vec<String> {
-    script(&format!(
-        "stty raw -echo; echo 'acme agent ready' >&2; \
-         dd bs=1 count={length} 2>/dev/null | od -An -tx1 | tr -s ' \\n' '  ' | \
-         sed 's/^/acme agent read:/' >&2; exec sleep 600"
-    ))
 }
 
 const LIVE: &str = "acme agent live";

@@ -139,8 +139,10 @@ impl App {
             return true;
         }
         let bytes = super::key::beside(session, key);
-        session.send(&bytes);
-        self.log_input(Input::Usage, bytes.len());
+        if !bytes.is_empty() {
+            session.send(&bytes);
+            self.log_input(Input::Usage, bytes.len());
+        }
         true
     }
 

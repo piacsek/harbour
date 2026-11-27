@@ -169,3 +169,6 @@ good; a finding on one still counts as must when it shows new impact.
   abandoned by deleting its last open tasks (Claude Code removes a deleted task's file), one at a
   time or all at once, leaves an emptied folder that shows every task done, green
   (`plans/phase-50-task-count-edges.md`).
+- **Ctrl+z never reaches any program harbour runs**, nor do Ctrl+Shift+z and Ctrl+Alt+z, in
+  every form: an editor where Ctrl+z is undo (micro, or a Neovim mapping) loses it, an editor's
+  Ctrl+Shift+z redo is lost as well, and a C-z prefix pressed twice sends nothing (`src/keys.rs`).
