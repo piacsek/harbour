@@ -55,11 +55,13 @@ terminal (#247).
   swings by tens of PTYs, so a single run proves little. The first count, of every PTY on the
   machine, swung from 60 to 170 between two runs of the same tree, since the owner's tmux,
   harbour and Neovim hold PTYs too.
-- **179 of `tests/app`'s 1,104 tests stay on a PTY,** plus the two that prove the switch:
+- **181 of `tests/app`'s 1,105 tests stay on a PTY,** plus the two that prove the switch:
   159 failed over pipes (Enter ending `read -r`, echo, `stty size`, `WINCH`), 9 more run the
   fake fzf, which reads `/dev/tty` (2 failed in one of two runs, 7 passed only because they
-  never reached that read), and 11 of `tests/app/side.rs` passed but start programs that trap
-  `WINCH` and read `stty size`. The other 923 open no PTY.
+  never reached that read), 11 of `tests/app/side.rs` passed but start programs that trap
+  `WINCH` and read `stty size`, one checks that nothing reaches a session that only a PTY's
+  Enter could make print (it passed over pipes without testing anything, review round 3), and
+  one exists for what a PTY delivers after its program exits. The other 922 open no PTY.
 - **`SLOTS` stays at 16.** The slots cap concurrent PTY tests machine-wide; 16 still keeps
   `tests/app` near its old speed, and the tests left on a PTY open several each (an agent, an
   editor, a picker).
