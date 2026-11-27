@@ -93,6 +93,16 @@ fn a_frame_where_only_the_cursor_goes_hidden_writes_the_hide() {
     assert!(!text.contains("\x1b[?25h"), "{text:?}");
 }
 
+#[test]
+fn a_repaint_its_program_never_ends_still_shows_once_the_wait_is_over() {
+    let mut screen = focused(repainting_agent());
+
+    screen.key(KeyCode::Enter, KeyModifiers::NONE);
+    let shown = screen.wait_for("acme agent repainted");
+
+    assert!(shown.contains("acme agent repainted"), "{shown}");
+}
+
 fn focused(agent: Vec<String>) -> Screen {
     let mut screen = Screen::new(agent);
     screen.press('n');
@@ -127,6 +137,12 @@ fn moving_agent() -> Vec<String> {
 fn hiding_agent() -> Vec<String> {
     script(
         "stty -echo; printf '\\033[3;5Hacme agent shaped'; read -r line; printf '\\033[?25l'; exec sleep 600",
+    )
+}
+
+fn repainting_agent() -> Vec<String> {
+    script(
+        "stty -echo; printf '\\033[3;5Hacme agent shaped'; read -r line; printf '\\033[?2026h\\033[2J\\033[6;9Hacme agent repainted'; exec sleep 600",
     )
 }
 
