@@ -92,6 +92,9 @@ In this order unless a retro says otherwise.
 - Make `picker::a_slow_list_holds_up_neither_harbour_nor_the_picker` wait for what cannot race:
   under the gates' load its picker reads `x`, exits and the session starts before the screen
   shows `acme picker read x` ([phase 53](plans/phase-53-previous-session.md), #249).
+- Keep a session's reader thread reading after an interrupted read: it stops on any read error,
+  `Interrupted` included, and marks the session drained, so a signal handler without
+  `SA_RESTART` would freeze a pane on its last screen (phase 54 review, `src/session.rs`).
 
 ### Bring from conveyor when the interface exists
 

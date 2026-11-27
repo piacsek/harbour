@@ -3,6 +3,7 @@ use harbour::app::App;
 use harbour::editor::Program;
 use harbour::picker::Picker;
 
+use crate::finding::FINDER;
 use crate::remembering::{ID, Scratch};
 use crate::{Screen, needs_a_terminal, pty_slots, reading_agent, script, usage_states};
 
@@ -63,6 +64,19 @@ fn a_screen_starts_its_picker_without_a_terminal() {
 
     let shown = screen.wait_for("acme picker on pipes");
     assert!(shown.contains("acme picker on pipes"), "{shown}");
+}
+
+#[test]
+fn a_screen_starts_its_session_finder_without_a_terminal() {
+    let finder = Picker::Command(vec![FINDER.into()]);
+    let mut screen = Screen::of(App::new(reading_agent()).with_picker(finder));
+    screen.press('n');
+    screen.wait_for("acme agent ready");
+
+    screen.prefixed('s');
+
+    let shown = screen.wait_for("Could not start");
+    assert!(shown.contains("Could not start"), "{shown}");
 }
 
 #[test]

@@ -42,9 +42,8 @@ pub struct Session {
     drained: Arc<AtomicBool>,
 }
 
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Transport {
-    #[default]
     Pty,
     Pipes,
 }
