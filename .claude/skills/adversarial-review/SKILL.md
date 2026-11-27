@@ -47,7 +47,7 @@ asks for it, as its own step.
    `screen.txt`:
 
    ```bash
-   keys=(j k J K C-_ '?' Escape C-_ c Escape C-_ u Escape C-_ z C-_ z C-_ '\' C-_ '}' C-_ '{' C-_ '\' C-_ - C-_ = C-_ l C-_ h C-_ e C-_ h C-_ 1 a C-_ h Enter a C-h C-l C-h C-_ s Escape C-_ r Escape C-_ C-_ C-_ p n Escape C-c n x y X y C-_ q y)
+   keys=(j k J K C-_ '?' Escape C-_ c Escape C-_ u Escape C-_ z C-_ z C-_ '\' C-_ '}' C-_ '{' C-_ '\' C-_ - C-_ = C-_ l C-_ h C-_ e C-_ h C-_ 1 a C-_ h Enter a C-h C-l C-h C-_ s Escape C-_ r Escape C-_ C-_ C-_ p C-h n Escape C-c n x y X y C-_ q y)
    for size in "1 1" "2 2" "3 3" "30 1" "200 3" "300 80"; do .claude/skills/adversarial-review/drive-demo.sh target/debug/harbour $size "${keys[@]}"; done
    ```
 

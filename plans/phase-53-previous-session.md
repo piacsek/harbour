@@ -32,10 +32,14 @@ programs still need C-/ (C-_, undo in Claude Code's prompt), so that moves to a 
   exactly as the prefix then a digit does (side by side stays side by side, zoomed stays
   zoomed, the card's editor shows when it showed last).
 - The builder's: **harbour notes the selection in `log_changes`**, the one place that runs after
-  every event: when the selected card is another than the one noted, the noted one becomes the
-  previous one, but only while it is still a card. A card that left (closed, tidied, forgotten
-  by `x` on an ended card) is not remembered as previous, so closing a card and then pressing the
-  prefix twice goes back to the card before it, as Alt+Tab does after a window closes.
+  every event, as a list of the cards selected most recently, up to 16. A card that left
+  (closed, tidied, forgotten by `x` on an ended card) drops out of it, and the previous card is
+  the most recent one still there other than the selected one, so closing a card and then
+  pressing the prefix twice goes back to the card before it, as Alt+Tab does after a window
+  closes. Whether that card ended is checked only then, as for the one before.
+- The orchestrator's, after round 1: `send_prefix`'s default gives way to a `[keys]` binding on
+  `p` or `P` that the file writes, as `close` gives way on `X` and `rename` on `r`, so a config
+  that already used `p` keeps working.
 - The builder's: **a card is matched by its running id, else by its conversation id**, and the
   note is refreshed at every check, so a stopped card that resumes (its id set) or a session
   whose conversation id changes (`/clear`) is still the same card.
@@ -58,8 +62,9 @@ selected now.
 | The previous session is running | Its card is selected and its pane focused, as the prefix then its digit does; the prefix twice again comes back. |
 | The previous session exited (an exited card) | Nothing moves; `The previous session has ended`. |
 | The previous card is stopped (a remembered conversation) | The same: `The previous session has ended`; Enter or its digit resumes it. |
-| The previous card was closed (`X`), ended and removed (`x` twice), or tidied away | It is not remembered: the card before it is the previous one, else `No previous session`. |
-| The current card was closed and the selection fell on the previous card | `No previous session`: the previous card is the one shown. |
+| The previous card was closed (`X`), ended and removed (`x` twice), or tidied away | It drops out: the most recent card still there is the previous one, else `No previous session`. |
+| The shown card was closed | The selection falls on a neighbour; the prefix twice goes to the most recent other card still there. |
+| `[keys]` binds another action to `p` or `P` | That binding works as before; `send_prefix` has no key and `harbour config` lists it as yielding. |
 | A card was moved (`J`/`K`), regrouped or renumbered | The same card is found wherever it now is; its number is never used. |
 | The previous card resumed or its conversation changed | Still the same card. |
 | Focus in the sidebar | The previous card is selected and its pane focused. |

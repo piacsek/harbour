@@ -506,9 +506,13 @@ impl Reader<'_> {
             .fold(Keymap::default(), |keymap, (_, _, action, bound)| {
                 keymap.bind(*action, *bound)
             });
-        for yielding in [Action::Close, Action::Rename] {
+        for yielding in [Action::Close, Action::Rename, Action::SendPrefix] {
             let unwritten = written.iter().all(|(_, _, action, _)| *action != yielding);
-            let Some(taker) = keymap.clash(yielding).filter(|_| unwritten) else {
+            let taker = match yielding {
+                Action::SendPrefix => keymap.clash_in_any_case(yielding),
+                _ => keymap.clash(yielding),
+            };
+            let Some(taker) = taker.filter(|_| unwritten) else {
                 continue;
             };
             keymap = keymap.bind(yielding, None);

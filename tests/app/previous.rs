@@ -125,6 +125,23 @@ fn a_closed_previous_card_leaves_the_one_before_it_as_the_previous() {
 }
 
 #[test]
+fn closing_the_shown_card_goes_back_to_the_one_selected_before_both() {
+    let scratch = tempfile::tempdir().unwrap();
+    let mut screen = three_sessions(scratch.path());
+    screen.prefixed('h');
+    screen.press('k');
+    screen.press('X');
+    screen.press('y');
+    screen.wait_until("card 2 removed", |shown| !shown.contains("acme-home 2"));
+
+    twice(&mut screen);
+    screen.type_text("hi\r");
+
+    let shown = screen.wait_for("acme agent 1 got:");
+    assert!(shown.contains("acme agent 1 got: hi"), "{shown}");
+}
+
+#[test]
 fn an_exited_previous_session_says_it_has_ended_and_stays() {
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = three_sessions(scratch.path());

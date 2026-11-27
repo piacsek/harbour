@@ -3,10 +3,11 @@ use super::{App, Entry};
 pub(super) const NO_PREVIOUS: &str = "No previous session";
 pub(super) const PREVIOUS_ENDED: &str = "The previous session has ended";
 
+const REMEMBERED: usize = 16;
+
 #[derive(Default)]
 pub(super) struct Recent {
-    current: Option<Card>,
-    previous: Option<Card>,
+    cards: Vec<Card>,
 }
 
 struct Card {
@@ -30,19 +31,34 @@ impl Card {
 
 impl App {
     pub(super) fn note_selection(&mut self) {
-        let current = self.index_of(self.recent.current.as_ref());
-        let previous = match current {
-            Some(index) if index != self.selected => Some(index),
-            _ => self.index_of(self.recent.previous.as_ref()),
-        };
-        self.recent.previous = previous.map(|index| Card::of(&self.sessions[index]));
-        self.recent.current = self.sessions.get(self.selected).map(Card::of);
+        let mut indices: Vec<usize> = Vec::new();
+        if self.selected < self.sessions.len() {
+            indices.push(self.selected);
+        }
+        for index in self
+            .recent
+            .cards
+            .iter()
+            .filter_map(|card| self.index_of(card))
+        {
+            if !indices.contains(&index) {
+                indices.push(index);
+            }
+        }
+        indices.truncate(REMEMBERED);
+        self.recent.cards = indices
+            .into_iter()
+            .map(|index| Card::of(&self.sessions[index]))
+            .collect();
     }
 
     pub(super) fn switch_to_previous(&mut self) {
         match self
-            .index_of(self.recent.previous.as_ref())
-            .filter(|index| *index != self.selected)
+            .recent
+            .cards
+            .iter()
+            .filter_map(|card| self.index_of(card))
+            .find(|index| *index != self.selected)
         {
             None => self.failed = Some(NO_PREVIOUS.to_string()),
             Some(index) if self.sessions[index].ended() => {
@@ -52,8 +68,7 @@ impl App {
         }
     }
 
-    fn index_of(&self, card: Option<&Card>) -> Option<usize> {
-        let card = card?;
+    fn index_of(&self, card: &Card) -> Option<usize> {
         self.sessions.iter().position(|entry| card.is(entry))
     }
 }
