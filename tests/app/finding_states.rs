@@ -13,7 +13,7 @@ use crate::finding::FINDER;
 use crate::handoff::soon;
 use crate::keeping::titled;
 use crate::remembering::{ID, OTHER_ID, Scratch, TITLE};
-use crate::{Screen, focused_title, home, pane_corner, raw_reader, script};
+use crate::{Screen, focused_title, home, needs_a_terminal, pane_corner, raw_reader, script};
 
 const GONE: &str = "That session is gone";
 const NTH_FINDER: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/nth-finder/fzf");
@@ -22,6 +22,7 @@ const WAITING: &str = "harbour is waiting for an answer; try again after it";
 
 #[test]
 fn a_session_that_ended_while_the_list_was_open_is_selected_as_its_exited_card() {
+    needs_a_terminal();
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = stoppable_sessions(scratch.path(), 3);
     find_by_prefix(&mut screen);
@@ -37,6 +38,7 @@ fn a_session_that_ended_while_the_list_was_open_is_selected_as_its_exited_card()
 
 #[test]
 fn a_stopped_card_merged_while_the_list_was_open_jumps_to_the_session_that_holds_it() {
+    needs_a_terminal();
     let scratch = Scratch::new();
     scratch.remember(ID, TITLE, 0);
     scratch.transcript(ID, &titled(TITLE));
@@ -67,6 +69,7 @@ fn a_stopped_card_merged_while_the_list_was_open_jumps_to_the_session_that_holds
 
 #[test]
 fn a_remembered_session_that_exited_resumes_when_picked() {
+    needs_a_terminal();
     let scratch = Scratch::new();
     scratch.remember(ID, TITLE, 0);
     scratch.transcript(ID, r#"{"type":"user","message":{}}"#);
@@ -92,6 +95,7 @@ fn a_remembered_session_that_exited_resumes_when_picked() {
 
 #[test]
 fn a_word_at_the_end_of_a_long_title_is_found_in_a_narrow_popup() {
+    needs_a_terminal();
     let (_scratch, mut screen) = long_titled(
         "acme fix the flaky login test on the checkout page before zanzibar",
         59,
@@ -108,6 +112,7 @@ fn a_word_at_the_end_of_a_long_title_is_found_in_a_narrow_popup() {
 
 #[test]
 fn a_word_at_the_end_of_a_long_cjk_title_is_found_in_a_narrow_popup() {
+    needs_a_terminal();
     let (_scratch, mut screen) = long_titled("港口の修正をする長い名前の最後にある灯台", 59);
 
     pick(&mut screen, "灯台");
@@ -121,6 +126,7 @@ fn a_word_at_the_end_of_a_long_cjk_title_is_found_in_a_narrow_popup() {
 
 #[test]
 fn a_line_fzf_prints_without_its_number_names_fzf_default_opts() {
+    needs_a_terminal();
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = stoppable_sessions(scratch.path(), 3);
 
@@ -135,6 +141,7 @@ fn a_line_fzf_prints_without_its_number_names_fzf_default_opts() {
 
 #[test]
 fn an_accept_nth_in_the_users_options_still_jumps_to_the_pick() {
+    needs_a_terminal();
     let scratch = tempfile::tempdir().unwrap();
     let app = App::new(stoppable_agent(scratch.path()))
         .with_picker(Picker::Command(vec![NTH_FINDER.into()]));
@@ -148,6 +155,7 @@ fn an_accept_nth_in_the_users_options_still_jumps_to_the_pick() {
 
 #[test]
 fn an_fzf_without_accept_nth_still_opens_and_jumps_to_the_pick() {
+    needs_a_terminal();
     let scratch = tempfile::tempdir().unwrap();
     let app = App::new(stoppable_agent(scratch.path()))
         .with_picker(Picker::Command(vec![OLD_FINDER.into()]));
@@ -162,6 +170,7 @@ fn an_fzf_without_accept_nth_still_opens_and_jumps_to_the_pick() {
 
 #[test]
 fn a_session_that_had_exited_before_the_list_opened_is_selected() {
+    needs_a_terminal();
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = stoppable_sessions(scratch.path(), 3);
     stop(scratch.path(), 1);
@@ -178,6 +187,7 @@ fn a_session_that_had_exited_before_the_list_opened_is_selected() {
 
 #[test]
 fn a_stopped_card_picked_resumes() {
+    needs_a_terminal();
     let scratch = Scratch::new();
     scratch.remember(ID, "The first one", 0);
     scratch.remember(OTHER_ID, TITLE, 1);
@@ -199,6 +209,7 @@ fn a_stopped_card_picked_resumes() {
 
 #[test]
 fn a_stopped_card_whose_directory_is_gone_says_why_and_leaves_the_sidebar_focused() {
+    needs_a_terminal();
     let (scratch, mut screen) = live_beside_stopped(120);
     fs::remove_dir_all(scratch.checkout()).unwrap();
 
@@ -210,6 +221,7 @@ fn a_stopped_card_whose_directory_is_gone_says_why_and_leaves_the_sidebar_focuse
 
 #[test]
 fn a_stopped_card_whose_directory_is_gone_leaves_the_sidebar_focused_when_narrow() {
+    needs_a_terminal();
     let (scratch, mut screen) = live_beside_stopped(59);
     fs::remove_dir_all(scratch.checkout()).unwrap();
 
@@ -221,6 +233,7 @@ fn a_stopped_card_whose_directory_is_gone_leaves_the_sidebar_focused_when_narrow
 
 #[test]
 fn a_stopped_card_open_elsewhere_says_why_and_leaves_the_sidebar_focused() {
+    needs_a_terminal();
     let (scratch, mut screen) = live_beside_stopped(120);
     hold(&scratch);
 
@@ -271,6 +284,7 @@ fn a_missing_fzf_says_it_could_not_start() {
 
 #[test]
 fn fzf_exiting_with_2_says_it_could_not_start() {
+    needs_a_terminal();
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = stoppable_sessions(scratch.path(), 1);
     find_by_prefix(&mut screen);
@@ -312,6 +326,7 @@ fn the_prefix_then_s_with_no_card_does_nothing() {
 
 #[test]
 fn the_prefix_then_s_with_caps_lock_opens_the_list() {
+    needs_a_terminal();
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = stoppable_sessions(scratch.path(), 1);
 
@@ -323,6 +338,7 @@ fn the_prefix_then_s_with_caps_lock_opens_the_list() {
 
 #[test]
 fn the_keys_harbour_binds_go_to_fzf_while_the_list_is_open() {
+    needs_a_terminal();
     let scratch = tempfile::tempdir().unwrap();
     let app = App::new(stoppable_agent(scratch.path()))
         .with_picker(finder())
@@ -346,6 +362,7 @@ fn the_keys_harbour_binds_go_to_fzf_while_the_list_is_open() {
 
 #[test]
 fn the_width_keys_do_nothing_while_the_list_is_open() {
+    needs_a_terminal();
     let scratch = tempfile::tempdir().unwrap();
     let app = App::new(stoppable_agent(scratch.path()))
         .with_picker(finder())
@@ -365,6 +382,7 @@ fn the_width_keys_do_nothing_while_the_list_is_open() {
 
 #[test]
 fn a_paste_goes_to_fzf_while_the_list_is_open() {
+    needs_a_terminal();
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = stoppable_sessions(scratch.path(), 3);
     find_by_prefix(&mut screen);
@@ -381,6 +399,7 @@ fn a_paste_goes_to_fzf_while_the_list_is_open() {
 
 #[test]
 fn harbour_edit_is_refused_while_the_list_is_open() {
+    needs_a_terminal();
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = stoppable_sessions(scratch.path(), 1);
     find_by_prefix(&mut screen);
@@ -393,6 +412,7 @@ fn harbour_edit_is_refused_while_the_list_is_open() {
 
 #[test]
 fn a_pick_while_zoomed_stays_zoomed() {
+    needs_a_terminal();
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = stoppable_sessions(scratch.path(), 3);
     screen.prefixed('z');

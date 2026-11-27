@@ -6,12 +6,13 @@ use std::path::{Path, PathBuf};
 use std::thread;
 use std::time::{Duration, Instant};
 
+use ratatui::layout::Size;
 use tempfile::TempDir;
 
 use crate::log::Log;
 use crate::nvim;
 use crate::repo;
-use crate::session::{Role, Session};
+use crate::session::{Role, Session, Transport};
 
 const NORMAL_MODES: [&str; 2] = ["n", "nt"];
 const LEFTMOST: &str = "winnr('h') == winnr()";
@@ -116,9 +117,9 @@ impl Editor {
         directory: &Path,
         temporary: &Path,
         id: usize,
-        rows: u16,
-        cols: u16,
+        size: Size,
         file: Option<&Path>,
+        transport: Transport,
     ) -> io::Result<Editor> {
         let mut command = program.command.clone();
         let private = program.neovim.then(|| {
@@ -139,7 +140,14 @@ impl Editor {
             command.push("--".into());
             command.push(file.into());
         }
-        let session = Session::start_as(Role::Editor, &command, directory, rows, cols)?;
+        let session = Session::start(
+            transport,
+            Role::Editor,
+            &command,
+            directory,
+            size.height,
+            size.width,
+        )?;
         Ok(Editor {
             id,
             directory: directory.to_path_buf(),

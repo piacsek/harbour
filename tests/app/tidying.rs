@@ -11,7 +11,7 @@ use harbour::picker::Picker;
 
 use crate::logging::{logged, only, read};
 use crate::remembering::{ID, OTHER_ID, Scratch};
-use crate::{Screen, deadline, directory, script};
+use crate::{Screen, deadline, directory, needs_a_terminal, script};
 
 const HOUR: Duration = Duration::from_secs(60 * 60);
 const THIRD_ID: &str = "5c4b3a29-1807-4f6e-9d8c-7b6a59483726";
@@ -143,6 +143,7 @@ fn no_card_is_removed_while_the_usage_popup_is_open() {
 
 #[test]
 fn no_card_is_removed_while_the_picker_is_open() {
+    needs_a_terminal();
     let picks = tempfile::tempdir().unwrap();
     let count = picks.path().join("count");
     let picker = script(&format!(

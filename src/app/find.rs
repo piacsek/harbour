@@ -73,6 +73,7 @@ impl App {
             &self.temporary,
             popup.height,
             popup.width,
+            self.transport,
         ) {
             Ok(Some(pick)) => {
                 self.gesture = Gesture::Idle;

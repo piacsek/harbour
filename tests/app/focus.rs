@@ -5,14 +5,15 @@ use harbour::app::App;
 use harbour::picker::Picker;
 
 use crate::{
-    Screen, focused, focused_title, numbered_agent, pane_corner, reading_agent, script, top_left,
-    unfocused_char,
+    Screen, focused, focused_title, needs_a_terminal, numbered_agent, pane_corner, reading_agent,
+    script, top_left, unfocused_char,
 };
 
 const ACCENT: Color = Color::Rgb(0xd7, 0x87, 0x5f);
 
 #[test]
 fn enter_focuses_the_pane_and_keys_typed_there_reach_the_session() {
+    needs_a_terminal();
     let mut screen = Screen::new(reading_agent());
     screen.press('n');
     screen.wait_for("acme agent ready");
@@ -26,6 +27,7 @@ fn enter_focuses_the_pane_and_keys_typed_there_reach_the_session() {
 
 #[test]
 fn keys_typed_while_the_sidebar_has_focus_do_not_reach_the_session() {
+    needs_a_terminal();
     let mut screen = Screen::new(reading_agent());
     screen.press('n');
     screen.wait_for("acme agent ready");
@@ -39,6 +41,7 @@ fn keys_typed_while_the_sidebar_has_focus_do_not_reach_the_session() {
 
 #[test]
 fn ctrl_l_focuses_the_pane() {
+    needs_a_terminal();
     let mut screen = Screen::new(reading_agent());
     screen.press('n');
     screen.wait_for("acme agent ready");

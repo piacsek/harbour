@@ -4,12 +4,13 @@ use crossterm::event::{KeyCode, KeyModifiers};
 use harbour::app::App;
 use harbour::picker::Picker;
 
-use crate::{Screen, focused_title, script};
+use crate::{Screen, focused_title, needs_a_terminal, script};
 
 pub(crate) const FINDER: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/finder/fzf");
 
 #[test]
 fn the_prefix_then_s_lists_the_sessions_in_fzf_and_enter_jumps_to_the_chosen_one() {
+    needs_a_terminal();
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = three_sessions(scratch.path());
 
@@ -25,6 +26,7 @@ fn the_prefix_then_s_lists_the_sessions_in_fzf_and_enter_jumps_to_the_chosen_one
 
 #[test]
 fn the_popup_says_sessions_and_hands_fzf_one_line_per_card_in_sidebar_order() {
+    needs_a_terminal();
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = three_sessions(scratch.path());
 
@@ -42,6 +44,7 @@ fn the_popup_says_sessions_and_hands_fzf_one_line_per_card_in_sidebar_order() {
 
 #[test]
 fn fzf_is_given_the_options_that_hide_and_skip_the_number() {
+    needs_a_terminal();
     let scratch = tempfile::tempdir().unwrap();
     let picker = Picker::Listed {
         fzf: vec!["fzf".to_string()],
@@ -72,6 +75,7 @@ fn fzf_is_given_the_options_that_hide_and_skip_the_number() {
 
 #[test]
 fn esc_closes_the_popup_and_changes_neither_the_selection_nor_the_focus() {
+    needs_a_terminal();
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = three_sessions(scratch.path());
     find_by_prefix(&mut screen);

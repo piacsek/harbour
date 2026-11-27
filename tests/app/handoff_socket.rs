@@ -14,12 +14,13 @@ use harbour::handoff::{Listener, Reply, Verb};
 
 use crate::handing::answering;
 use crate::handoff::{app_with, file, listening, socket_in, soon, start_in};
-use crate::{Screen, script};
+use crate::{Screen, needs_a_terminal, script};
 
 use crate::deadline;
 
 #[test]
 fn a_flood_of_silent_connections_leaves_keys_prompt() {
+    needs_a_terminal();
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = listening(scratch.path());
     start_in(&mut screen, scratch.path(), "acme-api", 1);

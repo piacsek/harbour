@@ -1,10 +1,11 @@
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
 use crate::side::{editing, side};
-use crate::{Screen, pane_corner, raw_reader, region};
+use crate::{Screen, needs_a_terminal, pane_corner, raw_reader, region};
 
 #[test]
 fn the_prefix_then_closing_brace_puts_claude_code_on_the_right_and_its_editor_on_the_left() {
+    needs_a_terminal();
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = split(scratch.path());
 
@@ -24,6 +25,7 @@ fn the_prefix_then_closing_brace_puts_claude_code_on_the_right_and_its_editor_on
 
 #[test]
 fn the_prefix_then_opening_brace_brings_claude_code_back_to_the_left() {
+    needs_a_terminal();
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = split(scratch.path());
     right(&mut screen);
@@ -44,6 +46,7 @@ fn the_prefix_then_opening_brace_brings_claude_code_back_to_the_left() {
 
 #[test]
 fn the_prefix_then_opening_brace_with_claude_code_on_the_left_leaves_it_there() {
+    needs_a_terminal();
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = split(scratch.path());
 
@@ -59,6 +62,7 @@ fn the_prefix_then_opening_brace_with_claude_code_on_the_left_leaves_it_there() 
 
 #[test]
 fn the_prefix_then_shifted_closing_brace_swaps_the_halves_too() {
+    needs_a_terminal();
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = split(scratch.path());
 
@@ -75,6 +79,7 @@ fn the_prefix_then_shifted_closing_brace_swaps_the_halves_too() {
 
 #[test]
 fn the_prefix_then_shifted_opening_brace_brings_claude_code_back_to_the_left_too() {
+    needs_a_terminal();
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = split(scratch.path());
     right(&mut screen);
@@ -92,6 +97,7 @@ fn the_prefix_then_shifted_opening_brace_brings_claude_code_back_to_the_left_too
 
 #[test]
 fn each_program_is_sized_to_the_half_it_moves_to() {
+    needs_a_terminal();
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = editing(scratch.path());
     screen.resize(121, 20);
@@ -120,6 +126,7 @@ fn a_swap_key_after_an_escape_reaches_claude_code() {
 
 #[test]
 fn the_order_set_is_kept_when_the_mode_is_left_and_entered_again() {
+    needs_a_terminal();
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = split(scratch.path());
     right(&mut screen);
@@ -142,6 +149,7 @@ fn the_order_set_is_kept_when_the_mode_is_left_and_entered_again() {
 
 #[test]
 fn swapped_ctrl_h_from_claude_code_focuses_the_editor_on_the_left() {
+    needs_a_terminal();
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = split(scratch.path());
     right(&mut screen);
@@ -158,6 +166,7 @@ fn swapped_ctrl_h_from_claude_code_focuses_the_editor_on_the_left() {
 
 #[test]
 fn swapped_ctrl_l_from_the_editor_focuses_claude_code_on_the_right() {
+    needs_a_terminal();
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = split(scratch.path());
     right(&mut screen);
@@ -175,6 +184,7 @@ fn swapped_ctrl_l_from_the_editor_focuses_claude_code_on_the_right() {
 
 #[test]
 fn swapped_ctrl_l_from_claude_code_reaches_claude_code() {
+    needs_a_terminal();
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = split(scratch.path());
     right(&mut screen);

@@ -1,10 +1,11 @@
 use crossterm::event::{KeyCode, KeyModifiers};
 use harbour::editor::Program;
 
-use crate::{Screen, reading_agent, script};
+use crate::{Screen, needs_a_terminal, reading_agent, script};
 
 #[test]
 fn an_editor_that_exits_with_zero_shows_claude_code_again_without_a_message() {
+    needs_a_terminal();
     let mut screen = with_editor(exiting_editor("exit 0"));
 
     screen.type_text("done\r");
@@ -16,6 +17,7 @@ fn an_editor_that_exits_with_zero_shows_claude_code_again_without_a_message() {
 
 #[test]
 fn keys_reach_claude_code_once_the_editor_exited() {
+    needs_a_terminal();
     let mut screen = with_editor(exiting_editor("exit 0"));
     screen.type_text("done\r");
     screen.wait_for("acme agent ready");
@@ -28,6 +30,7 @@ fn keys_reach_claude_code_once_the_editor_exited() {
 
 #[test]
 fn an_editor_that_exits_with_a_code_is_named_with_it() {
+    needs_a_terminal();
     let mut screen = with_editor(exiting_editor("exit 3"));
 
     screen.type_text("done\r");
@@ -39,6 +42,7 @@ fn an_editor_that_exits_with_a_code_is_named_with_it() {
 
 #[test]
 fn an_editor_killed_by_a_signal_is_named_with_it() {
+    needs_a_terminal();
     let mut screen = with_editor(exiting_editor("kill -9 $$"));
 
     screen.type_text("done\r");
@@ -49,6 +53,7 @@ fn an_editor_killed_by_a_signal_is_named_with_it() {
 
 #[test]
 fn ctrl_l_after_the_editor_exited_starts_a_fresh_one_and_clears_the_message() {
+    needs_a_terminal();
     let mut screen = with_editor(exiting_editor("exit 3"));
     screen.type_text("done\r");
     screen.wait_for("acme-edit exited 3");
@@ -97,6 +102,7 @@ fn an_editor_that_cannot_start_is_named_and_claude_code_stays_shown() {
 
 #[test]
 fn claude_code_keeps_the_keys_when_the_editor_cannot_start() {
+    needs_a_terminal();
     let missing = Program::new("acme-edit", vec!["acme-editor-missing".to_string()]);
     let mut screen = Screen::editing(reading_agent(), missing);
     screen.press('n');
@@ -125,6 +131,7 @@ fn a_narrow_pane_shows_that_the_editor_cannot_start() {
 
 #[test]
 fn a_narrow_pane_shows_that_the_editor_exited_with_a_code() {
+    needs_a_terminal();
     let mut screen = narrow_with(exiting_editor("exit 1"));
     screen.key(KeyCode::Char('l'), KeyModifiers::CONTROL);
     screen.wait_for("acme editor up");
@@ -153,6 +160,7 @@ fn a_narrow_pane_wraps_the_message_by_display_columns() {
 
 #[test]
 fn the_next_key_clears_the_message_from_a_narrow_pane() {
+    needs_a_terminal();
     let missing = Program::new("acme-edit", vec!["acme-editor-missing".to_string()]);
     let mut screen = narrow_with(missing);
     screen.key(KeyCode::Char('l'), KeyModifiers::CONTROL);

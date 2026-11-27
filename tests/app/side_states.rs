@@ -9,11 +9,12 @@ use ratatui::style::{Color, Modifier};
 use crate::directory::{cwd, following, repository, write_named_transcript, write_registry};
 use crate::finding::FINDER;
 use crate::side::{agent, editing, editor, side};
-use crate::{Screen, pane_corner, region, script};
+use crate::{Screen, needs_a_terminal, pane_corner, region, script};
 
 #[test]
 fn the_prefix_then_backslash_with_the_editor_already_running_puts_that_editor_beside_with_claude_code_focused()
  {
+    needs_a_terminal();
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = editing(scratch.path());
     screen.key(KeyCode::Enter, KeyModifiers::NONE);
@@ -34,6 +35,7 @@ fn the_prefix_then_backslash_with_the_editor_already_running_puts_that_editor_be
 
 #[test]
 fn u_from_the_claude_code_half_reaches_claude_code_and_opens_no_usage() {
+    needs_a_terminal();
     let scratch = tempfile::tempdir().unwrap();
     let app = App::new(agent(scratch.path()))
         .with_editor(Program::new("acme-edit", editor()))
@@ -50,6 +52,7 @@ fn u_from_the_claude_code_half_reaches_claude_code_and_opens_no_usage() {
 
 #[test]
 fn esc_in_the_session_finder_leaves_side_by_side_as_it_was() {
+    needs_a_terminal();
     let scratch = tempfile::tempdir().unwrap();
     let app = App::new(agent(scratch.path()))
         .with_editor(Program::new("acme-edit", editor()))

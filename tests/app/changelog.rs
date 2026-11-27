@@ -6,7 +6,7 @@ use harbour::handoff::{Reply, Verb};
 use crate::handing::answering;
 use crate::handoff::{app_with, file, harbour, recording_neovim, soon, start_in};
 use crate::logging::{count, logged, only, read};
-use crate::{Screen, directory, reading_agent, shows_titled};
+use crate::{Screen, directory, needs_a_terminal, reading_agent, shows_titled};
 
 #[test]
 fn c_shows_the_changelog_over_the_whole_screen() {
@@ -415,6 +415,7 @@ fn the_prefix_then_c_while_the_help_shows_closes_it_and_shows_the_changelog() {
 
 #[test]
 fn c_from_the_pane_goes_to_the_session() {
+    needs_a_terminal();
     let mut screen = reader(RELEASES);
     screen.press('n');
     screen.wait_for("acme agent ready");

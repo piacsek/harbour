@@ -6,6 +6,8 @@ use std::time::{Duration, Instant};
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use harbour::editor::{Changes, Editor, Program, Unopened, socket_base};
 use harbour::nvim::{self, Mode};
+use harbour::session::Transport;
+use ratatui::layout::Size;
 use tempfile::TempDir;
 
 use crate::deadline;
@@ -409,9 +411,9 @@ impl Scratch {
             &self.path().join("work"),
             &self.path().join("tmp"),
             1,
-            50,
-            120,
+            Size::new(120, 50),
             file,
+            Transport::Pty,
         )
         .unwrap();
         Neovim {

@@ -3,13 +3,14 @@ use std::path::Path;
 use crossterm::event::{KeyCode, KeyModifiers};
 
 use crate::remembering::{ID, OTHER_ID, Scratch, TITLE};
-use crate::{Screen, script};
+use crate::{Screen, needs_a_terminal, script};
 
 const NONE: &str = "No previous session";
 const ENDED: &str = "The previous session has ended";
 
 #[test]
 fn the_prefix_twice_switches_to_the_card_selected_before() {
+    needs_a_terminal();
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = three_sessions(scratch.path());
 
@@ -22,6 +23,7 @@ fn the_prefix_twice_switches_to_the_card_selected_before() {
 
 #[test]
 fn the_prefix_twice_again_switches_back() {
+    needs_a_terminal();
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = three_sessions(scratch.path());
     twice(&mut screen);
@@ -36,6 +38,7 @@ fn the_prefix_twice_again_switches_back() {
 
 #[test]
 fn ctrl_held_for_the_second_press_switches_too() {
+    needs_a_terminal();
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = three_sessions(scratch.path());
 
@@ -49,6 +52,7 @@ fn ctrl_held_for_the_second_press_switches_too() {
 
 #[test]
 fn a_jump_makes_the_card_it_left_the_previous_one() {
+    needs_a_terminal();
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = three_sessions(scratch.path());
     screen.prefixed('1');
@@ -62,6 +66,7 @@ fn a_jump_makes_the_card_it_left_the_previous_one() {
 
 #[test]
 fn a_moved_card_is_still_the_previous_one() {
+    needs_a_terminal();
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = three_sessions(scratch.path());
     screen.prefixed('h');
@@ -90,6 +95,7 @@ fn with_one_session_the_prefix_twice_says_there_is_no_previous_one() {
 
 #[test]
 fn selecting_another_card_clears_the_message() {
+    needs_a_terminal();
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = three_sessions(scratch.path());
     screen.prefixed('2');
@@ -108,6 +114,7 @@ fn selecting_another_card_clears_the_message() {
 
 #[test]
 fn a_closed_previous_card_leaves_the_one_before_it_as_the_previous() {
+    needs_a_terminal();
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = three_sessions(scratch.path());
     screen.prefixed('1');
@@ -126,6 +133,7 @@ fn a_closed_previous_card_leaves_the_one_before_it_as_the_previous() {
 
 #[test]
 fn closing_the_shown_card_goes_back_to_the_one_selected_before_both() {
+    needs_a_terminal();
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = three_sessions(scratch.path());
     screen.prefixed('h');
@@ -143,6 +151,7 @@ fn closing_the_shown_card_goes_back_to_the_one_selected_before_both() {
 
 #[test]
 fn an_exited_previous_session_says_it_has_ended_and_stays() {
+    needs_a_terminal();
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = three_sessions(scratch.path());
     screen.prefixed('2');
@@ -176,6 +185,7 @@ fn a_stopped_previous_card_says_it_has_ended() {
 
 #[test]
 fn a_card_that_resumed_is_still_the_previous_one() {
+    needs_a_terminal();
     let scratch = Scratch::new();
     scratch.remember(ID, "The first one", 0);
     scratch.remember(OTHER_ID, TITLE, 1);

@@ -9,7 +9,7 @@ use super::{App, Entry, refusal, user_home};
 use crate::memory::{Memory, Remembered};
 use crate::registry;
 use crate::repo;
-use crate::session::Session;
+use crate::session::{Role, Session};
 use crate::text;
 use crate::transcript::Transcript;
 
@@ -172,6 +172,8 @@ impl App {
         command.extend(["--resume".to_string(), id]);
         let entry = &mut self.sessions[self.selected];
         match Session::start(
+            self.transport,
+            Role::Agent,
             &command,
             &entry.directory,
             self.pane.height,

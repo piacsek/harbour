@@ -14,10 +14,11 @@ use crate::jumping::{assert_sidebar_focused, hold};
 use crate::remembering::{ID, Scratch, TITLE};
 use crate::side::{agent, editing, editor, side};
 use crate::zoom::corners;
-use crate::{Screen, ends_with_a_pane_corner, pane_corner, region};
+use crate::{Screen, ends_with_a_pane_corner, needs_a_terminal, pane_corner, region};
 
 #[test]
 fn a_jump_from_the_claude_code_half_to_a_session_last_in_claude_code_focuses_its_claude_code() {
+    needs_a_terminal();
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = two_side_by_side(scratch.path(), Half::Claude, Half::Claude);
 
@@ -28,6 +29,7 @@ fn a_jump_from_the_claude_code_half_to_a_session_last_in_claude_code_focuses_its
 
 #[test]
 fn a_jump_from_the_editor_half_to_a_session_last_in_claude_code_focuses_its_claude_code() {
+    needs_a_terminal();
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = two_side_by_side(scratch.path(), Half::Editor, Half::Claude);
 
@@ -38,6 +40,7 @@ fn a_jump_from_the_editor_half_to_a_session_last_in_claude_code_focuses_its_clau
 
 #[test]
 fn a_jump_from_the_claude_code_half_to_a_session_last_in_its_editor_focuses_its_editor() {
+    needs_a_terminal();
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = two_side_by_side(scratch.path(), Half::Claude, Half::Editor);
 
@@ -48,6 +51,7 @@ fn a_jump_from_the_claude_code_half_to_a_session_last_in_its_editor_focuses_its_
 
 #[test]
 fn a_jump_from_the_editor_half_to_a_session_last_in_its_editor_focuses_its_editor() {
+    needs_a_terminal();
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = two_side_by_side(scratch.path(), Half::Editor, Half::Editor);
 
@@ -58,6 +62,7 @@ fn a_jump_from_the_editor_half_to_a_session_last_in_its_editor_focuses_its_edito
 
 #[test]
 fn a_pick_from_the_session_finder_to_a_session_last_in_its_editor_focuses_its_editor() {
+    needs_a_terminal();
     let scratch = tempfile::tempdir().unwrap();
     let app = App::new(agent(scratch.path()))
         .with_editor(Program::new("acme-edit", editor()))
@@ -98,6 +103,7 @@ fn a_jump_to_a_session_whose_editor_cannot_start_zooms_its_claude_code_with_the_
 
 #[test]
 fn a_jump_under_120_columns_keeps_the_mode_and_splits_again_once_wider() {
+    needs_a_terminal();
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = two_side_by_side(scratch.path(), Half::Claude, Half::Claude);
     screen.resize(100, 20);
@@ -114,6 +120,7 @@ fn a_jump_under_120_columns_keeps_the_mode_and_splits_again_once_wider() {
 
 #[test]
 fn a_jump_to_a_stopped_card_resumes_it_side_by_side() {
+    needs_a_terminal();
     let scratch = Scratch::new();
     let mut screen = live_beside_stopped(&scratch);
 

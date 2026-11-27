@@ -2,7 +2,7 @@ use crossterm::event::{KeyCode, KeyModifiers};
 
 use crate::logging::{count, logged, read};
 use crate::usage_states::app;
-use crate::{Screen, script};
+use crate::{Screen, needs_a_terminal, script};
 
 const ROW: &str = "  Session   ███░░░░░░░░░░░░░░░░░░░░░   12%   resets 7:20pm";
 
@@ -139,6 +139,7 @@ fn shift_t_while_the_report_loads_shows_its_text_too() {
 
 #[test]
 fn ctrl_t_while_the_report_loads_goes_to_its_process() {
+    needs_a_terminal();
     let reading = script("read line; echo \"acme read $line\" | tr -d '\\024'; exec sleep 600");
     let mut screen = Screen::of(app().with_usage(reading));
     screen.prefixed('u');
@@ -278,6 +279,7 @@ fn switching_views_is_logged_as_the_popups_own_event_and_not_as_a_key() {
 #[cfg(target_os = "linux")]
 #[test]
 fn the_bars_stay_once_shown_though_something_the_report_started_prints_later() {
+    crate::needs_a_terminal();
     let late = "trap '' HUP; (sleep 1.5; printf '\\033[2J\\033[Hacme later\\n') &";
     let mut screen = Screen::of(app().with_usage(report(late)));
     screen.prefixed('u');

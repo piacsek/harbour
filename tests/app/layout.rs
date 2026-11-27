@@ -3,8 +3,11 @@ use std::time::Duration;
 
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use harbour::app::App;
+use harbour::session::Transport;
 
-use crate::{Screen, directory, home, numbered_agent, region, script, sized_agent};
+use crate::{
+    Screen, directory, home, needs_a_terminal, numbered_agent, region, script, sized_agent,
+};
 
 #[test]
 fn the_hint_is_shown_whole_in_a_narrow_sidebar() {
@@ -29,6 +32,7 @@ fn a_test_session_starts_in_a_scratch_folder_with_a_short_fixed_name() {
 
 #[test]
 fn a_resize_reaches_a_session_that_is_not_shown() {
+    needs_a_terminal();
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = Screen::new(sized_agent(scratch.path()));
     screen.press('n');
@@ -76,6 +80,7 @@ fn a_narrow_terminal_shows_the_pane_alone_while_it_has_focus() {
 
 #[test]
 fn a_narrow_terminal_gives_a_session_the_whole_width() {
+    needs_a_terminal();
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = Screen::new(sized_agent(scratch.path()));
     screen.press('n');
@@ -93,7 +98,8 @@ fn a_session_started_before_the_first_draw_keeps_its_output() {
     let mut app = App::new(script(
         "echo 'acme agent: the retry now waits on its clock'; exec sleep 600",
     ))
-    .with_home(home());
+    .with_home(home())
+    .with_transport(Transport::Pipes);
     app.key(KeyEvent::new(KeyCode::Char('n'), KeyModifiers::NONE));
     sleep(Duration::from_millis(500));
     let mut screen = Screen::of(app);

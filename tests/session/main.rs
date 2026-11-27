@@ -5,13 +5,14 @@ use std::sync::mpsc;
 use std::thread::{self, sleep};
 use std::time::{Duration, Instant};
 
-use harbour::session::{self, Role, Session};
+use harbour::session::{self, Role, Session, Transport};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Position, Rect};
 use ratatui::widgets::Widget;
 use vt100::{MouseProtocolEncoding, MouseProtocolMode};
 
 mod keyboard;
+mod pipes;
 mod slots;
 mod synchronized;
 
@@ -595,7 +596,7 @@ fn opened_as(
     cols: u16,
 ) -> io::Result<Session> {
     pty_slots::hold(30 * deadline());
-    Session::start_as(role, command, directory, rows, cols)
+    Session::start(Transport::Pty, role, command, directory, rows, cols)
 }
 
 fn wait_for(session: &Session, text: &str) -> String {

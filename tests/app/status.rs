@@ -11,7 +11,7 @@ use harbour::summary::Summary;
 use ratatui::buffer::Cell;
 use ratatui::style::{Color, Modifier};
 
-use crate::{Screen, below, directory, failure, script, sidebar_title};
+use crate::{Screen, below, directory, failure, needs_a_terminal, script, sidebar_title};
 
 use crate::deadline;
 
@@ -420,6 +420,7 @@ fn a_running_harbour_publishes_the_counts_of_the_title() {
 
 #[test]
 fn a_session_started_through_the_picker_is_published_like_any_other() {
+    needs_a_terminal();
     let registry = tempfile::tempdir().unwrap();
     let state = tempfile::tempdir().unwrap();
     let scratch = tempfile::tempdir().unwrap();

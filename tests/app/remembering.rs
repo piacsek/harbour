@@ -10,7 +10,7 @@ use ratatui::style::Modifier;
 use tempfile::TempDir;
 
 use crate::handoff::last_use;
-use crate::{Screen, below, script};
+use crate::{Screen, below, needs_a_terminal, script};
 
 pub(crate) const ID: &str = "0f1e2d3c-4b5a-6978-8a9b-0c1d2e3f4a5b";
 pub(crate) const OTHER_ID: &str = "9a8b7c6d-5e4f-4a3b-2c1d-0e9f8a7b6c5d";
@@ -95,6 +95,7 @@ fn enter_resumes_a_stopped_card_in_its_directory() {
 
 #[test]
 fn ctrl_l_resumes_a_stopped_card_and_focuses_its_pane() {
+    needs_a_terminal();
     let scratch = Scratch::new();
     scratch.remember(ID, TITLE, 0);
     let mut screen = scratch.screen(resuming_agent());
@@ -203,6 +204,7 @@ fn n_still_starts_a_new_session_beside_stopped_cards() {
 
 #[test]
 fn enter_on_a_resumed_card_focuses_it_and_starts_no_second_copy() {
+    needs_a_terminal();
     let scratch = Scratch::new();
     scratch.remember(ID, TITLE, 0);
     let count = scratch.dir.path().join("count");

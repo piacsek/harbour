@@ -15,11 +15,13 @@ use crate::side::{agent, editor};
 use crate::usage_states::app;
 use crate::zoom::{corners, editing_session};
 use crate::{
-    Screen, focused_title, home, numbered_agent, pane_corner, raw_reader, region, script, settled,
+    Screen, focused_title, home, needs_a_terminal, numbered_agent, pane_corner, raw_reader, region,
+    script, settled,
 };
 
 #[test]
 fn the_prefix_then_z_from_the_sidebar_zooms_the_selected_session() {
+    needs_a_terminal();
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = three_sessions(scratch.path());
 
@@ -179,6 +181,7 @@ fn the_unknown_key_message_points_nowhere_while_help_is_unbound() {
 
 #[test]
 fn a_digit_after_the_prefix_jumps_to_that_card_and_9_to_the_last() {
+    needs_a_terminal();
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = three_sessions(scratch.path());
 
@@ -214,6 +217,7 @@ fn h_after_the_prefix_focuses_the_sidebar_from_an_editor() {
 
 #[test]
 fn l_after_the_prefix_focuses_the_pane_from_the_sidebar() {
+    needs_a_terminal();
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = three_sessions(scratch.path());
 
@@ -265,6 +269,7 @@ fn capital_x_after_the_prefix_from_claude_code_asks_to_end_it() {
 
 #[test]
 fn capital_x_answered_yes_from_a_pane_gives_the_keys_back_to_the_sidebar() {
+    needs_a_terminal();
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = Screen::new(lined_agent(scratch.path()));
     for n in 1..=2 {
@@ -285,6 +290,7 @@ fn capital_x_answered_yes_from_a_pane_gives_the_keys_back_to_the_sidebar() {
 
 #[test]
 fn x_on_an_ended_session_from_its_pane_gives_the_keys_back_to_the_sidebar() {
+    needs_a_terminal();
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = ended_in_its_pane(scratch.path());
 
@@ -299,6 +305,7 @@ fn x_on_an_ended_session_from_its_pane_gives_the_keys_back_to_the_sidebar() {
 
 #[test]
 fn capital_x_on_an_ended_session_from_its_pane_gives_the_keys_back_to_the_sidebar() {
+    needs_a_terminal();
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = ended_in_its_pane(scratch.path());
 
@@ -407,6 +414,7 @@ fn a_paste_after_the_prefix_cancels_it_and_reaches_the_program() {
 
 #[test]
 fn backslash_after_the_prefix_from_an_editor_goes_side_by_side_on_the_editor_half() {
+    needs_a_terminal();
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = on_the_editor(scratch.path());
 
@@ -446,6 +454,7 @@ fn a_closing_brace_after_the_prefix_does_nothing_when_not_side_by_side() {
 
 #[test]
 fn s_after_the_prefix_from_an_editor_opens_the_session_finder() {
+    needs_a_terminal();
     let scratch = tempfile::tempdir().unwrap();
     let app = App::new(agent(scratch.path()))
         .with_editor(Program::new("acme-edit", editor()))

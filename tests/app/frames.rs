@@ -8,7 +8,7 @@ use crossterm::event::{KeyCode, KeyModifiers};
 use harbour::cursor::Shape;
 use ratatui::layout::Position;
 
-use crate::{Screen, frames, script};
+use crate::{Screen, frames, needs_a_terminal, script};
 
 #[test]
 fn a_frame_reaches_the_terminal_in_one_write_and_one_flush() {
@@ -45,6 +45,7 @@ fn a_frame_that_changes_nothing_writes_nothing() {
 
 #[test]
 fn a_frame_where_only_the_cursor_moves_writes_the_move() {
+    needs_a_terminal();
     let mut screen = focused(moving_agent());
     let out = Writes::default();
     let mut frames = frames();
@@ -70,6 +71,7 @@ fn a_frame_where_only_the_cursor_moves_writes_the_move() {
 
 #[test]
 fn a_frame_where_only_the_cursor_goes_hidden_writes_the_hide() {
+    needs_a_terminal();
     let mut screen = focused(hiding_agent());
     let out = Writes::default();
     let mut frames = frames();
@@ -95,6 +97,7 @@ fn a_frame_where_only_the_cursor_goes_hidden_writes_the_hide() {
 
 #[test]
 fn a_repaint_its_program_never_ends_still_shows_once_the_wait_is_over() {
+    needs_a_terminal();
     let mut screen = Screen::new(repainting_agent());
     screen.press('n');
     screen.wait_for("acme agent ready to repaint");

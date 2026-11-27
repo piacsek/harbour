@@ -5,6 +5,7 @@ use super::read::{self, Reading};
 use super::{App, refusal, user_home};
 use crate::editor::{self, Editor, Program, Unopened};
 use crate::handoff::{Claim, Listener, Reply, Verb};
+use crate::session::Transport;
 
 const WAITING: &str = "harbour is waiting for an answer; try again after it";
 const BUSY: &str = "harbour was busy and did not get to it in time";
@@ -196,6 +197,7 @@ impl App {
                             self.beside
                         },
                         file.map(|(file, _)| file),
+                        self.transport,
                     )
                     .map_err(Reply::Refused)?
                     .with_log(log),
@@ -227,15 +229,16 @@ fn started(
     id: usize,
     pane: ratatui::layout::Rect,
     file: Option<&Path>,
+    transport: Transport,
 ) -> Result<Editor, String> {
     Editor::start(
         program,
         directory,
         temporary,
         id,
-        pane.height,
-        pane.width,
+        pane.as_size(),
         file,
+        transport,
     )
     .map_err(|error| refusal(program.name(), &error))
 }

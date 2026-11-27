@@ -8,7 +8,7 @@ use crate::keeping::{remembered_after_a_while, titled};
 use crate::logging::{count, logged, only, read};
 use crate::remembering::{ID, Scratch, TITLE};
 use crate::usage_states::{app, place};
-use crate::{Screen, home, pane_corner, raw_agent, script, shows_titled};
+use crate::{Screen, home, needs_a_terminal, pane_corner, raw_agent, script, shows_titled};
 
 const ARGS_AGENT: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/args-agent.sh");
 
@@ -113,6 +113,7 @@ fn a_claude_that_cannot_start_opens_no_popup_and_says_so() {
 
 #[test]
 fn keys_while_the_popup_is_open_reach_only_the_popup() {
+    needs_a_terminal();
     let mut screen = Screen::of(app().with_usage(reading_report()));
     screen.press('n');
     screen.wait_for("acme agent ready");
@@ -133,6 +134,7 @@ fn keys_while_the_popup_is_open_reach_only_the_popup() {
 
 #[test]
 fn a_paste_while_the_popup_is_open_reaches_only_the_popup() {
+    needs_a_terminal();
     let mut screen = Screen::of(app().with_usage(reading_report()));
     screen.press('n');
     screen.wait_for("acme agent ready");

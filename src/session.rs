@@ -1,8 +1,10 @@
 use std::cell::Cell;
 use std::ffi::OsStr;
 use std::io::{self, Read, Write};
+use std::os::unix::process::CommandExt;
 use std::panic::{self, AssertUnwindSafe};
 use std::path::Path;
+use std::process::{Command, Stdio};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{self, Sender};
 use std::sync::{Arc, Mutex};
@@ -34,10 +36,25 @@ thread_local! {
 pub struct Session {
     parser: Arc<Mutex<Parser>>,
     writer: Sender<Vec<u8>>,
-    master: Box<dyn MasterPty + Send>,
+    master: Option<Box<dyn MasterPty + Send>>,
+    _lifeline: Option<io::PipeWriter>,
     child: Box<dyn Child + Send + Sync>,
     exit: Option<ExitStatus>,
     drained: Arc<AtomicBool>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Transport {
+    Pty,
+    Pipes,
+}
+
+struct Opened {
+    master: Option<Box<dyn MasterPty + Send>>,
+    lifeline: Option<io::PipeWriter>,
+    child: Box<dyn Child + Send + Sync>,
+    reader: Box<dyn Read + Send>,
+    writer: Box<dyn Write + Send>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -49,30 +66,12 @@ pub enum Role {
 
 impl Session {
     pub fn start<S: AsRef<OsStr>>(
-        command: &[S],
-        directory: &Path,
-        rows: u16,
-        cols: u16,
-    ) -> io::Result<Session> {
-        Session::spawn(command, directory, rows, cols, Role::Agent)
-    }
-
-    pub fn start_as<S: AsRef<OsStr>>(
+        transport: Transport,
         role: Role,
         command: &[S],
         directory: &Path,
         rows: u16,
         cols: u16,
-    ) -> io::Result<Session> {
-        Session::spawn(command, directory, rows, cols, role)
-    }
-
-    fn spawn<S: AsRef<OsStr>>(
-        command: &[S],
-        directory: &Path,
-        rows: u16,
-        cols: u16,
-        role: Role,
     ) -> io::Result<Session> {
         if !directory.is_dir() {
             return Err(io::Error::new(
@@ -81,31 +80,17 @@ impl Session {
             ));
         }
         let (rows, cols) = safe_size(rows, cols);
-        let pty = native_pty_system()
-            .openpty(PtySize {
-                rows,
-                cols,
-                pixel_width: 0,
-                pixel_height: 0,
-            })
-            .map_err(|error| io::Error::other(format!("could not open a terminal: {error}")))?;
-        let mut builder = CommandBuilder::new(command[0].as_ref());
-        builder.args(&command[1..]);
-        builder.cwd(directory);
-        builder.env("PWD", directory);
-        if role != Role::Editor {
-            builder.env_remove("TMUX");
-            builder.env_remove("TMUX_PANE");
-        }
-        builder.env("TERM", "xterm-256color");
-        builder.env("COLORTERM", "truecolor");
-        let child = pty
-            .slave
-            .spawn_command(builder)
-            .map_err(|error| io::Error::other(spawn_reason(&error.to_string())))?;
-        drop(pty.slave);
-        let mut reader = pty.master.try_clone_reader().map_err(io::Error::other)?;
-        let writer = spawn_writer(pty.master.take_writer().map_err(io::Error::other)?);
+        let Opened {
+            master,
+            lifeline,
+            child,
+            mut reader,
+            writer,
+        } = match transport {
+            Transport::Pty => open_pty(command, directory, rows, cols, role)?,
+            Transport::Pipes => open_pipes(command, directory, role)?,
+        };
+        let writer = spawn_writer(writer);
         let parser = Arc::new(Mutex::new(Parser::new_with_callbacks(
             rows,
             cols,
@@ -148,7 +133,8 @@ impl Session {
         Ok(Session {
             parser,
             writer,
-            master: pty.master,
+            master,
+            _lifeline: lifeline,
             child,
             exit: None,
             drained,
@@ -175,12 +161,14 @@ impl Session {
     }
 
     fn resize_pty(&self, rows: u16, cols: u16) {
-        let _ = self.master.resize(PtySize {
-            rows,
-            cols,
-            pixel_width: 0,
-            pixel_height: 0,
-        });
+        if let Some(master) = &self.master {
+            let _ = master.resize(PtySize {
+                rows,
+                cols,
+                pixel_width: 0,
+                pixel_height: 0,
+            });
+        }
     }
 
     pub fn exit(&mut self) -> Option<&ExitStatus> {
@@ -306,6 +294,132 @@ pub fn end_all<'a>(sessions: impl IntoIterator<Item = &'a mut Session>, grace: D
         if session.exit.is_none() {
             session.exit = session.child.wait().ok();
         }
+    }
+}
+
+fn open_pty<S: AsRef<OsStr>>(
+    command: &[S],
+    directory: &Path,
+    rows: u16,
+    cols: u16,
+    role: Role,
+) -> io::Result<Opened> {
+    let pty = native_pty_system()
+        .openpty(PtySize {
+            rows,
+            cols,
+            pixel_width: 0,
+            pixel_height: 0,
+        })
+        .map_err(|error| io::Error::other(format!("could not open a terminal: {error}")))?;
+    let mut builder = CommandBuilder::new(command[0].as_ref());
+    builder.args(&command[1..]);
+    builder.cwd(directory);
+    builder.env("PWD", directory);
+    if role != Role::Editor {
+        builder.env_remove("TMUX");
+        builder.env_remove("TMUX_PANE");
+    }
+    builder.env("TERM", "xterm-256color");
+    builder.env("COLORTERM", "truecolor");
+    let child = pty
+        .slave
+        .spawn_command(builder)
+        .map_err(|error| io::Error::other(spawn_reason(&error.to_string())))?;
+    drop(pty.slave);
+    let reader = pty.master.try_clone_reader().map_err(io::Error::other)?;
+    let writer = pty.master.take_writer().map_err(io::Error::other)?;
+    Ok(Opened {
+        master: Some(pty.master),
+        lifeline: None,
+        child,
+        reader,
+        writer,
+    })
+}
+
+fn open_pipes<S: AsRef<OsStr>>(command: &[S], directory: &Path, role: Role) -> io::Result<Opened> {
+    let mut lifeline = watcher()?;
+    let (reader, output) = io::pipe()?;
+    let mut builder = Command::new(command[0].as_ref());
+    builder
+        .args(command[1..].iter().map(AsRef::as_ref))
+        .current_dir(directory)
+        .env("PWD", directory)
+        .env("TERM", "xterm-256color")
+        .env("COLORTERM", "truecolor")
+        .stdin(Stdio::piped())
+        .stdout(output.try_clone()?)
+        .stderr(output)
+        .process_group(0);
+    if role != Role::Editor {
+        builder.env_remove("TMUX");
+        builder.env_remove("TMUX_PANE");
+    }
+    let mut child = builder.spawn().map_err(|error| match error.kind() {
+        io::ErrorKind::NotFound => io::Error::other("is it installed and on PATH?"),
+        _ => error,
+    })?;
+    drop(builder);
+    let _ = writeln!(lifeline, "{}", child.id());
+    let input = child
+        .stdin
+        .take()
+        .ok_or_else(|| io::Error::other("no input"))?;
+    Ok(Opened {
+        master: None,
+        lifeline: Some(lifeline),
+        child: Box::new(child),
+        reader: Box::new(NewLines::from(reader)),
+        writer: Box::new(input),
+    })
+}
+
+fn watcher() -> io::Result<io::PipeWriter> {
+    let (watched, lifeline) = io::pipe()?;
+    let script = format!(
+        "exec 3<&0; (read -r group <&3; read -r _ <&3; kill -HUP -\"$group\" 2>/dev/null && \
+         sleep {} && kill -KILL -\"$group\" 2>/dev/null) &",
+        HANGUP_GRACE.as_secs_f64()
+    );
+    Command::new("/bin/sh")
+        .args(["-c", &script])
+        .stdin(watched)
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .process_group(0)
+        .status()?;
+    Ok(lifeline)
+}
+
+struct NewLines<R> {
+    inner: R,
+    raw: Vec<u8>,
+}
+
+impl<R> From<R> for NewLines<R> {
+    fn from(inner: R) -> Self {
+        NewLines {
+            inner,
+            raw: Vec::new(),
+        }
+    }
+}
+
+impl<R: Read> Read for NewLines<R> {
+    fn read(&mut self, out: &mut [u8]) -> io::Result<usize> {
+        self.raw.resize(out.len() / 2, 0);
+        let read = self.inner.read(&mut self.raw)?;
+        let mut written = 0;
+        for &byte in &self.raw[..read] {
+            if byte == b'\n' {
+                out[written] = b'\r';
+                written += 1;
+            }
+            out[written] = byte;
+            written += 1;
+        }
+        Ok(written)
     }
 }
 

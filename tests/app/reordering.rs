@@ -9,7 +9,9 @@ use crate::directory::folder;
 use crate::grouping::{cycling, remember};
 use crate::refusing::Elsewhere;
 use crate::remembering::{ID, OTHER_ID, Scratch, TITLE};
-use crate::{Screen, directory, in_order, numbered_agent, reading_agent, region, script};
+use crate::{
+    Screen, directory, in_order, needs_a_terminal, numbered_agent, reading_agent, region, script,
+};
 
 const OTHER_TITLE: &str = "Add the acme export";
 const THIRD_ID: &str = "5c4d3e2f-1a0b-4c9d-8e7f-6a5b4c3d2e1f";
@@ -106,6 +108,7 @@ fn shift_j_and_k_with_no_card_do_nothing() {
 
 #[test]
 fn shift_k_with_the_pane_focused_reaches_the_program_and_moves_nothing() {
+    needs_a_terminal();
     let mut screen = Screen::new(reading_agent());
     screen.press('n');
     screen.press('n');

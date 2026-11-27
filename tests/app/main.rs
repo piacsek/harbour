@@ -35,6 +35,7 @@ mod navigating;
 mod nearest;
 mod neovim;
 mod picker;
+mod piped;
 mod prefix;
 mod previous;
 mod real_neovim;
@@ -76,6 +77,7 @@ use crossterm::event::{KeyCode, KeyEvent, KeyModifiers, MouseEvent, MouseEventKi
 use harbour::app::{App, FOCUSED_BORDER, UNFOCUSED_BORDER};
 use harbour::editor::{EditorDir, Program};
 use harbour::picker::Picker;
+use harbour::session::Transport;
 use harbour::tui::Frames;
 use ratatui::backend::TestBackend;
 use ratatui::buffer::Cell;
@@ -100,6 +102,10 @@ use timing::{deadline, scaled};
 
 const HOME: &str = "acme-home";
 
+thread_local! {
+    static TERMINAL: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
 struct Screen {
     app: App,
     terminal: Terminal<TestBackend>,
@@ -115,7 +121,12 @@ impl Screen {
     }
 
     fn at(app: App, home: PathBuf, width: u16) -> Screen {
-        hold_a_pty_slot();
+        let app = if TERMINAL.get() {
+            hold_a_pty_slot();
+            app
+        } else {
+            app.with_transport(Transport::Pipes)
+        };
         let mut screen = Screen {
             app: app.with_home(home),
             terminal: Terminal::new(TestBackend::new(width, 20)).unwrap(),
@@ -569,4 +580,8 @@ pub(crate) fn choosing(directory: &Path) -> Picker {
 
 fn hold_a_pty_slot() {
     pty_slots::hold(30 * deadline());
+}
+
+fn needs_a_terminal() {
+    TERMINAL.set(true);
 }

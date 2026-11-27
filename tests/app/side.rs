@@ -11,12 +11,13 @@ use crate::finding::FINDER;
 use crate::remembering::{ID, Scratch, TITLE};
 use crate::zoom::corners;
 use crate::{
-    Screen, ends_with_a_pane_corner, pane_corner, raw_reader, region, script, settled,
-    starts_focused,
+    Screen, ends_with_a_pane_corner, needs_a_terminal, pane_corner, raw_reader, region, script,
+    settled, starts_focused,
 };
 
 #[test]
 fn the_prefix_then_backslash_from_the_sidebar_shows_claude_code_left_and_its_editor_right() {
+    needs_a_terminal();
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = editing(scratch.path());
 
@@ -37,6 +38,7 @@ fn the_prefix_then_backslash_from_the_sidebar_shows_claude_code_left_and_its_edi
 
 #[test]
 fn side_by_side_sizes_claude_code_and_its_editor_to_their_halves() {
+    needs_a_terminal();
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = editing(scratch.path());
 
@@ -70,6 +72,7 @@ fn the_prefix_then_backslash_on_a_stopped_card_does_nothing() {
 
 #[test]
 fn the_prefix_then_backslash_on_an_exited_session_does_nothing() {
+    needs_a_terminal();
     let editor = Program::new("acme-edit", editor());
     let mut screen = Screen::editing(script("echo 'acme agent done'"), editor);
     screen.press('n');
@@ -84,6 +87,7 @@ fn the_prefix_then_backslash_on_an_exited_session_does_nothing() {
 
 #[test]
 fn the_prefix_then_backslash_under_120_columns_does_nothing() {
+    needs_a_terminal();
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = editing(scratch.path());
     screen.resize(119, 20);
@@ -98,6 +102,7 @@ fn the_prefix_then_backslash_under_120_columns_does_nothing() {
 
 #[test]
 fn the_prefix_then_backslash_does_not_split_when_the_editor_cannot_start() {
+    needs_a_terminal();
     let missing = Program::new("acme-edit", vec!["acme-editor-missing".to_string()]);
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = Screen::editing(agent(scratch.path()), missing);
@@ -112,6 +117,7 @@ fn the_prefix_then_backslash_does_not_split_when_the_editor_cannot_start() {
 
 #[test]
 fn the_prefix_then_backslash_again_brings_the_sidebar_back_with_claude_code_focused() {
+    needs_a_terminal();
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = editing(scratch.path());
     side(&mut screen);
@@ -127,6 +133,7 @@ fn the_prefix_then_backslash_again_brings_the_sidebar_back_with_claude_code_focu
 
 #[test]
 fn the_prefix_then_z_from_side_by_side_zooms_claude_code() {
+    needs_a_terminal();
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = editing(scratch.path());
     side(&mut screen);
@@ -142,6 +149,7 @@ fn the_prefix_then_z_from_side_by_side_zooms_claude_code() {
 
 #[test]
 fn the_prefix_then_backslash_from_a_zoom_shows_side_by_side_and_again_the_sidebar() {
+    needs_a_terminal();
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = editing(scratch.path());
     screen.key(KeyCode::Enter, KeyModifiers::NONE);
@@ -157,6 +165,7 @@ fn the_prefix_then_backslash_from_a_zoom_shows_side_by_side_and_again_the_sideba
 
 #[test]
 fn the_prefix_then_backslash_with_no_session_does_nothing() {
+    needs_a_terminal();
     let editor = Program::new("acme-edit", editor());
     let mut screen = Screen::editing(script("exec sleep 600"), editor);
     let before = screen.draw();
@@ -168,6 +177,7 @@ fn the_prefix_then_backslash_with_no_session_does_nothing() {
 
 #[test]
 fn alt_backslash_read_after_an_escape_reaches_claude_code_and_splits_nothing() {
+    needs_a_terminal();
     let editor = Program::new("acme-edit", editor());
     let mut screen = Screen::editing(raw_reader(2), editor);
     screen.press('n');
@@ -185,6 +195,7 @@ fn alt_backslash_read_after_an_escape_reaches_claude_code_and_splits_nothing() {
 
 #[test]
 fn the_width_keys_do_nothing_side_by_side() {
+    needs_a_terminal();
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = editing(scratch.path());
     side(&mut screen);
@@ -201,6 +212,7 @@ fn the_width_keys_do_nothing_side_by_side() {
 
 #[test]
 fn ctrl_l_from_the_claude_code_half_focuses_the_editor_half() {
+    needs_a_terminal();
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = split(scratch.path());
 
@@ -218,6 +230,7 @@ fn ctrl_l_from_the_claude_code_half_focuses_the_editor_half() {
 
 #[test]
 fn ctrl_h_from_the_editor_half_focuses_claude_code() {
+    needs_a_terminal();
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = split(scratch.path());
     screen.key(KeyCode::Char('l'), KeyModifiers::CONTROL);
@@ -235,6 +248,7 @@ fn ctrl_h_from_the_editor_half_focuses_claude_code() {
 
 #[test]
 fn ctrl_h_from_the_claude_code_half_brings_the_sidebar_back_focused() {
+    needs_a_terminal();
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = split(scratch.path());
 
@@ -247,6 +261,7 @@ fn ctrl_h_from_the_claude_code_half_brings_the_sidebar_back_focused() {
 
 #[test]
 fn the_editor_exiting_leaves_claude_code_zoomed() {
+    needs_a_terminal();
     let scratch = tempfile::tempdir().unwrap();
     let editor = Program::new(
         "acme-edit",
@@ -269,6 +284,7 @@ fn the_editor_exiting_leaves_claude_code_zoomed() {
 
 #[test]
 fn the_session_exiting_brings_the_sidebar_back() {
+    needs_a_terminal();
     let editor = Program::new("acme-edit", editor());
     let mut screen = Screen::editing(script("echo 'acme agent 1'; read -r line"), editor);
     screen.press('n');
@@ -284,6 +300,7 @@ fn the_session_exiting_brings_the_sidebar_back() {
 
 #[test]
 fn under_120_columns_the_focused_half_shows_alone_until_the_terminal_widens() {
+    needs_a_terminal();
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = split(scratch.path());
 
@@ -300,6 +317,7 @@ fn under_120_columns_the_focused_half_shows_alone_until_the_terminal_widens() {
 
 #[test]
 fn only_the_claude_code_half_shows_a_cursor_while_it_has_focus() {
+    needs_a_terminal();
     let scratch = tempfile::tempdir().unwrap();
     let screen = split(scratch.path());
 
@@ -310,6 +328,7 @@ fn only_the_claude_code_half_shows_a_cursor_while_it_has_focus() {
 
 #[test]
 fn only_the_editor_half_shows_a_cursor_while_it_has_focus() {
+    needs_a_terminal();
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = split(scratch.path());
 
@@ -321,6 +340,7 @@ fn only_the_editor_half_shows_a_cursor_while_it_has_focus() {
 
 #[test]
 fn ctrl_2_from_side_by_side_shows_the_second_session_beside_its_editor() {
+    needs_a_terminal();
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = editing(scratch.path());
     screen.key(KeyCode::Char('h'), KeyModifiers::CONTROL);
@@ -341,6 +361,7 @@ fn ctrl_2_from_side_by_side_shows_the_second_session_beside_its_editor() {
 
 #[test]
 fn a_pick_from_the_session_finder_shows_the_picked_session_beside_its_editor() {
+    needs_a_terminal();
     let scratch = tempfile::tempdir().unwrap();
     let editor = Program::new("acme-edit", editor());
     let app = App::new(agent(scratch.path()))
