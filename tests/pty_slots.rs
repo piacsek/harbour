@@ -113,6 +113,11 @@ fn the_shared_folder_is_the_same_whatever_tmpdir_says() {
     );
 }
 
+#[test]
+fn the_machine_shares_sixteen_slots() {
+    assert_eq!(pty_slots::SLOTS, 16);
+}
+
 fn locked(folder: &Path, count: usize) -> usize {
     (0..count)
         .filter(|n| match File::open(folder.join(format!("{n}.lock"))) {

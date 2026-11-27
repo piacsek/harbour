@@ -8,7 +8,7 @@ thread_local! {
     static HELD: RefCell<Option<File>> = const { RefCell::new(None) };
 }
 
-const SLOTS: usize = 8;
+pub const SLOTS: usize = 16;
 
 pub fn folder() -> PathBuf {
     PathBuf::from(format!("/tmp/harbour-pty-slots-{}", nix::unistd::getuid()))
