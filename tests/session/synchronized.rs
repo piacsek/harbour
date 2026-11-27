@@ -126,6 +126,34 @@ fn a_query_for_synchronized_output_mid_update_is_answered_set() {
     assert!(screen.contains(expected), "{screen}");
 }
 
+#[test]
+fn a_query_for_synchronized_output_after_the_wait_is_answered_reset() {
+    let session = start(&replied(
+        "\\033[?2026h'; sleep 0.3; printf '\\033[?2026$p",
+        11,
+    ));
+    let expected = "reply:[?2026;2$y";
+    let screen = wait_for(&session, expected);
+    assert!(screen.contains(expected), "{screen}");
+}
+
+#[test]
+fn a_session_mid_update_whose_frame_before_hid_its_cursor_has_none() {
+    let session = start(&after_enter(&format!(
+        "\\033[?25l{BEGIN}{HALF}\\033[?25h'; sleep 0.2; printf '\\033[?25l\\033[7;1Hacme more"
+    )));
+    wait_for(&session, "acme whole");
+    let before = Instant::now();
+
+    session.send(b"\r");
+    wait_for(&session, "acme more");
+
+    assert_eq!(
+        cursor_at(&session, Rect::new(0, 0, COLS, ROWS), before),
+        None
+    );
+}
+
 const BEGIN: &str = "\\033[?2026h";
 const END: &str = "\\033[?2026l";
 const HALF: &str = "\\033[2J\\033[6;9Hacme half";

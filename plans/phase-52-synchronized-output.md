@@ -49,10 +49,13 @@ What harbour reads is the program's output, through its PTY.
 | A begin with no end | The frame before it for 100 ms, then the live screen, redrawn on the next frame with no output needed. |
 | The program exits mid-update | The frame before the repaint for at most 100 ms, then the screen it left, dimmed as an exited session is. |
 | A resize mid-update | The copy keeps its old size, clipped or padded in the new pane, for at most 100 ms, until the end or the timeout; the program's repaint after the resize then shows whole. |
+| `ESC [ ? 1049 ; 2026 h` in one DECSET | vt100 applies 1049 first, so the copy is the cleared alternate screen and a blank can show for up to 100 ms; accepted as rare. |
 | The alternate screen switched mid-update | The copy holds the grid that was shown at the begin; the new grid shows at the end. |
 | A terminal reset (`ESC c`) mid-update | Still the copy until the end or the timeout; the reset changes the live screen only. |
 | vt100 panics mid-update | The session's screen is rebuilt with no copy, as before: the blank screen until the program repaints. |
 | Neovim asks for mode 2026 | It gets the answer and wraps its repaints; the editor pane shows whole frames too. |
+| A query while an update is open | Set while the copy is younger than 100 ms, reset after, as the pane is drawn. |
+| The frame before hid its cursor | No cursor while the copy shows, never one at a spot of the half-drawn screen. |
 | A program that never asks and never sends the markers | Nothing changes. |
 
 ## Tasks
@@ -69,4 +72,23 @@ What harbour reads is the program's output, through its PTY.
 
 ## Outcome
 
+- Shipped in #244 as a `fix`: a session draws a copy of its screen taken at `ESC [ ? 2026 h`,
+  and its cursor (none when the copy's is hidden), until `ESC [ ? 2026 l` or 100 ms; a
+  DECRQM for mode 2026 is answered set while that copy is fresh, else reset.
+- vt100 already reports the markers to `unhandled_csi` and holds a sequence split across reads,
+  so no scan of the reader's chunks was needed.
+- Neovim 0.12.6 wraps its repaints only once its DECRQM is answered (0 begins unanswered, 5
+  answered, by hand in a PTY), so answering it gives the editor the same treatment.
+- No tmux end-to-end test: it cannot hold the 100 ms window. The session tests hand `draw` the
+  instant; `tests/app/frames.rs` keeps the guard that an update never ended still shows.
+- Review: one round of `/code-review high`, no must or should; its nits (the query's state after
+  the timeout, no lingering cursor over the copy, the 1049 row above, a fixture's text, a guide
+  line) were fixed in the closing ship.
+
 ## Hurdles
+
+- `test-seam` Two tests were green on their first run: the timeout ones, which pass without the
+  feature, and the fresh-copy one, whose expired copy fell through to a live screen holding the
+  same text; the first were broken and restored, the second got a negative assertion → code
+- `test-seam` The previous frame showing can only be checked against the 100 ms window, which no
+  tmux or in-process app test can hold without a seam, so the session tests own it → none

@@ -411,11 +411,12 @@ fn shown(parser: &Parser, now: Instant) -> &vt100::Screen {
 }
 
 fn cursor(parser: &Parser, area: Rect, now: Instant) -> Option<Position> {
-    let screen = shown(parser, now);
-    let (row, col) = if screen.hide_cursor() {
-        parser.callbacks().lingering(now)?
-    } else {
-        screen.cursor_position()
+    let whole = parser.callbacks().whole_frame(now);
+    let screen = whole.unwrap_or_else(|| parser.screen());
+    let (row, col) = match (screen.hide_cursor(), whole) {
+        (false, _) => screen.cursor_position(),
+        (true, None) => parser.callbacks().lingering(now)?,
+        (true, Some(_)) => return None,
     };
     let col = col.min(screen.size().1.saturating_sub(1));
     let at = Position::new(area.x.checked_add(col)?, area.y.checked_add(row)?);
@@ -482,7 +483,11 @@ impl vt100::Callbacks for Replies {
             (Some(b'?'), 'h') if synchronized => self.begin_update(screen),
             (Some(b'?'), 'l') if synchronized => self.whole = None,
             (Some(b'?'), 'p') if synchronized && second == Some(b'$') => {
-                let state = if self.whole.is_some() { 1 } else { 2 };
+                let state = if self.whole_frame(Instant::now()).is_some() {
+                    1
+                } else {
+                    2
+                };
                 self.bytes
                     .extend(format!("\x1b[?{SYNCHRONIZED_OUTPUT};{state}$y").as_bytes());
             }

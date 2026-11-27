@@ -95,7 +95,11 @@ fn a_frame_where_only_the_cursor_goes_hidden_writes_the_hide() {
 
 #[test]
 fn a_repaint_its_program_never_ends_still_shows_once_the_wait_is_over() {
-    let mut screen = focused(repainting_agent());
+    let mut screen = Screen::new(repainting_agent());
+    screen.press('n');
+    screen.wait_for("acme agent ready to repaint");
+    screen.key(KeyCode::Enter, KeyModifiers::NONE);
+    screen.wait_for_unfocused("sessions");
 
     screen.key(KeyCode::Enter, KeyModifiers::NONE);
     let shown = screen.wait_for("acme agent repainted");
@@ -142,7 +146,7 @@ fn hiding_agent() -> Vec<String> {
 
 fn repainting_agent() -> Vec<String> {
     script(
-        "stty -echo; printf '\\033[3;5Hacme agent shaped'; read -r line; printf '\\033[?2026h\\033[2J\\033[6;9Hacme agent repainted'; exec sleep 600",
+        "stty -echo; printf '\\033[3;5Hacme agent ready to repaint'; read -r line; printf '\\033[?2026h\\033[2J\\033[6;9Hacme agent repainted'; exec sleep 600",
     )
 }
 
