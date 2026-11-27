@@ -1,5 +1,5 @@
 use harbour::registry::{Record, Status};
-use harbour::state::{Counts, counts, title};
+use harbour::state::{Counts, State, counts, title};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::text::Line;
@@ -113,6 +113,15 @@ fn a_title_too_narrow_for_the_word_with_no_session_keeps_the_border_whole() {
         .render(buffer.area, &mut buffer);
 
     assert_eq!(row(&buffer, 0), "┌─────┐");
+}
+
+#[test]
+fn each_state_has_the_terminal_colour_code_of_its_dot() {
+    assert_eq!(State::Working.sgr(), Some("33"));
+    assert_eq!(State::Blocked.sgr(), Some("31"));
+    assert_eq!(State::Idle.sgr(), Some("2"));
+    assert_eq!(State::Exited.sgr(), Some("2"));
+    assert_eq!(State::Unknown.sgr(), None);
 }
 
 fn record(status: Status) -> Record {

@@ -70,7 +70,8 @@ fn fzf_is_given_the_options_that_hide_and_skip_the_number() {
     assert_eq!(command[fzf + 11], "--bind=enter:accept");
     assert_eq!(command[fzf + 12], "--no-preview");
     assert_eq!(command[fzf + 13], "--header-lines=0");
-    assert_eq!(command.len(), fzf + 14);
+    assert_eq!(command[fzf + 14], "--ansi");
+    assert_eq!(command.len(), fzf + 15);
 }
 
 #[test]

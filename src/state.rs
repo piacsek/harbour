@@ -42,6 +42,16 @@ impl State {
             State::Unknown => Style::default(),
         }
     }
+
+    pub fn sgr(self) -> Option<&'static str> {
+        let style = self.style();
+        match style.fg {
+            Some(Color::Yellow) => Some("33"),
+            Some(Color::Red) => Some("31"),
+            _ if style.add_modifier.contains(Modifier::DIM) => Some("2"),
+            _ => None,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
