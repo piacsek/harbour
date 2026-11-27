@@ -42,6 +42,15 @@ impl State {
             State::Unknown => Style::default(),
         }
     }
+
+    pub fn sgr(self) -> Option<&'static str> {
+        match self {
+            State::Working => Some("33"),
+            State::Blocked => Some("31"),
+            State::Idle | State::Exited => Some("2"),
+            State::Unknown => None,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]

@@ -16,6 +16,7 @@ const SEAMS: &[&str] = &[
     "path",
     "with_changelog",
     "with_program",
+    "sgr",
     "with_writing",
 ];
 
