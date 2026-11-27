@@ -62,6 +62,7 @@ file under `plans/`; its time and tokens are a row of [`plans/metrics.md`](plans
 | 52 | [Claude Code's repaints show as whole frames](plans/phase-52-synchronized-output.md) | [v0.44.3](https://github.com/piacsek/harbour/releases/tag/v0.44.3) |
 | 53 | [the prefix twice switches back to the previous session](plans/phase-53-previous-session.md) | [v0.45.0](https://github.com/piacsek/harbour/releases/tag/v0.45.0) |
 | 54 | [tests that need no terminal run their sessions over pipes](plans/phase-54-pipes-transport.md) | [v0.45.1](https://github.com/piacsek/harbour/releases/tag/v0.45.1) |
+| 55 | [the session finder's dots in their state colours](plans/phase-55-finder-dot-colours.md), with the sweep of phases 51 to 54 | [v0.46.0](https://github.com/piacsek/harbour/releases/tag/v0.46.0) |
 | 56 | [the editor follows Claude Code into another checkout](plans/phase-56-editor-dir-mirror.md) | |
 
 ## Backlog

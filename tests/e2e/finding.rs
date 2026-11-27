@@ -1,7 +1,8 @@
+use harbour::state::State;
 use harbour::tui::DIR_PICKER;
 use tempfile::TempDir;
 
-use crate::{RAW_AGENT, SESSION_COMMAND, Server};
+use crate::{RAW_AGENT, REGISTERED_AGENT, SESSION_COMMAND, Server};
 
 const FINDER: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/finder/fzf");
 
@@ -33,6 +34,38 @@ fn alt_s_reaches_the_session_as_escape_s_with_extended_keys_off() {
     assert!(!screen.contains("acme fzf"), "{screen}");
 }
 
+#[test]
+#[ignore]
+fn the_finder_draws_a_working_sessions_dot_in_yellow() {
+    let home = tempfile::tempdir().unwrap();
+    let server = Server::start("find-colour", 160, 20);
+    server.run(
+        home.path(),
+        &[(SESSION_COMMAND, REGISTERED_AGENT), (DIR_PICKER, FINDER)],
+        &[],
+    );
+    server.wait_for_screen("press n to start one");
+    server.send_keys(&["n"]);
+    server.wait_for_screen("acme agent registered");
+    server.wait_for_screen(State::Working.glyph());
+
+    server.send_keys(&["C-/", "s"]);
+
+    let dot = State::Working.glyph();
+    server.wait_for_screen(&format!("0|{dot}|"));
+    let coloured = coloured_screen(&server);
+    let line = coloured
+        .lines()
+        .find(|line| line.contains("0|"))
+        .unwrap_or_default();
+    let dotted = line.split("0|").nth(1).unwrap_or_default();
+    assert!(dotted.starts_with('\u{1b}'), "{line:?}");
+    assert!(
+        dotted.split('|').next().unwrap_or_default().contains(dot),
+        "{line:?}"
+    );
+}
+
 fn focused_raw_agent(name: &str, extended: &str, format: &str) -> Option<(TempDir, Server)> {
     let home = tempfile::tempdir().unwrap();
     let server = Server::start(name, 160, 20);
@@ -55,4 +88,12 @@ fn focused_raw_agent(name: &str, extended: &str, format: &str) -> Option<(TempDi
     server.send_keys(&["n"]);
     server.wait_for_screen("acme agent ready");
     Some((home, server))
+}
+
+fn coloured_screen(server: &Server) -> String {
+    let output = server
+        .tmux(&["capture-pane", "-p", "-e", "-t", "e2e"])
+        .output()
+        .unwrap();
+    String::from_utf8_lossy(&output.stdout).to_string()
 }

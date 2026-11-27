@@ -2,7 +2,7 @@ use crate::state::State;
 use crate::text::{clean, columns};
 use crate::zoom::Headline;
 
-pub const OPTIONS: [&str; 9] = [
+pub const OPTIONS: [&str; 10] = [
     "--delimiter=\t",
     "--with-nth=2..",
     "--nth=2,3",
@@ -12,6 +12,7 @@ pub const OPTIONS: [&str; 9] = [
     "--bind=enter:accept",
     "--no-preview",
     "--header-lines=0",
+    "--ansi",
 ];
 
 pub struct Row {
@@ -32,7 +33,7 @@ pub fn lines(rows: &[Row]) -> Vec<u8> {
     for (index, headline) in headlines.iter().enumerate() {
         listed.push_str(&format!(
             "{index}\t{}\t{} \t{} \t{}{}\n",
-            headline.state.glyph(),
+            dot(headline.state),
             padded(&titles[index], titled),
             padded(&places[index], placed),
             " ".repeat(aged - columns(ages[index])),
@@ -52,6 +53,13 @@ fn age(row: &Row) -> &str {
         (_, true) => "stopped",
         (State::Exited, false) => "exited",
         _ => row.headline.age.as_deref().unwrap_or_default(),
+    }
+}
+
+fn dot(state: State) -> String {
+    match state.sgr() {
+        Some(code) => format!("\u{1b}[{code}m{}\u{1b}[0m", state.glyph()),
+        None => state.glyph().to_string(),
     }
 }
 
