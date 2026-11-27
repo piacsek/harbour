@@ -11,7 +11,7 @@ use harbour::picker::Picker;
 
 use crate::logging::{logged, only, read};
 use crate::remembering::{ID, OTHER_ID, Scratch};
-use crate::{Screen, deadline, directory, needs_a_terminal, script};
+use crate::{Screen, deadline, directory, needs_a_terminal, script, settled};
 
 const HOUR: Duration = Duration::from_secs(60 * 60);
 const THIRD_ID: &str = "5c4b3a29-1807-4f6e-9d8c-7b6a59483726";
@@ -230,7 +230,13 @@ fn kept_while_in(
     close: impl FnOnce(&mut Screen),
 ) {
     let scratch = tempfile::tempdir().unwrap();
-    let mut screen = Screen::of(extra(tidying(exiting_agent(scratch.path(), 2), deadline())));
+    let ahead = Arc::new(AtomicU64::new(0));
+    let clock = ahead.clone();
+    let mut screen = Screen::of(extra(
+        tidying(exiting_agent(scratch.path(), 2), HOUR).with_tidy_clock(Box::new(move || {
+            SystemTime::now() + Duration::from_secs(clock.load(Ordering::SeqCst))
+        })),
+    ));
     screen.press('n');
     screen.wait_for("acme agent 1 ready");
     screen.key(KeyCode::Char('h'), KeyModifiers::CONTROL);
@@ -239,8 +245,8 @@ fn kept_while_in(
     screen.key(KeyCode::Char('h'), KeyModifiers::CONTROL);
     screen.press('k');
     open(&mut screen);
-    sleep(2 * deadline());
-    let kept = screen.draw();
+    ahead.store(2 * HOUR.as_secs(), Ordering::SeqCst);
+    let kept = settled(&mut screen, |shown| !shown.contains("exited"));
     assert!(kept.contains("exited"), "{kept}");
 
     close(&mut screen);
