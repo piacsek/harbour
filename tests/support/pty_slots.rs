@@ -2,20 +2,25 @@ use std::cell::RefCell;
 use std::fs::{self, File, OpenOptions};
 use std::path::Path;
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 thread_local! {
     static HELD: RefCell<Option<File>> = const { RefCell::new(None) };
 }
 
-pub fn hold_in(folder: &Path, count: usize) {
+pub fn hold_in(folder: &Path, count: usize, patience: Duration) {
     if HELD.with(|held| held.borrow().is_some()) {
         return;
     }
     fs::create_dir_all(folder).unwrap();
+    let started = Instant::now();
     let slot = loop {
         match free_slot(folder, count) {
             Some(slot) => break slot,
+            None if started.elapsed() >= patience => panic!(
+                "no PTY slot of {} freed within {patience:?}",
+                folder.display()
+            ),
             None => thread::sleep(Duration::from_millis(20)),
         }
     };
