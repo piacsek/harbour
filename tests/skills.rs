@@ -247,11 +247,17 @@ fn keys(sent: &[&str]) -> Vec<String> {
 fn prefixed_keys() -> Vec<String> {
     KEYS.iter()
         .filter_map(|(keys, _)| keys.strip_prefix("C-/ "))
+        .flat_map(|keys| keys.split(' '))
         .flat_map(|keys| {
             if keys == "C-/" {
                 return vec![PREFIX.to_string()];
             }
-            keys.split([' ', '/'])
+            if let Some(rest) = keys.strip_prefix("C-//") {
+                return std::iter::once(PREFIX.to_string())
+                    .chain(rest.chars().map(String::from))
+                    .collect();
+            }
+            keys.split('/')
                 .flat_map(|word| match word.split_once("..") {
                     Some((first, _)) => vec![first.to_string()],
                     None => word.chars().map(String::from).collect(),

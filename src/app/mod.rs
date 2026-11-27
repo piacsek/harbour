@@ -18,6 +18,7 @@ mod key;
 mod logging;
 mod navigate;
 mod prefix;
+mod previous;
 mod read;
 mod remember;
 mod rename;
@@ -106,6 +107,7 @@ pub struct App {
     tmux: Option<Tmux>,
     keymap: Keymap,
     prefixing: prefix::Prefixing,
+    recent: previous::Recent,
     renaming: Option<rename::Renaming>,
     logging: logging::Logging,
     hangup_grace: Duration,
@@ -251,6 +253,7 @@ impl App {
             tmux: None,
             keymap: Keymap::default(),
             prefixing: prefix::Prefixing::default(),
+            recent: previous::Recent::default(),
             renaming: None,
             logging: logging::Logging::default(),
             hangup_grace: session::HANGUP_GRACE,

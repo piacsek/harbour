@@ -60,6 +60,14 @@ fn an_unbound_key_with_ctrl_held_does_nothing() {
 }
 
 #[test]
+fn p_after_the_prefix_sends_the_prefix() {
+    assert_eq!(
+        after('p', KeyModifiers::NONE),
+        After::Act(Action::SendPrefix)
+    );
+}
+
+#[test]
 fn the_prefix_again_is_still_the_prefix() {
     assert_eq!(after('/', KeyModifiers::CONTROL), After::Prefix);
 }

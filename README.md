@@ -53,7 +53,7 @@ harbour config      # the settings file's path and where each setting comes from
 | `C-/ -/=` | narrow / widen the sidebar by 2 columns |
 | `C-/ u/c` | Claude Code's usage / the changelog |
 | `C-/ ?/q` | this help / quit, asking while anything runs |
-| `C-/ C-/` | send C-/ to the program |
+| `C-/ C-//p` | the previous session / send C-/ to the program |
 
 `n` picks the directory with fzf, from the directory harbour was opened in and the ones
 zoxide ranks; `HARBOUR_DIR_PICKER` names another picker. Without fzf, sessions start in the

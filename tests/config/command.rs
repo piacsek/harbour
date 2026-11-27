@@ -14,7 +14,7 @@ fn harbour_config_names_the_file_and_every_default() {
     assert_eq!(
         stdout(&output),
         format!(
-            "file: {} (none there)\neditor = [\"nvim\"]  (default)\neditor_dir = \"root\"  (default)\npicker = [\"fzf\"]  (default)\nsession_command = [\"claude\"]  (default)\nsidebar_width = a third  (default)\naccent = \"cyan\"  (default)\nnerd_font = false  (default)\nclaude_icon = \"sparkle\"  (default)\nprefix = \"C-/\"  (default)\ntidy_after = \"6h\"  (default)\ncolors.repository = \"blue\"  (default)\ncolors.branch = \"magenta\"  (default)\ncolors.pull_request = \"cyan\"  (default)\nkeys.zoom = \"z\"  (default)\nkeys.side = \"\\\\\"  (default)\nkeys.swap_left = \"{{\"  (default)\nkeys.swap_right = \"}}\"  (default)\nkeys.find = \"s\"  (default)\nkeys.rename = \"r\"  (default)\nkeys.new = \"n\"  (default)\nkeys.end = \"x\"  (default)\nkeys.close = \"X\"  (default)\nkeys.editor = \"e\"  (default)\nkeys.sidebar = \"h\"  (default)\nkeys.pane = \"l\"  (default)\nkeys.narrower = \"-\"  (default)\nkeys.wider = \"=\"  (default)\nkeys.usage = \"u\"  (default)\nkeys.changelog = \"c\"  (default)\nkeys.help = \"?\"  (default)\nkeys.quit = \"q\"  (default)\n",
+            "file: {} (none there)\neditor = [\"nvim\"]  (default)\neditor_dir = \"root\"  (default)\npicker = [\"fzf\"]  (default)\nsession_command = [\"claude\"]  (default)\nsidebar_width = a third  (default)\naccent = \"cyan\"  (default)\nnerd_font = false  (default)\nclaude_icon = \"sparkle\"  (default)\nprefix = \"C-/\"  (default)\ntidy_after = \"6h\"  (default)\ncolors.repository = \"blue\"  (default)\ncolors.branch = \"magenta\"  (default)\ncolors.pull_request = \"cyan\"  (default)\nkeys.zoom = \"z\"  (default)\nkeys.side = \"\\\\\"  (default)\nkeys.swap_left = \"{{\"  (default)\nkeys.swap_right = \"}}\"  (default)\nkeys.find = \"s\"  (default)\nkeys.rename = \"r\"  (default)\nkeys.new = \"n\"  (default)\nkeys.end = \"x\"  (default)\nkeys.close = \"X\"  (default)\nkeys.editor = \"e\"  (default)\nkeys.sidebar = \"h\"  (default)\nkeys.pane = \"l\"  (default)\nkeys.narrower = \"-\"  (default)\nkeys.wider = \"=\"  (default)\nkeys.usage = \"u\"  (default)\nkeys.changelog = \"c\"  (default)\nkeys.help = \"?\"  (default)\nkeys.quit = \"q\"  (default)\nkeys.send_prefix = \"p\"  (default)\n",
             config_path(home.path()).display()
         )
     );
@@ -34,7 +34,7 @@ fn harbour_config_shows_what_the_file_sets() {
     assert_eq!(
         stdout(&output),
         format!(
-            "file: {}\neditor = [\"nvim\", \"--clean\"]  (file)\neditor_dir = \"exact\"  (file)\npicker = [\"fzf\"]  (default)\nsession_command = [\"claude\"]  (default)\nsidebar_width = 40  (file)\naccent = \"#d7875f\"  (file)\nnerd_font = true  (file)\nclaude_icon = \"clawd\"  (file)\nprefix = \"C-]\"  (file)\ntidy_after = \"off\"  (file)\ncolors.repository = \"blue\"  (default)\ncolors.branch = \"magenta\"  (default)\ncolors.pull_request = \"cyan\"  (default)\nkeys.zoom = \"f\"  (file)\nkeys.side = \"\\\\\"  (default)\nkeys.swap_left = \"{{\"  (default)\nkeys.swap_right = \"}}\"  (default)\nkeys.find = \"s\"  (default)\nkeys.rename = \"r\"  (default)\nkeys.new = \"n\"  (default)\nkeys.end = \"x\"  (default)\nkeys.close = \"X\"  (default)\nkeys.editor = \"e\"  (default)\nkeys.sidebar = \"h\"  (default)\nkeys.pane = \"l\"  (default)\nkeys.narrower = \"-\"  (default)\nkeys.wider = \"=\"  (default)\nkeys.usage = \"none\"  (file)\nkeys.changelog = \"c\"  (default)\nkeys.help = \"?\"  (default)\nkeys.quit = \"q\"  (default)\n",
+            "file: {}\neditor = [\"nvim\", \"--clean\"]  (file)\neditor_dir = \"exact\"  (file)\npicker = [\"fzf\"]  (default)\nsession_command = [\"claude\"]  (default)\nsidebar_width = 40  (file)\naccent = \"#d7875f\"  (file)\nnerd_font = true  (file)\nclaude_icon = \"clawd\"  (file)\nprefix = \"C-]\"  (file)\ntidy_after = \"off\"  (file)\ncolors.repository = \"blue\"  (default)\ncolors.branch = \"magenta\"  (default)\ncolors.pull_request = \"cyan\"  (default)\nkeys.zoom = \"f\"  (file)\nkeys.side = \"\\\\\"  (default)\nkeys.swap_left = \"{{\"  (default)\nkeys.swap_right = \"}}\"  (default)\nkeys.find = \"s\"  (default)\nkeys.rename = \"r\"  (default)\nkeys.new = \"n\"  (default)\nkeys.end = \"x\"  (default)\nkeys.close = \"X\"  (default)\nkeys.editor = \"e\"  (default)\nkeys.sidebar = \"h\"  (default)\nkeys.pane = \"l\"  (default)\nkeys.narrower = \"-\"  (default)\nkeys.wider = \"=\"  (default)\nkeys.usage = \"none\"  (file)\nkeys.changelog = \"c\"  (default)\nkeys.help = \"?\"  (default)\nkeys.quit = \"q\"  (default)\nkeys.send_prefix = \"p\"  (default)\n",
             path.display()
         )
     );
@@ -210,7 +210,7 @@ fn harbour_config_shows_each_setting_on_one_line_with_its_words_escaped() {
         "{}",
         stdout(&output)
     );
-    assert_eq!(stdout(&output).lines().count(), 32);
+    assert_eq!(stdout(&output).lines().count(), 33);
 }
 
 #[test]
@@ -333,7 +333,7 @@ fn harbour_config_shows_a_file_path_with_a_newline_escaped_on_one_line() {
         "{}",
         stdout(&output)
     );
-    assert_eq!(stdout(&output).lines().count(), 32);
+    assert_eq!(stdout(&output).lines().count(), 33);
 }
 
 fn config_command(home: &Path) -> Output {

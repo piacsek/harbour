@@ -43,18 +43,18 @@ fn the_prefix_then_z_from_an_editor_zooms_that_editor() {
 }
 
 #[test]
-fn the_prefix_twice_sends_claude_code_the_legacy_byte() {
+fn the_prefix_then_p_sends_claude_code_the_legacy_byte() {
     let mut screen = focused(raw_reader(1));
 
     screen.key(KeyCode::Char('/'), KeyModifiers::CONTROL);
-    screen.key(KeyCode::Char('/'), KeyModifiers::CONTROL);
+    screen.press('p');
 
     let shown = screen.wait_for("acme agent read:");
     assert!(shown.contains("acme agent read: 1f"), "{shown}");
 }
 
 #[test]
-fn the_prefix_twice_sends_an_editor_the_form_it_asked_for() {
+fn the_prefix_then_p_sends_an_editor_the_form_it_asked_for() {
     let mut screen = Screen::editing(raw_reader(1), raw_editor("\\033[>4;2m", 10));
     screen.press('n');
     screen.wait_for("acme agent ready");
@@ -63,7 +63,7 @@ fn the_prefix_twice_sends_an_editor_the_form_it_asked_for() {
     screen.wait_for("acme editor ready");
 
     screen.key(KeyCode::Char('/'), KeyModifiers::CONTROL);
-    screen.key(KeyCode::Char('/'), KeyModifiers::CONTROL);
+    screen.press('p');
 
     let shown = screen.wait_for("acme editor read:");
     assert!(shown.contains("acme editor read:[27;5;47~"), "{shown}");
@@ -594,7 +594,7 @@ fn the_prefix_sent_on_is_logged_as_its_byte_count() {
     let mut screen = focused_app(app);
 
     screen.key(KeyCode::Char('/'), KeyModifiers::CONTROL);
-    screen.key(KeyCode::Char('/'), KeyModifiers::CONTROL);
+    screen.press('p');
 
     let lines = read(&lines);
     assert_eq!(count(&lines, " input to=session session=1 bytes=1"), 1);

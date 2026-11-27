@@ -350,8 +350,9 @@ usage: harbour [--demo | --help | --version | changelog | status | log | config 
 With no argument on a terminal, harbour opens a sidebar of Claude Code sessions
 beside a live pane. --demo opens the same with made-up sessions: no claude needed.
 C-/ is harbour's prefix: press it, then a key, from the sidebar or any pane.
-C-/ ? shows the keys and what the dots mean, C-/ c the changelog, and C-/ C-/
-sends C-/ to the program. Most terminals send C-/ as C-_, the same key.
+C-/ ? shows the keys and what the dots mean, C-/ c the changelog. C-/ C-/
+switches to the session selected before, and again back; C-/ p sends C-/ to the
+program. Most terminals send C-/ as C-_, the same key.
 Settings come from $XDG_CONFIG_HOME/harbour/config.toml, else
 ~/.config/harbour/config.toml, read at start: editor, picker and
 session_command (each a list: the program, then its arguments), editor_dir

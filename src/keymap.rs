@@ -20,9 +20,10 @@ pub enum Action {
     Changelog,
     Help,
     Quit,
+    SendPrefix,
 }
 
-pub const ACTIONS: [(Action, &str, char); 18] = [
+pub const ACTIONS: [(Action, &str, char); 19] = [
     (Action::Zoom, "zoom", 'z'),
     (Action::Side, "side", '\\'),
     (Action::SwapLeft, "swap_left", '{'),
@@ -41,6 +42,7 @@ pub const ACTIONS: [(Action, &str, char); 18] = [
     (Action::Changelog, "changelog", 'c'),
     (Action::Help, "help", '?'),
     (Action::Quit, "quit", 'q'),
+    (Action::SendPrefix, "send_prefix", 'p'),
 ];
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -98,6 +100,20 @@ impl Keymap {
             .iter()
             .find(|(each, other)| *each != action && *other == Some(key))
             .map(|(each, _)| *each)
+    }
+
+    pub fn clash_as_typed(&self, action: Action) -> Option<Action> {
+        let key = self.key_of(action)?;
+        self.clash(action).or_else(|| {
+            self.bound
+                .iter()
+                .find(|(each, other)| {
+                    *each != action
+                        && *each != Action::Close
+                        && other.is_some_and(|other| other.eq_ignore_ascii_case(&key))
+                })
+                .map(|(each, _)| *each)
+        })
     }
 
     pub fn is_prefix(&self, key: KeyEvent) -> bool {

@@ -205,6 +205,39 @@ fn an_action_written_on_r_loads_and_takes_it_from_rename() {
 }
 
 #[test]
+fn an_action_written_on_p_loads_and_takes_it_from_send_prefix() {
+    let home = tempfile::tempdir().unwrap();
+    write_config(home.path(), "[keys]\nfind = \"p\"\n");
+
+    let config = read_at(home.path(), None).unwrap();
+
+    assert_eq!(config.keymap().action_on('p'), Some(Action::Find));
+    assert_eq!(config.keymap().key_of(Action::SendPrefix), None);
+}
+
+#[test]
+fn an_action_written_on_capital_p_keeps_p_by_its_case_from_send_prefix() {
+    let home = tempfile::tempdir().unwrap();
+    write_config(home.path(), "[keys]\nfind = \"P\"\n");
+
+    let config = read_at(home.path(), None).unwrap();
+
+    assert_eq!(config.keymap().action_on('p'), Some(Action::Find));
+    assert_eq!(config.keymap().key_of(Action::SendPrefix), None);
+}
+
+#[test]
+fn close_written_on_capital_p_leaves_p_to_send_prefix() {
+    let home = tempfile::tempdir().unwrap();
+    write_config(home.path(), "[keys]\nclose = \"P\"\n");
+
+    let config = read_at(home.path(), None).unwrap();
+
+    assert_eq!(config.keymap().key_of(Action::SendPrefix), Some('p'));
+    assert_eq!(config.keymap().action_on('p'), Some(Action::SendPrefix));
+}
+
+#[test]
 fn rename_written_on_r_beside_another_action_on_r_is_refused() {
     let home = tempfile::tempdir().unwrap();
     write_config(home.path(), "[keys]\nzoom = \"r\"\nrename = \"r\"\n");
@@ -426,7 +459,7 @@ fn an_unknown_action_is_refused_naming_the_actions() {
     assert_eq!(
         refusal(home.path()),
         format!(
-            "{}:3: keys.zoomed: no such action; the actions are zoom, side, swap_left, swap_right, find, rename, new, end, close, editor, sidebar, pane, narrower, wider, usage, changelog, help, quit",
+            "{}:3: keys.zoomed: no such action; the actions are zoom, side, swap_left, swap_right, find, rename, new, end, close, editor, sidebar, pane, narrower, wider, usage, changelog, help, quit, send_prefix",
             path.display()
         )
     );

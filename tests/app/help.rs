@@ -318,7 +318,7 @@ fn the_help_names_a_configured_prefix_in_its_rows() {
         "{shown}"
     );
     assert!(
-        shown.contains("C-] C-]    send C-] to the program"),
+        shown.contains("C-] C-]/p  the previous session / send C-] to the program"),
         "{shown}"
     );
     assert!(
@@ -393,7 +393,9 @@ fn the_space_prefix_is_named_by_its_symbol_so_the_column_keeps_its_width() {
 
     let shown = screen.draw();
     assert!(
-        shown.contains("C-\u{2423} C-\u{2423}    send C-\u{2423} to the program"),
+        shown.contains(
+            "C-\u{2423} C-\u{2423}/p  the previous session / send C-\u{2423} to the program"
+        ),
         "{shown}"
     );
     assert!(

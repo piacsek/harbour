@@ -199,6 +199,42 @@ fn the_prefix_then_a_digit_with_ctrl_held_jumps_between_cards_with_extended_keys
 
 #[test]
 #[ignore]
+fn the_prefix_twice_switches_to_the_previous_card_and_back_with_extended_keys_on() {
+    let Some((_home, server)) = two_raw_agents("ext-xterm-previous", "xterm") else {
+        return;
+    };
+
+    server.send_keys(&["C-/", "C-/", "a"]);
+    server.wait_for_screen("read:a");
+    server.send_keys(&["C-/", "C-/", "b"]);
+
+    let screen = server.wait_for_screen("read:b");
+    assert!(screen.contains("read:b"), "{screen}");
+    assert!(!screen.contains("read:a"), "{screen}");
+}
+
+#[test]
+#[ignore]
+fn the_prefix_twice_switches_to_the_previous_card_and_back_with_extended_keys_off() {
+    let Some((_home, server)) = raw_harbour("off-previous", "off", "xterm", "") else {
+        return;
+    };
+    server.send_keys(&["n"]);
+    server.wait_for_screen("acme agent ready");
+    server.send_keys(&["n"]);
+    server.wait_for_screen("acme-api 2");
+
+    server.send_keys(&["C-/", "C-/", "a"]);
+    server.wait_for_screen("read:a");
+    server.send_keys(&["C-/", "C-/", "b"]);
+
+    let screen = server.wait_for_screen("read:b");
+    assert!(screen.contains("read:b"), "{screen}");
+    assert!(!screen.contains("read:a"), "{screen}");
+}
+
+#[test]
+#[ignore]
 fn the_prefix_then_nine_jumps_to_the_last_card_in_the_csi_u_form() {
     let Some((_home, server)) = two_raw_agents("ext-csi-u-jump", "csi-u") else {
         return;

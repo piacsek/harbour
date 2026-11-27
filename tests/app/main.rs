@@ -36,6 +36,7 @@ mod nearest;
 mod neovim;
 mod picker;
 mod prefix;
+mod previous;
 mod real_neovim;
 mod reconciling;
 mod refusing;
