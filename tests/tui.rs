@@ -11,7 +11,19 @@ use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::widgets::Widget;
 
+#[path = "support/pty_slots.rs"]
+mod pty_slots;
+#[path = "support/timing.rs"]
+mod timing;
+
 static RESTORED: AtomicUsize = AtomicUsize::new(0);
+
+#[test]
+fn a_wide_session_holds_a_pty_slot() {
+    let _session = wide_session();
+
+    assert!(pty_slots::holding());
+}
 
 #[test]
 fn leaving_the_terminal_turns_off_mouse_capture_and_bracketed_paste() {
@@ -122,7 +134,7 @@ fn the_panic_hook_is_silent_for_a_contained_panic_and_restores_for_another() {
             RESTORED.fetch_add(1, Ordering::SeqCst);
         }),
     ));
-    let mut session = Session::start(&wide_at_the_edge(), &std::env::temp_dir(), 10, 160).unwrap();
+    let mut session = wide_session();
     wait_for(&session, "ready");
     session.resize(10, 159);
     session.send(b"\r");
@@ -194,4 +206,9 @@ fn rendered(session: &Session) -> String {
         })
         .collect::<Vec<_>>()
         .join("\n")
+}
+
+fn wide_session() -> Session {
+    pty_slots::hold(30 * timing::deadline());
+    Session::start(&wide_at_the_edge(), &std::env::temp_dir(), 10, 160).unwrap()
 }

@@ -90,6 +90,8 @@ use crate::directory::{folder, recording_agent, repository, write_transcript};
 mod borders;
 #[path = "../support/nvim_on_path.rs"]
 mod nvim_on_path;
+#[path = "../support/pty_slots.rs"]
+mod pty_slots;
 #[path = "../support/timing.rs"]
 mod timing;
 use borders::BORDERS;
@@ -112,6 +114,7 @@ impl Screen {
     }
 
     fn at(app: App, home: PathBuf, width: u16) -> Screen {
+        hold_a_pty_slot();
         let mut screen = Screen {
             app: app.with_home(home),
             terminal: Terminal::new(TestBackend::new(width, 20)).unwrap(),
@@ -553,4 +556,8 @@ pub(crate) fn following_from(
 
 pub(crate) fn choosing(directory: &Path) -> Picker {
     Picker::Command(script(&format!("printf '%s\\n' '{}'", directory.display())))
+}
+
+fn hold_a_pty_slot() {
+    pty_slots::hold(30 * deadline());
 }

@@ -1,16 +1,21 @@
+use std::io;
+use std::path::Path;
 use std::process::Command;
 use std::sync::mpsc;
 use std::thread::{self, sleep};
 use std::time::{Duration, Instant};
 
-use harbour::session::{self, Session};
+use harbour::session::{self, Role, Session};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Position, Rect};
 use ratatui::widgets::Widget;
 use vt100::{MouseProtocolEncoding, MouseProtocolMode};
 
 mod keyboard;
+mod slots;
 
+#[path = "../support/pty_slots.rs"]
+mod pty_slots;
 #[path = "../support/timing.rs"]
 mod timing;
 
@@ -49,7 +54,7 @@ fn the_command_starts_in_the_directory_it_is_given() {
         "-c".into(),
         "echo \"in:${PWD##*/}\"; sleep 5".into(),
     ];
-    let session = Session::start(&command, &directory, ROWS, COLS).unwrap();
+    let session = opened(&command, &directory, ROWS, COLS).unwrap();
     let screen = wait_for(&session, "in:acme-web");
     assert!(screen.contains("in:acme-web"), "{screen}");
 }
@@ -60,9 +65,7 @@ fn a_directory_that_is_gone_starts_nothing_and_is_named() {
     let directory = scratch.path().join("acme-gone");
     let command = ["/bin/sh".to_string(), "-c".into(), "sleep 5".into()];
 
-    let refused = Session::start(&command, &directory, ROWS, COLS)
-        .err()
-        .unwrap();
+    let refused = opened(&command, &directory, ROWS, COLS).err().unwrap();
 
     assert_eq!(
         refused.to_string(),
@@ -76,7 +79,7 @@ fn the_command_sees_its_directory_in_pwd() {
     let directory = scratch.path().join("acme-web");
     std::fs::create_dir(&directory).unwrap();
     let command = ["/usr/bin/printenv".to_string(), "PWD".into()];
-    let session = Session::start(&command, &directory, ROWS, COLS).unwrap();
+    let session = opened(&command, &directory, ROWS, COLS).unwrap();
     let screen = wait_for(&session, "/acme-web");
     assert!(screen.contains("/acme-web"), "{screen}");
 }
@@ -168,7 +171,7 @@ fn a_session_started_with_no_room_still_runs() {
         "-c".into(),
         "echo ready; sleep 5".into(),
     ];
-    let mut session = Session::start(&command, &std::env::temp_dir(), 0, 0).unwrap();
+    let mut session = opened(&command, &std::env::temp_dir(), 0, 0).unwrap();
 
     session.resize(ROWS, COLS);
 
@@ -183,7 +186,7 @@ fn a_session_started_one_row_high_survives_a_wrapped_line() {
         "-c".into(),
         "printf 'acme-api wraps'; echo; sleep 1; echo ready; sleep 5".into(),
     ];
-    let mut session = Session::start(&command, &std::env::temp_dir(), 1, 4).unwrap();
+    let mut session = opened(&command, &std::env::temp_dir(), 1, 4).unwrap();
     sleep(Duration::from_millis(300));
 
     session.resize(ROWS, COLS);
@@ -212,7 +215,7 @@ fn a_session_started_one_column_wide_survives_a_wide_character() {
         "-c".into(),
         "printf '\\344\\270\\226'; echo; sleep 1; echo ready; sleep 5".into(),
     ];
-    let mut session = Session::start(&command, &std::env::temp_dir(), 10, 1).unwrap();
+    let mut session = opened(&command, &std::env::temp_dir(), 10, 1).unwrap();
     sleep(Duration::from_millis(300));
 
     session.resize(ROWS, COLS);
@@ -236,8 +239,7 @@ fn a_session_resized_to_one_column_survives_a_wide_character() {
 
 #[test]
 fn a_session_survives_a_wide_character_cut_by_a_resize() {
-    let mut session =
-        Session::start(&wide_at_the_edge(), &std::env::temp_dir(), ROWS, 160).unwrap();
+    let mut session = opened(&wide_at_the_edge(), &std::env::temp_dir(), ROWS, 160).unwrap();
     wait_for(&session, "ready");
     session.resize(ROWS, 159);
 
@@ -251,8 +253,7 @@ fn a_session_survives_a_wide_character_cut_by_a_resize() {
 
 #[test]
 fn a_session_counts_the_panics_it_contained_until_they_are_taken() {
-    let mut session =
-        Session::start(&wide_at_the_edge(), &std::env::temp_dir(), ROWS, 160).unwrap();
+    let mut session = opened(&wide_at_the_edge(), &std::env::temp_dir(), ROWS, 160).unwrap();
     wait_for(&session, "ready");
     session.resize(ROWS, 159);
     session.send(b"\r");
@@ -274,8 +275,7 @@ fn a_session_that_never_panicked_counts_none() {
 
 #[test]
 fn a_session_whose_screen_was_reset_is_asked_to_repaint() {
-    let mut session =
-        Session::start(&wide_at_the_edge(), &std::env::temp_dir(), ROWS, 160).unwrap();
+    let mut session = opened(&wide_at_the_edge(), &std::env::temp_dir(), ROWS, 160).unwrap();
     wait_for(&session, "ready");
     session.resize(ROWS, 159);
     wait_for(&session, "repainted");
@@ -291,8 +291,7 @@ fn a_session_whose_screen_was_reset_is_asked_to_repaint() {
 
 #[test]
 fn a_session_whose_screen_was_reset_keeps_the_modes_its_program_turned_on() {
-    let mut session =
-        Session::start(&moded_wide_at_the_edge(), &std::env::temp_dir(), ROWS, 160).unwrap();
+    let mut session = opened(&moded_wide_at_the_edge(), &std::env::temp_dir(), ROWS, 160).unwrap();
     wait_for(&session, "ready");
     session.resize(ROWS, 159);
     session.send(b"x");
@@ -418,8 +417,7 @@ fn a_cursor_shape_past_six_keeps_the_shape_before() {
 
 #[test]
 fn a_session_whose_screen_was_reset_keeps_its_cursor_shape() {
-    let mut session =
-        Session::start(&shaped_wide_at_the_edge(), &std::env::temp_dir(), ROWS, 160).unwrap();
+    let mut session = opened(&shaped_wide_at_the_edge(), &std::env::temp_dir(), ROWS, 160).unwrap();
     wait_for(&session, "ready");
     session.resize(ROWS, 159);
     session.send(b"\r");
@@ -581,7 +579,22 @@ fn moded_wide_at_the_edge() -> [String; 3] {
 
 fn start(script: &str) -> Session {
     let command = ["/bin/sh".to_string(), "-c".into(), script.into()];
-    Session::start(&command, &std::env::temp_dir(), ROWS, COLS).unwrap()
+    opened(&command, &std::env::temp_dir(), ROWS, COLS).unwrap()
+}
+
+fn opened(command: &[String], directory: &Path, rows: u16, cols: u16) -> io::Result<Session> {
+    opened_as(Role::Agent, command, directory, rows, cols)
+}
+
+fn opened_as(
+    role: Role,
+    command: &[String],
+    directory: &Path,
+    rows: u16,
+    cols: u16,
+) -> io::Result<Session> {
+    pty_slots::hold(30 * deadline());
+    Session::start_as(role, command, directory, rows, cols)
 }
 
 fn wait_for(session: &Session, text: &str) -> String {

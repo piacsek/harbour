@@ -12,6 +12,8 @@ mod homebrew_formula;
 mod next_version;
 mod pipe_readers;
 mod previous_tag;
+#[path = "../support/pty_slots.rs"]
+mod pty_slots;
 mod release_commit;
 mod release_commit_cargo;
 mod release_commit_first;
@@ -23,7 +25,10 @@ mod scrub_list;
 mod ship;
 mod stable_version;
 mod sweep;
+mod terminal;
 mod test_speed;
+#[path = "../support/timing.rs"]
+mod timing;
 mod truecolor;
 mod version_check;
 mod version_check_cargo;

@@ -8,9 +8,16 @@ use ratatui::widgets::BorderType;
 
 use crate::real_neovim::{held, reached};
 use crate::{
-    Screen, deadline, drawn_only_by, ends_with_a_pane_corner, failure, pane_corner, reading_agent,
-    script, settled,
+    Screen, deadline, drawn_only_by, ends_with_a_pane_corner, failure, pane_corner, pty_slots,
+    reading_agent, script, settled,
 };
+
+#[test]
+fn a_screen_holds_a_pty_slot() {
+    let _screen = Screen::new(reading_agent());
+
+    assert!(pty_slots::holding());
+}
 
 #[test]
 fn a_wait_for_text_that_never_shows_fails_naming_it_and_showing_the_screen() {

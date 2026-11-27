@@ -4,7 +4,7 @@ use std::time::{Duration, Instant};
 use harbour::keys::Keyboard;
 use harbour::session::{Role, Session};
 
-use crate::{COLS, ROWS, replied, start, wait_for};
+use crate::{COLS, ROWS, opened_as, replied, start, wait_for};
 
 #[test]
 fn a_session_whose_program_asked_for_nothing_gets_legacy_keys() {
@@ -138,7 +138,7 @@ fn a_session_whose_program_exited_forgets_what_it_asked_for() {
 
 #[test]
 fn a_session_whose_screen_was_reset_keeps_the_keys_its_program_asked_for() {
-    let mut session = Session::start_as(
+    let mut session = opened_as(
         Role::Picker,
         &asking_wide_at_the_edge(),
         &std::env::temp_dir(),
@@ -184,8 +184,7 @@ fn an_editor_asking_for_modify_other_keys_gets_the_xterm_form() {
         "-c".into(),
         "printf '\\033[>4;2m'; echo ready; sleep 5".into(),
     ];
-    let session =
-        Session::start_as(Role::Editor, &command, &std::env::temp_dir(), ROWS, COLS).unwrap();
+    let session = opened_as(Role::Editor, &command, &std::env::temp_dir(), ROWS, COLS).unwrap();
     assert_eq!(keyboard_once(&session, "ready"), Keyboard::XtermTwo);
 }
 
@@ -215,5 +214,5 @@ fn asking_wide_at_the_edge() -> [String; 3] {
 
 fn listening(script: &str) -> Session {
     let command = ["/bin/sh".to_string(), "-c".into(), script.into()];
-    Session::start_as(Role::Picker, &command, &std::env::temp_dir(), ROWS, COLS).unwrap()
+    opened_as(Role::Picker, &command, &std::env::temp_dir(), ROWS, COLS).unwrap()
 }

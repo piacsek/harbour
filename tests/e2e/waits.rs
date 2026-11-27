@@ -8,6 +8,14 @@ use crate::{Server, WORKING, focused_at, pane_corner, wait_for_status};
 
 #[test]
 #[ignore]
+fn a_server_holds_a_pty_slot() {
+    let _server = Server::start("slot", 80, 10);
+
+    assert!(crate::pty_slots::holding());
+}
+
+#[test]
+#[ignore]
 fn a_wait_for_text_that_never_shows_fails_naming_it_and_showing_the_screen() {
     let home = tempfile::tempdir().unwrap();
     let server = Server::start("wait-screen", 80, 10);
