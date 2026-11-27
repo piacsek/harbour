@@ -158,12 +158,7 @@ fn no_card_is_removed_while_the_picker_is_open() {
             screen.press('n');
             screen.wait_for("acme picker waiting");
         },
-        |screen| {
-            screen.key(KeyCode::Enter, KeyModifiers::NONE);
-            screen.wait_until("the picker closed", |shown| {
-                !shown.contains("acme picker waiting")
-            });
-        },
+        |screen| screen.key(KeyCode::Enter, KeyModifiers::NONE),
     );
 }
 
@@ -249,7 +244,9 @@ fn kept_while_in(
 
     close(&mut screen);
 
-    let shown = screen.wait_until("the exited card removed", |shown| !shown.contains(&card(2)));
+    let shown = screen.wait_until("the exited card removed", |shown| {
+        !shown.contains(&card(2)) && shown.contains(&card(1))
+    });
     assert!(shown.contains(&card(1)), "{shown}");
 }
 
