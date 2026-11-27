@@ -83,4 +83,18 @@ comment on it, as phases 45 and 50 did. No rule, `AGENTS.md` or `docs/process.md
   data for a trend. Process drift: 51 and 54 were built in the main session without a worktree,
   both at the owner's word; only 51 skipped its retro (#252).
 
+### The finder's dots
+
+The finder's list wraps each dot in `State::sgr`, a colour code derived from `State::style`, so
+the finder and the sidebar take each state's colour from one place, and fzf reads it with
+`--ansi`. tmux and harbour's popup redraw fzf's `ESC[33m` as the indexed `38;5;3`, so the
+end-to-end check asserts only that the working dot is drawn with a colour code, not plain.
+Round 1 found only nits (the colour copied by hand, literals pinned twice, an exact literal at
+the end-to-end level), all fixed; round 2 found no must or should. Its two nits stay in the pull
+request body: the end-to-end check would pass for any colour, and the fake fzf's `grep` sees the
+escape bytes that real fzf ignores, which no test types today.
+
 ## Hurdles
+- `test-seam` tmux reports the finder's yellow as `38;5;3`, not the `33` fzf was given, so the first end-to-end check pinned a literal the encoding chose; it now asserts the colour loosely → code
+- `ci` An unrelated end-to-end test (`navigating::ctrl_j_in_claude_code_with_nothing_below_reaches_it_and_ctrl_k_moves_above`) failed once in the gates and passed three times alone, the load sensitivity of #249 → backlog
+- `process` A merge of `main` pushed to the branch while the builder worked refused its next push; it merged the remote branch and shipped again → none
