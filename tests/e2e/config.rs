@@ -176,6 +176,37 @@ fn the_exact_editor_dir_from_the_file_opens_the_editor_in_the_folder_the_session
 
 #[test]
 #[ignore]
+fn the_mirror_editor_dir_from_the_file_opens_the_editor_in_the_start_folder_of_the_same_checkout() {
+    let home = tempfile::tempdir().unwrap();
+    std::fs::create_dir_all(home.path().join("acme-api/.git")).unwrap();
+    std::fs::create_dir_all(home.path().join("acme-api/rust")).unwrap();
+    write_config(
+        home.path(),
+        &format!("editor = [{FIXTURE_EDITOR:?}]\neditor_dir = \"mirror\"\n"),
+    );
+    let server = Server::start("config-editor-dir-mirror", 160, 20);
+    server.run(
+        home.path(),
+        &[(SESSION_COMMAND, AGENT), (DIR_PICKER, PICKER)],
+        &[],
+    );
+    server.wait_for_screen("press n to start one");
+    server.send_keys(&["n"]);
+    server.wait_for_screen("acme picker: type a directory");
+    server.send_keys(&["rust", "Enter"]);
+    server.wait_for_screen("acme agent in rust");
+
+    server.send_keys(&["Enter", "C-l"]);
+
+    let screen =
+        server.wait_for_screen_all(&["acme editor in rust", " editor.sh: ", "/acme-api/rust "]);
+    let top = screen.lines().next().unwrap_or_default();
+    assert!(screen.contains("acme editor in rust"), "{screen}");
+    assert!(in_order(top, &[" editor.sh: ", "/acme-api/rust "]), "{top}");
+}
+
+#[test]
+#[ignore]
 fn a_picker_from_the_file_runs_alone_with_its_arguments() {
     let home = tempfile::tempdir().unwrap();
     std::fs::create_dir(home.path().join("acme-web")).unwrap();

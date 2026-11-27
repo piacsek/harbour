@@ -25,7 +25,7 @@ const WIDTH: &str = "expected a whole number of columns above 0";
 const ACCENT: &str = "expected one of the 16 colour names or #rrggbb";
 const BOOLEAN: &str = "expected true or false";
 const CLAUDE_ICON: &str = "expected \"sparkle\" or \"clawd\"";
-const EDITOR_DIR: &str = "expected \"root\" or \"exact\"";
+const EDITOR_DIR: &str = "expected \"root\", \"exact\" or \"mirror\"";
 const TIDY: &str = "expected a whole number of hours above 0, as \"6h\", or \"off\"";
 const KEYS: &str = "expected a table of action = \"key\"";
 const COLORS: &str = "expected a table of fact = \"colour\"";
@@ -408,6 +408,7 @@ impl Reader<'_> {
         match value.get_ref() {
             Value::String(name) if name == "root" => Ok(Some(EditorDir::Root)),
             Value::String(name) if name == "exact" => Ok(Some(EditorDir::Exact)),
+            Value::String(name) if name == "mirror" => Ok(Some(EditorDir::Mirror)),
             _ => Err(self.refusal(&value.span(), "editor_dir", EDITOR_DIR)),
         }
     }
