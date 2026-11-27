@@ -10,6 +10,7 @@ use nix::unistd::Pid;
 
 use crate::helpers::{calls, git, link_script, recorder, repository, sandbox_bin, stderr, which};
 
+mod poll;
 mod ship;
 mod takeover;
 
@@ -421,6 +422,7 @@ fn running_script(
         .env("GIT_CONFIG_NOSYSTEM", "1")
         .env("GIT_CEILING_DIRECTORIES", root)
         .env("HARBOUR_GATES_WAIT", "10")
+        .env("HARBOUR_GATES_POLL", "0.1")
         .process_group(0);
     for (name, value) in env {
         command.env(name, value);

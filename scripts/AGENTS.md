@@ -130,9 +130,11 @@ a hangup, an interrupt or a termination; a TERM sent to the `gates.sh` process a
 effect once the running gate ends (bash runs the trap after its foreground child), while a
 Ctrl-C reaches the whole foreground group and ends both at once. A second run prints
 `==> waiting for the gates of pid <pid> in <worktree> to finish` once per holder, checks again
-every second, and gives up after 30 minutes with `gates: gave up after 1800 s waiting for ...`
+every second by default, and gives up after 30 minutes with `gates: gave up after 1800 s waiting for ...`
 and exit 1; `HARBOUR_GATES_WAIT` sets that bound in seconds, and a value that is not all digits,
-or has more than 9, is refused before the first gate. A holder whose pid no longer runs, or now
+or has more than 9, is refused before the first gate. `HARBOUR_GATES_POLL` sets the time between
+checks in seconds (`0.1` allowed), and a value that is not a positive decimal number is refused
+before the first gate. A holder whose pid no longer runs, or now
 runs a command that names neither `gates.sh` nor `ship.sh` (`ps -ww -p <pid> -o command=`; a
 `ps` that fails counts as running),
 as a run killed with SIGKILL leaves, is taken over with
@@ -199,8 +201,8 @@ controls, never on time; with `GATE_ALONE` set it also records, in `<GATE_ALONE>
 every call that found another run inside the gate, which the race of eight runs over a dead lock
 and a dead guard reads. Each run there is a `Gates` that starts in a process group of its own,
 bounds its lock wait to 10 s by default (0 where a run must give up at once, more where it must
-outwait other runs), and, when dropped unfinished, a panic included, kills that group and fails
-the test while any of it still runs; a live holder is a `sleep` whose command names `gates.sh`.
+outwait other runs), checks the lock every 0.1 s (`HARBOUR_GATES_POLL`), and, when dropped
+unfinished, a panic included, kills that group and fails the test while any of it still runs; a live holder is a `sleep` whose command names `gates.sh`.
 
 Ship with `scripts/ship.sh "<message>"`: `cargo fmt`, gates, `dev-install.sh` (unless skipped,
 see Install), commit, push, all under `set -e`, refusing to run on `main`, opening the draft PR

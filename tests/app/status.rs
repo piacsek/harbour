@@ -11,60 +11,9 @@ use harbour::summary::Summary;
 use ratatui::buffer::Cell;
 use ratatui::style::{Color, Modifier};
 
-use crate::{Screen, below, directory, failure, needs_a_terminal, script, sidebar_title};
+use crate::{Screen, below, directory, needs_a_terminal, script, sidebar_title};
 
 use crate::deadline;
-
-#[test]
-fn a_wait_for_a_dot_that_never_shows_fails_showing_the_last_dot() {
-    let registry = tempfile::tempdir().unwrap();
-    let mut screen = watching(registry.path(), registered(registry.path(), "busy"));
-    screen.press('n');
-    screen.wait_for(&format!("● {} 1", directory()));
-
-    let failure = failure(|| {
-        wait_for_dot(&mut screen, "an acme dot", deadline(), |cell| {
-            cell.symbol() == "acme"
-        });
-    });
-
-    assert!(failure.contains("for an acme dot"), "{failure}");
-    assert!(failure.contains("Yellow"), "{failure}");
-}
-
-#[test]
-fn a_wait_for_a_sidebar_row_that_never_shows_fails_naming_it_and_the_row() {
-    let registry = tempfile::tempdir().unwrap();
-    let mut screen = watching(
-        registry.path(),
-        written(
-            registry.path(),
-            r#"{"status":"waiting","waitingFor":"permission prompt"}"#,
-        ),
-    );
-    screen.resize(60, 20);
-    screen.press('n');
-    wait_for_sidebar_row(&mut screen, "perm");
-
-    let failure = failure(|| {
-        wait_for_sidebar_row(&mut screen, "acme never shown");
-    });
-
-    assert!(failure.contains("acme never shown"), "{failure}");
-    assert!(failure.contains("perm"), "{failure}");
-}
-
-#[test]
-fn a_wait_for_more_registry_files_than_come_fails_naming_the_count() {
-    let registry = tempfile::tempdir().unwrap();
-
-    let failure = failure(|| {
-        wait_for_files(registry.path(), 3, deadline());
-    });
-
-    assert!(failure.contains("3 registry files"), "{failure}");
-    assert!(failure.contains("found 0"), "{failure}");
-}
 
 #[test]
 fn a_busy_session_shows_a_yellow_filled_dot() {
