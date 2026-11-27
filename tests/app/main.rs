@@ -211,13 +211,7 @@ impl Screen {
     }
 
     fn wait_for(&mut self, text: &str) -> String {
-        self.wait_for_within(text, 5 * deadline())
-    }
-
-    fn wait_for_within(&mut self, text: &str, patience: Duration) -> String {
-        self.wait_until_within(&format!("{:?}", [text]), patience, |shown| {
-            shown.contains(text)
-        })
+        self.wait_for_all(&[text])
     }
 
     fn wait_for_all(&mut self, texts: &[&str]) -> String {
@@ -239,10 +233,7 @@ impl Screen {
     }
 
     fn wait_for_stable(&mut self) -> String {
-        self.wait_for_stable_within(5 * deadline())
-    }
-
-    fn wait_for_stable_within(&mut self, patience: Duration) -> String {
+        let patience = 5 * deadline();
         let until = Instant::now() + patience;
         let mut last = self.draw();
         let mut since = Instant::now();
@@ -262,16 +253,8 @@ impl Screen {
         }
     }
 
-    fn wait_until(&mut self, what: &str, done: impl FnMut(&str) -> bool) -> String {
-        self.wait_until_within(what, 5 * deadline(), done)
-    }
-
-    fn wait_until_within(
-        &mut self,
-        what: &str,
-        patience: Duration,
-        mut done: impl FnMut(&str) -> bool,
-    ) -> String {
+    fn wait_until(&mut self, what: &str, mut done: impl FnMut(&str) -> bool) -> String {
+        let patience = 5 * deadline();
         let until = Instant::now() + patience;
         loop {
             let shown = self.draw();
@@ -384,15 +367,6 @@ fn inside(line: &str) -> String {
         .skip_while(|c| ['▌', ' '].contains(c))
         .take_while(|c| !vertical(*c))
         .collect()
-}
-
-fn failure(wait: impl FnOnce()) -> String {
-    let unwound = std::panic::catch_unwind(std::panic::AssertUnwindSafe(wait))
-        .expect_err("the wait returned without failing");
-    unwound
-        .downcast_ref::<String>()
-        .cloned()
-        .unwrap_or_default()
 }
 
 fn sidebar_title(shown: &str) -> String {

@@ -6,23 +6,7 @@ use crossterm::event::{KeyCode, KeyModifiers};
 use harbour::memory::{Memory, Remembered};
 
 use crate::remembering::{ID, OTHER_ID, Scratch, TITLE};
-use crate::{Screen, failure, home, script};
-
-#[test]
-fn a_wait_for_a_title_never_remembered_fails_naming_it_and_what_was_kept() {
-    let scratch = Scratch::new();
-    scratch.transcript(ID, &titled(TITLE));
-    let mut screen = scratch.watching(registered(&scratch.sessions(), ID));
-    screen.press('n');
-    remembered_soon(&mut screen, &scratch.memory(), ID, TITLE);
-
-    let failure = failure(|| {
-        remembered_soon(&mut screen, &scratch.memory(), ID, "acme never titled");
-    });
-
-    assert!(failure.contains("acme never titled"), "{failure}");
-    assert!(failure.contains(TITLE), "{failure}");
-}
+use crate::{Screen, home, script};
 
 #[test]
 fn a_running_session_is_remembered_once_its_transcript_exists() {

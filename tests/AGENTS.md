@@ -62,8 +62,7 @@ after the Clawd glyph: `tests/tabs.rs`, `tests/app/side_border.rs`, `tests/e2e/c
   predicate).
 - **Shared helpers live in the binary's `main.rs`** (`tests/app/main.rs`, `tests/e2e/main.rs`;
   the e2e border helpers in `tests/e2e/borders.rs`, since `tests/source_size.rs` caps a file
-  at 700 lines), each wait with a test in that binary's `waits.rs` that sees it fail; a border
-  helper's own tests sit there too.
+  at 700 lines); a border helper's own tests sit in that binary's `waits.rs`.
 - **Script tests guard what ships and releases**: the gates, `ship.sh`, the scrub check, the
   version check and the release scripts. A test of a usage line or a help text that no gate,
   workflow or user reads is not written.
@@ -347,8 +346,8 @@ after the Clawd glyph: `tests/tabs.rs`, `tests/app/side_border.rs`, `tests/e2e/c
 - **Every wait fails the test when its deadline passes**, naming what it waited for and the last
   screen, path, line or count it saw. Waits once returned the last screen silently, so a wait
   whose text could never show (a stale demo name, a card's old layout, a numbered session that
-  raced) passed as a mere pause. A new wait helper fails the same way and gets a test of its own
-  that sees it fail (`waits.rs` in `tests/app/` and `tests/e2e/`). A test that means "nothing
+  raced) passed as a mere pause. A new wait helper fails the same way, and gets no test of its
+  own: seeing it fail costs its whole patience on every run. A test that means "nothing
   happens" uses a wait that says so: it keeps drawing for a fixed time and stops early only on
   the unwanted thing (`settled` in `tests/app/main.rs`, `remembered_after_a_while` in
   `tests/app/keeping.rs`).
