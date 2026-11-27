@@ -14,7 +14,10 @@ pub const KEYS: &[(&str, &str)] = &[
     ("C-/ -/=", "narrow / widen the sidebar by 2 columns"),
     ("C-/ u/c", "Claude Code's usage / the changelog"),
     ("C-/ ?/q", "this help / quit, asking while anything runs"),
-    ("C-/ C-/", "send C-/ to the program"),
+    (
+        "C-/ C-/ p",
+        "the previous session / send C-/ to the program",
+    ),
 ];
 
 pub fn rows(keymap: &Keymap) -> Vec<(String, String)> {
@@ -59,10 +62,16 @@ pub fn rows(keymap: &Keymap) -> Vec<(String, String)> {
         [key(Action::Help), key(Action::Quit)],
         [KEYS[12].1, "this help", "quit, asking while anything runs"],
     ));
-    rows.push((
-        format!("{prefix} {prefix}"),
-        format!("send {prefix} to the program"),
-    ));
+    rows.push(match key(Action::SendPrefix) {
+        Some(send) => (
+            format!("{prefix} {prefix} {send}"),
+            format!("the previous session / send {prefix} to the program"),
+        ),
+        None => (
+            format!("{prefix} {prefix}"),
+            "the previous session".to_string(),
+        ),
+    });
     rows
 }
 
