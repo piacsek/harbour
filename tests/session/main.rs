@@ -13,6 +13,7 @@ use vt100::{MouseProtocolEncoding, MouseProtocolMode};
 
 mod keyboard;
 mod slots;
+mod synchronized;
 
 #[path = "../support/pty_slots.rs"]
 mod pty_slots;

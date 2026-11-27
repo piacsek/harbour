@@ -22,6 +22,8 @@ use crate::keys::{Asked, Keyboard};
 pub const HANGUP_GRACE: Duration = Duration::from_millis(200);
 const HANGUP_POLL: Duration = Duration::from_millis(5);
 const HIDDEN_GRACE: Duration = Duration::from_millis(60);
+const UPDATE_PATIENCE: Duration = Duration::from_millis(100);
+const SYNCHRONIZED_OUTPUT: u16 = 2026;
 
 type Parser = vt100::Parser<Replies>;
 
@@ -247,7 +249,7 @@ impl Session {
         let mut parser = self.parser.lock().unwrap();
         let (rows, cols) = parser.screen().size();
         contained(&mut parser, rows, cols, |parser| {
-            PseudoTerminal::new(parser.screen())
+            PseudoTerminal::new(shown(parser, now))
                 .cursor(Cursor::default().visibility(false))
                 .render(area, buffer);
         });
@@ -401,12 +403,20 @@ impl Widget for &Session {
     }
 }
 
+fn shown(parser: &Parser, now: Instant) -> &vt100::Screen {
+    parser
+        .callbacks()
+        .whole_frame(now)
+        .unwrap_or_else(|| parser.screen())
+}
+
 fn cursor(parser: &Parser, area: Rect, now: Instant) -> Option<Position> {
-    let screen = parser.screen();
-    let (row, col) = if screen.hide_cursor() {
-        parser.callbacks().lingering(now)?
-    } else {
-        screen.cursor_position()
+    let whole = parser.callbacks().whole_frame(now);
+    let screen = whole.unwrap_or_else(|| parser.screen());
+    let (row, col) = match (screen.hide_cursor(), whole) {
+        (false, _) => screen.cursor_position(),
+        (true, None) => parser.callbacks().lingering(now)?,
+        (true, Some(_)) => return None,
     };
     let col = col.min(screen.size().1.saturating_sub(1));
     let at = Position::new(area.x.checked_add(col)?, area.y.checked_add(row)?);
@@ -422,6 +432,7 @@ struct Replies {
     shape: u8,
     seen: Option<(u16, u16)>,
     hidden_at: Option<Instant>,
+    whole: Option<(vt100::Screen, Instant)>,
 }
 
 impl Replies {
@@ -439,6 +450,18 @@ impl Replies {
         (now.saturating_duration_since(hidden) < HIDDEN_GRACE).then_some(self.seen?)
     }
 
+    fn whole_frame(&self, now: Instant) -> Option<&vt100::Screen> {
+        let (screen, since) = self.whole.as_ref()?;
+        (now.saturating_duration_since(*since) < UPDATE_PATIENCE).then_some(screen)
+    }
+
+    fn begin_update(&mut self, screen: &vt100::Screen) {
+        let now = Instant::now();
+        if self.whole_frame(now).is_none() {
+            self.whole = Some((screen.clone(), now));
+        }
+    }
+
     fn forget_asked(&mut self) {
         if let Some(asked) = &mut self.asked {
             *asked = Asked::default();
@@ -451,10 +474,25 @@ impl vt100::Callbacks for Replies {
         &mut self,
         screen: &mut vt100::Screen,
         first: Option<u8>,
-        _: Option<u8>,
+        second: Option<u8>,
         parameters: &[&[u16]],
         last: char,
     ) {
+        let synchronized = parameters.contains(&[SYNCHRONIZED_OUTPUT].as_slice());
+        match (first, last) {
+            (Some(b'?'), 'h') if synchronized => self.begin_update(screen),
+            (Some(b'?'), 'l') if synchronized => self.whole = None,
+            (Some(b'?'), 'p') if synchronized && second == Some(b'$') => {
+                let state = if self.whole_frame(Instant::now()).is_some() {
+                    1
+                } else {
+                    2
+                };
+                self.bytes
+                    .extend(format!("\x1b[?{SYNCHRONIZED_OUTPUT};{state}$y").as_bytes());
+            }
+            _ => {}
+        }
         if let Some(reply) = self
             .asked
             .as_mut()
