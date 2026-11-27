@@ -43,10 +43,15 @@ fn a_wait_for_a_screen_that_never_stops_changing_fails_showing_the_last_screen()
     ));
     screen.press('n');
     screen.wait_for("acme tick");
+    let started = Instant::now();
 
     let failure = failure(|| {
-        screen.wait_for_stable();
+        screen.wait_for_stable_within(deadline());
     });
+
+    let elapsed = started.elapsed();
+    assert!(elapsed >= deadline(), "{elapsed:?}");
+    assert!(elapsed < 2 * deadline(), "{elapsed:?}");
 
     assert!(
         failure.contains("for the screen to stop changing"),
@@ -62,10 +67,15 @@ fn a_screen_that_changes_slower_than_the_500_ms_tick_is_not_yet_stable() {
     ));
     screen.press('n');
     screen.wait_for("acme tick");
+    let started = Instant::now();
 
     let failure = failure(|| {
-        screen.wait_for_stable();
+        screen.wait_for_stable_within(deadline());
     });
+
+    let elapsed = started.elapsed();
+    assert!(elapsed >= deadline(), "{elapsed:?}");
+    assert!(elapsed < 2 * deadline(), "{elapsed:?}");
 
     assert!(
         failure.contains("for the screen to stop changing"),

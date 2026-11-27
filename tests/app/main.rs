@@ -239,7 +239,10 @@ impl Screen {
     }
 
     fn wait_for_stable(&mut self) -> String {
-        let patience = 5 * deadline();
+        self.wait_for_stable_within(5 * deadline())
+    }
+
+    fn wait_for_stable_within(&mut self, patience: Duration) -> String {
         let until = Instant::now() + patience;
         let mut last = self.draw();
         let mut since = Instant::now();
