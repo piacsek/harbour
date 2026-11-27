@@ -44,7 +44,7 @@ fn nearest<'a>(directory: &'a Path, home: Option<&Path>) -> Option<(&'a Path, Pl
         .find_map(|folder| Some((folder, repository_at(folder)?)))
 }
 
-fn identity(folder: &Path) -> Option<(u64, u64)> {
+pub fn identity(folder: &Path) -> Option<(u64, u64)> {
     let metadata = fs::metadata(folder).ok()?;
     Some((metadata.dev(), metadata.ino()))
 }

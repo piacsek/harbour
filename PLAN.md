@@ -61,7 +61,8 @@ file under `plans/`; its time and tokens are a row of [`plans/metrics.md`](plans
 | 51 | [tests that open terminals share a few slots across the machine](plans/phase-51-pty-slots.md) | |
 | 52 | [Claude Code's repaints show as whole frames](plans/phase-52-synchronized-output.md) | [v0.44.3](https://github.com/piacsek/harbour/releases/tag/v0.44.3) |
 | 53 | [the prefix twice switches back to the previous session](plans/phase-53-previous-session.md) | [v0.45.0](https://github.com/piacsek/harbour/releases/tag/v0.45.0) |
-| 54 | [tests that need no terminal run their sessions over pipes](plans/phase-54-pipes-transport.md) | |
+| 54 | [tests that need no terminal run their sessions over pipes](plans/phase-54-pipes-transport.md) | [v0.45.1](https://github.com/piacsek/harbour/releases/tag/v0.45.1) |
+| 56 | [the editor follows Claude Code into another checkout](plans/phase-56-editor-dir-mirror.md) | |
 
 ## Backlog
 
