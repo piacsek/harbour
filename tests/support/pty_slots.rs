@@ -9,6 +9,9 @@ thread_local! {
 }
 
 pub fn hold_in(folder: &Path, count: usize) {
+    if HELD.with(|held| held.borrow().is_some()) {
+        return;
+    }
     fs::create_dir_all(folder).unwrap();
     let slot = loop {
         match free_slot(folder, count) {

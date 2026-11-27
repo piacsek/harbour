@@ -38,6 +38,38 @@ fn a_thread_waits_for_a_slot_while_all_are_taken() {
     assert_eq!(locked(folder.path(), 2), 2);
 }
 
+#[test]
+fn a_thread_that_holds_twice_keeps_one_slot() {
+    let folder = tempfile::tempdir().unwrap();
+    let path = folder.path().to_path_buf();
+    let (_holder, held) = Holder::doing(move || {
+        pty_slots::hold_in(&path, 1);
+        pty_slots::hold_in(&path, 1);
+    });
+    held.recv_timeout(5 * deadline())
+        .expect("the thread waited on its own slot");
+    assert_eq!(locked(folder.path(), 1), 1);
+}
+
+#[test]
+fn a_slot_is_freed_when_its_thread_ends() {
+    let folder = tempfile::tempdir().unwrap();
+    drop(Holder::start(folder.path(), 1));
+    assert_eq!(locked(folder.path(), 1), 0);
+}
+
+#[test]
+fn a_slot_is_freed_when_its_thread_panics() {
+    let folder = tempfile::tempdir().unwrap();
+    let path = folder.path().to_path_buf();
+    let (holder, _held) = Holder::doing(move || {
+        pty_slots::hold_in(&path, 1);
+        panic!("the test holding the slot failed");
+    });
+    drop(holder);
+    assert_eq!(locked(folder.path(), 1), 0);
+}
+
 fn locked(folder: &Path, count: usize) -> usize {
     (0..count)
         .filter(|n| match File::open(folder.join(format!("{n}.lock"))) {
@@ -61,10 +93,14 @@ impl Holder {
     }
 
     fn spawn(folder: PathBuf, count: usize) -> (Holder, Receiver<()>) {
+        Holder::doing(move || pty_slots::hold_in(&folder, count))
+    }
+
+    fn doing(holds: impl FnOnce() + Send + 'static) -> (Holder, Receiver<()>) {
         let (held_tx, held) = mpsc::channel();
         let (release, release_rx) = mpsc::channel::<()>();
         let thread = thread::spawn(move || {
-            pty_slots::hold_in(&folder, count);
+            holds();
             let _ = held_tx.send(());
             let _ = release_rx.recv();
         });
