@@ -12,7 +12,8 @@ use ratatui::layout::Position;
 use ratatui::style::Modifier;
 
 use crate::{
-    Screen, frames, home, pane_corner, reading_agent, script, shows_titled, unfocused_title,
+    Screen, frames, home, needs_a_terminal, pane_corner, reading_agent, script, shows_titled,
+    unfocused_title,
 };
 
 #[test]
@@ -171,6 +172,7 @@ fn a_frame_with_the_sidebar_focused_never_shows_the_cursor() {
 
 #[test]
 fn the_picker_popup_shows_its_own_cursor_and_shape() {
+    needs_a_terminal();
     let mut screen = Screen::picking(shaped_agent("6"), Picker::Command(typed_picker()));
     started_through_the_picker(&mut screen, &home());
 
@@ -183,6 +185,7 @@ fn the_picker_popup_shows_its_own_cursor_and_shape() {
 
 #[test]
 fn a_session_started_through_the_picker_shows_its_cursor_at_once() {
+    needs_a_terminal();
     let mut screen = Screen::picking(shaped_agent("6"), Picker::Command(typed_picker()));
     screen.press('n');
     screen.wait_for("acme picker");
@@ -273,6 +276,7 @@ fn a_frame_hides_the_cursor_before_its_first_cell_and_moves_then_shows_it_in_one
 
 #[test]
 fn an_exited_session_shows_no_cursor() {
+    needs_a_terminal();
     let mut screen = Screen::new(script(
         "printf '\\033[3;5Hacme agent done'; read line; exit 0",
     ));

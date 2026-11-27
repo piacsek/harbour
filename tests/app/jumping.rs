@@ -7,10 +7,11 @@ use harbour::editor::Program;
 use harbour::picker::Picker;
 
 use crate::remembering::{ID, OTHER_ID, Scratch, TITLE};
-use crate::{Screen, focused_title, raw_reader, script};
+use crate::{Screen, focused_title, needs_a_terminal, raw_reader, script};
 
 #[test]
 fn the_prefix_then_two_from_the_sidebar_selects_the_second_card_and_focuses_its_pane() {
+    needs_a_terminal();
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = three_sessions(scratch.path());
 
@@ -23,6 +24,7 @@ fn the_prefix_then_two_from_the_sidebar_selects_the_second_card_and_focuses_its_
 
 #[test]
 fn the_prefix_then_one_from_inside_a_pane_jumps_and_the_pane_gets_nothing() {
+    needs_a_terminal();
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = three_sessions(scratch.path());
     screen.key(KeyCode::Enter, KeyModifiers::NONE);
@@ -39,6 +41,7 @@ fn the_prefix_then_one_from_inside_a_pane_jumps_and_the_pane_gets_nothing() {
 
 #[test]
 fn the_prefix_then_nine_jumps_to_the_last_card() {
+    needs_a_terminal();
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = three_sessions(scratch.path());
     screen.press('k');
@@ -53,6 +56,7 @@ fn the_prefix_then_nine_jumps_to_the_last_card() {
 
 #[test]
 fn ctrl_on_the_selected_card_focuses_its_pane() {
+    needs_a_terminal();
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = three_sessions(scratch.path());
 
@@ -65,6 +69,7 @@ fn ctrl_on_the_selected_card_focuses_its_pane() {
 
 #[test]
 fn ctrl_five_with_three_cards_does_nothing() {
+    needs_a_terminal();
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = three_sessions(scratch.path());
     screen.press('k');
@@ -80,6 +85,7 @@ fn ctrl_five_with_three_cards_does_nothing() {
 
 #[test]
 fn ctrl_five_with_three_cards_from_inside_a_pane_reaches_no_session() {
+    needs_a_terminal();
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = three_sessions(scratch.path());
     screen.key(KeyCode::Enter, KeyModifiers::NONE);
@@ -119,6 +125,7 @@ fn the_narrow_layout_shows_the_pane_of_the_card_jumped_to() {
 
 #[test]
 fn the_prefix_then_a_digit_while_the_help_shows_closes_it_and_jumps() {
+    needs_a_terminal();
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = three_sessions(scratch.path());
     screen.prefixed('?');
@@ -132,6 +139,7 @@ fn the_prefix_then_a_digit_while_the_help_shows_closes_it_and_jumps() {
 
 #[test]
 fn a_question_takes_the_key_and_nothing_jumps() {
+    needs_a_terminal();
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = three_sessions(scratch.path());
     screen.press('x');
@@ -163,6 +171,7 @@ fn the_picker_gets_the_prefix_and_nothing_jumps() {
 
 #[test]
 fn an_editor_that_asked_for_extended_keys_gets_nothing_from_a_jump() {
+    needs_a_terminal();
     let scratch = tempfile::tempdir().unwrap();
     let editor = Program::new("acme-edit", asking_editor());
     let mut screen = Screen::editing(lined_agent(scratch.path()), editor);
@@ -186,6 +195,7 @@ fn an_editor_that_asked_for_extended_keys_gets_nothing_from_a_jump() {
 
 #[test]
 fn the_prefix_then_two_resumes_the_second_stopped_card() {
+    needs_a_terminal();
     let scratch = Scratch::new();
     scratch.remember(ID, "The first one", 0);
     scratch.remember(OTHER_ID, TITLE, 1);

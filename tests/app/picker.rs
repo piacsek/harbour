@@ -9,7 +9,9 @@ use crossterm::event::{KeyCode, KeyModifiers, MouseButton, MouseEventKind};
 
 use harbour::picker::Picker;
 
-use crate::{Screen, directory, failure, home, reading_agent, script, starts_focused};
+use crate::{
+    Screen, directory, failure, home, needs_a_terminal, reading_agent, script, starts_focused,
+};
 
 use crate::deadline;
 
@@ -29,6 +31,7 @@ fn a_wait_for_a_popup_that_stays_open_fails_showing_it() {
 
 #[test]
 fn a_directory_the_picker_prints_starts_a_session_there_named_after_it() {
+    needs_a_terminal();
     let scratch = tempfile::tempdir().unwrap();
     let web = directory_in(scratch.path(), "acme-web");
     let mut screen = Screen::picking(placed_agent(), Picker::Command(typed_picker()));
@@ -57,6 +60,7 @@ fn esc_in_the_picker_starts_nothing() {
 
 #[test]
 fn a_picker_that_prints_nothing_starts_nothing() {
+    needs_a_terminal();
     let picker = script("echo 'acme picker' >&2; read -r line");
     let mut screen = Screen::picking(placed_agent(), Picker::Command(picker));
     screen.press('n');
@@ -71,6 +75,7 @@ fn a_picker_that_prints_nothing_starts_nothing() {
 
 #[test]
 fn a_picker_that_exits_with_an_error_starts_nothing() {
+    needs_a_terminal();
     let picker = script("echo 'acme picker' >&2; read -r line; pwd; exit 1");
     let mut screen = Screen::picking(placed_agent(), Picker::Command(picker));
     screen.press('n');
@@ -85,6 +90,7 @@ fn a_picker_that_exits_with_an_error_starts_nothing() {
 
 #[test]
 fn a_path_that_is_not_a_directory_is_named_and_starts_nothing() {
+    needs_a_terminal();
     let picker = script("echo 'acme picker' >&2; read -r line; echo /acme/gone");
     let mut screen = Screen::picking(placed_agent(), Picker::Command(picker));
     screen.press('n');
@@ -100,6 +106,7 @@ fn a_path_that_is_not_a_directory_is_named_and_starts_nothing() {
 
 #[test]
 fn a_relative_path_is_read_from_the_directory_of_harbour() {
+    needs_a_terminal();
     std::fs::create_dir_all(home().join("src")).unwrap();
     let picker = script("echo 'acme picker' >&2; read -r line; echo src");
     let mut screen = Screen::picking(placed_agent(), Picker::Command(picker));
@@ -128,6 +135,7 @@ fn a_picker_that_cannot_start_is_named_and_starts_nothing() {
 
 #[test]
 fn enter_in_fzf_starts_the_session_where_harbour_was_opened() {
+    needs_a_terminal();
     let mut screen = Screen::picking(
         placed_agent(),
         fuzzy(first_line_fzf(), listing("/acme/web")),
@@ -186,6 +194,7 @@ fn without_fzf_n_starts_the_session_where_harbour_was_opened_at_once() {
 
 #[test]
 fn a_confirmed_directory_gives_its_session_the_focus() {
+    needs_a_terminal();
     let mut screen = Screen::picking(reading_agent(), Picker::Command(typed_picker()));
     screen.press('n');
     screen.wait_for("acme picker");
@@ -200,6 +209,7 @@ fn a_confirmed_directory_gives_its_session_the_focus() {
 
 #[test]
 fn a_cancelled_picker_leaves_the_focus_on_the_sidebar() {
+    needs_a_terminal();
     let mut screen = Screen::picking(reading_agent(), Picker::Command(typed_picker()));
     screen.press('n');
     screen.wait_for("acme picker");
@@ -217,6 +227,7 @@ fn a_cancelled_picker_leaves_the_focus_on_the_sidebar() {
 
 #[test]
 fn a_paste_while_the_popup_is_open_reaches_the_picker() {
+    needs_a_terminal();
     let scratch = tempfile::tempdir().unwrap();
     let web = directory_in(scratch.path(), "acme-web");
     let mut screen = Screen::picking(placed_agent(), Picker::Command(typed_picker()));
@@ -244,6 +255,7 @@ fn a_click_in_the_popup_reaches_a_picker_that_asked_for_the_mouse() {
 
 #[test]
 fn a_slow_list_holds_up_neither_harbour_nor_the_picker() {
+    needs_a_terminal();
     let scratch = tempfile::tempdir().unwrap();
     let stall = (10 * deadline()).as_secs();
     let listed = scratch.path().join("listed");
@@ -266,6 +278,7 @@ fn a_slow_list_holds_up_neither_harbour_nor_the_picker() {
 
 #[test]
 fn a_confirmed_directory_that_cannot_start_leaves_the_focus_on_the_sidebar() {
+    needs_a_terminal();
     let scratch = tempfile::tempdir().unwrap();
     let locked = directory_in(scratch.path(), "acme-locked");
     let mut screen = Screen::picking(reading_agent(), Picker::Command(typed_picker()));
@@ -379,6 +392,7 @@ fn fzf_exiting_with_an_error_is_named_and_starts_nothing() {
 
 #[test]
 fn fzf_with_no_match_starts_nothing_and_says_nothing() {
+    needs_a_terminal();
     let picker = fuzzy(
         script("echo 'acme fzf' >&2; read -r key </dev/tty; exit 1"),
         listing(""),
@@ -396,6 +410,7 @@ fn fzf_with_no_match_starts_nothing_and_says_nothing() {
 
 #[test]
 fn fzf_escaped_starts_nothing_and_says_nothing() {
+    needs_a_terminal();
     let picker = fuzzy(
         script("echo 'acme fzf' >&2; read -r key </dev/tty; exit 130"),
         listing(""),

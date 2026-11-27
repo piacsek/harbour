@@ -102,6 +102,10 @@ use timing::{deadline, scaled};
 
 const HOME: &str = "acme-home";
 
+thread_local! {
+    static TERMINAL: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
 struct Screen {
     app: App,
     terminal: Terminal<TestBackend>,
@@ -117,15 +121,12 @@ impl Screen {
     }
 
     fn at(app: App, home: PathBuf, width: u16) -> Screen {
-        hold_a_pty_slot();
-        Screen::drawn(app, home, width)
-    }
-
-    fn piped(app: App) -> Screen {
-        Screen::drawn(app.with_transport(Transport::Pipes), home(), 120)
-    }
-
-    fn drawn(app: App, home: PathBuf, width: u16) -> Screen {
+        let app = if TERMINAL.get() {
+            hold_a_pty_slot();
+            app
+        } else {
+            app.with_transport(Transport::Pipes)
+        };
         let mut screen = Screen {
             app: app.with_home(home),
             terminal: Terminal::new(TestBackend::new(width, 20)).unwrap(),
@@ -579,4 +580,8 @@ pub(crate) fn choosing(directory: &Path) -> Picker {
 
 fn hold_a_pty_slot() {
     pty_slots::hold(30 * deadline());
+}
+
+fn needs_a_terminal() {
+    TERMINAL.set(true);
 }

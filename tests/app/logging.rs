@@ -8,7 +8,7 @@ use harbour::log::Log;
 use harbour::picker::Picker;
 
 use crate::finding::FINDER;
-use crate::{Screen, home, reading_agent, script};
+use crate::{Screen, home, needs_a_terminal, reading_agent, script};
 
 #[test]
 fn the_first_frame_logs_the_start_with_the_version() {
@@ -173,6 +173,7 @@ fn the_swap_keys_are_logged_by_their_names() {
 
 #[test]
 fn the_find_key_is_logged_by_its_name_and_what_is_typed_into_the_list_is_not() {
+    needs_a_terminal();
     let picker = Picker::Command(vec![FINDER.into()]);
     let (app, lines) = logged(App::new(reading_agent()).with_picker(picker));
     let mut screen = focused(app);

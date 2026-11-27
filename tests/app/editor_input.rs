@@ -4,10 +4,11 @@ use harbour::editor::Program;
 use harbour::picker::Picker;
 
 use crate::editor::{editor_open, reading_editor};
-use crate::{Screen, home, raw_agent, raw_reader, reading_agent, script};
+use crate::{Screen, home, needs_a_terminal, raw_agent, raw_reader, reading_agent, script};
 
 #[test]
 fn a_paste_reaches_the_shown_editor_and_not_claude_code() {
+    needs_a_terminal();
     let mut screen = editor_open();
 
     screen.app.paste("pasted\r");
@@ -80,6 +81,7 @@ fn a_new_session_shows_its_claude_code_while_the_other_keeps_its_editor() {
 
 #[test]
 fn selecting_a_session_again_shows_its_editor_still_running() {
+    needs_a_terminal();
     let mut screen = editor_open();
     screen.mouse(MouseEventKind::Down(MouseButton::Left), 1, 1);
     screen.mouse(MouseEventKind::Up(MouseButton::Left), 1, 1);
@@ -96,6 +98,7 @@ fn selecting_a_session_again_shows_its_editor_still_running() {
 
 #[test]
 fn keys_typed_while_the_popup_is_open_reach_the_picker_and_not_the_editor() {
+    needs_a_terminal();
     let mut screen = picking_over_the_editor();
 
     screen.type_text("zz\r");
@@ -107,6 +110,7 @@ fn keys_typed_while_the_popup_is_open_reach_the_picker_and_not_the_editor() {
 
 #[test]
 fn a_paste_while_the_popup_is_open_reaches_the_picker_and_not_the_editor() {
+    needs_a_terminal();
     let mut screen = picking_over_the_editor();
 
     screen.app.paste("zz\r");

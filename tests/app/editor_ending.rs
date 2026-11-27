@@ -8,8 +8,8 @@ use harbour::editor::Program;
 use ratatui::style::Modifier;
 
 use crate::{
-    Screen, below, deadline, hangups, reading_agent, recording_hangups, region, script,
-    staying_after_hangups,
+    Screen, below, deadline, hangups, needs_a_terminal, reading_agent, recording_hangups, region,
+    script, staying_after_hangups,
 };
 
 #[test]
@@ -27,6 +27,7 @@ fn yes_to_ending_a_session_ends_its_editor_too() {
 
 #[test]
 fn the_editor_of_an_exited_session_is_not_dimmed() {
+    needs_a_terminal();
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = with_exited_agent(scratch.path());
     screen.key(KeyCode::Enter, KeyModifiers::NONE);
@@ -43,6 +44,7 @@ fn the_editor_of_an_exited_session_is_not_dimmed() {
 
 #[test]
 fn an_exited_session_shows_its_exit_beside_its_editor() {
+    needs_a_terminal();
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = with_exited_agent(scratch.path());
     screen.key(KeyCode::Enter, KeyModifiers::NONE);
@@ -55,6 +57,7 @@ fn an_exited_session_shows_its_exit_beside_its_editor() {
 
 #[test]
 fn x_on_an_exited_session_whose_editor_runs_asks_first() {
+    needs_a_terminal();
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = with_exited_agent(scratch.path());
 
@@ -68,6 +71,7 @@ fn x_on_an_exited_session_whose_editor_runs_asks_first() {
 
 #[test]
 fn yes_on_an_exited_session_ends_its_editor_and_removes_the_row() {
+    needs_a_terminal();
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = with_exited_agent(scratch.path());
     screen.press('x');
@@ -139,6 +143,7 @@ fn ctrl_c_to_the_quit_question_when_an_editor_may_have_unsaved_changes_keeps_har
 
 #[test]
 fn q_with_only_an_editor_running_asks_before_quitting() {
+    needs_a_terminal();
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = with_exited_agent(scratch.path());
 

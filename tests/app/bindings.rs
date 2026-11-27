@@ -7,10 +7,11 @@ use harbour::app::App;
 use harbour::keymap::{Action, Keymap};
 
 use crate::zoom::corners;
-use crate::{Screen, raw_reader, script};
+use crate::{Screen, needs_a_terminal, raw_reader, script};
 
 #[test]
 fn a_bound_key_after_the_prefix_runs_its_action() {
+    needs_a_terminal();
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = started(
         Keymap::default().bind(Action::Zoom, Some('f')),
@@ -54,6 +55,7 @@ fn an_unbound_action_does_nothing_after_the_prefix() {
 
 #[test]
 fn a_configured_prefix_starts_the_sequence() {
+    needs_a_terminal();
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = started(Keymap::default().with_prefix(']'), scratch.path());
 
@@ -83,6 +85,7 @@ fn ctrl_semicolon_then_p_sends_claude_code_a_semicolon() {
 
 #[test]
 fn ctrl_held_through_a_ctrl_semicolon_prefix_runs_the_action() {
+    needs_a_terminal();
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = started(Keymap::default().with_prefix(';'), scratch.path());
 
@@ -108,6 +111,7 @@ fn a_configured_prefix_is_named_in_the_unknown_key_message() {
 
 #[test]
 fn c_slash_does_not_start_the_sequence_once_another_prefix_is_set() {
+    needs_a_terminal();
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = started(Keymap::default().with_prefix(']'), scratch.path());
     screen.key(KeyCode::Enter, KeyModifiers::NONE);

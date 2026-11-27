@@ -9,10 +9,13 @@ use harbour::handoff::Verb;
 use crate::handing::answering;
 use crate::handoff::{file, harbour, soon, start_in};
 use crate::remembering::{ID, Scratch, TITLE};
-use crate::{Screen, numbered_agent, pane_corner, raw_agent, raw_reader, script, settled};
+use crate::{
+    Screen, needs_a_terminal, numbered_agent, pane_corner, raw_agent, raw_reader, script, settled,
+};
 
 #[test]
 fn the_prefix_then_z_from_the_sidebar_shows_the_selected_pane_alone_and_focuses_it() {
+    needs_a_terminal();
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = three_sessions(scratch.path());
 
@@ -26,6 +29,7 @@ fn the_prefix_then_z_from_the_sidebar_shows_the_selected_pane_alone_and_focuses_
 
 #[test]
 fn the_prefix_then_z_from_a_zoomed_pane_brings_the_sidebar_back_and_keeps_the_pane_focused() {
+    needs_a_terminal();
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = three_sessions(scratch.path());
     zoom(&mut screen);
@@ -117,6 +121,7 @@ fn the_prefix_then_z_on_an_exited_session_does_nothing() {
 
 #[test]
 fn ctrl_h_from_a_zoomed_claude_code_pane_brings_the_sidebar_back_focused() {
+    needs_a_terminal();
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = three_sessions(scratch.path());
     zoom(&mut screen);
@@ -133,6 +138,7 @@ fn ctrl_h_from_a_zoomed_claude_code_pane_brings_the_sidebar_back_focused() {
 
 #[test]
 fn the_zoomed_session_exiting_brings_the_sidebar_back() {
+    needs_a_terminal();
     let mut screen = Screen::new(script("echo 'acme agent ready'; read -r line"));
     screen.press('n');
     screen.wait_for("acme agent ready");
@@ -146,6 +152,7 @@ fn the_zoomed_session_exiting_brings_the_sidebar_back() {
 
 #[test]
 fn a_jump_while_zoomed_shows_the_jumped_to_session_still_zoomed() {
+    needs_a_terminal();
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = three_sessions(scratch.path());
     zoom(&mut screen);
@@ -187,6 +194,7 @@ fn leaving_zoom_brings_back_the_configured_sidebar_width() {
 
 #[test]
 fn the_prefix_then_z_in_the_narrow_layout_shows_the_pane() {
+    needs_a_terminal();
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = three_sessions(scratch.path());
     screen.resize(50, 20);
@@ -238,6 +246,7 @@ fn a_refused_jump_while_zoomed_brings_the_sidebar_back() {
 
 #[test]
 fn the_prefix_then_z_with_caps_lock_on_zooms() {
+    needs_a_terminal();
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = three_sessions(scratch.path());
 
@@ -251,6 +260,7 @@ fn the_prefix_then_z_with_caps_lock_on_zooms() {
 
 #[test]
 fn the_prefix_then_z_from_the_sidebar_on_a_card_showing_its_editor_zooms_claude_code() {
+    needs_a_terminal();
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = editing_session(scratch.path());
     screen.mouse(MouseEventKind::Down(MouseButton::Left), 2, 2);

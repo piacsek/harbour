@@ -1,7 +1,7 @@
 use crossterm::event::{KeyCode, KeyModifiers};
 use ratatui::style::{Color, Modifier};
 
-use crate::{Screen, below, directory, focused, pane_corner, region, script};
+use crate::{Screen, below, directory, focused, needs_a_terminal, pane_corner, region, script};
 
 #[test]
 fn a_session_that_exited_with_zero_shows_a_hollow_dot_and_exited() {
@@ -47,6 +47,7 @@ fn an_exited_session_keeps_its_last_screen_dimmed() {
 
 #[test]
 fn an_exited_session_keeps_the_cyan_border_undimmed_while_its_pane_has_focus() {
+    needs_a_terminal();
     let mut screen = Screen::new(script("read -r line; exit 0"));
     screen.press('n');
     screen.key(KeyCode::Enter, KeyModifiers::NONE);
@@ -142,6 +143,7 @@ fn a_command_of_wide_characters_that_cannot_start_is_named_in_full_in_the_sideba
 
 #[test]
 fn a_command_that_cannot_start_names_the_cause() {
+    needs_a_terminal();
     let scratch = tempfile::tempdir().unwrap();
     let agent = scratch.path().join("acme-agent");
     std::fs::write(&agent, "not a program").unwrap();
@@ -157,6 +159,7 @@ fn a_command_that_cannot_start_names_the_cause() {
 
 #[test]
 fn a_session_that_exits_while_its_pane_has_focus_still_lets_ctrl_h_back() {
+    needs_a_terminal();
     let mut screen = Screen::new(script("read -r line; exit 0"));
     screen.press('n');
     screen.key(KeyCode::Enter, KeyModifiers::NONE);

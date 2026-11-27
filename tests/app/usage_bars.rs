@@ -2,7 +2,7 @@ use crossterm::event::{KeyCode, KeyModifiers};
 
 use crate::logging::{count, logged, read};
 use crate::usage_states::app;
-use crate::{Screen, script};
+use crate::{Screen, needs_a_terminal, script};
 
 const ROW: &str = "  Session   ███░░░░░░░░░░░░░░░░░░░░░   12%   resets 7:20pm";
 
@@ -139,6 +139,7 @@ fn shift_t_while_the_report_loads_shows_its_text_too() {
 
 #[test]
 fn ctrl_t_while_the_report_loads_goes_to_its_process() {
+    needs_a_terminal();
     let reading = script("read line; echo \"acme read $line\" | tr -d '\\024'; exec sleep 600");
     let mut screen = Screen::of(app().with_usage(reading));
     screen.prefixed('u');

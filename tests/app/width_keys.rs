@@ -4,8 +4,8 @@ use harbour::keymap::{Action, Keymap};
 
 use crate::usage_states::place;
 use crate::{
-    Screen, focused, home, numbered_agent, pane_corner, raw_reader, reading_agent, script,
-    sized_agent, unfocused,
+    Screen, focused, home, needs_a_terminal, numbered_agent, pane_corner, raw_reader,
+    reading_agent, script, sized_agent, unfocused,
 };
 
 #[test]
@@ -85,6 +85,7 @@ fn a_ctrl_letter_prefix_soon_after_its_letter_widened_starts_the_prefix_again() 
 #[test]
 fn the_prefix_then_equals_from_the_claude_code_pane_widens_the_sidebar_and_keeps_the_pane_focused()
 {
+    needs_a_terminal();
     let mut screen = Screen::at(
         App::new(reading_agent()).with_sidebar_width(30),
         home(),
@@ -129,6 +130,7 @@ fn the_session_never_receives_the_width_keys() {
 
 #[test]
 fn every_session_is_told_its_new_width() {
+    needs_a_terminal();
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = Screen::at(
         App::new(sized_agent(scratch.path())).with_sidebar_width(30),
@@ -336,6 +338,7 @@ fn a_cjk_name_stays_whole_in_the_narrowest_sidebar() {
 
 #[test]
 fn an_exited_session_keeps_its_last_line_whole_after_the_width_keys() {
+    needs_a_terminal();
     let mut screen = exited_at(88);
 
     wider(&mut screen);
@@ -351,6 +354,7 @@ fn an_exited_session_keeps_its_last_line_whole_after_the_width_keys() {
 
 #[test]
 fn an_exited_session_keeps_its_last_line_whole_after_the_terminal_narrows_and_widens() {
+    needs_a_terminal();
     let mut screen = exited_at(88);
 
     screen.resize(100, 20);
@@ -362,6 +366,7 @@ fn an_exited_session_keeps_its_last_line_whole_after_the_terminal_narrows_and_wi
 
 #[test]
 fn a_session_that_exits_while_zoomed_keeps_its_last_line_for_a_wider_terminal() {
+    needs_a_terminal();
     let mut screen = Screen::at(
         App::new(printing_at(120)).with_sidebar_width(30),
         home(),

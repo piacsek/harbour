@@ -10,7 +10,7 @@ use crossterm::event::{KeyCode, KeyModifiers, MouseButton, MouseEventKind};
 use harbour::editor::Program;
 use rmpv::Value;
 
-use crate::{Screen, pane_corner, reading_agent, script};
+use crate::{Screen, needs_a_terminal, pane_corner, reading_agent, script};
 
 use crate::{deadline, scaled};
 
@@ -369,6 +369,7 @@ fn swapped_ctrl_l_with_a_window_to_the_right_reaches_neovim() {
 
 #[test]
 fn swapped_ctrl_l_in_the_rightmost_window_focuses_claude_code() {
+    needs_a_terminal();
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = swapped(scratch.path());
     let _asked = ready(&socket(scratch.path()), Some(1));

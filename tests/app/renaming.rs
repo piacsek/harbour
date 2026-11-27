@@ -7,7 +7,7 @@ use crate::finding::three_sessions;
 use crate::logging::{count, logged, read};
 use crate::zoom::corners;
 use crate::zoom_border::{Claude, started as started_titled, top};
-use crate::{Screen, in_order, reading_agent};
+use crate::{Screen, in_order, needs_a_terminal, reading_agent};
 
 #[test]
 fn the_prefix_then_r_opens_a_popup_in_the_middle_of_the_screen_holding_the_title() {
@@ -138,6 +138,7 @@ fn backspace_takes_a_whole_character_away() {
 
 #[test]
 fn from_a_pane_the_typed_keys_never_reach_the_program() {
+    needs_a_terminal();
     let mut screen = started(App::new(reading_agent()));
     screen.key(KeyCode::Enter, KeyModifiers::NONE);
     screen.prefixed('r');
@@ -253,6 +254,7 @@ fn enter_on_the_title_unchanged_keeps_following_claude_codes() {
 
 #[test]
 fn the_session_finder_lists_a_given_title() {
+    needs_a_terminal();
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = three_sessions(scratch.path());
     rename(&mut screen, "acme deploy");

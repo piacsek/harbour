@@ -6,7 +6,7 @@ use harbour::app::App;
 
 use crate::finding;
 use crate::zoom::corners;
-use crate::{Screen, raw_agent, reading_agent, script, shows_titled};
+use crate::{Screen, needs_a_terminal, raw_agent, reading_agent, script, shows_titled};
 
 #[test]
 fn alt_z_reaches_claude_code_and_zooms_nothing() {
@@ -35,6 +35,7 @@ fn alt_s_in_the_sidebar_opens_no_finder() {
 
 #[test]
 fn ctrl_two_from_the_sidebar_jumps_nowhere() {
+    needs_a_terminal();
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = finding::three_sessions(scratch.path());
     screen.key(KeyCode::Char('k'), KeyModifiers::NONE);

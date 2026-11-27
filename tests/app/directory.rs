@@ -6,7 +6,9 @@ use crossterm::event::{KeyCode, KeyModifiers};
 use harbour::app::App;
 use harbour::editor::{EditorDir, Program};
 
-use crate::{Screen, choosing, following_from, following_in, reading_agent, script};
+use crate::{
+    Screen, choosing, following_from, following_in, needs_a_terminal, reading_agent, script,
+};
 
 #[test]
 fn the_editor_opens_at_the_root_of_the_repository_claude_code_started_in() {
@@ -240,6 +242,7 @@ fn claude_code_in_another_repository_gets_a_second_editor_there() {
 
 #[test]
 fn moving_back_shows_the_first_editor_still_running() {
+    needs_a_terminal();
     let scratch = tempfile::tempdir().unwrap();
     let one = repository(scratch.path(), "acme-one");
     let two = repository(scratch.path(), "acme-two");

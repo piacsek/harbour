@@ -3,7 +3,10 @@ use harbour::app::{App, UNFOCUSED_BORDER};
 use harbour::editor::Program;
 use ratatui::style::Modifier;
 
-use crate::{Screen, in_order, reading_agent, script, shows_titled, sidebar_title, vertical};
+use crate::{
+    Screen, in_order, needs_a_terminal, reading_agent, script, shows_titled, sidebar_title,
+    vertical,
+};
 
 #[test]
 fn ctrl_l_in_claude_code_starts_the_editor_in_the_session_directory_and_shows_it() {
@@ -21,6 +24,7 @@ fn ctrl_l_in_claude_code_starts_the_editor_in_the_session_directory_and_shows_it
 
 #[test]
 fn keys_typed_in_the_shown_editor_reach_it_and_not_claude_code() {
+    needs_a_terminal();
     let mut screen = Screen::editing(reading_agent(), reading_editor());
     screen.press('n');
     screen.wait_for("acme agent ready");
@@ -37,6 +41,7 @@ fn keys_typed_in_the_shown_editor_reach_it_and_not_claude_code() {
 
 #[test]
 fn ctrl_h_in_the_editor_shows_claude_code_again_and_keys_reach_it() {
+    needs_a_terminal();
     let mut screen = editor_open();
 
     screen.key(KeyCode::Char('h'), KeyModifiers::CONTROL);
@@ -49,6 +54,7 @@ fn ctrl_h_in_the_editor_shows_claude_code_again_and_keys_reach_it() {
 
 #[test]
 fn ctrl_l_from_claude_code_shows_the_same_editor_again() {
+    needs_a_terminal();
     let mut screen = editor_open();
     screen.type_text("hello\r");
     screen.wait_for("acme editor got: hello");
@@ -64,6 +70,7 @@ fn ctrl_l_from_claude_code_shows_the_same_editor_again() {
 
 #[test]
 fn enter_in_the_sidebar_goes_back_to_the_editor_the_pane_showed() {
+    needs_a_terminal();
     let mut screen = editor_open();
     screen.mouse(MouseEventKind::Down(MouseButton::Left), 1, 1);
     screen.mouse(MouseEventKind::Up(MouseButton::Left), 1, 1);
@@ -78,6 +85,7 @@ fn enter_in_the_sidebar_goes_back_to_the_editor_the_pane_showed() {
 
 #[test]
 fn ctrl_l_in_the_sidebar_goes_back_to_the_editor_the_pane_showed() {
+    needs_a_terminal();
     let mut screen = editor_open();
     screen.mouse(MouseEventKind::Down(MouseButton::Left), 1, 1);
     screen.mouse(MouseEventKind::Up(MouseButton::Left), 1, 1);
@@ -169,6 +177,7 @@ fn e_in_the_sidebar_does_nothing_while_the_session_has_no_editor() {
 
 #[test]
 fn e_in_the_sidebar_shows_the_editor_and_focuses_it() {
+    needs_a_terminal();
     let mut screen = editor_open();
     screen.key(KeyCode::Char('h'), KeyModifiers::CONTROL);
     screen.key(KeyCode::Char('h'), KeyModifiers::CONTROL);

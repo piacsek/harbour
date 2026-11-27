@@ -1,9 +1,10 @@
 use crossterm::event::{KeyCode, KeyModifiers, MouseButton, MouseEventKind};
 
-use crate::{Screen, numbered_agent, raw_agent, reading_agent};
+use crate::{Screen, needs_a_terminal, numbered_agent, raw_agent, reading_agent};
 
 #[test]
 fn a_paste_reaches_the_focused_session() {
+    needs_a_terminal();
     let mut screen = Screen::new(reading_agent());
     screen.press('n');
     screen.wait_for("acme agent ready");
@@ -33,6 +34,7 @@ fn a_paste_is_bracketed_when_the_session_asked_for_it() {
 
 #[test]
 fn a_paste_while_the_sidebar_has_focus_does_not_reach_the_session() {
+    needs_a_terminal();
     let mut screen = Screen::new(reading_agent());
     screen.press('n');
     screen.wait_for("acme agent ready");

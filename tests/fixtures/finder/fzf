@@ -6,6 +6,10 @@ case " $* " in
 	exit 0
 	;;
 esac
+[ -t 2 ] || {
+	echo 'acme fzf needs a terminal' >&2
+	exit 2
+}
 listed=$(cat)
 echo "acme fzf args: $*" >&2
 printf '%s\n' "$listed" | tr '\t' '|' >&2

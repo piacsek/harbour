@@ -8,7 +8,7 @@ use harbour::editor::Program;
 
 use crate::logging::{count, focused, logged, only, read};
 use crate::remembering::{ID, OTHER_ID, Scratch, TITLE};
-use crate::{Screen, home, reading_agent, script};
+use crate::{Screen, home, needs_a_terminal, reading_agent, script};
 
 #[test]
 fn a_started_session_logs_its_program_and_directory() {
@@ -174,6 +174,7 @@ fn an_editor_that_exits_logs_its_end_once() {
 
 #[test]
 fn a_panic_contained_in_a_session_is_logged_with_its_count() {
+    needs_a_terminal();
     let (app, lines) = logged(App::new(wide_at_the_edge()));
     let mut screen = Screen::of(app);
     screen.press('n');
@@ -188,6 +189,7 @@ fn a_panic_contained_in_a_session_is_logged_with_its_count() {
 
 #[test]
 fn a_panic_contained_in_an_editor_is_logged_with_its_editor() {
+    needs_a_terminal();
     let editor = Program::new("acme-edit", wide_at_the_edge());
     let (app, lines) = logged(App::new(reading_agent()).with_editor(editor));
     let mut screen = focused(app);

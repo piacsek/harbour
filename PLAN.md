@@ -60,7 +60,8 @@ file under `plans/`; its time and tokens are a row of [`plans/metrics.md`](plans
 | 50 | [the task count stays right when a task list is cleared](plans/phase-50-task-count-edges.md), with the sweep of phases 46 to 49 | [v0.44.1](https://github.com/piacsek/harbour/releases/tag/v0.44.1) |
 | 51 | [tests that open terminals share a few slots across the machine](plans/phase-51-pty-slots.md) | |
 | 52 | [Claude Code's repaints show as whole frames](plans/phase-52-synchronized-output.md) | [v0.44.3](https://github.com/piacsek/harbour/releases/tag/v0.44.3) |
-| 53 | [the prefix twice switches back to the previous session](plans/phase-53-previous-session.md) | |
+| 53 | [the prefix twice switches back to the previous session](plans/phase-53-previous-session.md) | [v0.45.0](https://github.com/piacsek/harbour/releases/tag/v0.45.0) |
+| 54 | [tests that need no terminal run their sessions over pipes](plans/phase-54-pipes-transport.md) | |
 
 ## Backlog
 
