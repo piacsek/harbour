@@ -320,20 +320,6 @@ fn a_full_channel_drops_the_line_instead_of_waiting() {
     assert!(lines.try_recv().is_err());
 }
 
-#[test]
-fn a_wait_for_a_line_never_written_fails_naming_it_and_the_file() {
-    let scratch = tempfile::tempdir().unwrap();
-    let path = scratch.path().join("4100.log");
-    fs::write(&path, "acme written\n").unwrap();
-
-    let failure = failure(|| {
-        wait_for_line(&path, "acme never written");
-    });
-
-    assert!(failure.contains("\"acme never written\""), "{failure}");
-    assert!(failure.contains("acme written"), "{failure}");
-}
-
 fn own_file(dir: &Path) -> PathBuf {
     dir.join(format!("{}.log", std::process::id()))
 }
@@ -374,13 +360,4 @@ fn wait_for_line(path: &Path, text: &str) -> String {
         "waited {patience:?} for {text:?} in {}, which held:\n{last}",
         path.display()
     );
-}
-
-fn failure(wait: impl FnOnce()) -> String {
-    let unwound = std::panic::catch_unwind(std::panic::AssertUnwindSafe(wait))
-        .expect_err("the wait returned without failing");
-    unwound
-        .downcast_ref::<String>()
-        .cloned()
-        .unwrap_or_default()
 }

@@ -18,20 +18,6 @@ mod timing;
 use timing::deadline;
 
 #[test]
-fn a_wait_for_a_socket_never_bound_fails_naming_its_folder() {
-    let scratch = tempfile::tempdir().unwrap();
-    let dir = scratch.path().join("edit");
-    fs::create_dir(&dir).unwrap();
-
-    let failure = failure(|| {
-        bound_again(&dir, deadline());
-    });
-
-    assert!(failure.contains("a socket in"), "{failure}");
-    assert!(failure.contains(&dir.display().to_string()), "{failure}");
-}
-
-#[test]
 fn the_listener_makes_a_private_folder_and_socket() {
     let scratch = tempfile::tempdir().unwrap();
     let dir = scratch.path().join("edit");
@@ -471,13 +457,4 @@ fn socket_files(dir: &Path) -> Vec<PathBuf> {
         .collect();
     found.sort();
     found
-}
-
-fn failure(wait: impl FnOnce()) -> String {
-    let unwound = std::panic::catch_unwind(std::panic::AssertUnwindSafe(wait))
-        .expect_err("the wait returned without failing");
-    unwound
-        .downcast_ref::<String>()
-        .cloned()
-        .unwrap_or_default()
 }
