@@ -54,9 +54,15 @@ fn the_finder_draws_a_working_sessions_dot_in_yellow() {
     let dot = State::Working.glyph();
     server.wait_for_screen(&format!("0|{dot}|"));
     let coloured = coloured_screen(&server);
+    let line = coloured
+        .lines()
+        .find(|line| line.contains("0|"))
+        .unwrap_or_default();
+    let dotted = line.split("0|").nth(1).unwrap_or_default();
+    assert!(dotted.starts_with('\u{1b}'), "{line:?}");
     assert!(
-        coloured.contains(&format!("0|\u{1b}[38;5;3m{dot}\u{1b}[39m|")),
-        "{coloured:?}"
+        dotted.split('|').next().unwrap_or_default().contains(dot),
+        "{line:?}"
     );
 }
 

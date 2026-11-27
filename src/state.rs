@@ -44,11 +44,12 @@ impl State {
     }
 
     pub fn sgr(self) -> Option<&'static str> {
-        match self {
-            State::Working => Some("33"),
-            State::Blocked => Some("31"),
-            State::Idle | State::Exited => Some("2"),
-            State::Unknown => None,
+        let style = self.style();
+        match style.fg {
+            Some(Color::Yellow) => Some("33"),
+            Some(Color::Red) => Some("31"),
+            _ if style.add_modifier.contains(Modifier::DIM) => Some("2"),
+            _ => None,
         }
     }
 }
