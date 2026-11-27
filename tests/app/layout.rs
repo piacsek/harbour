@@ -3,6 +3,7 @@ use std::time::Duration;
 
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use harbour::app::App;
+use harbour::session::Transport;
 
 use crate::{
     Screen, directory, home, needs_a_terminal, numbered_agent, region, script, sized_agent,
@@ -97,7 +98,8 @@ fn a_session_started_before_the_first_draw_keeps_its_output() {
     let mut app = App::new(script(
         "echo 'acme agent: the retry now waits on its clock'; exec sleep 600",
     ))
-    .with_home(home());
+    .with_home(home())
+    .with_transport(Transport::Pipes);
     app.key(KeyEvent::new(KeyCode::Char('n'), KeyModifiers::NONE));
     sleep(Duration::from_millis(500));
     let mut screen = Screen::of(app);

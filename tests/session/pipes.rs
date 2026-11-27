@@ -1,9 +1,13 @@
 use std::io;
 use std::path::Path;
 
-use harbour::session::{Role, Session, Transport};
+use std::time::Instant;
 
-use crate::{COLS, ROWS, alive, pid_shown, still_alive_after_a_while, wait_for};
+use harbour::session::{self, Role, Session, Transport};
+
+use crate::{
+    COLS, HANGING_UP, ROWS, alive, deadline, pid_shown, still_alive_after_a_while, wait_for,
+};
 
 #[test]
 fn a_piped_session_shows_what_its_command_prints() {
@@ -74,6 +78,30 @@ fn ending_a_piped_session_ends_what_its_command_started() {
     session.end();
 
     assert!(!still_alive_after_a_while(&pid));
+}
+
+#[test]
+fn dropping_a_piped_session_whose_command_exited_hangs_up_what_it_started() {
+    let mut session = piped("sleep 600 & echo \"pid:$! shown\"");
+    let pid = pid_shown(&session);
+    exited(&mut session);
+
+    drop(session);
+
+    assert!(!still_alive_after_a_while(&pid), "{pid} is still running");
+}
+
+#[test]
+fn ending_piped_sessions_that_exit_on_hangup_returns_before_the_grace_runs_out() {
+    let mut sessions = [piped(HANGING_UP), piped(HANGING_UP)];
+    wait_for(&sessions[0], "acme agent ready");
+    wait_for(&sessions[1], "acme agent ready");
+
+    let before = Instant::now();
+    session::end_all(sessions.iter_mut(), 5 * deadline());
+    let elapsed = before.elapsed();
+
+    assert!(elapsed < deadline(), "{elapsed:?}");
 }
 
 #[test]

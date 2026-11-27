@@ -63,6 +63,13 @@ terminal (#247).
 - **`SLOTS` stays at 16.** The slots cap concurrent PTY tests machine-wide; 16 still keeps
   `tests/app` near its old speed, and the tests left on a PTY open several each (an agent, an
   editor, a picker).
+- **A pipe session hangs up its group when it goes away, as a terminal does.** Review round 2
+  found that a test run killed by Ctrl-C or a timeout left every piped child running, some
+  spinning on `read -r line || continue` at end of input. Each pipe session now starts a watcher
+  in a process group of its own that reads a pipe only the session holds; when the session is
+  dropped or the test process ends, the watcher hangs up the session's group and kills it after
+  `HANGUP_GRACE`. A watcher inside the group could not do it: on macOS its `kill -HUP 0` ended
+  the watcher but not the rest of the group, and dash's `kill` takes no `--`.
 - `src/app/mod.rs` crossed the 700-line limit with the transport; `start`, `start_with` and
   `start_in` moved unchanged to `src/app/start.rs`.
 
@@ -73,5 +80,7 @@ terminal (#247).
 - `test-seam` A piped child keeps the test run's controlling terminal and the safe `setsid` is
   unstable, so a script reading `/dev/tty` freezes on a developer's terminal and fails in CI →
   rule in `tests/AGENTS.md`
+- `review-loop` Moving children off a PTY also moved them off the terminal's hangup, so an
+  interrupted test run left them behind; found in round 2, fixed with a watcher → code
 - `process` The step-2 commit was pushed with `src/app/mod.rs` over the 700-line limit, since the
   size test ran before the last edit of the wiring → code

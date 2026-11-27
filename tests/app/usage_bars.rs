@@ -279,6 +279,7 @@ fn switching_views_is_logged_as_the_popups_own_event_and_not_as_a_key() {
 #[cfg(target_os = "linux")]
 #[test]
 fn the_bars_stay_once_shown_though_something_the_report_started_prints_later() {
+    crate::needs_a_terminal();
     let late = "trap '' HUP; (sleep 1.5; printf '\\033[2J\\033[Hacme later\\n') &";
     let mut screen = Screen::of(app().with_usage(report(late)));
     screen.prefixed('u');

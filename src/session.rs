@@ -37,6 +37,7 @@ pub struct Session {
     parser: Arc<Mutex<Parser>>,
     writer: Sender<Vec<u8>>,
     master: Option<Box<dyn MasterPty + Send>>,
+    _lifeline: Option<io::PipeWriter>,
     child: Box<dyn Child + Send + Sync>,
     exit: Option<ExitStatus>,
     drained: Arc<AtomicBool>,
@@ -48,12 +49,13 @@ pub enum Transport {
     Pipes,
 }
 
-type Opened = (
-    Option<Box<dyn MasterPty + Send>>,
-    Box<dyn Child + Send + Sync>,
-    Box<dyn Read + Send>,
-    Box<dyn Write + Send>,
-);
+struct Opened {
+    master: Option<Box<dyn MasterPty + Send>>,
+    lifeline: Option<io::PipeWriter>,
+    child: Box<dyn Child + Send + Sync>,
+    reader: Box<dyn Read + Send>,
+    writer: Box<dyn Write + Send>,
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Role {
@@ -78,7 +80,13 @@ impl Session {
             ));
         }
         let (rows, cols) = safe_size(rows, cols);
-        let (master, child, mut reader, writer) = match transport {
+        let Opened {
+            master,
+            lifeline,
+            child,
+            mut reader,
+            writer,
+        } = match transport {
             Transport::Pty => open_pty(command, directory, rows, cols, role)?,
             Transport::Pipes => open_pipes(command, directory, role)?,
         };
@@ -126,6 +134,7 @@ impl Session {
             parser,
             writer,
             master,
+            _lifeline: lifeline,
             child,
             exit: None,
             drained,
@@ -320,7 +329,13 @@ fn open_pty<S: AsRef<OsStr>>(
     drop(pty.slave);
     let reader = pty.master.try_clone_reader().map_err(io::Error::other)?;
     let writer = pty.master.take_writer().map_err(io::Error::other)?;
-    Ok((Some(pty.master), child, reader, writer))
+    Ok(Opened {
+        master: Some(pty.master),
+        lifeline: None,
+        child,
+        reader,
+        writer,
+    })
 }
 
 fn open_pipes<S: AsRef<OsStr>>(command: &[S], directory: &Path, role: Role) -> io::Result<Opened> {
@@ -349,12 +364,31 @@ fn open_pipes<S: AsRef<OsStr>>(command: &[S], directory: &Path, role: Role) -> i
         .stdin
         .take()
         .ok_or_else(|| io::Error::other("no input"))?;
-    Ok((
-        None,
-        Box::new(child),
-        Box::new(NewLines::from(reader)),
-        Box::new(input),
-    ))
+    let lifeline = hang_up_when_closed(child.id())?;
+    Ok(Opened {
+        master: None,
+        lifeline: Some(lifeline),
+        child: Box::new(child),
+        reader: Box::new(NewLines::from(reader)),
+        writer: Box::new(input),
+    })
+}
+
+fn hang_up_when_closed(group: u32) -> io::Result<io::PipeWriter> {
+    let (watched, lifeline) = io::pipe()?;
+    let script = format!(
+        "exec 3<&0; (read -r _ <&3; kill -HUP -\"$1\" 2>/dev/null && sleep {} && \
+         kill -KILL -\"$1\" 2>/dev/null) &",
+        HANGUP_GRACE.as_secs_f64()
+    );
+    Command::new("/bin/sh")
+        .args(["-c", &script, "sh", &group.to_string()])
+        .stdin(watched)
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .process_group(0)
+        .status()?;
+    Ok(lifeline)
 }
 
 struct NewLines<R> {
