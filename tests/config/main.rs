@@ -3,6 +3,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use harbour::config::{Config, Refusal, Source};
+use harbour::editor::EditorDir;
 use ratatui::style::Color;
 
 mod colors;
@@ -207,6 +208,17 @@ fn the_file_can_say_there_is_no_nerd_font() {
 
     assert!(!config.nerd_font().value);
     assert_eq!(config.nerd_font().source, Source::File);
+}
+
+#[test]
+fn the_file_mirrors_the_editor_directory() {
+    let home = tempfile::tempdir().unwrap();
+    write_config(home.path(), "editor_dir = \"mirror\"\n");
+
+    let config = read_at(home.path(), None).unwrap();
+
+    assert_eq!(config.editor_dir().value, EditorDir::Mirror);
+    assert_eq!(config.editor_dir().source, Source::File);
 }
 
 #[test]

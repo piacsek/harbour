@@ -31,6 +31,7 @@ const LONGEST_SOCKET_PATH: usize = 103;
 pub enum EditorDir {
     Root,
     Exact,
+    Mirror,
 }
 
 impl EditorDir {
@@ -38,6 +39,7 @@ impl EditorDir {
         match self {
             EditorDir::Root => "root",
             EditorDir::Exact => "exact",
+            EditorDir::Mirror => "mirror",
         }
     }
 }
@@ -291,15 +293,51 @@ pub fn directory(
     home: Option<&Path>,
     editor_dir: EditorDir,
 ) -> PathBuf {
-    if editor_dir == EditorDir::Exact {
-        return started.to_path_buf();
+    match editor_dir {
+        EditorDir::Exact => started.to_path_buf(),
+        EditorDir::Mirror => mirrored(directory, started, home),
+        EditorDir::Root => rooted(directory, home),
     }
+}
+
+fn rooted(directory: &Path, home: Option<&Path>) -> PathBuf {
     if !directory.is_dir() {
         return directory.to_path_buf();
     }
     repo::root(directory, home)
         .unwrap_or(directory)
         .to_path_buf()
+}
+
+fn mirrored(directory: &Path, started: &Path, home: Option<&Path>) -> PathBuf {
+    if !started.is_dir() {
+        return rooted(directory, home);
+    }
+    if !directory.is_dir() {
+        return started.to_path_buf();
+    }
+    let (Some(start_root), Some(seen_root)) =
+        (repo::root(started, home), repo::root(directory, home))
+    else {
+        return started.to_path_buf();
+    };
+    if repo::identity(start_root) == repo::identity(seen_root)
+        || !seen_root.join(".git").exists()
+        || !same_repository(start_root, seen_root)
+    {
+        return started.to_path_buf();
+    }
+    match started.strip_prefix(start_root) {
+        Ok(below) if !below.as_os_str().is_empty() && seen_root.join(below).is_dir() => {
+            seen_root.join(below)
+        }
+        _ => seen_root.to_path_buf(),
+    }
+}
+
+fn same_repository(one: &Path, other: &Path) -> bool {
+    let identity = |root| repo::common(root).and_then(|common| repo::identity(&common));
+    identity(one).is_some_and(|common| identity(other) == Some(common))
 }
 
 fn label(directory: &Path) -> String {

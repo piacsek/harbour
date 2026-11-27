@@ -41,6 +41,22 @@ fn harbour_config_shows_what_the_file_sets() {
 }
 
 #[test]
+fn harbour_config_shows_a_mirrored_editor_directory_from_the_file() {
+    let home = tempfile::tempdir().unwrap();
+    write_config(home.path(), "editor_dir = \"mirror\"\n");
+
+    let output = config_command(home.path());
+
+    assert!(
+        stdout(&output)
+            .lines()
+            .any(|line| line == "editor_dir = \"mirror\"  (file)"),
+        "{}",
+        stdout(&output)
+    );
+}
+
+#[test]
 fn harbour_config_names_a_light_accent_as_the_file_may_write_it() {
     let home = tempfile::tempdir().unwrap();
     write_config(home.path(), "accent = \"LightRed\"\n");

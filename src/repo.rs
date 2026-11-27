@@ -44,7 +44,7 @@ fn nearest<'a>(directory: &'a Path, home: Option<&Path>) -> Option<(&'a Path, Pl
         .find_map(|folder| Some((folder, repository_at(folder)?)))
 }
 
-fn identity(folder: &Path) -> Option<(u64, u64)> {
+pub fn identity(folder: &Path) -> Option<(u64, u64)> {
     let metadata = fs::metadata(folder).ok()?;
     Some((metadata.dev(), metadata.ino()))
 }
@@ -72,22 +72,39 @@ fn repository_at(folder: &Path) -> Option<Place> {
     None
 }
 
-fn linked(folder: &Path, dot_git: &Path) -> Option<Place> {
+pub fn common(root: &Path) -> Option<PathBuf> {
+    let dot_git = root.join(".git");
+    if dot_git.is_dir() {
+        return Some(dot_git);
+    }
+    if dot_git.is_file() {
+        let git_dir = git_dir(root, &dot_git)?;
+        let git_dir = fs::canonicalize(&git_dir).unwrap_or(git_dir);
+        return Some(common_of(&git_dir).unwrap_or(git_dir));
+    }
+    Some(root.to_path_buf())
+}
+
+fn git_dir(folder: &Path, dot_git: &Path) -> Option<PathBuf> {
     let target = small(dot_git)?;
     let git_dir = folder.join(path_of(
         target.trim_ascii().strip_prefix(b"gitdir:")?.trim_ascii(),
     ));
-    if !git_dir.is_dir() {
-        return None;
-    }
-    let repository = match small(&git_dir.join("commondir")) {
-        Some(common) => {
-            let common = normalized(&git_dir.join(path_of(common.trim_ascii())));
-            match common.file_name() {
-                Some(name) if name == ".git" => name_of(common.parent().unwrap_or(&common)),
-                _ => bare_name(&common),
-            }
-        }
+    git_dir.is_dir().then_some(git_dir)
+}
+
+fn common_of(git_dir: &Path) -> Option<PathBuf> {
+    let common = small(&git_dir.join("commondir"))?;
+    Some(normalized(&git_dir.join(path_of(common.trim_ascii()))))
+}
+
+fn linked(folder: &Path, dot_git: &Path) -> Option<Place> {
+    let git_dir = git_dir(folder, dot_git)?;
+    let repository = match common_of(&git_dir) {
+        Some(common) => match common.file_name() {
+            Some(name) if name == ".git" => name_of(common.parent().unwrap_or(&common)),
+            _ => bare_name(&common),
+        },
         None => name_of(folder),
     };
     Some(Place {

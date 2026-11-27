@@ -10,6 +10,7 @@ use crate::{
 };
 
 const FIXTURE_EDITOR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/editor.sh");
+const MOVED_AGENT: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/moved-agent.sh");
 const RESUMABLE_AGENT: &str = concat!(
     env!("CARGO_MANIFEST_DIR"),
     "/tests/fixtures/resumable-agent.sh"
@@ -172,6 +173,57 @@ fn the_exact_editor_dir_from_the_file_opens_the_editor_in_the_folder_the_session
     let top = screen.lines().next().unwrap_or_default();
     assert!(screen.contains("acme editor in rust"), "{screen}");
     assert!(in_order(top, &[" editor.sh: ", "/acme-api/rust "]), "{top}");
+}
+
+#[test]
+#[ignore]
+fn the_mirror_editor_dir_from_the_file_opens_the_start_folder_in_the_worktree_claude_code_moved_to()
+{
+    let home = tempfile::tempdir().unwrap();
+    let git_dir = home.path().join("acme-api/.git/worktrees/acme-api-feature");
+    std::fs::create_dir_all(&git_dir).unwrap();
+    std::fs::write(git_dir.join("commondir"), "../..\n").unwrap();
+    std::fs::create_dir_all(home.path().join("acme-api/rust")).unwrap();
+    let feature = home.path().join("acme-api-feature");
+    std::fs::create_dir_all(feature.join("rust")).unwrap();
+    std::fs::write(
+        feature.join(".git"),
+        format!("gitdir: {}\n", git_dir.display()),
+    )
+    .unwrap();
+    write_config(
+        home.path(),
+        &format!("editor = [{FIXTURE_EDITOR:?}]\neditor_dir = \"mirror\"\n"),
+    );
+    let server = Server::start("config-editor-dir-mirror", 160, 20);
+    let moved_to = feature.display().to_string();
+    server.run(
+        home.path(),
+        &[
+            (SESSION_COMMAND, MOVED_AGENT),
+            (DIR_PICKER, PICKER),
+            ("ACME_MOVED_TO", &moved_to),
+        ],
+        &[],
+    );
+    server.wait_for_screen("press n to start one");
+    server.send_keys(&["n"]);
+    server.wait_for_screen("acme picker: type a directory");
+    server.send_keys(&["rust", "Enter"]);
+    server.wait_for_screen("acme agent moved");
+
+    server.send_keys(&["Enter", "C-l"]);
+
+    let screen = server.wait_for_screen_all(&[
+        "acme editor in rust",
+        " editor.sh: ",
+        "/acme-api-feature/rust ",
+    ]);
+    let top = screen.lines().next().unwrap_or_default();
+    assert!(
+        in_order(top, &[" editor.sh: ", "/acme-api-feature/rust "]),
+        "{top}"
+    );
 }
 
 #[test]

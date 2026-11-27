@@ -75,6 +75,36 @@ fn with_the_exact_directory_the_editor_stays_in_the_start_folder_after_claude_co
 }
 
 #[test]
+fn mirrored_the_editor_opens_the_start_subfolder_in_the_worktree_claude_code_moved_to() {
+    let scratch = tempfile::tempdir().unwrap();
+    repository(scratch.path(), "acme-app");
+    let rust = folder(scratch.path(), "acme-app/rust");
+    let git_dir = folder(scratch.path(), "acme-app/.git/worktrees/acme-app-feature");
+    fs::write(git_dir.join("commondir"), "../..\n").unwrap();
+    let feature = folder(scratch.path(), "acme-app-feature/rust");
+    fs::write(
+        scratch.path().join("acme-app-feature/.git"),
+        format!("gitdir: {}\n", git_dir.display()),
+    )
+    .unwrap();
+    let mut screen = following_from(
+        scratch.path(),
+        &rust,
+        &[&cwd(&feature)],
+        parent_locating_editor(),
+        EditorDir::Mirror,
+    );
+
+    screen.key(KeyCode::Char('l'), KeyModifiers::CONTROL);
+
+    let shown = screen.wait_for("acme editor at acme-app-feature/rust");
+    assert!(
+        shown.contains("acme editor at acme-app-feature/rust"),
+        "{shown}"
+    );
+}
+
+#[test]
 fn outside_a_repository_the_editor_opens_in_claude_codes_directory() {
     let scratch = tempfile::tempdir().unwrap();
     let start = folder(scratch.path(), "acme-plain/notes");
@@ -465,6 +495,17 @@ fn locating_editor() -> Program {
         "acme-edit",
         script(
             "echo \"acme editor at $(basename \"$(pwd -P)\")\"; \
+             while read -r line; do echo \"acme editor got: $line\"; done",
+        ),
+    )
+}
+
+fn parent_locating_editor() -> Program {
+    Program::new(
+        "acme-edit",
+        script(
+            "here=\"$(pwd -P)\"; \
+             echo \"acme editor at $(basename \"$(dirname \"$here\")\")/$(basename \"$here\")\"; \
              while read -r line; do echo \"acme editor got: $line\"; done",
         ),
     )

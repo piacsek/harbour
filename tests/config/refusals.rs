@@ -432,7 +432,7 @@ fn an_editor_dir_harbour_does_not_know_is_refused() {
     assert_eq!(
         refusal(home.path()),
         format!(
-            "{}:2: editor_dir: expected \"root\" or \"exact\"",
+            "{}:2: editor_dir: expected \"root\", \"exact\" or \"mirror\"",
             path.display()
         )
     );
@@ -446,7 +446,7 @@ fn an_editor_dir_given_as_a_boolean_is_refused() {
     assert_eq!(
         refusal(home.path()),
         format!(
-            "{}:1: editor_dir: expected \"root\" or \"exact\"",
+            "{}:1: editor_dir: expected \"root\", \"exact\" or \"mirror\"",
             path.display()
         )
     );

@@ -1,7 +1,7 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use harbour::repo::place;
+use harbour::repo::{common, identity, place};
 
 #[test]
 fn a_folder_outside_any_repository_shows_its_name() {
@@ -244,6 +244,53 @@ fn a_repository_at_a_home_directory_reached_through_a_link_does_not_count() {
     std::os::unix::fs::symlink(&home, &linked).unwrap();
 
     assert_eq!(place(&notes, Some(&linked)).to_string(), "acme-notes");
+}
+
+#[test]
+fn the_common_git_folder_of_a_worktree_reached_through_a_link_follows_its_relative_paths() {
+    let scratch = tempfile::tempdir().unwrap();
+    let real = folder(scratch.path(), "real");
+    let app = repository(&real, "acme-app", "ref: refs/heads/main\n");
+    let git_dir = folder(&app, ".git/worktrees/acme-app-feature");
+    fs::write(git_dir.join("commondir"), "../..\n").unwrap();
+    let feature = folder(&real, "acme-app-feature");
+    fs::write(
+        feature.join(".git"),
+        "gitdir: ../acme-app/.git/worktrees/acme-app-feature\n",
+    )
+    .unwrap();
+    let elsewhere = folder(scratch.path(), "elsewhere");
+    let link = elsewhere.join("acme-link");
+    std::os::unix::fs::symlink(&feature, &link).unwrap();
+
+    let common = common(&link).unwrap();
+
+    assert_eq!(identity(&common), identity(&app.join(".git")));
+    assert!(identity(&common).is_some());
+}
+
+#[test]
+fn a_worktree_whose_gitdir_goes_through_a_linked_repository_shows_the_linked_name() {
+    let scratch = tempfile::tempdir().unwrap();
+    let data = folder(scratch.path(), "data");
+    let source = repository(&data, "acme-app-src", "ref: refs/heads/main\n");
+    let projects = folder(scratch.path(), "projects");
+    let app = projects.join("acme-app");
+    std::os::unix::fs::symlink(&source, &app).unwrap();
+    let git_dir = folder(&source, ".git/worktrees/acme-app-feature");
+    fs::write(git_dir.join("commondir"), "../..\n").unwrap();
+    fs::write(git_dir.join("HEAD"), "ref: refs/heads/feature\n").unwrap();
+    let feature = folder(&projects, "acme-app-feature");
+    fs::write(
+        feature.join(".git"),
+        format!(
+            "gitdir: {}\n",
+            app.join(".git/worktrees/acme-app-feature").display()
+        ),
+    )
+    .unwrap();
+
+    assert_eq!(place(&feature, None).to_string(), "acme-app · feature");
 }
 
 fn folder(parent: &Path, name: &str) -> PathBuf {
