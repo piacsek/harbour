@@ -5,7 +5,7 @@ use std::thread::sleep;
 use std::time::{Duration, Instant};
 
 use harbour::cursor::Shape;
-use harbour::session::Session;
+use harbour::session::{Role, Session, Transport};
 use harbour::tui::{enter_terminal, hung_up, leave_terminal, panic_hook};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
@@ -210,5 +210,13 @@ fn rendered(session: &Session) -> String {
 
 fn wide_session() -> Session {
     pty_slots::hold(30 * timing::deadline());
-    Session::start(&wide_at_the_edge(), &std::env::temp_dir(), 10, 160).unwrap()
+    Session::start(
+        Transport::Pty,
+        Role::Agent,
+        &wide_at_the_edge(),
+        &std::env::temp_dir(),
+        10,
+        160,
+    )
+    .unwrap()
 }

@@ -65,25 +65,6 @@ pub enum Role {
 
 impl Session {
     pub fn start<S: AsRef<OsStr>>(
-        command: &[S],
-        directory: &Path,
-        rows: u16,
-        cols: u16,
-    ) -> io::Result<Session> {
-        Session::start_over(Transport::Pty, Role::Agent, command, directory, rows, cols)
-    }
-
-    pub fn start_as<S: AsRef<OsStr>>(
-        role: Role,
-        command: &[S],
-        directory: &Path,
-        rows: u16,
-        cols: u16,
-    ) -> io::Result<Session> {
-        Session::start_over(Transport::Pty, role, command, directory, rows, cols)
-    }
-
-    pub fn start_over<S: AsRef<OsStr>>(
         transport: Transport,
         role: Role,
         command: &[S],

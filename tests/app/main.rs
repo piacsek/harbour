@@ -35,6 +35,7 @@ mod navigating;
 mod nearest;
 mod neovim;
 mod picker;
+mod piped;
 mod prefix;
 mod previous;
 mod real_neovim;
@@ -76,6 +77,7 @@ use crossterm::event::{KeyCode, KeyEvent, KeyModifiers, MouseEvent, MouseEventKi
 use harbour::app::{App, FOCUSED_BORDER, UNFOCUSED_BORDER};
 use harbour::editor::{EditorDir, Program};
 use harbour::picker::Picker;
+use harbour::session::Transport;
 use harbour::tui::Frames;
 use ratatui::backend::TestBackend;
 use ratatui::buffer::Cell;
@@ -116,6 +118,14 @@ impl Screen {
 
     fn at(app: App, home: PathBuf, width: u16) -> Screen {
         hold_a_pty_slot();
+        Screen::drawn(app, home, width)
+    }
+
+    fn piped(app: App) -> Screen {
+        Screen::drawn(app.with_transport(Transport::Pipes), home(), 120)
+    }
+
+    fn drawn(app: App, home: PathBuf, width: u16) -> Screen {
         let mut screen = Screen {
             app: app.with_home(home),
             terminal: Terminal::new(TestBackend::new(width, 20)).unwrap(),

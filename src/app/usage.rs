@@ -98,7 +98,14 @@ impl App {
         let width = draw::bordered(true, self.accent)
             .inner(area(self.screen))
             .width;
-        match Session::start_as(Role::Picker, &command, &directory, ROWS, width) {
+        match Session::start(
+            self.transport,
+            Role::Picker,
+            &command,
+            &directory,
+            ROWS,
+            width,
+        ) {
             Ok(session) => {
                 self.failed = None;
                 self.gesture = Gesture::Idle;

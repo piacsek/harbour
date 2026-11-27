@@ -10,7 +10,7 @@ use std::path::{Path, PathBuf};
 use tempfile::TempDir;
 
 use crate::finder;
-use crate::session::{Role, Session};
+use crate::session::{Role, Session, Transport};
 
 const PRINTING_TO: &str = r#"out=$1; shift; "$@" >"$out""#;
 const FZF_PRINTS_ONE_LINE: [&str; 4] = [
@@ -115,6 +115,7 @@ impl Pick {
         temporary: &Path,
         rows: u16,
         cols: u16,
+        transport: Transport,
     ) -> io::Result<Option<Pick>> {
         let scratch = tempfile::Builder::new()
             .prefix("harbour-pick")
@@ -135,7 +136,7 @@ impl Pick {
             fs::write(scratch.path().join("listed"), lines).map_err(listing)?;
         }
         let wrapped = picker.command(from, &output);
-        let session = Session::start_as(Role::Picker, &wrapped, from, rows, cols)?;
+        let session = Session::start(transport, Role::Picker, &wrapped, from, rows, cols)?;
         Ok(Some(Pick {
             session,
             program: picker.program().to_string(),

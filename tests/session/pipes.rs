@@ -103,7 +103,7 @@ fn a_piped_session_in_a_directory_that_is_gone_starts_nothing_and_is_named() {
 fn a_piped_session_of_a_missing_program_says_to_install_it() {
     let command = ["acme-missing-agent".to_string()];
 
-    let refused = Session::start_over(
+    let refused = Session::start(
         Transport::Pipes,
         Role::Agent,
         &command,
@@ -123,7 +123,7 @@ fn piped(script: &str) -> Session {
 
 fn piped_in(script: &str, directory: &Path) -> io::Result<Session> {
     let command = ["/bin/sh".to_string(), "-c".into(), script.into()];
-    Session::start_over(
+    Session::start(
         Transport::Pipes,
         Role::Agent,
         &command,

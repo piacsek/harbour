@@ -44,7 +44,7 @@ use crate::mouse::{self, Gesture, Target};
 use crate::picker::{Pick, Picked, Picker};
 use crate::registry::Record;
 use crate::repo::{self, Place};
-use crate::session::{self, Session};
+use crate::session::{self, Role, Session, Transport};
 use crate::summary::Summary;
 use crate::tmux::Tmux;
 use crate::transcript::{self, Transcript};
@@ -111,6 +111,7 @@ pub struct App {
     renaming: Option<rename::Renaming>,
     logging: logging::Logging,
     hangup_grace: Duration,
+    transport: Transport,
     tidy_after: Option<Duration>,
     tidy_every: Duration,
     tidied_at: Option<Instant>,
@@ -257,6 +258,7 @@ impl App {
             renaming: None,
             logging: logging::Logging::default(),
             hangup_grace: session::HANGUP_GRACE,
+            transport: Transport::Pty,
             tidy_after: None,
             tidy_every: tidy::TIDY_EVERY,
             tidied_at: None,
@@ -267,6 +269,11 @@ impl App {
 
     pub fn with_hangup_grace(mut self, grace: Duration) -> App {
         self.hangup_grace = grace;
+        self
+    }
+
+    pub fn with_transport(mut self, transport: Transport) -> App {
+        self.transport = transport;
         self
     }
 
@@ -632,7 +639,14 @@ impl App {
                 transcript.session_id().to_string(),
             ]);
         }
-        match Session::start(&command, directory, self.pane.height, self.pane.width) {
+        match Session::start(
+            self.transport,
+            Role::Agent,
+            &command,
+            directory,
+            self.pane.height,
+            self.pane.width,
+        ) {
             Ok(session) => {
                 self.failed = None;
                 self.started += 1;
