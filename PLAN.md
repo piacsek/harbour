@@ -90,7 +90,7 @@ In this order unless a retro says otherwise.
   ([phase 35](plans/phase-35-claude-icon.md)).
 - Make `picker::a_slow_list_holds_up_neither_harbour_nor_the_picker` wait for what cannot race:
   under the gates' load its picker reads `x`, exits and the session starts before the screen
-  shows `acme picker read x` ([phase 53](plans/phase-53-previous-session.md)).
+  shows `acme picker read x` ([phase 53](plans/phase-53-previous-session.md), #249).
 
 ### Bring from conveyor when the interface exists
 

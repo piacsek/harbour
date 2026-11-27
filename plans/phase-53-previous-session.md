@@ -46,7 +46,7 @@ programs still need C-/ (C-_, undo in Claude Code's prompt), so that moves to a 
 - The builder's: **two messages.** `No previous session` when there is none yet, it was
   removed, or it is the card already selected; `The previous session has ended` when it is an
   exited or a stopped card, which harbour would have to resume rather than show.
-- The builder's: the help keeps its 14 rows: the last becomes `C-/ C-/ p`, "the previous
+- The builder's: the help keeps its 14 rows: the last becomes `C-/ C-//p`, "the previous
   session / send C-/ to the program", 57 columns wide with the default prefix, as wide as the
   narrowest help allows. With `send_prefix` unbound it reads `C-/ C-/`, "the previous session".
 
@@ -97,10 +97,17 @@ selected now.
 - The previous card is noted in `log_changes`, matched by its running id, else its conversation
   id; a card that left is never the previous one. `No previous session` and
   `The previous session has ended` go on the message line, cleared by a new selection.
-- The help keeps 14 rows: `C-/ C-/ p`, "the previous session / send C-/ to the program", 57
+- The help keeps 14 rows: `C-/ C-//p` (the prefix, then C-/ or `p`), "the previous session / send C-/ to the program", 57
   columns, the widest the narrowest help fits. `docs/keys.png` and `docs/help.png` rerendered.
 - Every test of the table's app states is in `tests/app/previous.rs`; two end-to-end tests send
   C-/ C-/ through tmux with extended keys on and off.
+- Review round 1: a `[keys]` binding on `p` or `P` refused to start or lost the key, so
+  `send_prefix`'s default now gives way to it; the previous card became a list of the last 16
+  selected, so closing the shown card goes back past it; the review skill's keys go back to the
+  sidebar after the switch.
+- Review round 2: `send_prefix` gives way to a binding on `P` only when the case fallback can
+  reach it (never `close`), and the help row reads `C-/ C-//p`, the alternatives form of the other
+  rows. The loop ended at the owner's 2-round limit with no must left.
 
 ## Hurdles
 

@@ -227,6 +227,17 @@ fn an_action_written_on_capital_p_keeps_p_by_its_case_from_send_prefix() {
 }
 
 #[test]
+fn close_written_on_capital_p_leaves_p_to_send_prefix() {
+    let home = tempfile::tempdir().unwrap();
+    write_config(home.path(), "[keys]\nclose = \"P\"\n");
+
+    let config = read_at(home.path(), None).unwrap();
+
+    assert_eq!(config.keymap().key_of(Action::SendPrefix), Some('p'));
+    assert_eq!(config.keymap().action_on('p'), Some(Action::SendPrefix));
+}
+
+#[test]
 fn rename_written_on_r_beside_another_action_on_r_is_refused() {
     let home = tempfile::tempdir().unwrap();
     write_config(home.path(), "[keys]\nzoom = \"r\"\nrename = \"r\"\n");

@@ -87,7 +87,7 @@ fn the_find_row_without_find_names_renaming_alone() {
 
 #[test]
 fn the_last_row_names_the_previous_session_and_sending_the_prefix() {
-    assert_eq!(KEYS[13].0, "C-/ C-/ p");
+    assert_eq!(KEYS[13].0, "C-/ C-//p");
     assert_eq!(KEYS[13].1, "the previous session / send C-/ to the program");
 }
 
@@ -103,7 +103,7 @@ fn the_last_row_without_send_prefix_names_the_previous_session_alone() {
 fn the_last_row_names_the_configured_send_prefix_key() {
     let rows = rows(&Keymap::default().bind(Action::SendPrefix, Some('o')));
 
-    assert_eq!(rows[13].0, "C-/ C-/ o");
+    assert_eq!(rows[13].0, "C-/ C-//o");
 }
 
 #[test]

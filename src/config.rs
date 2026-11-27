@@ -509,7 +509,7 @@ impl Reader<'_> {
         for yielding in [Action::Close, Action::Rename, Action::SendPrefix] {
             let unwritten = written.iter().all(|(_, _, action, _)| *action != yielding);
             let taker = match yielding {
-                Action::SendPrefix => keymap.clash_in_any_case(yielding),
+                Action::SendPrefix => keymap.clash_as_typed(yielding),
                 _ => keymap.clash(yielding),
             };
             let Some(taker) = taker.filter(|_| unwritten) else {

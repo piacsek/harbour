@@ -102,14 +102,18 @@ impl Keymap {
             .map(|(each, _)| *each)
     }
 
-    pub fn clash_in_any_case(&self, action: Action) -> Option<Action> {
+    pub fn clash_as_typed(&self, action: Action) -> Option<Action> {
         let key = self.key_of(action)?;
-        self.bound
-            .iter()
-            .find(|(each, other)| {
-                *each != action && other.is_some_and(|other| other.eq_ignore_ascii_case(&key))
-            })
-            .map(|(each, _)| *each)
+        self.clash(action).or_else(|| {
+            self.bound
+                .iter()
+                .find(|(each, other)| {
+                    *each != action
+                        && *each != Action::Close
+                        && other.is_some_and(|other| other.eq_ignore_ascii_case(&key))
+                })
+                .map(|(each, _)| *each)
+        })
     }
 
     pub fn is_prefix(&self, key: KeyEvent) -> bool {

@@ -15,7 +15,7 @@ pub const KEYS: &[(&str, &str)] = &[
     ("C-/ u/c", "Claude Code's usage / the changelog"),
     ("C-/ ?/q", "this help / quit, asking while anything runs"),
     (
-        "C-/ C-/ p",
+        "C-/ C-//p",
         "the previous session / send C-/ to the program",
     ),
 ];
@@ -64,7 +64,7 @@ pub fn rows(keymap: &Keymap) -> Vec<(String, String)> {
     ));
     rows.push(match key(Action::SendPrefix) {
         Some(send) => (
-            format!("{prefix} {prefix} {send}"),
+            format!("{prefix} {prefix}/{send}"),
             format!("the previous session / send {prefix} to the program"),
         ),
         None => (
