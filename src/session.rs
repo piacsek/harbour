@@ -339,6 +339,7 @@ fn open_pty<S: AsRef<OsStr>>(
 }
 
 fn open_pipes<S: AsRef<OsStr>>(command: &[S], directory: &Path, role: Role) -> io::Result<Opened> {
+    let mut lifeline = watcher()?;
     let (reader, output) = io::pipe()?;
     let mut builder = Command::new(command[0].as_ref());
     builder
@@ -360,11 +361,11 @@ fn open_pipes<S: AsRef<OsStr>>(command: &[S], directory: &Path, role: Role) -> i
         _ => error,
     })?;
     drop(builder);
+    let _ = writeln!(lifeline, "{}", child.id());
     let input = child
         .stdin
         .take()
         .ok_or_else(|| io::Error::other("no input"))?;
-    let lifeline = hang_up_when_closed(child.id())?;
     Ok(Opened {
         master: None,
         lifeline: Some(lifeline),
@@ -374,15 +375,15 @@ fn open_pipes<S: AsRef<OsStr>>(command: &[S], directory: &Path, role: Role) -> i
     })
 }
 
-fn hang_up_when_closed(group: u32) -> io::Result<io::PipeWriter> {
+fn watcher() -> io::Result<io::PipeWriter> {
     let (watched, lifeline) = io::pipe()?;
     let script = format!(
-        "exec 3<&0; (read -r _ <&3; kill -HUP -\"$1\" 2>/dev/null && sleep {} && \
-         kill -KILL -\"$1\" 2>/dev/null) &",
+        "exec 3<&0; (read -r group <&3; read -r _ <&3; kill -HUP -\"$group\" 2>/dev/null && \
+         sleep {} && kill -KILL -\"$group\" 2>/dev/null) &",
         HANGUP_GRACE.as_secs_f64()
     );
     Command::new("/bin/sh")
-        .args(["-c", &script, "sh", &group.to_string()])
+        .args(["-c", &script])
         .stdin(watched)
         .stdout(Stdio::null())
         .stderr(Stdio::null())

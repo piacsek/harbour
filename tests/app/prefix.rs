@@ -269,6 +269,7 @@ fn capital_x_after_the_prefix_from_claude_code_asks_to_end_it() {
 
 #[test]
 fn capital_x_answered_yes_from_a_pane_gives_the_keys_back_to_the_sidebar() {
+    needs_a_terminal();
     let scratch = tempfile::tempdir().unwrap();
     let mut screen = Screen::new(lined_agent(scratch.path()));
     for n in 1..=2 {

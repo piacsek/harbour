@@ -69,6 +69,7 @@ good; a finding on one still counts as must when it shows new impact.
   a frame cut by it leaves synchronized output on, so the terminal shows nothing new until its
   own timeout for that mode ends it;
   a quit, a panic, a first TERM or INT and any HUP turn them off (`src/tui.rs`).
+- **On macOS a pipe session's pipes can leak into another test's child for a moment**: std creates a pipe and only then marks its ends close-on-exec (macOS has no `pipe2`), so a child another test thread spawns in between keeps a write end, and that session reads to its end, or its watcher hangs up its group, only once that child ends too; pipes serve tests only and Linux CI creates them atomically (`src/session.rs`, `plans/phase-54-pipes-transport.md`).
 - **A session that exited by itself leaves behind what ignores hangup**: once its command is
   reaped its pid can be reused, so harbour does not signal its group again, and a background
   process that ignores hangup keeps running after its row is removed or harbour quits, as in any

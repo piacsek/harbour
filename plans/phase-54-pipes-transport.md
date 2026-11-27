@@ -68,7 +68,9 @@ terminal (#247).
   spinning on `read -r line || continue` at end of input. Each pipe session now starts a watcher
   in a process group of its own that reads a pipe only the session holds; when the session is
   dropped or the test process ends, the watcher hangs up the session's group and kills it after
-  `HANGUP_GRACE`. A watcher inside the group could not do it: on macOS its `kill -HUP 0` ended
+  `HANGUP_GRACE`. The watcher starts before the child and learns its group over that pipe, so
+  no step that can fail comes after the child is running (round 3); killing the test binary with
+  SIGKILL in the middle of `tests/app` left no child behind. A watcher inside the group could not do it: on macOS its `kill -HUP 0` ended
   the watcher but not the rest of the group, and dash's `kill` takes no `--`.
 - `src/app/mod.rs` crossed the 700-line limit with the transport; `start`, `start_with` and
   `start_in` moved unchanged to `src/app/start.rs`.
