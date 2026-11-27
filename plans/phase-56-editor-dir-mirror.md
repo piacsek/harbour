@@ -59,4 +59,29 @@ The plan draws no text, so no width table is needed.
 
 ## Outcome
 
+- **`editor_dir = "mirror"` opens the start's subfolder in the checkout Claude Code is in now.**
+  C-l, side by side, `e`, `harbour edit` and the directory harbour moves to for tmux all follow
+  it, since they share `editor::directory`. `root` and `exact` are unchanged; the default stays
+  `root`.
+- The name `mirror` (the owner's): the editor mirrors the start's place into the other checkout.
+- Claude Code's directory gone gives the start directory: nothing is left to mirror into, and
+  `exact`'s answer is the one the user picked.
+- Either side outside a repository gives the start directory: without two checkout roots there
+  is no subfolder to carry over.
+- The same checkout gives the start directory, roots compared by device and inode: inside the
+  start's own checkout `mirror` behaves as `exact`, a symlinked path included.
+- Another checkout without the subfolder gives its root: the nearest folder of that checkout
+  that surely exists.
+- `repo::identity` became public so `editor.rs` compares roots the way `repo.rs` compares the
+  home directory, rather than holding a second copy.
+- After task 1 the orchestrator, at the owner's word, switched this run from `scripts/ship.sh` to plain git: tasks 2 and 3
+  ran their related tests, `cargo fmt`, `cargo clippy --all-targets -- -D warnings` and
+  `scripts/scrub-check.sh` (both modes) before each commit, without the full gates or the dev
+  install.
+- `docs/help.png`, the shot of `harbour --help`, was not rerendered on the branch: the help
+  text changed, so `scripts/screenshots.sh` is due before `gh pr ready`.
+
 ## Hurdles
+
+- `process` The orchestrator, at the owner's word, switched from `scripts/ship.sh` to plain git after the first ship, so the
+  second ship's gates were stopped midway and tasks 2 and 3 ran only their related tests → none
