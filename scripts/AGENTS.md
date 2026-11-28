@@ -169,7 +169,7 @@ that every path between the merge base with `origin/main` and the working tree, 
 included, is a `.md` file that does not feed the binary (`scripts/feeds-binary.sh`) and is
 outside `changes/` (the fragments) and `.github/` (the script tests read its pull request
 template), `gates.sh` runs the scrub check, `cargo fmt --check` and
-`cargo nextest run --test readme --test plans --test agents_size`, the only targets that read this repository's Markdown
+`cargo nextest run --config-file .github/nextest.toml --test readme --test plans --test agents_size`, the only targets that read this repository's Markdown
 otherwise, prints `==> skipping the tests: <reason>; CI runs them`, and skips clippy and every
 other test. A path ending in `.md` counts whatever it is, so the root `CLAUDE.md` symlink does.
 No change, no repository, no `origin/main` or no merge base runs everything. A test that starts
@@ -179,8 +179,8 @@ of a warm test run) when `scripts/script-tests-skippable.sh` finds nothing betwe
 base with `origin/main` and the working tree, untracked files included, under `scripts/`,
 `tests/scripts/`, `tests/fixtures/`, `.github/`, `changes/`, or in `Cargo.toml`, `Cargo.lock`,
 `CHANGELOG.md` or `flake.nix`: the paths those tests read from this repository. It then runs
-`cargo nextest run --lib --bins` with a `--test` for every other target it finds as `tests/*.rs`
-or `tests/*/main.rs` (but `e2e` when tmux is installed, since its own step runs it), then `cargo test --doc`, and prints `==> skipping the script tests: <reason>; CI runs them`. No
+`cargo nextest run --config-file .github/nextest.toml --lib --bins` with a `--test` for every
+other target it finds as `tests/*.rs` or `tests/*/main.rs` (but `e2e` when tmux is installed, since its own step runs it), then `cargo test --doc`, and prints `==> skipping the script tests: <reason>; CI runs them`. No
 repository, no `origin/main` or no merge base runs everything. The skip is safe because the
 `shard` legs of `ci.yml` run the tests themselves (`cargo nextest run --locked`), not `gates.sh`, and the `check`
 gate over them is required to merge into `main`. A script test that starts reading another path of this
