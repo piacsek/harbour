@@ -14,17 +14,21 @@ fn gates_with_tmux_run_the_e2e_tests_after_the_rest_on_two_threads() {
     let output = gates(dir.path());
 
     assert!(output.status.success(), "{}", stderr(&output));
-    assert_eq!(calls(dir.path()).len(), 5);
+    assert_eq!(calls(dir.path()).len(), 6);
     assert_eq!(calls(dir.path())[0], "scrub-check.sh ");
     assert_eq!(calls(dir.path())[1], "cargo fmt --check");
     assert_eq!(
         calls(dir.path())[2],
         "cargo clippy --all-targets -- -D warnings"
     );
-    assert_eq!(calls(dir.path())[3], "cargo test");
     assert_eq!(
-        calls(dir.path())[4],
-        "cargo test --test e2e -- --include-ignored --test-threads=2"
+        calls(dir.path())[3],
+        "cargo nextest run --config-file .github/nextest.toml"
+    );
+    assert_eq!(calls(dir.path())[4], "cargo test --doc");
+    assert_eq!(
+        calls(dir.path())[5],
+        "cargo nextest run --config-file .github/nextest.toml --test e2e --run-ignored all"
     );
 }
 
@@ -36,8 +40,11 @@ fn gates_without_tmux_run_the_plain_tests() {
     let output = gates(dir.path());
 
     assert!(output.status.success(), "{}", stderr(&output));
-    assert_eq!(calls(dir.path()).len(), 4);
-    assert_eq!(calls(dir.path())[3], "cargo test");
+    assert_eq!(calls(dir.path()).len(), 5);
+    assert_eq!(
+        calls(dir.path())[3],
+        "cargo nextest run --config-file .github/nextest.toml"
+    );
 }
 
 #[test]
@@ -124,12 +131,12 @@ fn gates_on_a_branch_the_script_tests_do_not_read_run_every_other_test_target() 
     );
     assert_eq!(
         calls(dir.path())[3],
-        "cargo test --lib --bins --test cli --test plans --test prs"
+        "cargo nextest run --config-file .github/nextest.toml --lib --bins --test cli --test plans --test prs"
     );
     assert_eq!(calls(dir.path())[4], "cargo test --doc");
     assert_eq!(
         calls(dir.path())[5],
-        "cargo test --test e2e -- --include-ignored --test-threads=2"
+        "cargo nextest run --config-file .github/nextest.toml --test e2e --run-ignored all"
     );
 }
 
@@ -144,7 +151,7 @@ fn gates_without_tmux_that_skip_the_script_tests_run_the_plain_other_targets() {
     assert_eq!(calls(dir.path()).len(), 5);
     assert_eq!(
         calls(dir.path())[3],
-        "cargo test --lib --bins --test cli --test plans --test e2e --test prs"
+        "cargo nextest run --config-file .github/nextest.toml --lib --bins --test cli --test plans --test e2e --test prs"
     );
     assert_eq!(calls(dir.path())[4], "cargo test --doc");
 }
@@ -176,17 +183,21 @@ fn gates_on_a_branch_that_touches_a_script_run_every_test_target() {
     let output = repository_gates(dir.path(), None);
 
     assert!(output.status.success(), "{}", stderr(&output));
-    assert_eq!(calls(dir.path()).len(), 5);
+    assert_eq!(calls(dir.path()).len(), 6);
     assert_eq!(calls(dir.path())[0], "scrub-check.sh ");
     assert_eq!(calls(dir.path())[1], "cargo fmt --check");
     assert_eq!(
         calls(dir.path())[2],
         "cargo clippy --all-targets -- -D warnings"
     );
-    assert_eq!(calls(dir.path())[3], "cargo test");
     assert_eq!(
-        calls(dir.path())[4],
-        "cargo test --test e2e -- --include-ignored --test-threads=2"
+        calls(dir.path())[3],
+        "cargo nextest run --config-file .github/nextest.toml"
+    );
+    assert_eq!(calls(dir.path())[4], "cargo test --doc");
+    assert_eq!(
+        calls(dir.path())[5],
+        "cargo nextest run --config-file .github/nextest.toml --test e2e --run-ignored all"
     );
     assert!(
         !stderr(&output).contains("skipping the script tests"),
@@ -204,17 +215,21 @@ fn gates_in_ci_never_skip_the_script_tests() {
     let output = repository_gates(dir.path(), Some("true"));
 
     assert!(output.status.success(), "{}", stderr(&output));
-    assert_eq!(calls(dir.path()).len(), 5);
+    assert_eq!(calls(dir.path()).len(), 6);
     assert_eq!(calls(dir.path())[0], "scrub-check.sh ");
     assert_eq!(calls(dir.path())[1], "cargo fmt --check");
     assert_eq!(
         calls(dir.path())[2],
         "cargo clippy --all-targets -- -D warnings"
     );
-    assert_eq!(calls(dir.path())[3], "cargo test");
     assert_eq!(
-        calls(dir.path())[4],
-        "cargo test --test e2e -- --include-ignored --test-threads=2"
+        calls(dir.path())[3],
+        "cargo nextest run --config-file .github/nextest.toml"
+    );
+    assert_eq!(calls(dir.path())[4], "cargo test --doc");
+    assert_eq!(
+        calls(dir.path())[5],
+        "cargo nextest run --config-file .github/nextest.toml --test e2e --run-ignored all"
     );
 }
 
@@ -232,7 +247,7 @@ fn gates_on_a_docs_only_branch_run_the_scrub_the_format_and_the_markdown_tests_o
     assert_eq!(calls(dir.path())[1], "cargo fmt --check");
     assert_eq!(
         calls(dir.path())[2],
-        "cargo test --test readme --test plans --test agents_size"
+        "cargo nextest run --config-file .github/nextest.toml --test readme --test plans --test agents_size"
     );
 }
 
@@ -259,8 +274,11 @@ fn gates_in_ci_never_skip_the_tests_of_a_docs_only_branch() {
     let output = repository_gates(dir.path(), Some("true"));
 
     assert!(output.status.success(), "{}", stderr(&output));
-    assert_eq!(calls(dir.path()).len(), 5);
-    assert_eq!(calls(dir.path())[3], "cargo test");
+    assert_eq!(calls(dir.path()).len(), 6);
+    assert_eq!(
+        calls(dir.path())[3],
+        "cargo nextest run --config-file .github/nextest.toml"
+    );
 }
 
 fn gates_sandbox(root: &Path) -> PathBuf {

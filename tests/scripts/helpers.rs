@@ -41,6 +41,7 @@ pub fn sandbox_bin(root: &Path) -> PathBuf {
         symlink(which(program), bin.join(program)).unwrap();
     }
     symlink(recorder(), bin.join("cargo")).unwrap();
+    symlink(recorder(), bin.join("cargo-nextest")).unwrap();
     bin
 }
 

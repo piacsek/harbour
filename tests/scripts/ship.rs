@@ -425,6 +425,7 @@ fn ship_sandbox(root: &Path) -> PathBuf {
     symlink(recorder(), work.join("scripts/dev-install.sh")).unwrap();
     fs::create_dir_all(root.join("bin")).unwrap();
     symlink(recorder(), root.join("bin/cargo")).unwrap();
+    symlink(recorder(), root.join("bin/cargo-nextest")).unwrap();
     symlink(recorder(), root.join("bin/gh")).unwrap();
     work
 }

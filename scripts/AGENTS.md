@@ -93,8 +93,16 @@ Gates, all required before a task is done, wrapped by `scripts/gates.sh`:
 scripts/scrub-check.sh
 cargo fmt --check
 cargo clippy --all-targets -- -D warnings
-cargo test
+cargo nextest run --config-file .github/nextest.toml
+cargo test --doc
 ```
+
+The tests run under cargo-nextest, as in CI: one pool across every test binary, a line per test
+as it finishes, a summary naming every failure, each test in a process of its own, and the same
+`.github/nextest.toml`. `gates.sh` checks for it first and, without it, exits 1 with
+`cargo-nextest is not installed (cargo install cargo-nextest --locked)`; it never falls back to
+`cargo test`. nextest runs no doctests, so `cargo test --doc` follows it on every path that runs
+more than the Markdown tests.
 
 The gates and CI run the same Rust: `rust-toolchain.toml` pins it for every `cargo` that
 rustup provides, and the workflows install the same version. A toolchain bump is one pull
@@ -161,7 +169,7 @@ that every path between the merge base with `origin/main` and the working tree, 
 included, is a `.md` file that does not feed the binary (`scripts/feeds-binary.sh`) and is
 outside `changes/` (the fragments) and `.github/` (the script tests read its pull request
 template), `gates.sh` runs the scrub check, `cargo fmt --check` and
-`cargo test --test readme --test plans --test agents_size`, the only targets that read this repository's Markdown
+`cargo nextest run --config-file .github/nextest.toml --test readme --test plans --test agents_size`, the only targets that read this repository's Markdown
 otherwise, prints `==> skipping the tests: <reason>; CI runs them`, and skips clippy and every
 other test. A path ending in `.md` counts whatever it is, so the root `CLAUDE.md` symlink does.
 No change, no repository, no `origin/main` or no merge base runs everything. A test that starts
@@ -171,16 +179,18 @@ of a warm test run) when `scripts/script-tests-skippable.sh` finds nothing betwe
 base with `origin/main` and the working tree, untracked files included, under `scripts/`,
 `tests/scripts/`, `tests/fixtures/`, `.github/`, `changes/`, or in `Cargo.toml`, `Cargo.lock`,
 `CHANGELOG.md` or `flake.nix`: the paths those tests read from this repository. It then runs
-`cargo test --lib --bins` with a `--test` for every other target it finds as `tests/*.rs` or
-`tests/*/main.rs` (but `e2e` when tmux is installed, since its own step runs it), then `cargo test --doc`, and prints `==> skipping the script tests: <reason>; CI runs them`. No
+`cargo nextest run --config-file .github/nextest.toml --lib --bins` with a `--test` for every
+other target it finds as `tests/*.rs` or `tests/*/main.rs` (but `e2e` when tmux is installed, since its own step runs it), then `cargo test --doc`, and prints `==> skipping the script tests: <reason>; CI runs them`. No
 repository, no `origin/main` or no merge base runs everything. The skip is safe because the
 `shard` legs of `ci.yml` run the tests themselves (`cargo nextest run --locked`), not `gates.sh`, and the `check`
 gate over them is required to merge into `main`. A script test that starts reading another path of this
 repository puts that path on the list in the script.
 With tmux installed, `gates.sh` then runs the `#[ignore]` end-to-end tests last, in a run of
-their own: `cargo test --test e2e -- --include-ignored --test-threads=2`. At one thread per core
-they lost a timing race in 6 runs of 10 beside other load on the build machine; at 2 threads
-they passed every run (`tests/AGENTS.md`).
+their own: `cargo nextest run --config-file .github/nextest.toml --test e2e --run-ignored all`,
+which `.github/nextest.toml` holds to 2 threads. At one thread per core they lost a timing race in 6 runs of 10
+beside other load on the build machine; at 2 threads they passed every run (`tests/AGENTS.md`).
+Without tmux it prints `==> skipping the ignored e2e tests: tmux is not installed (brew install
+tmux); CI runs them`.
 Without `nvim` on `PATH` it prints `==> skipping the real-Neovim tests: nvim is not installed
 (brew install neovim); CI runs them`, since those tests then pass without running.
 `tests/scripts/` runs the scripts themselves in a scratch directory and a scratch git

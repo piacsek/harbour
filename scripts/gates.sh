@@ -9,13 +9,19 @@ step() {
   "$@"
 }
 
+if ! command -v cargo-nextest >/dev/null; then
+  echo "cargo-nextest is not installed (cargo install cargo-nextest --locked)" >&2
+  exit 1
+fi
+nextest=(cargo nextest run --config-file .github/nextest.toml)
+
 . scripts/gates-lock.sh
 lock_gates
 step scripts/scrub-check.sh
 step cargo fmt --check
 if [ -z "${CI:-}" ] && reason="$(scripts/docs-only.sh)"; then
   echo "==> skipping the tests: $reason; CI runs them" >&2
-  step cargo test --test readme --test plans --test agents_size
+  step "${nextest[@]}" --test readme --test plans --test agents_size
   echo "gates passed"
   exit 0
 fi
@@ -37,13 +43,13 @@ if [ -z "${CI:-}" ] && reason="$(scripts/script-tests-skippable.sh)"; then
     esac
   done
   echo "==> skipping the script tests: $reason; CI runs them" >&2
-  step cargo test --lib --bins ${targets[@]+"${targets[@]}"}
-  step cargo test --doc
+  step "${nextest[@]}" --lib --bins ${targets[@]+"${targets[@]}"}
 else
-  step cargo test
+  step "${nextest[@]}"
 fi
+step cargo test --doc
 if [ "$separate" = e2e ]; then
-  step cargo test --test e2e -- --include-ignored --test-threads=2
+  step "${nextest[@]}" --test e2e --run-ignored all
 else
   echo "==> skipping the ignored e2e tests: tmux is not installed (brew install tmux); CI runs them" >&2
 fi
