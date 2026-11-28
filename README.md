@@ -65,6 +65,7 @@ or above harbour, while tmux binds them itself.
 ## Development
 
 ```sh
+cargo install cargo-nextest --locked  # the test runner the gates use
 scripts/gates.sh          # scrub check, fmt, clippy, tests
 scripts/dev-install.sh    # the working tree as ~/.local/bin/harbour-dev
 scripts/ship.sh "message" # gates, dev-install, commit, push, draft PR

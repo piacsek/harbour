@@ -420,7 +420,7 @@ impl Server {
             ])
             .status()
             .unwrap_or_else(|err| {
-                panic!("the e2e tests drive a scratch tmux server; install tmux (brew install tmux) and rerun `cargo test -- --include-ignored`: {err}")
+                panic!("the e2e tests drive a scratch tmux server; install tmux (brew install tmux) and rerun `cargo nextest run --config-file .github/nextest.toml --test e2e --run-ignored all`: {err}")
             });
         assert!(status.success(), "could not start the tmux e2e server");
         server.option(&["default-shell", "/bin/sh"]);

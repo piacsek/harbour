@@ -30,7 +30,8 @@ asks for it, as its own step.
    `AGENTS.md` files and `PLAN.md`; the releases and the open issues (`gh release list`,
    `gh issue list`). A finding already tracked cites its issue instead of being re-reported as new.
 2. **Build and test everything.** `cargo build --all-targets` and `cargo build --release`, then
-   `cargo test --no-fail-fast -- --include-ignored`. A shallow clone or one without tags reads as
+   `cargo nextest run --config-file .github/nextest.toml --no-fail-fast --run-ignored all`
+   and `cargo test --doc`. A shallow clone or one without tags reads as
    "never released" to the release scripts: `git fetch --unshallow --tags origin`, rerun, and count
    it as a contributor-experience note, not a code bug.
 3. **Read the paths where bugs hide**, in this order:

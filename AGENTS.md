@@ -116,9 +116,10 @@ deleted in the change that orphans it; a `pub` item only tests call goes on `SEA
 
 Gates, all required, wrapped by `scripts/gates.sh` (run it, never pipe it through `tail`):
 `scripts/scrub-check.sh`, `cargo fmt --check`, `cargo clippy --all-targets -- -D warnings`,
-`cargo test`. Ship with `scripts/ship.sh "<message>"`, never a hand-rolled chain. `harbour` on
-PATH is the Homebrew release, `harbour-dev` a working tree's build (`scripts/dev-install.sh`);
-never `cargo install` into a PATH directory. Skips, locks and the toolchain: `scripts/AGENTS.md`.
+`cargo nextest run` (needs cargo-nextest), `cargo test --doc`. Ship with
+`scripts/ship.sh "<message>"`, never a hand-rolled chain. `harbour` on PATH is the Homebrew
+release, `harbour-dev` a working tree's build (`scripts/dev-install.sh`); never `cargo install`
+into a PATH directory. Skips, locks and the toolchain: `scripts/AGENTS.md`.
 
 ## Releasing
 

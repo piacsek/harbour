@@ -208,7 +208,8 @@ after the Clawd glyph: `tests/tabs.rs`, `tests/app/side_border.rs`, `tests/e2e/c
   Beside 24 CPU-burning processes on the 12-core build machine, 6 runs of 10 lost a test to a
   10 s screen wait (the swap prompt test 3 times, the name full of ex specials twice, the demo's
   made-up editor twice); at 2 threads, 0 of 10 failed. So `gates.sh` runs the target last, in a
-  `cargo test` of its own, with `--test-threads=2`, at a cost of about 40 s a ship. An in-process
+  nextest run of its own, which `.github/nextest.toml` holds to 2 threads, at a cost of about
+  40 s a ship. An in-process
   `app` test has failed while another ship tested beside it; another worktree's gates now wait
   behind the gates lock (`scripts/AGENTS.md`), but load from anything else (a test run
   outside `gates.sh`, a build) is not covered; running out of PTYs is (see the trap below).
@@ -252,7 +253,8 @@ after the Clawd glyph: `tests/tabs.rs`, `tests/app/side_border.rs`, `tests/e2e/c
   phase 12 recorded no command). The end-to-end tests are `#[ignore]` and need tmux, which the
   stock image lacks: covering them means installing tmux in the container (the `rest` leg of `shard` in
   `ci.yml` installs it with `apt-get`) and running them as `gates.sh` does, after the rest, at
-  2 threads (see the trap above): `cargo test --test e2e -- --include-ignored --test-threads=2`.
+  2 threads (see the trap above):
+  `cargo nextest run --config-file .github/nextest.toml --test e2e --run-ignored all`.
   CI runs the targets with `cargo nextest run` in two shards, the `e2e` target at 2 threads
   (`.github/AGENTS.md`).
 
@@ -312,7 +314,8 @@ after the Clawd glyph: `tests/tabs.rs`, `tests/app/side_border.rs`, `tests/e2e/c
   scratch directory, except `a_grep_that_cannot_run_fails_the_filter` in `flake_inputs.rs`,
   which still writes its `grep` and runs it without one. A new test that does write an executable takes a mutex
   shared by every such test for its whole body. Treat a green PR run as no proof against this
-  class: it is timing-dependent.
+  class: it is timing-dependent. nextest, which CI and `gates.sh` run, gives each test a process
+  of its own, so the race only shows under a plain `cargo test`.
 - **A blocked `gates.sh` outlives a test that panics.** Early lock tests left `gates.sh` runs
   waiting on a held gate after their assertions failed, orphaned for minutes in a deleted
   temporary directory, where another builder's `pgrep -f scripts/gates.sh` waited on them. A
